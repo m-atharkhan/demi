@@ -1554,8 +1554,24 @@ void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
 // Implementation for LOAD_IMM64 opcode - 64-bit immediate load
 void handle_load_imm64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM64] 64-bit immediate load operation", cpu.get_pc()) << std::endl;
-    // Placeholder: delegate to regular LOAD_IMM for now
-    handle_load_imm(cpu, program, running);
+    uint32_t pc = cpu.get_pc();
+    if (pc + 9 < program.size()) {
+        uint8_t reg = program[pc + 1];
+        uint64_t imm = 0;
+        // Little-endian: lowest byte first
+        for (int i = 0; i < 8; ++i) {
+            imm |= static_cast<uint64_t>(program[pc + 2 + i]) << (8 * i);
+        }
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM64] reg={} imm=0x{:016X}", pc, reg, imm) << std::endl;
+        if (reg < cpu.get_registers().size()) {
+            cpu.set_register_64(static_cast<Register>(reg), imm);
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM64] Set R{} = 0x{:016X}", pc, reg, imm) << std::endl;
+        }
+        cpu.set_pc(pc + 10);
+    } else {
+        running = false;
+    }
+    cpu.print_state("LOAD_IMM64");
 }
 
 // Mode Control Operations Implementation
