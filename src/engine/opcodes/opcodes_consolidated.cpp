@@ -87,26 +87,23 @@ void handle_add(CPU& cpu, const std::vector<uint8_t>& program, [[maybe_unused]] 
         uint8_t reg2 = program[cpu.get_pc() + 2];
         Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[ADD] │ PC={} R{} += R{}", cpu.get_pc(), "", cpu.get_pc(), reg1, reg2) << std::endl;
 
-        uint32_t before = cpu.get_registers()[reg1];
-        uint32_t operand = cpu.get_registers()[reg2];
-        uint32_t result = before + operand;
+        uint8_t before = static_cast<uint8_t>(cpu.get_registers()[reg1] & 0xFF);
+        uint8_t operand = static_cast<uint8_t>(cpu.get_registers()[reg2] & 0xFF);
+        uint16_t sum = static_cast<uint16_t>(before) + static_cast<uint16_t>(operand);
+        uint8_t result = static_cast<uint8_t>(sum & 0xFF);
 
-        // Set carry flag if result overflows 32-bit
+        // Set carry flag if result overflows 8 bits
         uint32_t current_flags = cpu.get_flags();
-        if (result < before) {
+        if (sum > 0xFF) {
             cpu.set_flags(current_flags | FLAG_CARRY);
         } else {
             cpu.set_flags(current_flags & ~FLAG_CARRY);
         }
 
-        // Set overflow flag for signed arithmetic
-        // Overflow occurs when:
-        // - Adding two positive numbers results in a negative number
-        // - Adding two negative numbers results in a positive number
-        bool sign_before = (static_cast<int32_t>(before) < 0);
-        bool sign_operand = (static_cast<int32_t>(operand) < 0);
-        bool sign_result = (static_cast<int32_t>(result) < 0);
-
+        // Set overflow flag for signed 8-bit arithmetic
+        bool sign_before = (before & 0x80) != 0;
+        bool sign_operand = (operand & 0x80) != 0;
+        bool sign_result = (result & 0x80) != 0;
         if ((sign_before == sign_operand) && (sign_before != sign_result)) {
             cpu.set_flags(cpu.get_flags() | FLAG_OVERFLOW);
         } else {
