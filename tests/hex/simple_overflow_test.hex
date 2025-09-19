@@ -1,0 +1,4 @@
+01 00 FF    # LOAD_IMM R0, 0xFF
+01 01 01    # LOAD_IMM R1, 0x01
+02 00 01    # ADD R0, R1
+FF          # HALT
