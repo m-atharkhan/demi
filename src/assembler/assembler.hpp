@@ -18,8 +18,10 @@ struct Symbol {
 };
 
 class AssemblerEngine {
+    static uint32_t db_next_addr;
 public:
     AssemblerEngine();
+    ~AssemblerEngine();
     
     // Main assembly function
     std::vector<uint8_t> assemble(const Program& program);
@@ -30,6 +32,7 @@ public:
     
     // Get symbol table for debugging
     const std::unordered_map<std::string, Symbol>& get_symbols() const { return symbol_table; }
+    uint32_t get_entry_address() const { return entry_address; }
 
 private:
     std::vector<std::string> errors;
@@ -40,6 +43,11 @@ private:
     // Current assembly state
     uint32_t current_address;
     std::vector<uint8_t> bytecode;
+    uint32_t entry_address = 0; // Entry point for execution
+    std::string last_label_name; // Track most recent label for DB assignment
+    
+    // DB format detection
+    bool use_simple_db_format = false; // True for multiple DBs or with .org
     
     // Forward reference tracking
     struct ForwardRef {
