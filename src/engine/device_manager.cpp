@@ -93,8 +93,8 @@ std::string DeviceManager::readPortString(uint8_t port, uint8_t maxLength) {
     }
 
     Logger::instance().debug() << fmt::format(
-        "{:>23}│ String input from port {}: \"{}\" ({} bytes)",
-        "", port, result, result.length()
+        "String input from port {}: \"{}\" ({} bytes)",
+        port, result, result.length()
     ) << std::endl;
 
     return result;
@@ -102,16 +102,19 @@ std::string DeviceManager::readPortString(uint8_t port, uint8_t maxLength) {
 
 void DeviceManager::writePortString(uint8_t port, const std::string& str) {
     Logger::instance().debug() << fmt::format(
-        "{:>23}│ String output to port {}: \"{}\" ({} bytes)",
-        "", port, str, str.length()
+        "String output to port {}: \"{}\" ({} bytes)",
+        port, str, str.length()
     ) << std::endl;
 
-    for (char c : str) {
-        writePort(port, static_cast<uint8_t>(c));
+    try {
+        for (char c : str) {
+            writePort(port, static_cast<uint8_t>(c));
+        }
+        // Write null terminator
+        writePort(port, 0);
+    } catch (const std::exception& e) {
+        Logger::instance().error() << "Exception in writePortString: " << e.what() << std::endl;
     }
-
-    // Write null terminator
-    writePort(port, 0);
 }
 
 } // namespace vhw

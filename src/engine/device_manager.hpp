@@ -112,8 +112,8 @@ public:
 
         uint8_t value = device->read();
         Logger::instance().debug() << fmt::format(
-            "{:>23}│ Input from port {} ({}): {}",
-            "", port, device->getName(), value
+            " Input from port {} ({}): {}",
+            port, device->getName(), value
         ) << std::endl;
 
         return value;
@@ -145,8 +145,8 @@ public:
         }
 
         Logger::instance().debug() << fmt::format(
-            "{:>23}│ Output to port {} ({}): {}",
-            "", port, device->getName(), value
+            " Output to port {} ({}): {}",
+            port, device->getName(), value
         ) << std::endl;
 
         device->write(value);
