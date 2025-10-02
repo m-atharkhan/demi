@@ -1,11 +1,26 @@
+#include <iostream>
+#include <ios>
+#include <string>
+#include <vector>
+#include <cstdint>
+#include <cstddef>
 #include "assembler.hpp"
 #include "opcodes.hpp"
+#include "../debug/logger.hpp"
+
+using Logging::Logger;
 
 namespace Assembler {
+uint32_t AssemblerEngine::db_next_addr = 0x100;
 
 AssemblerEngine::AssemblerEngine() : current_address(0) {
     init_opcode_table();
     init_register_table();
+}
+
+AssemblerEngine::~AssemblerEngine() {
+    Logging::Logger::instance().debug() << "AssemblerEngine destructor called, clearing forward_refs..." << std::endl;
+    forward_refs.clear();
 }
 
 void AssemblerEngine::init_opcode_table() {
@@ -108,12 +123,14 @@ std::vector<uint8_t> AssemblerEngine::assemble(const Program& program) {
     symbol_table.clear();
     forward_refs.clear();
     bytecode.clear();
-    current_address = 0;
+    // Do not reset current_address; let directives set it as needed
 
     // Two-pass assembly
+    db_next_addr = 0x100; // Only reset once here
     first_pass(program);
     if (has_errors()) return {};
 
+    // Do NOT reset db_next_addr in second_pass or first_pass
     second_pass(program);
     if (has_errors()) return {};
 
@@ -125,91 +142,114 @@ std::vector<uint8_t> AssemblerEngine::assemble(const Program& program) {
 
 void AssemblerEngine::first_pass(const Program& program) {
     current_address = 0;
-
+    use_simple_db_format = false; // Reset flag
+    
+    // Detect DB format: count DB instructions and check for .org
+    size_t db_count = 0;
+    bool has_org = false;
+    
     for (const auto& stmt : program.statements) {
-        switch (stmt->type) {
-            case ASTNodeType::LABEL: {
-                const auto& label = static_cast<const Label&>(*stmt);
-                process_label(label);
-                break;
+        if (stmt->type == ASTNodeType::INSTRUCTION) {
+            const auto& instruction = static_cast<const Instruction&>(*stmt);
+            if (instruction.mnemonic == "DB") {
+                db_count++;
             }
-
-            case ASTNodeType::INSTRUCTION: {
-                const auto& instruction = static_cast<const Instruction&>(*stmt);
-                // Calculate instruction size and advance address
-                size_t size = get_instruction_size(instruction.mnemonic, instruction.operands);
-                current_address += size;
-                break;
+        } else if (stmt->type == ASTNodeType::DIRECTIVE) {
+            const auto& directive = static_cast<const Directive&>(*stmt);
+            if (directive.name == ".org") {
+                has_org = true;
             }
+        }
+    }
+    
+    // Use simple format for multiple DBs or with .org
+    use_simple_db_format = (db_count > 1) || has_org;
 
-            case ASTNodeType::DIRECTIVE: {
-                const auto& directive = static_cast<const Directive&>(*stmt);
-                // Handle directives that affect address calculation
-                if (directive.name == ".org") {
-                    handle_org_directive(directive.arguments);
-                } else if (directive.name == ".db") {
-                    current_address += directive.arguments.size();
-                } else if (directive.name == ".dw") {
-                    current_address += directive.arguments.size() * 2;
-                } else if (directive.name == ".dd") {
-                    current_address += directive.arguments.size() * 4;
-                } else if (directive.name == ".string") {
-                    // Calculate string length including null terminator
-                    for (const auto& arg : directive.arguments) {
-                        if (auto str_lit = dynamic_cast<const StringLiteralExpression*>(arg.get())) {
-                            current_address += str_lit->value.length() + 1; // +1 for null terminator
-                        }
+    // First, process all instructions/directives to update current_address and track highest address
+    uint32_t highest_address = 0;
+    for (size_t i = 0; i < program.statements.size(); ++i) {
+        const auto& stmt = program.statements[i];
+        // DB: skip size accounting, address is explicit or auto
+        if ((stmt->type == ASTNodeType::INSTRUCTION && static_cast<const Instruction&>(*stmt).mnemonic == "DB") ||
+            (stmt->type == ASTNodeType::DIRECTIVE && static_cast<const Directive&>(*stmt).name == ".db")) {
+            continue;
+        }
+        // Normal instruction/directive size logic
+        if (stmt->type == ASTNodeType::INSTRUCTION) {
+            const auto& instruction = static_cast<const Instruction&>(*stmt);
+            size_t size = get_instruction_size(instruction.mnemonic, instruction.operands);
+            current_address += size;
+            if (current_address > highest_address) highest_address = current_address;
+        } else if (stmt->type == ASTNodeType::DIRECTIVE) {
+            const auto& directive = static_cast<const Directive&>(*stmt);
+            if (directive.name == ".org") {
+                handle_org_directive(directive.arguments);
+                if (current_address > highest_address) highest_address = current_address;
+            } else if (directive.name == ".dw") {
+                current_address += directive.arguments.size() * 2;
+                if (current_address > highest_address) highest_address = current_address;
+            } else if (directive.name == ".dd") {
+                current_address += directive.arguments.size() * 4;
+                if (current_address > highest_address) highest_address = current_address;
+            } else if (directive.name == ".string") {
+                for (const auto& arg : directive.arguments) {
+                    if (auto str_lit = dynamic_cast<const StringLiteralExpression*>(arg.get())) {
+                        current_address += str_lit->value.length() + 1;
                     }
                 }
-                break;
+                if (current_address > highest_address) highest_address = current_address;
             }
-
-            default:
-                // Ignore other node types in first pass
-                break;
         }
     }
+    // Now set db_next_addr to highest_address, so DB data is placed after code and buffer zones
+    db_next_addr = highest_address;
+    // DB labels will be fixed during second pass when actual data locations are known
 }
 
-void AssemblerEngine::second_pass(const Program& program) {
+void Assembler::AssemblerEngine::second_pass(const Assembler::Program& program) {
     current_address = 0;
     bytecode.clear();
+    entry_address = 0;
+    std::string last_label_name; // Track the most recent label for DB assignment
 
+    bool entry_set = false;
     for (const auto& stmt : program.statements) {
-        switch (stmt->type) {
-            case ASTNodeType::LABEL:
-                // Labels don't generate code
-                break;
-
-            case ASTNodeType::INSTRUCTION: {
-                const auto& instruction = static_cast<const Instruction&>(*stmt);
-                process_instruction(instruction);
-                break;
+        if (stmt->type == Assembler::ASTNodeType::DIRECTIVE) {
+            const auto& directive = static_cast<const Assembler::Directive&>(*stmt);
+            process_directive(directive);
+        } else if (stmt->type == Assembler::ASTNodeType::LABEL) {
+            const auto& label = static_cast<const Assembler::Label&>(*stmt);
+            process_label(label); // Process the label to add it to symbol table
+            last_label_name = label.name; // Remember this label for potential DB assignment
+        } else if (stmt->type == Assembler::ASTNodeType::INSTRUCTION) {
+            const auto& instruction = static_cast<const Instruction&>(*stmt);
+            if (instruction.mnemonic != "DB") {
+                // Pad bytecode to current_address before emitting
+                while (bytecode.size() < current_address) {
+                    bytecode.push_back(0);
+                }
+                // Set entry_address to the next byte emitted (opcode position)
+                if (!entry_set) {
+                    entry_address = bytecode.size();
+                    entry_set = true;
+                }
             }
-
-            case ASTNodeType::DIRECTIVE: {
-                const auto& directive = static_cast<const Directive&>(*stmt);
-                process_directive(directive);
-                break;
-            }
-
-            default:
-                // Ignore other node types in second pass
-                break;
+            process_instruction(instruction);
         }
     }
 }
 
-void AssemblerEngine::process_label(const Label& label) {
+void Assembler::AssemblerEngine::process_label(const Assembler::Label& label) {
     if (symbol_table.find(label.name) != symbol_table.end()) {
         add_error("Label '" + label.name + "' already defined", label.line, label.column);
         return;
     }
 
     symbol_table[label.name] = Symbol(label.name, current_address, true);
+    last_label_name = label.name; // Remember this label for potential DB assignment
 }
 
-void AssemblerEngine::process_directive(const Directive& directive) {
+void Assembler::AssemblerEngine::process_directive(const Assembler::Directive& directive) {
     if (directive.name == ".db") {
         handle_db_directive(directive.arguments);
     } else if (directive.name == ".dw") {
@@ -219,17 +259,86 @@ void AssemblerEngine::process_directive(const Directive& directive) {
     } else if (directive.name == ".string") {
         handle_string_directive(directive.arguments);
     } else if (directive.name == ".org") {
+    Logging::Logger::instance().debug() << "Processing .org directive, args: ";
+        for (const auto& arg : directive.arguments) {
+            // Print argument type/value
+        }
         handle_org_directive(directive.arguments);
+    Logging::Logger::instance().debug() << "After .org, current_address: 0x" << std::hex << current_address << std::dec << std::endl;
     } else {
         add_error("Unknown directive: " + directive.name, directive.line, directive.column);
     }
 }
 
-void AssemblerEngine::process_instruction(const Instruction& instruction) {
+void Assembler::AssemblerEngine::process_instruction(const Assembler::Instruction& instruction) {
     encode_instruction(instruction);
 }
 
-void AssemblerEngine::encode_instruction(const Instruction& instruction) {
+void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction& instruction) {
+    if (instruction.mnemonic == "DB") {
+        if (instruction.operands.size() < 2) {
+            add_error("DB requires at least a string and length");
+            return;
+        }
+        
+        size_t db_start = current_address;
+        
+        if (use_simple_db_format) {
+            // Simple format: just emit string bytes directly
+            if (auto str_lit = dynamic_cast<const Assembler::StringLiteralExpression*>(instruction.operands[0].get())) {
+                for (char c : str_lit->value) {
+                    emit_byte(static_cast<uint8_t>(c));
+                }
+            }
+        } else {
+            // Structured format: address + string + padding + address_high + length
+            // Emit address low byte first
+            emit_byte(static_cast<uint8_t>(db_start & 0xFF));
+            
+            // Emit string bytes with padding
+            if (auto str_lit = dynamic_cast<const Assembler::StringLiteralExpression*>(instruction.operands[0].get())) {
+                if (auto num_lit = dynamic_cast<const Assembler::ImmediateExpression*>(instruction.operands[1].get())) {
+                    size_t target_length = static_cast<size_t>(num_lit->value);
+                    
+                    // Emit string characters
+                    for (size_t i = 0; i < str_lit->value.length() && i < target_length; i++) {
+                        emit_byte(static_cast<uint8_t>(str_lit->value[i]));
+                    }
+                    
+                    // Pad with null bytes if needed
+                    for (size_t i = str_lit->value.length(); i < target_length; i++) {
+                        emit_byte(0x00);
+                    }
+                    
+                    // Emit address high byte
+                    emit_byte(static_cast<uint8_t>((db_start >> 8) & 0xFF));
+                    
+                    // Emit length parameter
+                    emit_byte(static_cast<uint8_t>(num_lit->value));
+                }
+            }
+        }
+        
+        // Fix any label that should point to this DB data
+        if (!last_label_name.empty()) {
+            // Update the symbol to point to where the actual string data starts
+            auto it = symbol_table.find(last_label_name);
+            if (it != symbol_table.end()) {
+                // For structured format, string starts after the address low byte
+                // For simple format, string starts at the beginning
+                uint32_t string_address = use_simple_db_format ? static_cast<uint32_t>(db_start) : static_cast<uint32_t>(db_start + 1);
+                symbol_table[last_label_name] = Symbol(last_label_name, string_address, true);
+            }
+            last_label_name.clear(); // Clear after use
+        }
+        return; // Exit after processing DB directive
+    }
+
+    // Pad bytecode to current_address before emitting instruction
+    while (bytecode.size() < current_address) {
+        bytecode.push_back(0);
+    }
+    Logging::Logger::instance().debug() << "Emitting instruction '" << instruction.mnemonic << "' at current_address: 0x" << std::hex << current_address << std::dec << std::endl;
     uint8_t opcode = get_opcode(instruction.mnemonic);
     if (opcode == 0xFF && instruction.mnemonic != "HALT") {
         add_error("Unknown instruction: " + instruction.mnemonic, instruction.line, instruction.column);
@@ -237,7 +346,6 @@ void AssemblerEngine::encode_instruction(const Instruction& instruction) {
     }
 
     emit_byte(opcode);
-
     // Encode operands based on instruction type
     if (instruction.mnemonic == "NOP" || instruction.mnemonic == "HALT" ||
         instruction.mnemonic == "RET" || instruction.mnemonic == "PUSH_FLAG" ||
@@ -255,7 +363,7 @@ void AssemblerEngine::encode_instruction(const Instruction& instruction) {
         }
 
         // Register operand
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
+        if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get())) {
             emit_byte(get_register_number(reg_expr->name));
         } else {
             add_error("First operand must be a register", instruction.line, instruction.column);
@@ -272,11 +380,39 @@ void AssemblerEngine::encode_instruction(const Instruction& instruction) {
         } else {
             emit_byte(static_cast<uint8_t>(value)); // 1-byte immediate, not 4-byte
         }
+    } else if (instruction.mnemonic == "LOAD_IMM64") {
+        // Format: LOAD_IMM64 reg, immediate (64-bit)
+        if (instruction.operands.size() != 2) {
+            add_error("LOAD_IMM64 requires 2 operands", instruction.line, instruction.column);
+            return;
+        }
+
+        // Register operand
+        if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get())) {
+            emit_byte(get_register_number(reg_expr->name));
+        } else {
+            add_error("First operand must be a register", instruction.line, instruction.column);
+            return;
+        }
+
+        // Immediate operand (64-bit)
+        bool is_symbol;
+        std::string symbol_name;
+        int64_t value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
+
+        if (is_symbol) {
+            emit_forward_ref(symbol_name, 8); // LOAD_IMM64 uses 8-byte immediate
+        } else {
+            // Emit 8 bytes little-endian
+            for (int i = 0; i < 8; ++i) {
+                emit_byte(static_cast<uint8_t>((value >> (8 * i)) & 0xFF));
+            }
+        }
     } else if (instruction.mnemonic == "ADD" || instruction.mnemonic == "SUB" ||
                instruction.mnemonic == "MOV" || instruction.mnemonic == "CMP" ||
                instruction.mnemonic == "MUL" || instruction.mnemonic == "DIV" ||
                instruction.mnemonic == "AND" || instruction.mnemonic == "OR" ||
-               instruction.mnemonic == "XOR") {
+               instruction.mnemonic == "XOR" || instruction.mnemonic == "ADD64") {
         // Format: INSTRUCTION reg1, reg2
         if (instruction.operands.size() != 2) {
             add_error(instruction.mnemonic + " requires 2 operands", instruction.line, instruction.column);
@@ -284,7 +420,7 @@ void AssemblerEngine::encode_instruction(const Instruction& instruction) {
         }
 
         for (const auto& operand : instruction.operands) {
-            if (auto reg_expr = dynamic_cast<const RegisterExpression*>(operand.get())) {
+            if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(operand.get())) {
                 emit_byte(get_register_number(reg_expr->name));
             } else {
                 add_error("Operand must be a register", instruction.line, instruction.column);
@@ -322,7 +458,7 @@ void AssemblerEngine::encode_instruction(const Instruction& instruction) {
             return;
         }
 
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
+        if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get())) {
             emit_byte(get_register_number(reg_expr->name));
         } else {
             add_error("Operand must be a register", instruction.line, instruction.column);
@@ -340,7 +476,7 @@ void AssemblerEngine::encode_instruction(const Instruction& instruction) {
         }
 
         // Register operand
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
+        if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get())) {
             emit_byte(get_register_number(reg_expr->name));
         } else {
             add_error("First operand must be a register", instruction.line, instruction.column);
@@ -415,18 +551,18 @@ void AssemblerEngine::encode_instruction(const Instruction& instruction) {
     }
 }
 
-int64_t AssemblerEngine::evaluate_expression(const Expression& expr, bool& is_symbol_ref, std::string& symbol_name) {
+int64_t Assembler::AssemblerEngine::evaluate_expression(const Assembler::Expression& expr, bool& is_symbol_ref, std::string& symbol_name) {
     is_symbol_ref = false;
     symbol_name.clear();
 
     switch (expr.type) {
-        case ASTNodeType::IMMEDIATE: {
-            const auto& imm = static_cast<const ImmediateExpression&>(expr);
+        case Assembler::ASTNodeType::IMMEDIATE: {
+            const auto& imm = static_cast<const Assembler::ImmediateExpression&>(expr);
             return imm.value;
         }
 
-        case ASTNodeType::IDENTIFIER: {
-            const auto& id = static_cast<const IdentifierExpression&>(expr);
+        case Assembler::ASTNodeType::IDENTIFIER: {
+            const auto& id = static_cast<const Assembler::IdentifierExpression&>(expr);
             auto it = symbol_table.find(id.name);
             if (it != symbol_table.end() && it->second.defined) {
                 return it->second.address;
@@ -437,8 +573,8 @@ int64_t AssemblerEngine::evaluate_expression(const Expression& expr, bool& is_sy
             }
         }
 
-        case ASTNodeType::REGISTER: {
-            const auto& reg = static_cast<const RegisterExpression&>(expr);
+        case Assembler::ASTNodeType::REGISTER: {
+            const auto& reg = static_cast<const Assembler::RegisterExpression&>(expr);
             return get_register_number(reg.name);
         }
 
@@ -448,7 +584,7 @@ int64_t AssemblerEngine::evaluate_expression(const Expression& expr, bool& is_sy
     }
 }
 
-uint8_t AssemblerEngine::get_register_number(const std::string& reg_name) {
+uint8_t Assembler::AssemblerEngine::get_register_number(const std::string& reg_name) {
     auto it = register_to_number.find(reg_name);
     if (it != register_to_number.end()) {
         return it->second;
@@ -457,7 +593,7 @@ uint8_t AssemblerEngine::get_register_number(const std::string& reg_name) {
     return 0;
 }
 
-uint8_t AssemblerEngine::get_opcode(const std::string& mnemonic) {
+uint8_t Assembler::AssemblerEngine::get_opcode(const std::string& mnemonic) {
     auto it = mnemonic_to_opcode.find(mnemonic);
     if (it != mnemonic_to_opcode.end()) {
         return it->second;
@@ -465,25 +601,26 @@ uint8_t AssemblerEngine::get_opcode(const std::string& mnemonic) {
     return 0xFF; // Invalid opcode
 }
 
-void AssemblerEngine::emit_byte(uint8_t byte) {
+void Assembler::AssemblerEngine::emit_byte(uint8_t byte) {
     bytecode.push_back(byte);
     current_address++;
 }
 
-void AssemblerEngine::emit_word(uint16_t word) {
+void Assembler::AssemblerEngine::emit_word(uint16_t word) {
     emit_byte(word & 0xFF);
     emit_byte((word >> 8) & 0xFF);
 }
 
-void AssemblerEngine::emit_dword(uint32_t dword) {
+void Assembler::AssemblerEngine::emit_dword(uint32_t dword) {
     emit_byte(dword & 0xFF);
     emit_byte((dword >> 8) & 0xFF);
     emit_byte((dword >> 16) & 0xFF);
     emit_byte((dword >> 24) & 0xFF);
 }
 
-void AssemblerEngine::emit_forward_ref(const std::string& symbol, size_t size, bool relative) {
+void Assembler::AssemblerEngine::emit_forward_ref(const std::string& symbol, size_t size, bool relative) {
     forward_refs.push_back({current_address, symbol, size, relative});
+        Logging::Logger::instance().debug() << "emit_forward_ref: symbol='" << symbol << "', address=" << current_address << ", size=" << size << ", relative=" << relative << std::endl;
 
     // Emit placeholder bytes
     for (size_t i = 0; i < size; ++i) {
@@ -491,16 +628,19 @@ void AssemblerEngine::emit_forward_ref(const std::string& symbol, size_t size, b
     }
 }
 
-size_t AssemblerEngine::get_instruction_size(const std::string& mnemonic, const std::vector<std::unique_ptr<Expression>>& /* operands */) {
+size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemonic, const std::vector<std::unique_ptr<Assembler::Expression>>& /* operands */) {
     // Basic instruction size calculations for Demi Engine
     if (mnemonic == "NOP" || mnemonic == "HALT" || mnemonic == "RET" ||
         mnemonic == "PUSH_FLAG" || mnemonic == "POP_FLAG") {
         return 1;
     } else if (mnemonic == "LOAD_IMM") {
         return 3; // opcode + register + 1-byte immediate
+    } else if (mnemonic == "LOAD_IMM64") {
+        return 10; // opcode + register + 8-byte immediate
     } else if (mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "MOV" ||
                mnemonic == "CMP" || mnemonic == "MUL" || mnemonic == "DIV" ||
-               mnemonic == "AND" || mnemonic == "OR" || mnemonic == "XOR") {
+               mnemonic == "AND" || mnemonic == "OR" || mnemonic == "XOR" ||
+               mnemonic == "ADD64") {
         return 3; // opcode + reg1 + reg2
     } else if (mnemonic == "JMP" || mnemonic == "JZ" || mnemonic == "JNZ" ||
                mnemonic == "JS" || mnemonic == "JNS" || mnemonic == "JC" ||
@@ -523,21 +663,80 @@ size_t AssemblerEngine::get_instruction_size(const std::string& mnemonic, const 
     return 1; // Default size
 }
 
-void AssemblerEngine::handle_db_directive(const std::vector<std::unique_ptr<Expression>>& args) {
-    for (const auto& arg : args) {
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t value = evaluate_expression(*arg, is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 1);
+void Assembler::AssemblerEngine::handle_db_directive(const std::vector<std::unique_ptr<Assembler::Expression>>& args) {
+    // For both handle_db_directive and DB in encode_instruction:
+    if (args.size() < 2) {
+        add_error("DB requires at least a string and length");
+        return;
+    }
+    size_t str_idx = 0;
+    size_t len_idx = 1;
+    // Use static member db_next_addr
+    uint32_t target_addr = 0;
+    if (args.size() == 3) {
+        // Explicit address
+        size_t addr_idx = 2;
+        if (auto addr_imm = dynamic_cast<const Assembler::ImmediateExpression*>(args[addr_idx].get())) {
+            target_addr = static_cast<uint32_t>(addr_imm->value);
         } else {
-            emit_byte(static_cast<uint8_t>(value));
+            add_error("DB address must be an immediate value");
+            return;
         }
+    } else {
+        // Auto address
+        target_addr = AssemblerEngine::db_next_addr;
+    }
+    current_address = target_addr;
+    while (bytecode.size() < current_address) {
+        bytecode.push_back(0);
+    }
+
+    // Emit string (with escapes)
+    size_t db_start = current_address;
+    size_t db_len = 0;
+    if (auto str_lit = dynamic_cast<const Assembler::StringLiteralExpression*>(args[str_idx].get())) {
+        for (char c : str_lit->value) {
+            emit_byte(static_cast<uint8_t>(c));
+            db_len++;
+        }
+        emit_byte(0); // Null terminator for OUTSTR
+        db_len++;
+    } else {
+        add_error("DB first argument must be a string literal");
+        return;
+    }
+
+    // Emit length
+    bool is_symbol;
+    std::string symbol_name;
+    int64_t value = evaluate_expression(*args[len_idx], is_symbol, symbol_name);
+    if (is_symbol) {
+        emit_forward_ref(symbol_name, 1);
+        db_len++;
+    } else {
+        emit_byte(static_cast<uint8_t>(value));
+        db_len++;
+    }
+    // Set current_address to end of DB data
+    current_address = db_start + db_len;
+    // If auto address, increment db_next_addr
+    if (args.size() == 2) {
+        AssemblerEngine::db_next_addr += db_len;
+    }
+    
+    // Fix any label that should point to this DB data
+    // Look for the most recent label that might reference this DB
+    if (!last_label_name.empty()) {
+        // Update the symbol to point to where the actual string data starts (db_start)
+        auto it = symbol_table.find(last_label_name);
+        if (it != symbol_table.end()) {
+            symbol_table[last_label_name] = Symbol(last_label_name, static_cast<uint32_t>(db_start), true);
+        }
+        last_label_name.clear(); // Clear after use
     }
 }
 
-void AssemblerEngine::handle_dw_directive(const std::vector<std::unique_ptr<Expression>>& args) {
+void Assembler::AssemblerEngine::handle_dw_directive(const std::vector<std::unique_ptr<Assembler::Expression>>& args) {
     for (const auto& arg : args) {
         bool is_symbol;
         std::string symbol_name;
@@ -551,7 +750,7 @@ void AssemblerEngine::handle_dw_directive(const std::vector<std::unique_ptr<Expr
     }
 }
 
-void AssemblerEngine::handle_dd_directive(const std::vector<std::unique_ptr<Expression>>& args) {
+void Assembler::AssemblerEngine::handle_dd_directive(const std::vector<std::unique_ptr<Assembler::Expression>>& args) {
     for (const auto& arg : args) {
         bool is_symbol;
         std::string symbol_name;
@@ -565,9 +764,9 @@ void AssemblerEngine::handle_dd_directive(const std::vector<std::unique_ptr<Expr
     }
 }
 
-void AssemblerEngine::handle_string_directive(const std::vector<std::unique_ptr<Expression>>& args) {
+void Assembler::AssemblerEngine::handle_string_directive(const std::vector<std::unique_ptr<Assembler::Expression>>& args) {
     for (const auto& arg : args) {
-        if (auto str_lit = dynamic_cast<const StringLiteralExpression*>(arg.get())) {
+        if (auto str_lit = dynamic_cast<const Assembler::StringLiteralExpression*>(arg.get())) {
             for (char c : str_lit->value) {
                 emit_byte(static_cast<uint8_t>(c));
             }
@@ -578,7 +777,7 @@ void AssemblerEngine::handle_string_directive(const std::vector<std::unique_ptr<
     }
 }
 
-void AssemblerEngine::handle_org_directive(const std::vector<std::unique_ptr<Expression>>& args) {
+void Assembler::AssemblerEngine::handle_org_directive(const std::vector<std::unique_ptr<Assembler::Expression>>& args) {
     if (args.size() != 1) {
         add_error(".org directive requires exactly one argument");
         return;
@@ -601,8 +800,9 @@ void AssemblerEngine::handle_org_directive(const std::vector<std::unique_ptr<Exp
     }
 }
 
-void AssemblerEngine::resolve_forward_references() {
+void Assembler::AssemblerEngine::resolve_forward_references() {
     for (const auto& ref : forward_refs) {
+            Logging::Logger::instance().debug() << "resolve_forward_references: symbol='" << ref.symbol << "', address=" << ref.address << ", size=" << ref.size << ", relative=" << ref.relative << std::endl;
         auto it = symbol_table.find(ref.symbol);
         if (it == symbol_table.end() || !it->second.defined) {
             add_error("Undefined symbol: " + ref.symbol);
@@ -626,13 +826,12 @@ void AssemblerEngine::resolve_forward_references() {
     }
 }
 
-void AssemblerEngine::add_error(const std::string& message) {
+void Assembler::AssemblerEngine::add_error(const std::string& message) {
     errors.push_back("Assembly error: " + message);
 }
 
-void AssemblerEngine::add_error(const std::string& message, size_t line, size_t column) {
-    errors.push_back("Line " + std::to_string(line) + ", Column " + std::to_string(column) +
-                    ": " + message);
+void Assembler::AssemblerEngine::add_error(const std::string& message, size_t line, size_t column) {
+    errors.push_back("Line " + std::to_string(line) + ", Column " + std::to_string(column) + ": " + message);
 }
 
 } // namespace Assembler
