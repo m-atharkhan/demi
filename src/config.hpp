@@ -8,6 +8,7 @@ public:    inline static bool debug = false;
     inline static bool compile_only = false;  // Run without debug outputs
     inline static bool extended_registers = false;  // Show extended register output
     inline static bool assembly_mode = false;  // Assembly mode enabled
+    inline static bool memdump = false; // Print memory dump after execution if true
     inline static std::string debug_file = "debug.log";
     inline static std::string program_file = "";
     inline static std::string assembly_file = "";  // Assembly source file

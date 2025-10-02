@@ -23,7 +23,6 @@ namespace fs = std::experimental::filesystem;
 
 // Include the debug framework
 #include "debug/logger.hpp"
-#include "debug/gui.hpp"
 
 // Include the test framework
 #include "test/test.hpp"
@@ -202,31 +201,6 @@ bool run_tests() {
     exit(0);
 }
 
-void run_gui() {
-    std::vector<uint8_t> program;
-    if (!Config::program_file.empty()) {
-        std::ifstream file(Config::program_file);
-        if (!file) {
-            std::cerr << "Failed to load program file: " << Config::program_file << std::endl;
-            exit(1);
-        }
-        std::string token;
-        while (file >> token) {
-            if (token[0] == '#') { file.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); continue; }
-            try {
-                uint8_t byte = static_cast<uint8_t>(std::stoul(token, nullptr, 16));
-                program.push_back(byte);
-            } catch (...) {
-                std::cerr << "Invalid hex byte in program file: " << token << std::endl;
-                exit(1);
-            }
-        }
-    }
-    Gui gui("DemiEngine Debugger");
-    gui.run_vm(program);
-    exit(0);
-}
-
 class DemiEngine {
 public:
     DemiEngine(int argc, char *argv[]) {
@@ -256,10 +230,6 @@ public:
         parser.add_bool_arg("test", "--test", "-t", "Run tests",
             [this](bool value) { Config::running_tests = value; });
 
-        // Gui argument
-        parser.add_action_arg("gui", "--gui", "-g", "Enable debug GUI",
-            [this]() { run_gui(); });
-
         // Assembly mode argument
         parser.add_value_arg("assembly", "--assembly", "-A", "Assembly mode: assemble and run .asm file",
             [this](const std::string& value) {
@@ -273,6 +243,9 @@ public:
                 Config::compile_only = true;
                 Config::output_name = value;
             });
+
+        // Memory dump argument
+        parser.add_bool_arg("memdump", "--memdump", "-m", "Print memory dump after execution", [this](bool value) { Config::memdump = value; });
 
         parser.parse(argc, argv);
     }
@@ -612,7 +585,7 @@ public:
         // Initialize the device system
         initialize_devices();
 
-        cpu.execute(program);
+    cpu.execute(program, 0);
 
         // Print CPU state
         cpu.print_state("End");
@@ -738,6 +711,9 @@ private:
         cpu.reset();
         initialize_devices();
 
+        // Set PC to entry address if available
+        uint32_t entry_addr = assembler.get_entry_address();
+
         // Print header for assembled program
         if (Config::verbose) {
             std::cout << "\n\033[36m┌─────────────────────────────────────────────────────────────┐\033[0m" << std::endl;
@@ -745,20 +721,59 @@ private:
             std::cout << "\033[36m└─────────────────────────────────────────────────────────────┘\033[0m" << std::endl;
         }
 
+        // Print hex dump of assembled bytecode
+        Logger::instance().debug() << "Assembled bytecode hex dump:" << std::endl;
+        std::string line;
+        for (size_t i = 0; i < bytecode.size(); ++i) {
+            if (i % 16 == 0) {
+                if (!line.empty()) Logger::instance().debug() << line << std::endl;
+                std::ostringstream addr_stream;
+                addr_stream << "0x" << std::setw(4) << std::setfill('0') << std::hex << i << ": ";
+                line = addr_stream.str();
+            }
+            std::ostringstream byte_stream;
+            byte_stream << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(bytecode[i]) << " ";
+            line += byte_stream.str();
+        }
+        if (!line.empty()) Logger::instance().debug() << line << std::endl;
+        std::cout << std::dec << std::endl;
+
+        // Print entry address and bytes at entry address
+        Logger::instance().debug() << "Entry address: 0x" << std::hex << entry_addr << std::dec << std::endl;
+        std::ostringstream bytes_stream;
+        bytes_stream << "Bytes at entry address:";
+        for (size_t i = entry_addr; i < entry_addr + 8 && i < bytecode.size(); ++i) {
+            bytes_stream << " " << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(bytecode[i]);
+        }
+        Logger::instance().debug() << bytes_stream.str() << std::endl;
+
         try {
-            // Execute the assembled bytecode
-            cpu.execute(bytecode);
+            // Debug: Print entry address before execution
+            Logger::instance().debug() << "Entry address: 0x" << std::hex << entry_addr << std::dec << std::endl;
+            // Execute the assembled bytecode, starting at entry address
+            cpu.execute(bytecode, entry_addr);
 
             // Print CPU state and registers (same as regular program mode)
+            Logger::instance().debug() << "Post-execution: printing CPU state..." << std::endl;
             cpu.print_state("End");
+            Logger::instance().debug() << "Post-execution: printing registers..." << std::endl;
             cpu.print_registers();
 
             // Print extended registers if enabled
             if (Config::extended_registers) {
+                Logger::instance().debug() << "Post-execution: printing extended registers..." << std::endl;
                 cpu.print_extended_registers();
             }
 
-            cpu.print_memory();
+            if (Config::memdump) {
+                Logger::instance().debug() << "Post-execution: printing memory..." << std::endl;
+                size_t mem_size = cpu.get_memory().size();
+                if (mem_size > 0) {
+                    cpu.print_memory(0, std::min<size_t>(mem_size, 256));
+                } else {
+                    Logger::instance().debug() << "Memory size is zero, skipping print_memory." << std::endl;
+                }
+            }
 
             if (Config::error_count > 0) {
                 Logger::instance().error() << "Assembly program failed with " << Config::error_count << " errors." << std::endl;
