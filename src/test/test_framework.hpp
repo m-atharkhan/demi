@@ -12,6 +12,10 @@
 #include "../engine/device_factory.hpp"
 #include "../config.hpp"
 #include "../debug/logger.hpp"
+#include "../assembler/demi_assembler.hpp"
+#include "../assembler/lexer.hpp"
+#include "../assembler/parser.hpp" 
+#include "../assembler/assembler.hpp"
 
 // Forward declarations
 class TestContext;
@@ -305,6 +309,119 @@ public:
         }
     }
 
+    // Assembler functionality for testing directives
+    void assemble_code(const std::string& assembly_code) {
+        try {
+            // Use the same pattern as main.cpp
+            Assembler::Lexer lexer(assembly_code);
+            auto tokens = lexer.tokenize();
+            
+            if (lexer.has_errors()) {
+                std::string error_msg = "Lexer errors:\n";
+                for (const auto& error : lexer.get_errors()) {
+                    error_msg += "  " + error + "\n";
+                }
+                throw std::runtime_error(error_msg);
+            }
+            
+            Assembler::Parser parser(tokens);
+            auto ast = parser.parse();
+            
+            if (parser.has_errors()) {
+                std::string error_msg = "Parser errors:\n";
+                for (const auto& error : parser.get_errors()) {
+                    error_msg += "  " + error + "\n";
+                }
+                throw std::runtime_error(error_msg);
+            }
+            
+            Assembler::AssemblerEngine assembler;
+            std::vector<uint8_t> bytecode = assembler.assemble(*ast);
+            
+            if (assembler.has_errors()) {
+                std::string error_msg = "Assembly errors:\n";
+                for (const auto& error : assembler.get_errors()) {
+                    error_msg += "  " + error + "\n";
+                }
+                throw std::runtime_error(error_msg);
+            }
+            
+            program = std::move(bytecode);
+        } catch (const std::exception& e) {
+            throw std::runtime_error(fmt::format("Assembly failed: {}", e.what()));
+        }
+    }
+
+    void assemble_file(const std::string& filename) {
+        try {
+            Assembler::DemiAssembler assembler;
+            std::vector<uint8_t> bytecode = assembler.assemble_file(filename);
+            if (assembler.has_errors()) {
+                std::string error_msg = "Assembly errors:\n";
+                for (const auto& error : assembler.get_errors()) {
+                    error_msg += "  " + error + "\n";
+                }
+                throw std::runtime_error(error_msg);
+            }
+            program = std::move(bytecode);
+        } catch (const std::exception& e) {
+            throw std::runtime_error(fmt::format("Assembly of file '{}' failed: {}", filename, e.what()));
+        }
+    }
+
+    // Test assembler directives and symbol resolution
+    void assert_symbol_value(const std::string& symbol_name, uint32_t expected_value) {
+        Assembler::DemiAssembler assembler;
+        // Assemble current program to populate symbol table
+        if (!program.empty()) {
+            throw std::runtime_error("Cannot check symbols after assembly - create new TestContext");
+        }
+        
+        // This is a limitation - we need to re-assemble to check symbols
+        // In practice, we'd modify this to keep assembler state
+        throw std::runtime_error("Symbol checking not yet implemented - need assembler state preservation");
+    }
+
+    void assert_program_size(size_t expected_size) {
+        if (program.size() != expected_size) {
+            throw AssertionFailure(fmt::format(
+                "Program size assertion failed: expected {} bytes, got {} bytes",
+                expected_size, program.size()));
+        }
+    }
+
+    void assert_byte_at(size_t address, uint8_t expected_byte) {
+        if (address >= program.size()) {
+            throw AssertionFailure(fmt::format(
+                "Address {} is out of bounds (program size: {} bytes)",
+                address, program.size()));
+        }
+        uint8_t actual = program[address];
+        if (actual != expected_byte) {
+            throw AssertionFailure(fmt::format(
+                "Byte at address {} assertion failed: expected 0x{:02X}, got 0x{:02X}",
+                address, expected_byte, actual));
+        }
+    }
+
+    void assert_bytes_at(size_t address, const std::vector<uint8_t>& expected_bytes) {
+        if (address + expected_bytes.size() > program.size()) {
+            throw AssertionFailure(fmt::format(
+                "Address range {}-{} is out of bounds (program size: {} bytes)",
+                address, address + expected_bytes.size() - 1, program.size()));
+        }
+        
+        for (size_t i = 0; i < expected_bytes.size(); i++) {
+            uint8_t actual = program[address + i];
+            uint8_t expected = expected_bytes[i];
+            if (actual != expected) {
+                throw AssertionFailure(fmt::format(
+                    "Byte at address {} assertion failed: expected 0x{:02X}, got 0x{:02X}",
+                    address + i, expected, actual));
+            }
+        }
+    }
+
     // CPU instance for direct access if needed
     CPU cpu;
     std::vector<uint8_t> program;
@@ -351,7 +468,7 @@ public:
         int passed = 0, failed = 0;
 
         // Print header
-        std::cout << fmt::format("{}┌────────────────────────────────────────────────────────────┐{}\n",
+        std::cout << "\n" << fmt::format("{}┌────────────────────────────────────────────────────────────┐{}\n",
                                 "\033[36m", "\033[0m");
         std::cout << fmt::format("{}│     DemiEngine Unit Test Results                           │{}\n",
                                 "\033[36m", "\033[0m");
@@ -403,7 +520,7 @@ private:
 
         try {
             // Show which test is currently running using logger
-            Logger::instance().running() << fmt::format("{:>11}Unit Test │ {} ({})", " ", test.name, test.category) << std::endl;
+            Logger::instance().running() << fmt::format("Unit Test: {} ({})", test.name, test.category) << std::endl;
 
             // Reset global state
             Config::error_count = 0;
