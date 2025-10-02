@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <sstream>
 #include <filesystem>
 #include <fstream>
 #include <fmt/core.h>
@@ -19,25 +20,38 @@ public:
 
     std::vector<TestResult> run_all() {
         std::vector<TestResult> results;
-        for (const auto& entry : std::filesystem::directory_iterator(test_dir_)) {
-            if (entry.path().extension() == ".hex") {
-                std::string test_name = entry.path().filename().string();
-                Logger::instance().running()
-                    << fmt::format("[RUN] │ {}", test_name) << std::endl;
-                TestResult result = run_test(entry.path());
-                std::ostringstream oss;
-
-                oss << "[" << (result.passed ? "PASS" : "FAIL") << "] │ " << test_name;
-                if (!result.passed && !result.message.empty())
-                    oss << " ── " << result.message;
-                if (result.passed) {
-                    Logger::instance().success() << oss.str() << std::endl;
-                } else {
-                    Logger::instance().error() << oss.str() << std::endl;
+        
+        // Collect all .hex files first to avoid iterator issues
+        std::vector<std::filesystem::path> hex_files;
+        try {
+            for (const auto& entry : std::filesystem::directory_iterator(test_dir_)) {
+                if (entry.path().extension() == ".hex") {
+                    hex_files.push_back(entry.path());
                 }
-
-                results.push_back(result);
             }
+        } catch (const std::exception& e) {
+            Logger::instance().error() << fmt::format("Error iterating directory {}: {}", test_dir_, e.what()) << std::endl;
+            return results;
+        }
+        
+        // Now process each file
+        for (const auto& file_path : hex_files) {
+            std::string test_name = file_path.filename().string();
+            Logger::instance().running()
+                << fmt::format("[RUN]  {}", test_name) << std::endl;
+            TestResult result = run_test(file_path);
+            std::ostringstream oss;
+
+            oss << "[" << (result.passed ? "PASS" : "FAIL") << "]  " << test_name;
+            if (!result.passed && !result.message.empty())
+                oss << " ── " << result.message;
+            if (result.passed) {
+                Logger::instance().success() << oss.str() << std::endl;
+            } else {
+                Logger::instance().error() << oss.str() << std::endl;
+            }
+
+            results.push_back(result);
         }
         return results;
     }
@@ -78,7 +92,7 @@ private:
         }
 
         if (!comment.empty()) {
-            Logger::instance().info() << fmt::format("[COMMENT] │{}", comment) << std::endl;
+            Logger::instance().info() << fmt::format("[COMMENT] {}", comment) << std::endl;
         }
 
         // Check for empty program
