@@ -85,7 +85,31 @@ void handle_add(CPU& cpu, const std::vector<uint8_t>& program, [[maybe_unused]] 
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[ADD] │ PC={} R{} += R{}", cpu.get_pc(), "", cpu.get_pc(), reg1, reg2) << std::endl;
+        
+        // For regular ADD, validate against legacy register bounds (0-7)
+        // Extended operations should use their own handlers (ADDEX, ADD64, etc.)
+        const size_t MAX_LEGACY_REG = 7;
+        if (reg1 > MAX_LEGACY_REG || reg2 > MAX_LEGACY_REG) {
+            // Check if this might be an extended register operation that should use a different handler
+            Logger::instance().warn() << fmt::format(
+                "[PC=0x{:04X}] [ADD] Register access beyond legacy range: R{}, R{} (max for ADD: R{}). Consider using ADDEX for extended registers.", 
+                cpu.get_pc(), reg1, reg2, MAX_LEGACY_REG
+            ) << std::endl;
+            
+            // For backward compatibility, allow access to the full register array but warn
+            // This prevents crashes while highlighting that extended operations should be used
+            if (reg1 >= cpu.get_registers().size() || reg2 >= cpu.get_registers().size()) {
+                Logger::instance().error() << fmt::format(
+                    "[PC=0x{:04X}] [ADD] Invalid register access: R{}, R{} (max available: R{})", 
+                    cpu.get_pc(), reg1, reg2, cpu.get_registers().size() - 1
+                ) << std::endl;
+                cpu.set_pc(cpu.get_pc() + 3);
+                cpu.print_state("ADD");
+                return;
+            }
+        }
+        
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [ADD] PC={} R{} += R{}", cpu.get_pc(), cpu.get_pc(), reg1, reg2) << std::endl;
 
         uint8_t before = static_cast<uint8_t>(cpu.get_registers()[reg1] & 0xFF);
         uint8_t operand = static_cast<uint8_t>(cpu.get_registers()[reg2] & 0xFF);
@@ -111,7 +135,7 @@ void handle_add(CPU& cpu, const std::vector<uint8_t>& program, [[maybe_unused]] 
         }
 
         cpu.get_registers()[reg1] = result;
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[ADD] │ R{}: {} + {} = {} (carry={}, overflow={})", cpu.get_pc(), "", reg1, before, operand, result, (cpu.get_flags() & FLAG_CARRY) ? 1 : 0, (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [ADD] R{}: {} + {} = {} (carry={}, overflow={})", cpu.get_pc(), reg1, before, operand, result, (cpu.get_flags() & FLAG_CARRY) ? 1 : 0, (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0) << std::endl;
     }
     cpu.set_pc(cpu.get_pc() + 3);
     cpu.print_state("ADD");
@@ -462,7 +486,7 @@ void handle_jmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         // Simple validation - check if address is within program bounds
         if (addr >= program.size()) {
             Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ')
-                << "Invalid jump address " << "│ (JMP): "
+                << "Invalid jump address " << " (JMP): "
                 << static_cast<int>(addr) << " at PC=" << cpu.get_pc() << std::endl;
             running = false;
             return;
@@ -525,7 +549,7 @@ void handle_js(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             // Simple validation - check if address is within program bounds
             if (addr >= program.size()) {
                 Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ')
-                    << "Invalid jump address " << "│ (JS): "
+                    << "Invalid jump address " << " (JS): "
                     << static_cast<int>(addr) << " at PC=" << cpu.get_pc() << std::endl;
                 running = false;
                 return;
@@ -549,7 +573,7 @@ void handle_jz(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             // Simple validation - check if address is within program bounds
             if (addr >= program.size()) {
                 Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ')
-                    << "Invalid jump address " << "│ (JZ): "
+                    << "Invalid jump address " << " (JZ): "
                     << static_cast<int>(addr) << " at PC=" << cpu.get_pc() << std::endl;
                 running = false;
                 return;
@@ -585,10 +609,10 @@ void handle_load_imm(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         uint8_t imm = program[cpu.get_pc() + 2];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>1}[LOAD_IMM] │ PC=0x{:02X} reg={} imm=0x{:02X}", cpu.get_pc(), "", cpu.get_pc(), reg, imm) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM] PC=0x{:02X} reg={} imm=0x{:02X}", cpu.get_pc(), cpu.get_pc(), reg, imm) << std::endl;
         if (reg < cpu.get_registers().size()) {
             cpu.get_registers()[reg] = imm;
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>1}[LOAD_IMM] │ Set R{} = 0x{:02X}", cpu.get_pc(), "", reg, imm) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM] Set R{} = 0x{:02X}", cpu.get_pc(), reg, imm) << std::endl;
         }
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
@@ -661,7 +685,7 @@ void handle_mul(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             }
 
             cpu.get_registers()[reg1] = result;
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[MUL] │ R{}: {} * {} = {} (carry={}, overflow={})", cpu.get_pc(), "", reg1, before, operand, result, (cpu.get_flags() & FLAG_CARRY) ? 1 : 0, (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MUL] R{}: {} * {} = {} (carry={}, overflow={})", cpu.get_pc(), reg1, before, operand, result, (cpu.get_flags() & FLAG_CARRY) ? 1 : 0, (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0) << std::endl;
         }
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
@@ -810,7 +834,7 @@ void handle_outstr(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
 
         if (reg < cpu.get_registers().size()) {
             // Build string from memory starting at address in register
-            uint8_t addr = cpu.get_registers()[reg];
+            uint32_t addr = cpu.get_register_32(static_cast<Register>(reg));
             std::string str;
             for (size_t i = addr; i < cpu.get_memory().size() && cpu.get_memory()[i] != 0; ++i) {
                 str += static_cast<char>(cpu.get_memory()[i]);
@@ -1079,7 +1103,7 @@ void handle_sub(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             }
 
             cpu.get_registers()[reg1] = result;
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[SUB] │ R{}: {} - {} = {} (carry={}, overflow={})", cpu.get_pc(), "", reg1, before, operand, result, (cpu.get_flags() & FLAG_CARRY) ? 1 : 0, (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [SUB] R{}: {} - {} = {} (carry={}, overflow={})", cpu.get_pc(), reg1, before, operand, result, (cpu.get_flags() & FLAG_CARRY) ? 1 : 0, (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0) << std::endl;
         }
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
@@ -1134,13 +1158,13 @@ void handle_jc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
     if (pc + 1 < program.size()) {
         uint8_t addr = program[pc + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>7}[JC] │ PC={} Checking carry flag", pc, "", pc) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JC] PC={} Checking carry flag", pc, pc) << std::endl;
 
         if (cpu.get_flags() & FLAG_CARRY) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>7}[JC] │ Carry flag set, jumping to address {}", pc, "", addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JC] Carry flag set, jumping to address {}", pc, addr) << std::endl;
             cpu.set_pc(addr);
         } else {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>7}[JC] │ Carry flag clear, continuing", pc, "", pc) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JC] Carry flag clear, continuing", pc, pc) << std::endl;
             cpu.set_pc(pc + 2);
         }
     } else {
@@ -1156,13 +1180,13 @@ void handle_jnc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
     if (pc + 1 < program.size()) {
         uint8_t addr = program[pc + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JNC] │ PC={} Checking carry flag", pc, "", pc) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JNC] PC={} Checking carry flag", pc, pc) << std::endl;
 
         if (!(cpu.get_flags() & FLAG_CARRY)) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JNC] │ Carry flag clear, jumping to address {}", pc, "", addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JNC] Carry flag clear, jumping to address {}", pc, addr) << std::endl;
             cpu.set_pc(addr);
         } else {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JNC] │ Carry flag set, continuing", pc, "", pc) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JNC] Carry flag set, continuing", pc, pc) << std::endl;
             cpu.set_pc(pc + 2);
         }
     } else {
@@ -1178,13 +1202,13 @@ void handle_jo(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
     if (pc + 1 < program.size()) {
         uint8_t addr = program[pc + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JO] │ PC={} Checking overflow flag", pc, "", pc) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JO] PC={} Checking overflow flag", pc, pc) << std::endl;
 
         if (cpu.get_flags() & FLAG_OVERFLOW) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JO] │ Overflow flag set, jumping to address {}", pc, "", addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JO] Overflow flag set, jumping to address {}", pc, addr) << std::endl;
             cpu.set_pc(addr);
         } else {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JO] │ Overflow flag clear, continuing", pc, "", pc) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JO] Overflow flag clear, continuing", pc, pc) << std::endl;
             cpu.set_pc(pc + 2);
         }
     } else {
@@ -1200,13 +1224,13 @@ void handle_jno(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
     if (pc + 1 < program.size()) {
         uint8_t addr = program[pc + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JNO] │ PC={} Checking overflow flag", pc, "", pc) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JNO] PC={} Checking overflow flag", pc, pc) << std::endl;
 
         if (!(cpu.get_flags() & FLAG_OVERFLOW)) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JNO] │ Overflow flag clear, jumping to address {}", pc, "", addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JNO] Overflow flag clear, jumping to address {}", pc, addr) << std::endl;
             cpu.set_pc(addr);
         } else {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JNO] │ Overflow flag set, continuing", pc, "", pc) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JNO] Overflow flag set, continuing", pc, pc) << std::endl;
             cpu.set_pc(pc + 2);
         }
     } else {
@@ -1222,14 +1246,14 @@ void handle_jg(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
     if (pc + 1 < program.size()) {
         uint8_t addr = program[pc + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JG] │ PC={} Checking flags for greater", pc, "", pc) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JG] PC={} Checking flags for greater", pc, pc) << std::endl;
 
         // JG: Jump if greater (not sign and not zero)
         if (!(cpu.get_flags() & FLAG_SIGN) && !(cpu.get_flags() & FLAG_ZERO)) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JG] │ Greater condition met, jumping to address {}", pc, "", addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JG] Greater condition met, jumping to address {}", pc, addr) << std::endl;
             cpu.set_pc(addr);
         } else {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JG] │ Greater condition not met, continuing", pc, "", pc) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JG] Greater condition not met, continuing", pc, pc) << std::endl;
             cpu.set_pc(pc + 2);
         }
     } else {
@@ -1245,14 +1269,14 @@ void handle_jl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
     if (pc + 1 < program.size()) {
         uint8_t addr = program[pc + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JL] │ PC={} Checking flags for less", pc, "", pc) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JL] PC={} Checking flags for less", pc, pc) << std::endl;
 
         // JL: Jump if less (sign set and not zero)
         if ((cpu.get_flags() & FLAG_SIGN) && !(cpu.get_flags() & FLAG_ZERO)) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JL] │ Less condition met, jumping to address {}", pc, "", addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JL] Less condition met, jumping to address {}", pc, addr) << std::endl;
             cpu.set_pc(addr);
         } else {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JL] │ Less condition not met, continuing", pc, "", pc) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JL] Less condition not met, continuing", pc, pc) << std::endl;
             cpu.set_pc(pc + 2);
         }
     } else {
@@ -1268,14 +1292,14 @@ void handle_jge(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
     if (pc + 1 < program.size()) {
         uint8_t addr = program[pc + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JGE] │ PC={} Checking flags for greater or equal", pc, "", pc) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JGE] PC={} Checking flags for greater or equal", pc, pc) << std::endl;
 
         // JGE: Jump if greater or equal (not sign or zero)
         if (!(cpu.get_flags() & FLAG_SIGN) || (cpu.get_flags() & FLAG_ZERO)) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JGE] │ Greater or equal condition met, jumping to address {}", pc, "", addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JGE] Greater or equal condition met, jumping to address {}", pc, addr) << std::endl;
             cpu.set_pc(addr);
         } else {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JGE] │ Greater or equal condition not met, continuing", pc, "", pc) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JGE] Greater or equal condition not met, continuing", pc, pc) << std::endl;
             cpu.set_pc(pc + 2);
         }
     } else {
@@ -1291,14 +1315,14 @@ void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
     if (pc + 1 < program.size()) {
         uint8_t addr = program[pc + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JLE] │ PC={} Checking flags for less or equal", pc, "", pc) << std::endl;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JLE] PC={} Checking flags for less or equal", pc, pc) << std::endl;
 
         // JLE: Jump if less or equal (sign set or zero)
         if ((cpu.get_flags() & FLAG_SIGN) || (cpu.get_flags() & FLAG_ZERO)) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JLE] │ Less or equal condition met, jumping to address {}", pc, "", addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JLE] Less or equal condition met, jumping to address {}", pc, addr) << std::endl;
             cpu.set_pc(addr);
         } else {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}]{:>6}[JLE] │ Less or equal condition not met, continuing", pc, "", pc) << std::endl;
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [JLE] Less or equal condition not met, continuing", pc, pc) << std::endl;
             cpu.set_pc(pc + 2);
         }
     } else {
@@ -1514,7 +1538,7 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
 
         default:
             Logger::instance().error()
-                << "Invalid opcode │ Unknown opcode 0x"
+                << "Invalid opcode  Unknown opcode 0x"
                 << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(opcode)
                 << " ('" << (static_cast<int>(opcode) >= 32 && static_cast<int>(opcode) <= 126 ?
                             static_cast<char>(opcode) : '.') << "')"
@@ -1529,9 +1553,70 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
 
 // Implementation for ADD64 opcode - 64-bit addition
 void handle_add64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [ADD64] 64-bit addition operation", cpu.get_pc()) << std::endl;
-    // Placeholder: delegate to regular ADD for now
-    handle_add(cpu, program, running);
+    uint32_t pc = cpu.get_pc();
+
+    if (pc + 2 < program.size()) {
+        uint8_t reg1 = program[pc + 1];
+        uint8_t reg2 = program[pc + 2];
+
+        Logger::instance().debug() << fmt::format(
+            "[PC=0x{:04X}] [ADD64] Adding 64-bit registers R{} and R{}",
+            pc, reg1, reg2) << std::endl;
+
+        // Use 64-bit register access for extended registers
+        uint64_t value1 = cpu.get_register_64(static_cast<Register>(reg1));
+        uint64_t value2 = cpu.get_register_64(static_cast<Register>(reg2));
+        uint64_t result = value1 + value2;
+
+        // Update flags for 64-bit arithmetic
+        uint32_t flags = cpu.get_flags();
+
+        // Check for carry
+        if (result < value1) { // Overflow in unsigned addition
+            flags |= FLAG_CARRY;
+        } else {
+            flags &= ~FLAG_CARRY;
+        }
+
+        // Check for signed overflow
+        bool sign1 = (value1 >> 63) & 1;
+        bool sign2 = (value2 >> 63) & 1;
+        bool signr = (result >> 63) & 1;
+        
+        if ((sign1 == sign2) && (sign1 != signr)) {
+            flags |= FLAG_OVERFLOW;
+        } else {
+            flags &= ~FLAG_OVERFLOW;
+        }
+
+        // Check for zero
+        if (result == 0) {
+            flags |= FLAG_ZERO;
+        } else {
+            flags &= ~FLAG_ZERO;
+        }
+
+        // Check for negative (using sign bit)
+        if (signr) {
+            flags |= FLAG_SIGN;
+        } else {
+            flags &= ~FLAG_SIGN;
+        }
+
+        // Update flags and register
+        cpu.set_flags(flags);
+        cpu.set_register_64(static_cast<Register>(reg1), result);
+
+        Logger::instance().debug() << fmt::format(
+            "[PC=0x{:04X}] [ADD64] Result: R{} = 0x{:016X} + 0x{:016X} = 0x{:016X}",
+            pc, reg1, value1, value2, result) << std::endl;
+
+        cpu.set_pc(pc + 3); // Advance past opcode and two register operands
+    } else {
+        running = false;
+    }
+
+    cpu.print_state("ADD64");
 }
 
 // Implementation for SUB64 opcode - 64-bit subtraction

@@ -218,7 +218,7 @@ public:
     ~CPU();
 
     void reset();
-    void execute(const std::vector<uint8_t>& program);
+    void execute(const std::vector<uint8_t>& program, uint32_t entry_address = 0);
     void run(const std::vector<uint8_t>& program); // resets and runs whole program
     bool step(const std::vector<uint8_t>& program); // executes one instruction, returns false if halted or error
     void print_state(const std::string& info) const;

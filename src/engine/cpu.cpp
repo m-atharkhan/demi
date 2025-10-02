@@ -307,7 +307,7 @@ void CPU::print_stack_frame(const std::string& label) const {
     if (!Config::debug) return;
 
     Logger::instance().debug() << fmt::format(
-        "[{:>12}] FP=0x{:X} SP=0x{:X} arg_offset={}",
+        "[{}] FP=0x{:X} SP=0x{:X} arg_offset={}",
         label, get_fp(), get_sp(), arg_offset
     ) << std::endl;
 }
@@ -319,7 +319,7 @@ uint8_t CPU::fetch_operand() {
         return 0;
     }
     uint8_t operand = memory[get_pc() + 1];
-    Logger::instance().debug() << fmt::format("[FETCH_OPERAND]{:>8} PC={} operand={}", "", get_pc(), static_cast<int>(operand)) << std::endl;
+    Logger::instance().debug() << fmt::format("[FETCH_OPERAND] PC={} operand={}", get_pc(), static_cast<int>(operand)) << std::endl;
     set_pc(get_pc() + 1);
     return operand;
 }
@@ -350,10 +350,14 @@ void CPU::write_mem32(uint32_t addr, uint32_t value) {
     memory[addr + 3] = static_cast<uint8_t>(value >> 24);
 }
 
-void CPU::execute(const std::vector<uint8_t>& program) {
+void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address) {
     // Copy program into memory
     std::copy(program.begin(), program.end(), memory.begin());
-    set_pc(0);
+    // Debug: Print entry address and PC before setting
+    Logger::instance().debug() << "CPU::execute entry_address: 0x" << std::hex << entry_address << ", PC before: 0x" << get_pc() << std::dec << std::endl;
+    // Use entry address if provided, otherwise default to 0
+    set_pc(entry_address);
+    Logger::instance().debug() << "PC after set_pc: 0x" << std::hex << get_pc() << std::dec << std::endl;
     registers[static_cast<size_t>(Register::RSP)] = memory.size() - 4; // Stack pointer starts at the end of memory
     registers[static_cast<size_t>(Register::RBP)] = get_sp();
     bool running = true;
@@ -429,13 +433,22 @@ void CPU::print_memory(std::size_t start, std::size_t end) const {
             oss << "0x" << std::setw(8) << std::setfill('0') << std::hex << std::uppercase << i << ": ";
         }
 
+        // Bounds check for memory access
+        uint8_t value = 0;
+        if (i < memory.size()) {
+            value = memory[i];
+        } else {
+            oss << "[??] ";
+            continue;
+        }
+
         // Print memory value with appropriate highlight
         if (i == last_accessed_addr)
-            oss << "[A:" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(memory[i]) << "] ";
+            oss << "[A:" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(value) << "] ";
         else if (i == last_modified_addr)
-            oss << "[M:" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(memory[i]) << "] ";
+            oss << "[M:" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(value) << "] ";
         else
-            oss << "[" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(memory[i]) << "] ";
+            oss << "[" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(value) << "] ";
     }
 
     Logger::instance().info() << oss.str() << std::endl;
