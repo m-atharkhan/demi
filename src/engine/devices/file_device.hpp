@@ -207,7 +207,8 @@ private:
         // Check if parent directory exists and is not a symlink
         if (fs::exists(parentPath)) {
             struct stat st;
-            if (lstat(parentPath.c_str(), &st) == 0) {
+            std::string parentPathStr = parentPath.string(); // Convert to string to avoid use-after-free
+            if (lstat(parentPathStr.c_str(), &st) == 0) {
                 if (S_ISLNK(st.st_mode)) {
                     Logger::instance().error() << fmt::format(
                         "File path parent directory is a symbolic link (security risk): '{}'",
@@ -221,7 +222,8 @@ private:
         // If file exists, check if it's a symlink or special file
         if (fs::exists(fullPath)) {
             struct stat st;
-            if (lstat(fullPath.c_str(), &st) == 0) {
+            std::string fullPathStr = fullPath.string(); // Convert to string to avoid use-after-free
+            if (lstat(fullPathStr.c_str(), &st) == 0) {
                 if (S_ISLNK(st.st_mode)) {
                     Logger::instance().error() << fmt::format(
                         "File path is a symbolic link (security risk): '{}'", path
@@ -355,12 +357,12 @@ private:
         if (file) {
             file.write(reinterpret_cast<const char*>(fileBuffer.data()), fileBuffer.size());
             Logger::instance().debug() << fmt::format(
-            "{:22} │ Wrote {} bytes to file '{}'",
+            "{:22}  Wrote {} bytes to file '{}'",
             "", fileBuffer.size(), filepath
             ) << std::endl;
         } else {
             Logger::instance().error() << fmt::format(
-            "{:22} │ Failed to write to file '{}'",
+            "{:22}  Failed to write to file '{}'",
             "", filepath
             ) << std::endl;
         }

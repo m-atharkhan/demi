@@ -91,9 +91,6 @@ void Logger::log(LogLevel level, const std::string& message) {
     if (file_logging_enabled_) {
         write_to_file(formatted_message);
     }
-
-    // Add to GUI buffer
-    add_to_gui_buffer(formatted_message);
 }
 
 // ============================================================================
@@ -131,25 +128,6 @@ Logger& Logger::running() {
 
 Logger& Logger::demiengine() {
     return level(LogLevel::ENGINE);
-}
-
-// ============================================================================
-// GUI Buffer Management
-// ============================================================================
-
-std::vector<std::string> Logger::get_gui_log_buffer() const {
-    std::lock_guard<std::recursive_mutex> lock(gui_mutex_);
-    return gui_log_buffer_;
-}
-
-void Logger::clear_gui_log_buffer() {
-    std::lock_guard<std::recursive_mutex> lock(gui_mutex_);
-    gui_log_buffer_.clear();
-}
-
-size_t Logger::get_gui_buffer_size() const {
-    std::lock_guard<std::recursive_mutex> lock(gui_mutex_);
-    return gui_log_buffer_.size();
 }
 
 // ============================================================================
@@ -257,8 +235,8 @@ std::string Logger::format_log_line(LogLevel level, const std::string& message,
 
     // Special formatting for WARNING messages
     if (level == LogLevel::WARNING) {
-        return fmt::format("[{}] [{}] {:>20} │ {}",
-                          timestamp, level_str, "", message);
+        return fmt::format("[{}] [{}] {}",
+                          timestamp, level_str, message);
     } else {
         return fmt::format("[{}] [{}] {}",
                           timestamp, level_str, message);
@@ -295,6 +273,13 @@ bool Logger::should_filter_message(LogLevel level) const {
 void Logger::write_to_console(LogLevel level, const std::string& formatted_message) const {
     // Determine output stream
     std::ostream& out = (level == LogLevel::ERROR) ? std::cerr : std::cout;
+
+    // Check if we need to add a newline before the log message
+    // This happens when console output was written without ending with a newline
+    if (console_needs_newline_) {
+        out << std::endl;
+        console_needs_newline_ = false;
+    }
 
     // Find the level portion in the formatted message and colorize only that part
     std::string level_color = level_to_color(level);
@@ -337,15 +322,15 @@ void Logger::write_to_file(const std::string& formatted_message) {
     }
 }
 
-void Logger::add_to_gui_buffer(const std::string& formatted_message) {
-    std::lock_guard<std::recursive_mutex> lock(gui_mutex_);
+// Initialize static member
+bool Logger::console_needs_newline_ = false;
 
-    gui_log_buffer_.push_back(formatted_message);
+void Logger::set_console_needs_newline(bool needs_newline) {
+    console_needs_newline_ = needs_newline;
+}
 
-    // Maintain buffer size limit
-    if (gui_log_buffer_.size() > GUI_LOG_BUFFER_MAX) {
-        gui_log_buffer_.erase(gui_log_buffer_.begin());
-    }
+bool Logger::get_console_needs_newline() {
+    return console_needs_newline_;
 }
 
 } // namespace Logging

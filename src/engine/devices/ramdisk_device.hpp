@@ -50,7 +50,7 @@ public:
             if (currentAddress < storage.size()) {
                 uint8_t value = storage[currentAddress];
                 Logger::instance().debug() << fmt::format(
-                    "{:22} │ RamDisk: Read 0x{:02X} from address 0x{:04X}",
+                    "{:22}  RamDisk: Read 0x{:02X} from address 0x{:04X}",
                     "", value, currentAddress
                 ) << std::endl;
                 return value;
@@ -87,7 +87,7 @@ public:
                 if (currentAddress < storage.size()) {
                     storage[currentAddress] = value;
                     Logger::instance().debug() << fmt::format(
-                        "{:22} │ RamDisk: Wrote 0x{:02X} to address 0x{:04X}",
+                        "{:22}  RamDisk: Wrote 0x{:02X} to address 0x{:04X}",
                         "", value, currentAddress
                     ) << std::endl;
                 } else {
@@ -157,7 +157,7 @@ private:
                     currentAddress = std::min(static_cast<uint16_t>(storage.size() - 1), currentAddress);
                 }
                 Logger::instance().debug() << fmt::format(
-                    "{:14} RamDisk │ Set address low byte to 0x{:02X}, address now 0x{:04X}",
+                    "{:14} RamDisk  Set address low byte to 0x{:02X}, address now 0x{:04X}",
                     "", lastData, currentAddress
                 ) << std::endl;
                 break;
@@ -173,7 +173,7 @@ private:
                     currentAddress = std::min(static_cast<uint16_t>(storage.size() - 1), currentAddress);
                 }
                 Logger::instance().debug() << fmt::format(
-                    "{:14} RamDisk │ Set address high byte to 0x{:02X}, address now 0x{:04X}",
+                    "{:14} RamDisk  Set address high byte to 0x{:02X}, address now 0x{:04X}",
                     "", lastData, currentAddress
                 ) << std::endl;
                 break;

@@ -47,7 +47,6 @@ enum class LogLevel {
 class Logger {
 public:
     // Constants
-    static constexpr size_t GUI_LOG_BUFFER_MAX = 500;
     static constexpr size_t DATETIME_BUFFER_SIZE = 64;
 
     /**
@@ -151,27 +150,6 @@ public:
     Logger& demiengine();
 
     // ============================================================================
-    // GUI Buffer Management
-    // ============================================================================
-
-    /**
-     * @brief Get a copy of the current GUI log buffer
-     * @return Vector containing all buffered log messages
-     */
-    std::vector<std::string> get_gui_log_buffer() const;
-
-    /**
-     * @brief Clear all messages from the GUI log buffer
-     */
-    void clear_gui_log_buffer();
-
-    /**
-     * @brief Get the current size of the GUI log buffer
-     * @return Number of messages in the buffer
-     */
-    size_t get_gui_buffer_size() const;
-
-    // ============================================================================
     // File Logging Control
     // ============================================================================
 
@@ -259,12 +237,6 @@ private:
      */
     void write_to_file(const std::string& formatted_message);
 
-    /**
-     * @brief Add message to GUI buffer with size management
-     * @param formatted_message The formatted message to add
-     */
-    void add_to_gui_buffer(const std::string& formatted_message);
-
     // ============================================================================
     // Member Variables
     // ============================================================================
@@ -277,11 +249,16 @@ private:
     bool file_logging_enabled_;              ///< Whether file logging is enabled
     mutable std::recursive_mutex console_mutex_; ///< Mutex for console output synchronization
 
-    std::vector<std::string> gui_log_buffer_; ///< Buffer for GUI log display
-    mutable std::recursive_mutex gui_mutex_;  ///< Mutex for GUI buffer synchronization
-
     // ANSI color codes
     static constexpr const char* RESET_COLOR = "\033[0m";
+
+public:
+    // Static flag to track if console output needs a newline before next log
+    static void set_console_needs_newline(bool needs_newline);
+    static bool get_console_needs_newline();
+
+private:
+    static bool console_needs_newline_;  ///< Track if console output is incomplete
 };
 
 } // namespace Logging

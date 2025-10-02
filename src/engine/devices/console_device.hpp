@@ -37,15 +37,26 @@ public:
     }
 
     void write(uint8_t value) override {
-        // Output the character to stdout
-        std::cout << static_cast<char>(value) << std::flush;
+        try {
+            // Output the character to stdout
+            std::cout << static_cast<char>(value) << std::flush;
 
-        // Also log it
-        Logger::instance().debug() << fmt::format(
-            "Console output: {} ('{}')",
-            value,
-            value >= 32 && value < 127 ? fmt::format("{}", static_cast<char>(value)) : "."
-        ) << std::endl;
+            // Track if this character is not a newline, meaning subsequent logs might need a newline
+            if (value != '\n') {
+                Logger::set_console_needs_newline(true);
+            } else {
+                Logger::set_console_needs_newline(false);
+            }
+
+            // Also log it
+            Logger::instance().debug() << fmt::format(
+                "Console output: {} ('{}')",
+                value,
+                value >= 32 && value < 127 ? fmt::format("{}", static_cast<char>(value)) : "."
+            ) << std::endl;
+        } catch (const std::exception& e) {
+            Logger::instance().error() << "Exception in ConsoleDevice::write: " << e.what() << std::endl;
+        }
     }
 
     std::string getName() const override {
