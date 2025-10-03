@@ -38,24 +38,29 @@ This section provides user guides for programming the DemiEngine virtual compute
 ### Command-Line Options
 
 ```bash
-demi-engine [OPTIONS] -A [Assembly File]
-
 demi-engine Usage: demi-engine [options]
-  --help               -h      Shows help information
-  --debug              -d      Enable debug mode
-  --verbose            -v      Show informational messages (use --verbose=false to disable)
-  --extended-registers -er     Show extended register output (50 registers)
-  --debug-file         -f      Debug file path
-  --hex                -H      Path to hex file (hex bytes, space or newline separated)
-  --test               -t      Run tests
-  --gui                -g      Enable debug GUI
-  --assembly           -A      Assembly mode: assemble and run .asm file
-  --compile            -o      Compile program into a standalone executable (optionally specify output name)
+  --help                -h      Shows help information
+  --debug               -d      Enable debug mode with detailed logging
+  --verbose             -v      Show informational messages (use --verbose=false to disable)
+  --extended-registers  -er     Show extended register output (50 registers)
+  --debug-file          -f      Debug file path
+  --hex                 -H      Path to hex file (hex bytes, space or newline separated)
+  --test                -t      Run built-in unit tests, or test a specific file if path provided
+  --unit-test           -ut     Run built-in unit tests only, or test a specific file if path provided
+  --integration-test    -it     Run integration tests only, or test a specific file if path provided
+  --assembly-test       -at     Run in-assembly tests only, or test a specific file if path provided
+  --assembly-test-quiet -atq    Run in-assembly tests in quiet mode (title and description only)
+  --assembly            -A      Assembly mode: assemble and run .asm file
+  --compile             -o      Compile program into a standalone executable (optionally specify output name)
+  --memdump             -m      Print memory dump after execution
 
 Examples:
-  demi-engine program.hex           # Run hex program
-  demi-engine program.hex --gui     # Run with debugger
-  demi-engine --interactive         # Interactive mode
+  demi-engine -H program.hex                    # Run hex program
+  demi-engine -A program.asm                    # Assemble and run .asm file
+  demi-engine -t                                # Run all unit tests
+  demi-engine -at tests/asm/test_arithmetic.asm # Test specific file
+  demi-engine -atq                              # Run all assembly tests (quiet mode)
+  demi-engine -o myprogram program.hex          # Compile to standalone executable
 ```
 
 ## Hex Programming
