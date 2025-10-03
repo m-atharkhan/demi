@@ -9,6 +9,7 @@
 #include <sstream>
 #include <chrono>
 #include <memory>
+#include <algorithm>
 
 #if __cplusplus >= 201703L
 namespace fs = std::filesystem;
@@ -27,6 +28,7 @@ namespace fs = std::experimental::filesystem;
 // Include the test framework
 #include "test/test.hpp"
 #include "test/test_framework.hpp"
+#include "test/assembly_test_executor.hpp"
 
 // Include the assembler framework
 #include "assembler/demi_assembler.hpp"
@@ -154,37 +156,82 @@ private:
     std::vector<ArgDef> args_;
 };
 
-bool run_tests() {
-    // Print a header
-    // Print a colored ASCII art header (cyan)
-    // If debug mode is on, use orange (ANSI 38;5;208), else cyan (36)
+void run_in_assembly_tests() {
+    // Scan tests/asm/ directory for .asm files
+    std::vector<std::string> test_files;
+    
+    // Use filesystem to find all .asm files in tests/asm/
+    std::string test_dir = "tests/asm";
+    if (fs::exists(test_dir) && fs::is_directory(test_dir)) {
+        for (const auto& entry : fs::directory_iterator(test_dir)) {
+            if (entry.is_regular_file() && entry.path().extension() == ".asm") {
+                test_files.push_back(entry.path().string());
+            }
+        }
+    }
+    
+    // Also include example files
+    test_files.push_back("examples/test_example.asm");
+    test_files.push_back("examples/test_with_metadata.asm");
+    
+    if (test_files.empty()) {
+        fmt::print("\nNo in-assembly test files found.\n");
+        return;
+    }
+    
+    // Sort files for consistent ordering
+    std::sort(test_files.begin(), test_files.end());
+    
+    // Create test executor
+    Testing::TestExecutor executor;
+    std::vector<Testing::TestResult> all_results;
+    
+    for (const auto& file : test_files) {
+        // Check if file exists
+        std::ifstream check(file);
+        if (!check.good()) {
+            continue; // Skip if file doesn't exist
+        }
+        
+        // Execute tests from this file
+        auto results = executor.execute_tests_from_file(file);
+        all_results.insert(all_results.end(), results.begin(), results.end());
+    }
+    
+    // Print consolidated results
+    if (all_results.empty()) {
+        fmt::print("\nNo in-assembly tests found.\n");
+    } else {
+        executor.print_results(all_results);
+    }
+}
+
+void run_unit_tests_only() {
     const char* color = Config::debug ? "\033[38;5;208m" : "\033[36m";
     std::cout << color << "┌──────────────────────────────────────────────────────┐\033[0m" << std::endl;
     std::cout << color << "│     Running DemiEngine Unit Tests                    │\033[0m" << std::endl;
     std::cout << color << "└──────────────────────────────────────────────────────┤\033[0m" << std::endl;
-
-    // Run unit tests using the new framework
     run_unit_tests();
+    exit(0);
+}
 
-    // Also run the old integration tests for now
-    std::cout << std::endl;
+void run_integration_tests_only() {
+    const char* color = Config::debug ? "\033[38;5;208m" : "\033[36m";
     std::cout << color << "┌──────────────────────────────────────────────────────┐\033[0m" << std::endl;
     std::cout << color << "│     Running DemiEngine Integration Tests             │\033[0m" << std::endl;
     std::cout << color << "└──────────────────────────────────────────────────────┤\033[0m" << std::endl;
 
-    // Use TestRunner to run all .hex files in tests/hex/
     TestRunner runner("tests/hex");
     auto results = runner.run_all();
     int passed = 0, failed = 0;
-    // Print result header with the same style as the test header
+    
     const char* result_color = Config::debug ? "\033[38;5;208m" : "\033[36m";
     std::cout << result_color << "┌──────────────────────────────────────────────────────┤\033[0m" << std::endl;
     std::cout << result_color << "│     DemiEngine Integration Test Results              │\033[0m" << std::endl;
     std::cout << result_color << "└──────────────────────────────────────────────────────┘\033[0m" << std::endl;
+    
     for (const auto& result : results) {
-        // Print test result with neat spacing (fixed width for name)
         [[maybe_unused]] constexpr int name_width = 24;
-        // ANSI color codes: green for pass, red for fail
         const char* color = result.passed ? "\033[32m" : "\033[31m";
         const char* reset = "\033[0m";
         std::cout << fmt::format("{0}[{1}]{2} {3:<28}", color, result.passed ? "/" : "X", reset, result.name);
@@ -195,7 +242,82 @@ bool run_tests() {
         if (result.passed) ++passed; else ++failed;
     }
     std::cout << std::endl;
-    // Summary: green if all passed, yellow if some failed
+    
+    const char* summary_color = (failed == 0) ? "\033[32m" : "\033[33m";
+    std::cout << summary_color << "Integration tests passed: " << passed << " / " << results.size() << "\033[0m" << std::endl;
+    exit(0);
+}
+
+void run_assembly_tests_only() {
+    Config::verbose = true;  // Enable INFO logs for test output
+    run_in_assembly_tests();
+    exit(0);
+}
+
+void run_single_file_tests(const std::string& filepath) {
+    Config::verbose = true;  // Enable INFO logs for test output
+    
+    // Check if file exists
+    std::ifstream check(filepath);
+    if (!check.good()) {
+        Logger::instance().error() << fmt::format("Test file not found: {}", filepath) << std::endl;
+        exit(1);
+    }
+    check.close();
+    
+    // Create test executor and run tests from the specified file
+    Testing::TestExecutor executor;
+    auto results = executor.execute_tests_from_file(filepath);
+    
+    if (results.empty()) {
+        fmt::print("\nNo tests found in file: {}\n", filepath);
+    } else {
+        executor.print_results(results);
+    }
+    
+    exit(0);
+}
+
+bool run_tests() {
+    // Run all test suites
+    const char* color = Config::debug ? "\033[38;5;208m" : "\033[36m";
+    std::cout << color << "┌──────────────────────────────────────────────────────┐\033[0m" << std::endl;
+    std::cout << color << "│     Running DemiEngine Unit Tests                    │\033[0m" << std::endl;
+    std::cout << color << "└──────────────────────────────────────────────────────┤\033[0m" << std::endl;
+
+    run_unit_tests();
+    
+    // Run in-assembly tests
+    run_in_assembly_tests();
+
+    // Run integration tests
+    std::cout << std::endl;
+    std::cout << color << "┌──────────────────────────────────────────────────────┐\033[0m" << std::endl;
+    std::cout << color << "│     Running DemiEngine Integration Tests             │\033[0m" << std::endl;
+    std::cout << color << "└──────────────────────────────────────────────────────┤\033[0m" << std::endl;
+
+    TestRunner runner("tests/hex");
+    auto results = runner.run_all();
+    int passed = 0, failed = 0;
+    
+    const char* result_color = Config::debug ? "\033[38;5;208m" : "\033[36m";
+    std::cout << result_color << "┌──────────────────────────────────────────────────────┤\033[0m" << std::endl;
+    std::cout << result_color << "│     DemiEngine Integration Test Results              │\033[0m" << std::endl;
+    std::cout << result_color << "└──────────────────────────────────────────────────────┘\033[0m" << std::endl;
+    
+    for (const auto& result : results) {
+        [[maybe_unused]] constexpr int name_width = 24;
+        const char* color = result.passed ? "\033[32m" : "\033[31m";
+        const char* reset = "\033[0m";
+        std::cout << fmt::format("{0}[{1}]{2} {3:<28}", color, result.passed ? "/" : "X", reset, result.name);
+        if ((&result - &results[0] + 1) % 4 == 0)
+            std::cout << std::endl;
+        else
+            std::cout << "    ";
+        if (result.passed) ++passed; else ++failed;
+    }
+    std::cout << std::endl;
+    
     const char* summary_color = (failed == 0) ? "\033[32m" : "\033[33m";
     std::cout << summary_color << "Integration tests passed: " << passed << " / " << results.size() << "\033[0m" << std::endl;
     exit(0);
@@ -226,9 +348,58 @@ public:
         parser.add_value_arg("hex", "--hex", "-H", "Path to hex file (hex bytes, space or newline separated)",
             [this](const std::string& value) { Config::program_file = value; });
 
-        // Run tests argument
-        parser.add_bool_arg("test", "--test", "-t", "Run tests",
-            [this](bool value) { Config::running_tests = value; });
+        // Run tests argument (with optional file path)
+        parser.add_value_arg("test", "--test", "-t", "Run built-in unit tests, or test a specific file if path provided",
+            [this](const std::string& value) {
+                if (value.empty() || value == "true") {
+                    // No file specified, run unit tests only
+                    run_unit_tests_only();
+                } else {
+                    // File specified, run tests from that file only
+                    run_single_file_tests(value);
+                }
+            });
+        
+        // Run unit tests only (or specific file)
+        parser.add_value_arg("unit_test", "--unit-test", "-ut", "Run built-in unit tests only, or test a specific file if path provided",
+            [this](const std::string& value) {
+                if (value.empty()) {
+                    run_unit_tests_only();
+                } else {
+                    run_single_file_tests(value);
+                }
+            });
+        
+        // Run integration tests only (or specific file)
+        parser.add_value_arg("integration_test", "--integration-test", "-it", "Run integration tests only, or test a specific file if path provided",
+            [this](const std::string& value) {
+                if (value.empty()) {
+                    run_integration_tests_only();
+                } else {
+                    run_single_file_tests(value);
+                }
+            });
+        
+        // Run assembly tests only (or specific file)
+        parser.add_value_arg("assembly_test", "--assembly-test", "-at", "Run in-assembly tests only, or test a specific file if path provided",
+            [this](const std::string& value) {
+                if (value.empty()) {
+                    run_assembly_tests_only();
+                } else {
+                    run_single_file_tests(value);
+                }
+            });
+        
+        // Run assembly tests in quiet mode (only show title and description)
+        parser.add_value_arg("assembly_test_quiet", "--assembly-test-quiet", "-atq", "Run in-assembly tests in quiet mode (title and description only), or test a specific file if path provided",
+            [this](const std::string& value) {
+                Config::quiet_assembly_test = true;
+                if (value.empty()) {
+                    run_assembly_tests_only();
+                } else {
+                    run_single_file_tests(value);
+                }
+            });
 
         // Assembly mode argument
         parser.add_value_arg("assembly", "--assembly", "-A", "Assembly mode: assemble and run .asm file",

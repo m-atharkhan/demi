@@ -276,8 +276,35 @@ void Assembler::AssemblerEngine::process_instruction(const Assembler::Instructio
 
 void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction& instruction) {
     if (instruction.mnemonic == "DB") {
+        // Handle single byte or list of bytes (e.g., DB 0xFF or DB 10, 20, 30)
+        if (instruction.operands.size() == 1) {
+            if (auto num_lit = dynamic_cast<const Assembler::ImmediateExpression*>(instruction.operands[0].get())) {
+                emit_byte(static_cast<uint8_t>(num_lit->value));
+                return;
+            }
+        }
+        
+        // For multiple operands that are all immediates, emit them as bytes
+        bool all_immediates = true;
+        for (const auto& operand : instruction.operands) {
+            if (!dynamic_cast<const Assembler::ImmediateExpression*>(operand.get())) {
+                all_immediates = false;
+                break;
+            }
+        }
+        
+        if (all_immediates && instruction.operands.size() > 0) {
+            for (const auto& operand : instruction.operands) {
+                if (auto num_lit = dynamic_cast<const Assembler::ImmediateExpression*>(operand.get())) {
+                    emit_byte(static_cast<uint8_t>(num_lit->value));
+                }
+            }
+            return;
+        }
+        
+        // Original string-based DB handling
         if (instruction.operands.size() < 2) {
-            add_error("DB requires at least a string and length");
+            add_error("DB requires at least a string and length, or immediate value(s)");
             return;
         }
         
@@ -299,6 +326,15 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             if (auto str_lit = dynamic_cast<const Assembler::StringLiteralExpression*>(instruction.operands[0].get())) {
                 if (auto num_lit = dynamic_cast<const Assembler::ImmediateExpression*>(instruction.operands[1].get())) {
                     size_t target_length = static_cast<size_t>(num_lit->value);
+                    size_t actual_string_len = str_lit->value.length();
+                    
+                    // Validate that specified length doesn't exceed actual string length (including null terminator)
+                    if (target_length > actual_string_len + 1) {
+                        add_error("DB length (" + std::to_string(target_length) + 
+                                  ") exceeds actual string length (" + std::to_string(actual_string_len) + ")",
+                                  instruction.line, instruction.column);
+                        return;
+                    }
                     
                     // Emit string characters
                     for (size_t i = 0; i < str_lit->value.length() && i < target_length; i++) {
@@ -378,6 +414,12 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         if (is_symbol) {
             emit_forward_ref(symbol_name, 1); // DemiEngine's LOAD_IMM uses 1-byte immediate
         } else {
+            // Validate that value fits in 1 byte for LOAD_IMM
+            if (value < 0 || value > 255) {
+                add_error("LOAD_IMM immediate value " + std::to_string(value) + 
+                          " out of range (must be 0-255)", instruction.line, instruction.column);
+                return;
+            }
             emit_byte(static_cast<uint8_t>(value)); // 1-byte immediate, not 4-byte
         }
     } else if (instruction.mnemonic == "LOAD_IMM64") {
@@ -694,7 +736,9 @@ void Assembler::AssemblerEngine::handle_db_directive(const std::vector<std::uniq
     // Emit string (with escapes)
     size_t db_start = current_address;
     size_t db_len = 0;
+    size_t actual_string_len = 0;
     if (auto str_lit = dynamic_cast<const Assembler::StringLiteralExpression*>(args[str_idx].get())) {
+        actual_string_len = str_lit->value.length();
         for (char c : str_lit->value) {
             emit_byte(static_cast<uint8_t>(c));
             db_len++;
@@ -710,6 +754,14 @@ void Assembler::AssemblerEngine::handle_db_directive(const std::vector<std::uniq
     bool is_symbol;
     std::string symbol_name;
     int64_t value = evaluate_expression(*args[len_idx], is_symbol, symbol_name);
+    
+    // Validate that specified length doesn't exceed actual string length (including null terminator)
+    if (!is_symbol && value > static_cast<int64_t>(actual_string_len + 1)) {
+        add_error("DB length (" + std::to_string(value) + 
+                  ") exceeds actual string length (" + std::to_string(actual_string_len) + ")");
+        return;
+    }
+    
     if (is_symbol) {
         emit_forward_ref(symbol_name, 1);
         db_len++;
@@ -792,7 +844,16 @@ void Assembler::AssemblerEngine::handle_org_directive(const std::vector<std::uni
         return;
     }
 
-    current_address = static_cast<uint32_t>(value);
+    uint32_t new_address = static_cast<uint32_t>(value);
+    
+    // Check if .org is moving backwards
+    if (new_address < current_address) {
+        add_error(".org directive cannot move address backwards from 0x" + 
+                  std::to_string(current_address) + " to 0x" + std::to_string(new_address));
+        return;
+    }
+
+    current_address = new_address;
 
     // Pad bytecode to the new address
     while (bytecode.size() < current_address) {

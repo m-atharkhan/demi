@@ -46,6 +46,13 @@ public:
      * Clear all errors and reset state
      */
     void clear_errors();
+    
+    /**
+     * Validate and print in-assembly tests from a source file
+     * @param filename Path to assembly source file containing tests
+     * @return Number of valid tests found
+     */
+    int validate_and_print_tests(const std::string& filename);
 
 private:
     std::vector<std::string> all_errors;

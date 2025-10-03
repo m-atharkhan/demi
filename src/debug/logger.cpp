@@ -69,6 +69,15 @@ Logger& Logger::operator<<(std::ostream& (*manip)(std::ostream&)) {
 void Logger::log(LogLevel level, const std::string& message) {
     std::lock_guard<std::recursive_mutex> lock(console_mutex_);
 
+    // Skip empty messages (trim whitespace first)
+    std::string trimmed_message = message;
+    trimmed_message.erase(0, trimmed_message.find_first_not_of(" \t\n\r"));
+    trimmed_message.erase(trimmed_message.find_last_not_of(" \t\n\r") + 1);
+    if (trimmed_message.empty()) {
+        force_next_ = false; // Reset force flag
+        return;
+    }
+
     // Check if message should be filtered
     if (should_filter_message(level)) {
         force_next_ = false; // Reset force flag

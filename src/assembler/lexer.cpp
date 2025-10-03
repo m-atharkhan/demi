@@ -148,8 +148,20 @@ std::vector<Token> Lexer::tokenize() {
         
         char c = current_char();
         
-        // Handle comments
-        if (c == ';' || c == '#') {
+        // Handle test directives or comments starting with #
+        if (c == '#') {
+            // Check if this is a test directive
+            if (pos + 1 < source.length() && is_identifier_start(peek_char())) {
+                tokens.push_back(parse_test_directive());
+                continue;
+            }
+            // Otherwise it's a comment
+            skip_comment();
+            continue;
+        }
+        
+        // Handle comments starting with ;
+        if (c == ';') {
             skip_comment();
             continue;
         }
@@ -197,6 +209,8 @@ std::vector<Token> Lexer::tokenize() {
             case '+': tokens.emplace_back(TokenType::PLUS, "+", line, column); break;
             case '-': tokens.emplace_back(TokenType::MINUS, "-", line, column); break;
             case '*': tokens.emplace_back(TokenType::ASTERISK, "*", line, column); break;
+            case '{': tokens.emplace_back(TokenType::LBRACE, "{", line, column); break;
+            case '}': tokens.emplace_back(TokenType::RBRACE, "}", line, column); break;
             default:
                 add_error("Unexpected character: '" + std::string(1, c) + "'");
                 tokens.emplace_back(TokenType::INVALID, std::string(1, c), line, column);
@@ -422,6 +436,48 @@ bool Lexer::is_binary_digit(char c) const {
 
 void Lexer::add_error(const std::string& message) {
     errors.push_back("Line " + std::to_string(line) + ", Column " + std::to_string(column) + ": " + message);
+}
+
+Token Lexer::parse_test_directive() {
+    size_t start_line = line;
+    size_t start_column = column;
+    std::string text;
+    
+    text += current_char(); // '#'
+    advance();
+    
+    while (pos < source.length() && is_identifier_part(current_char())) {
+        text += current_char();
+        advance();
+    }
+    
+    std::string lower_text = text;
+    std::transform(lower_text.begin(), lower_text.end(), lower_text.begin(), ::tolower);
+    
+    // Map test directives to token types
+    if (lower_text == "#test") {
+        return Token(TokenType::TEST_DIRECTIVE, text, start_line, start_column);
+    } else if (lower_text == "#assert_mem") {
+        return Token(TokenType::ASSERT_MEM, text, start_line, start_column);
+    } else if (lower_text == "#assert_reg") {
+        return Token(TokenType::ASSERT_REG, text, start_line, start_column);
+    } else if (lower_text == "#assert_output") {
+        return Token(TokenType::ASSERT_OUTPUT, text, start_line, start_column);
+    } else if (lower_text == "#expect_error") {
+        return Token(TokenType::EXPECT_ERROR, text, start_line, start_column);
+    } else if (lower_text == "#description") {
+        return Token(TokenType::DESCRIPTION, text, start_line, start_column);
+    } else if (lower_text == "#author") {
+        return Token(TokenType::AUTHOR, text, start_line, start_column);
+    } else if (lower_text == "#category") {
+        return Token(TokenType::CATEGORY, text, start_line, start_column);
+    } else if (lower_text == "#tag") {
+        return Token(TokenType::TAG, text, start_line, start_column);
+    }
+    
+    // If it's not a recognized test directive, treat it as a comment
+    add_error("Unknown test directive: " + text);
+    return Token(TokenType::INVALID, text, start_line, start_column);
 }
 
 } // namespace Assembler

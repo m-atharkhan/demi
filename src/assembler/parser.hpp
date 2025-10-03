@@ -34,6 +34,10 @@ private:
     std::unique_ptr<Directive> parse_directive(const std::string& directive_name, size_t line, size_t col);
     std::unique_ptr<Label> parse_label(const std::string& label_name, size_t line, size_t col);
     
+    // Test directive parsing
+    std::unique_ptr<TestCase> parse_test_case(size_t line, size_t col);
+    std::unique_ptr<TestAssertion> parse_test_assertion(TestAssertionType type, size_t line, size_t col);
+    
     std::unique_ptr<Expression> parse_expression();
     std::unique_ptr<Expression> parse_primary_expression();
     std::unique_ptr<Expression> parse_memory_reference();

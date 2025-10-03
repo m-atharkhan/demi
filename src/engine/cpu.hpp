@@ -2,6 +2,7 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <stdexcept>
 
 #include "../config.hpp"
 #include "../debug/logger.hpp"
@@ -12,6 +13,13 @@ using Logging::Logger;
 using DemiEngine_Registers::Register;
 using DemiEngine_Registers::RegisterNames;
 using DemiEngine_Registers::TOTAL_REGISTERS;
+
+// CPU Runtime Exception
+class CPUException : public std::runtime_error {
+public:
+    explicit CPUException(const std::string& message) 
+        : std::runtime_error(message) {}
+};
 
 // CPU Operation Modes
 enum class CPUMode : uint8_t {
@@ -298,6 +306,9 @@ public:
         auto index = static_cast<size_t>(reg);
         return index >= 8 && index < 16; // R8-R15
     }
+    
+    // Sync legacy registers to new register system (for testing)
+    void sync_from_legacy_registers();
 
     // SIMD register access (128-bit XMM registers)
     void get_xmm_register(Register xmm_reg, uint64_t& low, uint64_t& high) const {
@@ -437,7 +448,6 @@ private:
 
     // Internal register synchronization
     void sync_legacy_registers();
-    void sync_from_legacy_registers();
 
     uint8_t readPort(uint8_t port);
     void writePort(uint8_t port, uint8_t value);
