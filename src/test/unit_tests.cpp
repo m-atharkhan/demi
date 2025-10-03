@@ -937,28 +937,16 @@ TEST_CASE(org_directive_multiple, "assembler") {
     ctx.assert_byte_at(0x23, 0xFF); // HALT
 }
 
-TEST_CASE(org_directive_backwards, "assembler") {
-    // Test that .org cannot go backwards (should fail or be ignored)
-    // Note: Current implementation might not throw - test actual behavior
+TEST_CASE_EXPECT_ERROR(org_directive_backwards_old, "assembler") {
+    // Test that .org cannot go backwards (now throws an error)
+    // Updated to expect error with new validation
     ctx.assemble_code(R"(
         .org 0x20
         LOAD_IMM R0, 1
-        .org 0x10  ; This should fail or be ignored 
+        .org 0x10  ; This now generates an error
         LOAD_IMM R1, 2
         HALT
     )");
-    
-    // If assembler doesn't throw, check that it handles backwards .org gracefully
-    // The second .org should be ignored since it goes backwards
-    ctx.assert_byte_at(0x20, 0x01); // First LOAD_IMM at 0x20
-    ctx.assert_byte_at(0x21, 0x00); // R0
-    ctx.assert_byte_at(0x22, 1);    // value 1
-    
-    // Second instruction should continue from where first left off, not jump back
-    ctx.assert_byte_at(0x23, 0x01); // Second LOAD_IMM (backwards .org ignored)
-    ctx.assert_byte_at(0x24, 0x01); // R1  
-    ctx.assert_byte_at(0x25, 2);    // value 2
-    ctx.assert_byte_at(0x26, 0xFF); // HALT
 }
 
 TEST_CASE(db_directive_basic, "assembler") {
@@ -1167,7 +1155,7 @@ TEST_CASE(org_directive_edge_cases, "assembler") {
     // Test edge cases for .org directive
     ctx.assemble_code(R"(
         LOAD_IMM R0, 1
-        .org 0x01  ; Same as current position - should be ignored or work
+        .org 0x03  ; Jump to exact end of previous instruction
         LOAD_IMM R1, 2
         .org 0x10  ; Jump forward
         LOAD_IMM R2, 3
@@ -1179,7 +1167,7 @@ TEST_CASE(org_directive_edge_cases, "assembler") {
     ctx.assert_byte_at(1, 0x00);
     ctx.assert_byte_at(2, 1);
     
-    // Second instruction immediately follows (org 0x01 ignored as it's backwards)
+    // Second instruction at 0x03 (.org moves to exactly where we'd be anyway)
     ctx.assert_byte_at(3, 0x01);
     ctx.assert_byte_at(4, 0x01);
     ctx.assert_byte_at(5, 2);
@@ -1322,4 +1310,210 @@ TEST_CASE(db_directive_execution_with_labels, "assembler") {
     });
     
     // The exact addresses will be calculated by assembler, but verify execution works
+}
+
+// ============================================================================
+// NEGATIVE TESTS - Testing error handling and validation
+// ============================================================================
+
+TEST_CASE_EXPECT_ERROR(invalid_register_number, "negative_tests") {
+    // Test that invalid register numbers are caught
+    ctx.assemble_code(R"(
+        LOAD_IMM R99, 42
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(undefined_label, "negative_tests") {
+    // Test that undefined labels are caught
+    ctx.assemble_code(R"(
+        JMP undefined_label
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(invalid_opcode, "negative_tests") {
+    // Test that invalid opcodes are caught
+    ctx.load_program({
+        0xAA, 0xBB, 0xCC,  // Invalid opcode
+        0xFF               // HALT
+    });
+    ctx.execute_program();
+}
+
+TEST_CASE(memory_out_of_bounds_read_limitation, "negative_tests") {
+    // DOCUMENTATION: Cannot test memory out-of-bounds with current LOAD instruction
+    // LOAD opcode uses 1-byte address (0-255), test memory is 256 bytes (0-255)
+    // All possible addresses fit within memory, making true out-of-bounds impossible
+    // This test documents the limitation and passes to indicate the constraint is understood
+    // TODO: Add LOAD32 instruction with 4-byte address for proper out-of-bounds testing
+    ctx.load_program({
+        0x01, 0x00, 0xFF,  // LOAD_IMM R0, 255
+        0x06, 0x00, 0xFF,  // LOAD R0, [255] - highest valid address
+        0xFF               // HALT
+    });
+    ctx.execute_program();
+    // This passes - confirming that all 1-byte addresses are valid in 256-byte memory
+}
+
+TEST_CASE(memory_out_of_bounds_write_limitation, "negative_tests") {
+    // DOCUMENTATION: Cannot test memory out-of-bounds with current STORE instruction
+    // STORE opcode uses 1-byte address (0-255), test memory is 256 bytes (0-255)
+    // All possible addresses fit within memory, making true out-of-bounds impossible
+    // This test documents the limitation and passes to indicate the constraint is understood
+    // TODO: Add STORE32 instruction with 4-byte address for proper out-of-bounds testing
+    ctx.load_program({
+        0x01, 0x00, 0x42,  // LOAD_IMM R0, 66
+        0x07, 0x00, 0xFF,  // STORE R0, [255] - highest valid address
+        0xFF               // HALT
+    });
+    ctx.execute_program();
+    // This passes - confirming that all 1-byte addresses are valid in 256-byte memory
+}
+
+TEST_CASE_EXPECT_ERROR(stack_overflow, "negative_tests") {
+    // Test that stack overflow is detected
+    // SP starts at 256 (memory.size()), each PUSH subtracts 4
+    // With our check for SP < 8, we'll catch overflow after ~62 pushes
+    ctx.load_program({
+        // Loop pushing values until stack overflows
+        0x01, 0x00, 0x01,  // 0: LOAD_IMM R0, 1
+        // loop:
+        0x08, 0x00,        // 3: PUSH R0 (opcode 0x08 is PUSH)
+        0x05, 0x03,        // 5: JMP 3 (opcode 0x05 is JMP, back to PUSH)
+        0xFF               // 7: HALT (never reached)
+    });
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(stack_underflow, "negative_tests") {
+    // Test that stack underflow is detected
+    ctx.load_program({
+        0x1A, 0x00,        // POP R0 (with empty stack)
+        0xFF               // HALT
+    });
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(db_missing_length, "negative_tests") {
+    // Test that DB without length parameter is caught
+    ctx.assemble_code(R"(
+        DB "Hello"
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(db_negative_length, "negative_tests") {
+    // Test that DB with negative length is caught
+    ctx.assemble_code(R"(
+        DB "Hello", -5
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(db_length_exceeds_string, "negative_tests") {
+    // Test warning/error when length exceeds actual string length
+    ctx.assemble_code(R"(
+        DB "Hi", 100
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(duplicate_label, "negative_tests") {
+    // Test that duplicate labels are caught
+    ctx.assemble_code(R"(
+        mylabel:
+        LOAD_IMM R0, 1
+        mylabel:
+        LOAD_IMM R1, 2
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(invalid_immediate_value, "negative_tests") {
+    // Test that out-of-range immediate values are caught
+    ctx.assemble_code(R"(
+        LOAD_IMM R0, 999999999999999999999
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(malformed_instruction, "negative_tests") {
+    // Test that malformed instructions are caught
+    ctx.assemble_code(R"(
+        LOAD_IMM R0
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(invalid_string_terminator, "negative_tests") {
+    // Test that unterminated strings are caught
+    ctx.assemble_code(R"(
+        DB "Hello
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(org_backwards, "negative_tests") {
+    // Test that .org to a previous address is caught
+    ctx.assemble_code(R"(
+        .org 0x100
+        LOAD_IMM R0, 1
+        .org 0x50
+        LOAD_IMM R1, 2
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(register_type_mismatch, "negative_tests") {
+    // Test that using wrong register type is caught
+    ctx.assemble_code(R"(
+        MOVEX XMM0, R0
+        HALT
+    )");
+}
+
+TEST_CASE_EXPECT_ERROR(division_modulo_zero, "negative_tests") {
+    // Test that division by zero is caught (MOD doesn't exist, using DIV)
+    // Note: This test currently passes because DIV by zero is already handled
+    // by the division_by_zero test. Keeping for completeness.
+    ctx.load_program({
+        0x01, 0x00, 0x0A,  // LOAD_IMM R0, 10
+        0x01, 0x01, 0x00,  // LOAD_IMM R1, 0
+        0x11, 0x00, 0x01,  // DIV R0, R1 (division by zero)
+        0xFF               // HALT
+    });
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(jump_to_invalid_address, "negative_tests") {
+    // Test that jumping to invalid address is caught
+    // Create a program that's smaller than the jump target
+    ctx.load_program({
+        0x05, 0x10,  // JMP to address 16 (0x10) - opcode 0x05 is JMP
+        0xFF,        // HALT
+        // Program ends at byte 3, but we're jumping to byte 16
+    });
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(call_stack_overflow, "negative_tests") {
+    // Test that excessive CALL depth is caught (infinite recursion)
+    ctx.assemble_code(R"(
+        recursive_func:
+        CALL recursive_func
+        RET
+    )");
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(ret_without_call, "negative_tests") {
+    // Test that RET without CALL is caught
+    // RET expects SP to point to valid return address and frame pointer
+    // Initial SP is at memory.size() (256), so SP+8 = 264 > 256, should fail
+    ctx.load_program({
+        0x1B,              // RET (0x1B) without CALL - SP is at 256, SP+8 = 264 > 256
+        0xFF               // HALT
+    });
+    ctx.execute_program();
 }
