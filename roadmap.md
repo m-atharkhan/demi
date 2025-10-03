@@ -7,9 +7,9 @@
 
 ## 🎯 Project Overview
 
-VirtComp has evolved into a rock-solid backend foundation for **Demi**, a revolutionary programming language with unprecedented customization capabilities. With the backend infrastructure complete (134 registers, 162 opcodes, 39/41 tests passing with debug-specific memory corruption resolved), development now focuses on building the Demi language frontend with its groundbreaking syntax customization and project-specific configuration system.
+DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionary programming language with unprecedented customization capabilities. With the core infrastructure complete (134 registers, 63 core opcodes implemented, 188/188 tests passing with 100% coverage), development now focuses on **expanding the assembly language instruction set** to enable seamless transition to native x86-64 code generation before building the high-level Demi language frontend.
 
-### 🌟 Current Status: DemiEngine Backend ✅ Complete
+### 🌟 Current Status: Assembly Language Expansion Phase 🔄
 
 **Phase 1 Achievements:**
 - ✅ **Robust Virtual Machine**: 134-register architecture with comprehensive instruction set
@@ -20,16 +20,27 @@ VirtComp has evolved into a rock-solid backend foundation for **Demi**, a revolu
 - ✅ **Debug Memory Issue Resolved**: Fixed debug-specific memory corruption through strategic timing modifications
 - ✅ **Project Rebranding**: Successfully renamed from VirtComp to DemiEngine with 'demi-engine' executable
 
-### 🚀 Next Phase: Demi Language Revolution
+### � Current Phase: Assembly Language Expansion
 
-**Phase 2 Goal:** Build the most customizable programming language ever created
+**Phase 2 Goal:** Expand instruction set to enable seamless native code generation
+
+**Key Objectives:**
+- 🔄 **Advanced Instruction Set**: Implement SIMD, FPU, AVX, and MMX operations (88 opcodes planned)
+- 🔄 **x86-64 Alignment**: Ensure opcodes map cleanly to native assembly instructions
+- 🔄 **Code Generation Ready**: Build infrastructure for direct translation to native code
+- 🔄 **Performance Optimization**: Enable vectorization and floating-point computation
+- 🔄 **Comprehensive Testing**: Maintain 100% test coverage as opcodes are added
+
+### 🚀 Future Phase: Demi Language Revolution
+
+**Phase 3+ Goal:** Build the most customizable programming language ever created (After assembly expansion)
 
 **Key Design Principles:**
-- ✅ **Total Customization**: Unprecedented control over language syntax and behavior
-- ✅ **Project-Specific Dialects**: Different language variants per project
-- ✅ **Zero Core Dependencies**: Complete custom implementation on VirtComp
-- ✅ **Dual-Mode Execution**: Interpretation (development) + Native compilation (production)
-- ✅ **Revolutionary Configuration**: demi.toml controls every aspect of language behavior
+- 🔜 **Total Customization**: Unprecedented control over language syntax and behavior
+- 🔜 **Project-Specific Dialects**: Different language variants per project
+- 🔜 **Zero Core Dependencies**: Complete custom implementation on DemiEngine
+- 🔜 **Dual-Mode Execution**: Interpretation (development) + Native compilation (production)
+- 🔜 **Revolutionary Configuration**: demi.toml controls every aspect of language behavior
 
 ### 🎨 **Demi Language Core Features**
 
@@ -270,76 +281,306 @@ eigenvals = λ(A)  # Custom eigenvalue function
 
 ---
 
+## � **ASSEMBLY LANGUAGE EXPANSION - FUTURE OPCODE IMPLEMENTATION**
+
+### 📊 Current Implementation Status
+
+**Completed (63 opcodes)**:
+- ✅ Core Arithmetic: ADD, SUB, MUL, DIV, INC, DEC (32-bit and 64-bit variants)
+- ✅ Logic Operations: AND, OR, XOR, NOT, SHL, SHR
+- ✅ Memory Operations: LOAD, STORE, MOV, LEA, SWAP (32-bit and 64-bit variants)
+- ✅ Control Flow: JMP, JZ, JNZ, JG, JL, JGE, JLE, JC, JNC, JO, JNO, JS, JNS
+- ✅ Stack Operations: PUSH, POP, PUSH_FLAG, POP_FLAG, PUSH_ARG, POP_ARG
+- ✅ Function Calls: CALL, RET
+- ✅ I/O Operations: IN/OUT (byte, word, long variants), INSTR, OUTSTR
+- ✅ Comparison: CMP, MODECMP
+- ✅ System: NOP, HALT, DB, MODE32, MODE64
+
+### 🚀 Phase 2A: SIMD/Vector Operations (26 opcodes) - **HIGH PRIORITY**
+
+**Goal**: Enable vectorized computation for performance-critical applications
+
+**Why**: SIMD operations are essential for:
+- Graphics and image processing
+- Scientific computing and simulations
+- Audio/video processing
+- Machine learning inference
+- Seamless translation to x86-64 SSE/AVX instructions
+
+**Planned SSE Instructions**:
+```
+Packed Single-Precision (4x float32):
+- MOVPS, MOVUPS, MOVAPS    # Aligned/unaligned packed moves
+- ADDPS, SUBPS, MULPS, DIVPS # Arithmetic on 4 floats simultaneously
+- MAXPS, MINPS             # Min/max operations
+- SQRTPS, RCPPS, RSQRTPS   # Square root, reciprocal operations
+- ANDPS, ORPS, XORPS       # Bitwise logic on packed data
+
+Scalar Single-Precision:
+- MOVSS, ADDSS, SUBSS, MULSS, DIVSS
+- MAXSS, MINSS, SQRTSS, RCPSS, RSQRTSS
+
+Comparison:
+- CMPPS                    # Packed comparison with predicates
+```
+
+**x86-64 Mapping**: Direct 1:1 mapping to native SSE instructions
+
+**Implementation Timeline**: Q1 2026 (4-6 weeks)
+
+### 🧮 Phase 2B: Floating-Point Unit (23 opcodes) - **HIGH PRIORITY**
+
+**Goal**: Full floating-point arithmetic support for scientific and mathematical computation
+
+**Why**: FPU operations are fundamental for:
+- Scientific simulations and modeling
+- Financial calculations
+- Graphics rendering and transformations
+- Physics engines
+- Any application requiring real numbers
+- Maps directly to x87 FPU instructions
+
+**Planned FPU Instructions**:
+```
+Load/Store:
+- FLD, FST, FSTP           # Load/store floating-point values
+- FILD, FIST, FISTP        # Integer conversion operations
+
+Arithmetic:
+- FADD, FSUB, FMUL, FDIV   # Basic FP arithmetic
+- FADDP, FSUBP, FMULP, FDIVP # Arithmetic with stack pop
+
+Mathematical Functions:
+- FABS, FCHS               # Absolute value, change sign
+- FSQRT                    # Square root
+- FSIN, FCOS, FTAN         # Trigonometric functions
+
+Constants:
+- FLDZ, FLD1, FLDPI        # Load common constants (0, 1, π)
+```
+
+**x86-64 Mapping**: Direct mapping to x87 FPU instructions
+
+**Implementation Timeline**: Q1 2026 (3-4 weeks)
+
+### ⚡ Phase 2C: AVX Operations (20 opcodes) - **MEDIUM PRIORITY**
+
+**Goal**: 256-bit vector operations for maximum throughput
+
+**Why**: AVX extends SIMD for:
+- Processing 8 floats simultaneously (vs 4 with SSE)
+- Modern CPU optimization
+- High-performance computing applications
+- Future-proofing the instruction set
+- Professional-grade vector processing
+
+**Planned AVX Instructions**:
+```
+256-bit Packed Operations:
+- VMOVPS, VMOVUPS, VMOVAPS  # 256-bit moves
+- VADDPS, VSUBPS, VMULPS, VDIVPS # Arithmetic on 8 floats
+- VMAXPS, VMINPS, VSQRTPS   # Min/max/sqrt on 8 floats
+- VANDPS, VORPS, VXORPS     # Bitwise logic on 256-bit data
+
+128-bit Scalar Operations:
+- VMOVSS, VADDSS, VSUBSS, VMULSS, VDIVSS
+- VMAXSS, VMINSS
+```
+
+**x86-64 Mapping**: Direct mapping to AVX/AVX2 instructions
+
+**Implementation Timeline**: Q2 2026 (3-4 weeks)
+
+### 📦 Phase 2D: MMX Operations (11 opcodes) - **LOW PRIORITY**
+
+**Goal**: Legacy multimedia extension support for integer vector operations
+
+**Why**: MMX provides:
+- 64-bit integer vector operations
+- Compatibility with older codebases
+- Specialized multimedia processing
+- Complete x86-64 instruction set coverage
+
+**Planned MMX Instructions**:
+```
+Data Movement:
+- MOVQ                     # Move 64-bit quadword
+
+Integer Arithmetic:
+- PADDB, PADDW, PADDD      # Packed add (byte, word, dword)
+- PSUBB, PSUBW, PSUBD      # Packed subtract
+- PMULLW                   # Packed multiply low
+
+Logic:
+- PAND, POR, PXOR          # Packed bitwise operations
+```
+
+**x86-64 Mapping**: Direct mapping to MMX instructions
+
+**Implementation Timeline**: Q2 2026 (2 weeks)
+
+### 🔬 Phase 2E: Extended 64-bit Operations (18 opcodes) - **MEDIUM PRIORITY**
+
+**Goal**: Complete extended register support and 64-bit addressing
+
+**Why**: Extended operations enable:
+- Full 64-bit memory addressing
+- Large program support
+- Advanced control flow
+- Complete register architecture utilization
+
+**Planned Extended Instructions**:
+```
+Memory:
+- LOADEX, STOREEX, LOAD_IMMEX # Extended addressing modes
+
+Control Flow:
+- JMPEX, CALLEX            # 64-bit addressing for large programs
+- JZEX, JNZEX, JGEX, JLEX, JGEEX, JLEEX
+- JCEX, JNCEX, JOEX, JNOEX, JSEX, JNSEX
+
+Comparison:
+- CMPEX                    # Extended register comparison
+```
+
+**x86-64 Mapping**: Extended addressing and register modes
+
+**Implementation Timeline**: Q1-Q2 2026 (2-3 weeks)
+
+### 🎯 Implementation Strategy
+
+**Phase 2 Development Approach**:
+
+1. **Opcode Definition** (Already Complete ✅)
+   - All 88 opcodes already defined in `src/assembler/opcodes.hpp`
+   - Assembler can already parse these opcodes
+   - Ready for implementation
+
+2. **CPU Dispatcher Implementation**
+   - Add case statements to `src/engine/opcodes/opcodes_consolidated.cpp`
+   - Implement execution logic for each opcode
+   - Maintain existing architecture and patterns
+
+3. **Test-Driven Development**
+   - Write unit tests before implementing each opcode
+   - Create assembly test programs
+   - Verify correct behavior and flag handling
+   - Maintain 100% test coverage
+
+4. **x86-64 Alignment**
+   - Ensure each opcode maps cleanly to native instructions
+   - Document translation patterns for future codegen
+   - Design with native compilation in mind
+
+5. **Performance Validation**
+   - Benchmark implementations
+   - Optimize hot paths
+   - Verify SIMD/FPU operations perform correctly
+
+**Priority Order**:
+1. **FPU Operations** (Q1 2026) - Most fundamental, enables scientific computing
+2. **SIMD/SSE Operations** (Q1 2026) - Critical for performance, widely used
+3. **Extended 64-bit Operations** (Q1-Q2 2026) - Complete register architecture
+4. **AVX Operations** (Q2 2026) - Advanced performance features
+5. **MMX Operations** (Q2 2026) - Legacy support, nice-to-have
+
+**Success Criteria**:
+- ✅ All 151 opcodes implemented in CPU dispatcher
+- ✅ 100% test coverage maintained
+- ✅ Clear mapping to x86-64 instructions documented
+- ✅ Assembly programs can use all opcodes
+- ✅ Performance benchmarks validate implementations
+- ✅ Ready for native code generation phase
+
+### 🚀 Post-Expansion: Native Code Generation
+
+**After Assembly Expansion**: With all opcodes implemented, we'll have:
+- Complete instruction set ready for translation
+- Clear mapping to x86-64 assembly
+- Proven implementations via VM execution
+- Comprehensive test suite validating behavior
+- Seamless transition to native code generation phase
+
+**Next Steps After Phase 2**:
+- Implement x86-64 code generator using opcode mappings
+- Register allocation for 134 virtual → 16 physical registers
+- Direct assembly output bypassing VM
+- Link with system libraries
+- **Then** build Demi high-level language frontend
+
+---
+
 ## 🚀 **CUSTOM DUAL-MODE TOOLCHAIN ROADMAP**
 
-The following 7-stage development plan transforms VirtComp into a complete custom toolchain for the Demi programming language:
+The following development plan builds DemiEngine into a complete custom toolchain for the Demi programming language:
 
-### 🔥 **Stage 1: Demi Language Foundation** *(CURRENT - Q3-Q4 2025)*
+### 🔥 **Stage 1: Assembly Language Expansion** *(CURRENT - Q1 2026)*
 
-**Priority: CRITICAL** | **Status: In Progress** | **Dependencies: VirtComp Backend ✅ Complete**
+**Priority: CRITICAL** | **Status: In Progress** | **Dependencies: Core Backend ✅ Complete**
 
-Build the revolutionary Demi language frontend with unprecedented customization capabilities.
+Expand the instruction set to enable seamless native code generation and professional-grade computing capabilities.
 
-#### 🎯 **Immediate Development Priority: Demi Language Core**
+#### 🎯 **Immediate Development Priority: Implement 88 Planned Opcodes**
 
-**VirtComp Backend Status: ✅ COMPLETE**
+**DemiEngine Core Status: ✅ COMPLETE**
 - ✅ **134-Register Architecture**: Full extended register system operational
-- ✅ **162-Opcode Instruction Set**: Complete D-ISA implementation
+- ✅ **63 Core Opcodes**: Base instruction set fully implemented and tested
 - ✅ **Assembly Toolchain**: Lexer → Parser → Assembler → Bytecode fully functional
 - ✅ **Virtual Machine**: CPU emulation with device I/O system
-- ✅ **Test Suite**: 40/40 unit tests passing, comprehensive validation
+- ✅ **Test Suite**: 188/188 tests passing (100% coverage)
 - ✅ **Native Executable Generation**: x86-64 ELF creation with embedded VM
 - ✅ **ImGui Debugger**: Professional development and debugging interface
 
-**Next Phase: Demi Language Implementation**
+**Current Phase: Opcode Implementation** (See detailed plan above)
+- 🔄 **FPU Operations** (23 opcodes) - Floating-point arithmetic
+- 🔄 **SIMD/SSE Operations** (26 opcodes) - Vector processing
+- 🔄 **Extended 64-bit** (18 opcodes) - Complete addressing modes
+- 🔄 **AVX Operations** (20 opcodes) - Advanced vectorization
+- 🔄 **MMX Operations** (11 opcodes) - Legacy multimedia support
 
-#### 📋 **Phase 1: Basic Demi Language (4-6 weeks)**
+**After Stage 1: Native Code Generation** (Stage 2)
 
-**Week 1-2: Core Language Design**
-- 🔜 **Demi Syntax Definition**: Define default language syntax and semantics
-- 🔜 **Demi Lexer**: Tokenize .dem source files with configurable syntax rules
-- 🔜 **AST Structure**: Abstract syntax tree design for Demi programs
-- 🔜 **Basic Error Handling**: Parsing and semantic error reporting
+#### 📋 **Assembly Expansion Implementation**
 
-**Week 3-4: Demi → D-ISA Compiler**
-- 🔜 **AST → D-ISA Translation**: Convert Demi programs to D-ISA assembly
-- 🔜 **Symbol Table Management**: Variable and function scope resolution
-- 🔜 **Type System**: Basic type checking and semantic analysis
-- 🔜 **VirtComp Integration**: Seamless integration with existing assembler
+**Phase 1: FPU Operations (3-4 weeks)**
+- � **FLD/FST/FSTP**: Floating-point load/store with stack management
+- � **FADD/FSUB/FMUL/FDIV**: Basic FP arithmetic operations
+- 🔄 **Transcendental Functions**: FSIN, FCOS, FTAN, FSQRT
+- � **FPU Stack Management**: Proper stack pointer handling and exceptions
+- � **Test Suite**: Comprehensive FPU operation validation
 
-**Week 5-6: Development Tools**
-- 🔜 **Interpretation Mode**: `demi -I program.dem` command interface
-- 🔜 **Error Messages**: Clear, actionable error reporting
-- 🔜 **Example Programs**: Test suite and demonstration code
-- 🔜 **Documentation**: Basic language reference and tutorials
+**Phase 2: SIMD/SSE Operations (4-6 weeks)**
+- � **Packed Operations**: MOVPS, ADDPS, SUBPS, MULPS, DIVPS
+- � **Scalar Operations**: MOVSS, ADDSS, SUBSS, MULSS, DIVSS
+- � **Logic Operations**: ANDPS, ORPS, XORPS on packed data
+- � **Mathematical**: SQRTPS, MAXPS, MINPS, RCPPS, RSQRTPS
+- � **Comparison**: CMPPS with various predicates
+- � **Test Suite**: Vector operation validation and edge cases
 
-#### 📋 **Phase 2: Revolutionary Customization System (3-4 weeks)**
+**Phase 3: Extended 64-bit Operations (2-3 weeks)**
+- 🔄 **Extended Memory**: LOADEX, STOREEX, LOAD_IMMEX
+- � **Extended Control Flow**: JMPEX, CALLEX, conditional jumps (EX variants)
+- � **Extended Comparison**: CMPEX for extended register modes
+- � **Test Suite**: Large address space and extended register tests
 
-**Week 7-8: Configuration Engine**
-- 🔜 **TOML Parser**: Parse demi.toml project configuration files
-- 🔜 **Syntax Profiles**: Implement C-like, Python-like, Rust-like profiles
-- 🔜 **Language Features**: Toggle type systems, memory management, etc.
-- 🔜 **Custom Keywords**: User-defined language elements
+**Phase 4: AVX Operations (3-4 weeks)**
+- 🔄 **256-bit Operations**: VMOVPS, VADDPS, VSUBPS, VMULPS, VDIVPS
+- � **Advanced Vector Math**: VMAXPS, VMINPS, VSQRTPS
+- 🔄 **Logic Operations**: VANDPS, VORPS, VXORPS
+- � **Scalar Operations**: VMOVSS, VADDSS, VSUBSS, VMULSS, VDIVSS
+- � **Test Suite**: 256-bit vector operation validation
 
-**Week 9-10: Dynamic Language Adaptation**
-- 🔜 **Runtime Syntax Switching**: Apply configuration to parser behavior
-- 🔜 **Project-Specific Dialects**: Complete language variant system
-- 🔜 **Custom Standard Libraries**: Replaceable core functionality
-- 🔜 **Configuration Validation**: Tools for managing language settings
+**Phase 5: MMX Operations (1-2 weeks)**
+- � **Data Movement**: MOVQ operations
+- � **Packed Integer Arithmetic**: PADDB/W/D, PSUBB/W/D, PMULLW
+- � **Packed Logic**: PAND, POR, PXOR
+- 🔄 **Test Suite**: Integer vector operation validation
 
-#### 📋 **Phase 3: Professional Development Experience (2-3 weeks)**
-
-**Week 11-12: Advanced Tooling**
-- 🔜 **REPL Environment**: Interactive development and testing
-- 🔜 **Live Code Reload**: Hot-swapping and dynamic updates  
-- 🔜 **Enhanced Diagnostics**: IDE-quality error messages with suggestions
-- 🔜 **Command Interface**: Complete `demi` executable with all modes
-
-**Week 13: Integration and Polish**
-- 🔜 **Comprehensive Testing**: Full Demi language test suite
-- 🔜 **Example Projects**: Showcase customization capabilities
-- 🔜 **Performance Optimization**: Interpretation speed improvements
-- 🔜 **Documentation**: Complete language guide and API reference
+**Phase 6: Integration and Documentation (1-2 weeks)**
+- � **Complete Testing**: Verify all 151 opcodes functional
+- � **x86-64 Mapping Documentation**: Document native instruction translations
+- � **Performance Benchmarking**: Validate operation correctness and speed
+- � **Example Programs**: Assembly programs demonstrating new capabilities
 
 #### Core Interpreter Enhancements
 
@@ -354,7 +595,8 @@ demi -I hello.dem --profile         # Performance profiling
 
 **Enhanced VirtComp Features:**
 - ✅ **Extended Register System**: 134 registers with dual x32/x64 mode support
-- ✅ **Comprehensive Instruction Set**: 162 opcodes covering arithmetic, logic, control flow, memory, I/O, SIMD, FPU, AVX, and MMX operations
+- ✅ **Core Instruction Set**: 63 implemented opcodes covering arithmetic, logic, control flow, memory, I/O, and extended register operations
+- ⚠️ **Planned Instructions**: 88 additional opcodes defined (SIMD, FPU, AVX, MMX) for future implementation
 - ✅ **Memory Management**: Expanded from 256 bytes to 1MB with paging framework
 - ✅ **Professional UI**: Clean output formatting and extended register display
 - 🚧 **Live Code Updates**: Hot-swapping code during execution for rapid development
@@ -375,11 +617,11 @@ demi -I hello.dem --profile         # Performance profiling
 
 ---
 
-### ⚡ **Stage 2: Native Code Generation Backend** *(Q1-Q2 2026)*
+### ⚡ **Stage 2: Native Code Generation Backend** *(Q2-Q3 2026)*
 
-**Priority: HIGH** | **Status: Foundation Laid** | **Dependencies: Stage 1 Complete (Demi Language)**
+**Priority: HIGH** | **Status: Foundation Laid** | **Dependencies: Stage 1 Complete (Assembly Expansion)**
 
-Transform Demi from VM-based interpretation to true native x86-64 compilation.
+Transform assembly programs to true native x86-64 machine code with seamless opcode translation.
 
 #### 🎯 **Native Compilation Goals**
 
@@ -389,9 +631,11 @@ Transform Demi from VM-based interpretation to true native x86-64 compilation.
 - ✅ **Compilation Framework**: D-ISA → x86-64 translation architecture
 - 🔜 **Implementation**: Complete native code generation pipeline
 
-#### 📋 **Phase 4: Direct x86-64 Code Generation (8-10 weeks)**
+**Prerequisites**: All 151 opcodes implemented with clear x86-64 mappings (Stage 1)
 
-**Prerequisites: Demi language fully operational with real programs to compile**
+#### 📋 **Direct x86-64 Code Generation (8-10 weeks)**
+
+**After Stage 1 Assembly Expansion**: With complete instruction set implemented
 
 **Week 1-2: x86-64 Encoder Implementation**
 - 🔜 **Instruction Encoding**: Complete x86-64 machine code generation
@@ -517,11 +761,13 @@ SYSCALL                   ; Invoke system call
 
 ---
 
-### 🛠️ **Stage 3: D-ISA Assembler Implementation** *(Q1-Q2 2026)*
+### 🛠️ **Stage 3: D-ISA Assembler Enhancement** *(Q2-Q3 2026)*
 
-**Priority: HIGH** | **Status: Planning** | **Dependencies: D-ISA Specification Complete**
+**Priority: MEDIUM** | **Status: Planning** | **Dependencies: Assembly Expansion Complete (Stage 1)**
 
-Implement the assembler that converts human-readable D-ISA assembly into bytecode and object files.
+Enhance the existing assembler with additional features for professional assembly development.
+
+**Note**: D-ISA assembler core already exists! This stage adds advanced features like macros, includes, and multiple output formats.
 
 #### Assembler Core Features
 
@@ -630,21 +876,23 @@ Demi Object File (.dl) Structure:
 
 ---
 
-### 🎯 **Stage 4: Native Code Generation Backend** *(Q2-Q3 2026)*
+### 🎯 **Stage 4: Native Code Generation Backend** *(Q3 2026)*
 
-**Priority: CRITICAL** | **Status: Planning** | **Dependencies: D-ISA Assembler Complete**
+**Priority: CRITICAL** | **Status: Planning** | **Dependencies: Stage 1 (Assembly Expansion) + Stage 3 (D-ISA Assembler)**
 
-Implement the custom compiler backend that generates native machine code from D-ISA.
+Implement the custom compiler backend that generates native machine code from D-ISA assembly.
+
+**Goal**: Direct D-ISA → x86-64 translation using the complete opcode set from Stage 1.
 
 #### Native Compilation Pipeline
 
 **🎯 Compilation Workflow**
 ```bash
-# Native compilation process
-demi -c hello.dem -o hello               # Compile to native executable
-demi -c hello.dem -o hello --target x86_64 --opt 2  # Optimized x86_64 build
-demi -c hello.dem -S                     # Generate assembly output only
-demi -c hello.dem --emit-ir              # Show D-ISA intermediate form
+# Native compilation process (assembly → native)
+demi -c program.dasm -o program          # Compile assembly to native executable
+demi -c program.dasm -S -o program.s     # Generate x86-64 assembly output
+demi -c program.dasm --emit-ir           # Show optimization passes
+demi -c program.dasm --target x86_64 --opt 2  # Optimized build
 ```
 
 **🎯 Code Generation Architecture**
@@ -831,9 +1079,50 @@ demi -L main.dl -l demi_io -l demi_math -o app
 
 ---
 
-### 🎯 **Stage 6: Unified Toolchain Integration** *(Q4 2026 - Q1 2027)*
+### � **Stage 6: Demi High-Level Language Frontend** *(Q4 2026 - Q1 2027)*
 
-**Priority: CRITICAL** | **Status: Planning** | **Dependencies: All Previous Stages**
+**Priority: HIGH** | **Status: Future** | **Dependencies: Native Code Generation Complete (Stage 4)**
+
+Build the revolutionary Demi programming language with unprecedented customization capabilities on top of the complete assembly and native code generation infrastructure.
+
+**Note**: This stage implements the high-level language features described earlier in this document. With all 151 opcodes implemented and proven native code generation, we can now build a language that compiles to our powerful assembly and generates efficient native code.
+
+#### Demi Language Goals
+
+**🎯 Revolutionary Language Features**
+```bash
+# Demi language compilation workflow
+demi compile hello.dem -o hello           # Compile Demi → Assembly → Native
+demi compile hello.dem --emit-asm         # Show generated D-ISA assembly
+demi run hello.dem                        # Interpret for rapid development
+demi run hello.dem --config custom.toml   # Custom language dialect
+```
+
+**🎯 Implementation Phases**
+
+**Phase 1: Core Language (4-6 weeks)**
+- 🔜 **Lexer/Parser**: Tokenize and parse .dem source files
+- 🔜 **AST Generation**: Abstract syntax tree for Demi programs  
+- 🔜 **Type System**: Basic type checking and inference
+- 🔜 **Code Generation**: Demi → D-ISA assembly translation
+
+**Phase 2: Customization System (3-4 weeks)**
+- 🔜 **TOML Configuration**: Parse demi.toml project files
+- 🔜 **Syntax Profiles**: C-like, Python-like, Rust-like variants
+- 🔜 **Feature Toggles**: Configure language behavior per project
+- 🔜 **Custom Standard Library**: Replaceable core modules
+
+**Phase 3: Advanced Features (4-6 weeks)**
+- 🔜 **REPL Environment**: Interactive development
+- 🔜 **Package Management**: Module system and imports
+- 🔜 **Error Diagnostics**: IDE-quality error messages
+- 🔜 **Documentation**: Complete language reference
+
+---
+
+### 🎯 **Stage 7: Unified Toolchain Integration** *(Q1-Q2 2027)*
+
+**Priority: CRITICAL** | **Status: Planning** | **Dependencies: Demi Language Complete (Stage 6)**
 
 Combine all tools into the single `demi` executable with intelligent mode detection and workflow management.
 
@@ -946,7 +1235,7 @@ class DemiToolchain {
 
 ---
 
-### ⚡ **Stage 7: Just-In-Time (JIT) Compilation** *(Q2-Q3 2027)*
+### ⚡ **Stage 8: Just-In-Time (JIT) Compilation** *(Q3-Q4 2027)*
 
 **Priority: MEDIUM** | **Status: Future Planning** | **Dependencies: Unified Toolchain Complete**
 
@@ -1102,7 +1391,7 @@ class CodeHotSwap {
    - 🔜 **Command Interface**: Complete `demi` executable with all modes
 
 **VirtComp Backend Status: ✅ COMPLETE**
-- 134 registers, 162 opcodes, 40/40 tests passing
+- 134 registers, 63 opcodes implemented (151 defined), 188/188 tests passing
 - Native x86-64 ELF generation with embedded VM
 - Professional debugger and development tools
 
@@ -1276,7 +1565,8 @@ class CodeHotSwap {
 ### ✅ **Recently Completed Achievements:**
 
 - ✅ **Comprehensive Register Architecture**: Full 134-register system with x32/x64 dual-mode operation
-- ✅ **Extensive Instruction Set**: 162 opcodes covering arithmetic, logic, control flow, memory, I/O, SIMD, FPU, AVX, and MMX operations
+- ✅ **Core Instruction Set**: 63 opcodes fully implemented covering arithmetic, logic, control flow, memory, and I/O operations
+- ⚠️ **Extended Instruction Set**: 88 opcodes defined for SIMD, FPU, AVX, and MMX (not yet implemented)
 - ✅ **Professional UI Polish**: Clean output formatting and extended register display options
 - ✅ **Robust Testing**: 39/41 integration tests passing with debug memory corruption resolved
 - ✅ **Memory Expansion**: Increased from 256 bytes to 1MB with scalable architecture
@@ -1288,7 +1578,7 @@ class CodeHotSwap {
 
 **What's Actually Working:**
 - **Register System**: 134 total registers (not 50 as previously documented)
-- **Instruction Set**: 162 opcodes implemented (far exceeding basic set claims)
+- **Instruction Set**: 63 opcodes implemented, 151 defined (core operations complete, SIMD/FPU/AVX/MMX planned)
 - **Memory**: 1MB default, expandable to 64MB maximum
 - **Testing**: 40 unit tests passing (not 53 as claimed in earlier versions)
 - **Assembly Language**: Complete lexer → parser → assembler → bytecode → VM execution pipeline

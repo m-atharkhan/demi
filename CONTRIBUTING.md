@@ -268,15 +268,17 @@ The implemented testing framework provides:
 
 ### Test Categories
 
-1. **✅ Unit Tests (59/59)**: Core functionality validation
+1. **✅ Unit Tests (78/78)**: Core functionality validation
    - CPU operations (registers, flags, program counter)
    - Arithmetic instructions (ADD, SUB, MUL, DIV, bitwise)
    - Memory operations (load/store, stack, bounds checking)
    - Control flow (jumps, conditionals, flags)
-   - Extended registers (134-register system, SIMD, FPU)
+   - Extended registers (134-register system architecture)
    - Assembler (DB directives, .org, labels)
 
-2. **✅ Integration Tests (41/41)**: Real program execution
+2. **✅ Assembly Tests (68/68)**: In-code assembly execution validation
+
+3. **✅ Integration Tests (42/42)**: Real program execution
    - Complete program workflows
    - Multi-device interactions
    - Error handling scenarios
