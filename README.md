@@ -9,17 +9,19 @@
 
 ## **Revolutionary Virtual Machine & Programming Language Platform**
 
-*Complete custom toolchain for the future Demi programming language with unprecedented customization capabilities*
+*Complete custom toolchain for the future Demi programming language - the Vim of programming languages*
 
-DemiEngine is the foundational backend for **Demi**, a revolutionary programming language that will offer unprecedented customization capabilities. With a rock-solid virtual machine featuring 134 registers, 162 opcodes, and **100% test coverage**, DemiEngine provides the infrastructure for a dual-mode execution system: rapid interpretation for development and native compilation for production performance.
+**Demi will be the Vim of programming languages** - infinitely customizable, with every aspect configurable to match your exact needs. Just as Vim lets you tailor your editor to perfection, Demi will let you customize syntax, semantics, behavior, and tooling on a per-project basis.
+
+DemiEngine is the foundational backend for **Demi**, a revolutionary programming language that will offer unprecedented customization capabilities. With a rock-solid virtual machine featuring 134 registers, 63 implemented opcodes, and **100% test coverage**, DemiEngine provides the infrastructure for a dual-mode execution system: rapid interpretation for development and native compilation for production performance.
 
 ---
 
 ## 🎯 **Project Vision**
 
-**Current Status:** DemiEngine Backend ✅ **100% Complete**
+**Current Status:** Core Backend Complete - Assembly Language Expansion In Progress
 
-DemiEngine serves as the complete foundation for the upcoming **Demi programming language**, which will feature:
+DemiEngine serves as the foundation for the upcoming **Demi programming language**. Before building the high-level language frontend, we're expanding the assembly instruction set to enable seamless native code generation. The future Demi language will feature:
 
 - 🎭 **Total Language Customization**: Project-specific syntax, keywords, and behaviors
 - ⚡ **Dual-Mode Execution**: Interpretation for development + Native compilation for production
@@ -31,13 +33,14 @@ DemiEngine serves as the complete foundation for the upcoming **Demi programming
 
 | Stage | Status | Target | Description |
 |-------|--------|--------|-------------|
-| **Stage 1** | ✅ 100% Complete | Q4 2025 | DemiEngine Backend (Virtual Machine) |
-| **Stage 2** | 🔜 Planning | Q1 2026 | Demi Language Frontend |
-| **Stage 3** | 🔜 Planning | Q2 2026 | D-ISA Assembler |
-| **Stage 4** | 🔜 Planning | Q3 2026 | Native x86-64 Code Generation |
-| **Stage 5** | 🔜 Planning | Q4 2026 | Custom Linker |
-| **Stage 6** | 🔜 Planning | Q1 2027 | Unified `demi` Toolchain |
-| **Stage 7** | 🔜 Planning | Q3 2027 | JIT Compilation |
+| **Stage 1** | ✅ Complete | Q4 2025 | Core VM Backend (63 opcodes, 134 registers) |
+| **Stage 2** | � In Progress | Q1 2026 | Assembly Language Expansion (SIMD, FPU, AVX) |
+| **Stage 3** | 🔜 Next | Q2 2026 | Native x86-64 Code Generation |
+| **Stage 4** | 🔜 Planning | Q3 2026 | Demi Language Frontend (High-level syntax) |
+| **Stage 5** | 🔜 Planning | Q4 2026 | D-ISA Assembler Integration |
+| **Stage 6** | 🔜 Planning | Q1 2027 | Custom Linker |
+| **Stage 7** | 🔜 Planning | Q2 2027 | Unified `demi` Toolchain |
+| **Stage 8** | 🔜 Planning | Q4 2027 | JIT Compilation |
 
 ---
 
@@ -68,14 +71,17 @@ make test
 # Execute a hex program
 ./bin/demi-engine -H tests/hex/helloworld.hex
 
-# Launch visual debugger
-./bin/demi-engine -H tests/hex/helloworld.hex --gui
-
 # Enable debug mode with detailed logging
 ./bin/demi-engine -H tests/hex/helloworld.hex -d
 
+# Run assembly file
+./bin/demi-engine -A examples/hello_world.asm
+
 # Compile to standalone executable
 ./bin/demi-engine -H tests/hex/calculator.hex -o calculator
+
+# Run specific test file
+./bin/demi-engine -at tests/asm/test_arithmetic.asm
 ```
 
 ### Command Line Interface
@@ -83,13 +89,18 @@ make test
 demi-engine Usage: demi-engine [options]
   --help                -h      Shows help information
   --debug               -d      Enable debug mode with detailed logging
-  --verbose             -v      Show informational messages
-  --extended-registers  -er     Show all 134 registers in output
-  --hex                 -H      Path to hex file (space/newline separated)
-  --test                -t      Run comprehensive test suite
-  --gui                 -g      Launch visual debugger interface
+  --verbose             -v      Show informational messages (use --verbose=false to disable)
+  --extended-registers  -er     Show extended register output (50 registers)
+  --debug-file          -f      Debug file path
+  --hex                 -H      Path to hex file (hex bytes, space or newline separated)
+  --test                -t      Run built-in unit tests, or test a specific file if path provided
+  --unit-test           -ut     Run built-in unit tests only, or test a specific file if path provided
+  --integration-test    -it     Run integration tests only, or test a specific file if path provided
+  --assembly-test       -at     Run in-assembly tests only, or test a specific file if path provided
+  --assembly-test-quiet -atq    Run in-assembly tests in quiet mode (title and description only)
   --assembly            -A      Assemble and run .asm file
-  --compile             -o      Compile to standalone executable
+  --compile             -o      Compile program into a standalone executable (optionally specify output name)
+  --memdump             -m      Print memory dump after execution
 ```
 
 ---
@@ -97,8 +108,8 @@ demi-engine Usage: demi-engine [options]
 ## ⭐ **Key Features**
 
 ### 🖥️ **Advanced Virtual Machine**
-- **134-Register Architecture**: Comprehensive register set with dual x32/x64 modes
-- **162-Opcode Instruction Set**: Complete coverage of arithmetic, logic, memory, I/O, SIMD, FPU operations
+- **134-Register Architecture**: Comprehensive register set with x86-64 style registers
+- **63-Opcode Instruction Set**: Arithmetic, logic, memory, I/O, control flow, and extended register operations
 - **1MB Memory**: Expandable to 64MB with paging framework
 - **Device I/O System**: Modular devices (console, file, counter, RAM disk) with port-based communication
 - **Professional Debugging**: ImGui-based visual debugger with real-time inspection
@@ -152,7 +163,7 @@ demi-engine Usage: demi-engine [options]
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
 │  │ Assembly        │  │ Virtual Machine │  │ Device      │ │
 │  │ Toolchain       │→ │ CPU (134 regs)  │↔ │ I/O System  │ │
-│  │ (.asm → bytes)  │  │ 162 opcodes     │  │ (4 devices) │ │
+│  │ (.asm → bytes)  │  │ 63 opcodes      │  │ (4 devices) │ │
 │  └─────────────────┘  └─────────────────┘  └─────────────┘ │
 │                              ↓                             │
 │  ┌─────────────────┐  ┌─────────────────┐                 │
@@ -166,7 +177,7 @@ demi-engine Usage: demi-engine [options]
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **CPU Engine** | ✅ Complete | 134 registers, 162 opcodes, x32/x64 modes |
+| **CPU Engine** | ✅ Complete | 134 registers, 63 implemented opcodes |
 | **Memory System** | ✅ Complete | 1MB default, expandable to 64MB |
 | **Device Manager** | ✅ Complete | Console, File, Counter, RAM Disk devices |
 | **Assembly Tools** | ✅ Complete | Full lexer → parser → assembler pipeline |
@@ -181,26 +192,49 @@ DemiEngine maintains exceptional quality through comprehensive testing with **pe
 
 ### Test Coverage
 ```bash
-# Run all tests with verbose output
-./bin/demi-engine -t -d
+# Run all tests (comprehensive)
+./bin/demi-engine --test
+
+# Or run specific test suites
+./bin/demi-engine --unit-test          # 78 unit tests only (~1-2s)
+./bin/demi-engine --integration-test   # 42 integration tests only (~2-3s)
+./bin/demi-engine --assembly-test      # 68 assembly test validation (~1s)
+./bin/demi-engine --assembly-test-quiet # 68 tests in quiet mode (minimal output)
+
+# Test specific files only
+./bin/demi-engine -t tests/asm/test_arithmetic.asm  # Test single file
+./bin/demi-engine -atq tests/asm/test_stack.asm     # Single file, quiet mode
 
 # Achieved results:
 ┌──────────────────────────────────────────────────────────┐
 │     DemiEngine Test Results - PERFECT COVERAGE          │
 └──────────────────────────────────────────────────────────┘
-Unit tests passed: 59 / 59 (100% success rate)
-Integration tests passed: 41 / 41 (100% success rate)
-TOTAL: 100 / 100 tests passing (100% coverage)
+Unit tests passed: 78 / 78 (100% success rate)
+In-assembly tests validated: 68 / 68 (100% validation rate)
+Integration tests passed: 42 / 42 (100% success rate)
+TOTAL: 188 tests passing (100% coverage)
 ```
 
+### Test Suite Flags
+- `--test` / `-t` - Run built-in unit tests, or test a specific file if path provided
+- `--unit-test` / `-ut` - Run unit tests only (fastest, ~1-2s), or test a specific file
+- `--integration-test` / `-it` - Run integration tests only (~2-3s), or test a specific file
+- `--assembly-test` / `-at` - Run all in-assembly tests (~1s), or test a specific file
+- `--assembly-test-quiet` / `-atq` - Run assembly tests in quiet mode (title + description only)
+
+**All test flags support optional file arguments** - provide a file path to test only that file.
+
+**See [docs/TEST_FLAGS.md](docs/TEST_FLAGS.md) for detailed usage examples**
+
 ### Test Categories
-- **✅ Unit Tests**: 59/59 passing - Core functionality validation
-- **✅ Integration Tests**: 41/41 passing - Real program execution  
+- **✅ Unit Tests**: 78/78 passing - Core functionality validation
+- **✅ In-Assembly Tests**: 68/68 validated - Test directive parsing and structure
+- **✅ Integration Tests**: 42/42 passing - Real program execution  
 - **✅ Memory Tests**: Bounds checking and safety validation
 - **✅ Device Tests**: I/O system functionality
 - **✅ Assembly Tests**: Complete toolchain validation
 - **✅ Register Tests**: Extended register system (134 registers)
-- **✅ DB Directive Tests**: Assembler data handling
+- **✅ Negative Tests**: Error handling and edge cases
 
 ### Test Coverage Achievements
 - **🏆 100% Unit Test Coverage**: All core functionality validated
@@ -211,9 +245,28 @@ TOTAL: 100 / 100 tests passing (100% coverage)
 
 ### Recently Fixed Issues (100% Coverage Achievement)
 - **✅ DB Directive System**: Complete assembler data handling with hybrid format detection
-- **✅ Extended Register Support**: Full 134-register validation and extended instruction support
+- **✅ Extended Register Support**: Full 134-register system with partial extended instruction support
 - **✅ Integration Test Corrections**: Fixed register range validation and instruction encoding issues
 - **✅ Assembler Edge Cases**: Null terminator padding, label addressing, and format detection
+
+### Current Capabilities and Limitations
+
+**Fully Implemented** (63 opcodes):
+- ✅ Core arithmetic: ADD, SUB, MUL, DIV, INC, DEC
+- ✅ Bitwise logic: AND, OR, XOR, NOT, SHL, SHR
+- ✅ Control flow: JMP, JZ, JNZ, JS, JNS, JC, JNC, JO, JNO, JG, JL, JGE, JLE
+- ✅ Memory: LOAD, STORE, LEA, SWAP, MOV
+- ✅ Stack: PUSH, POP, PUSH_FLAG, POP_FLAG, CALL, RET
+- ✅ I/O: IN, OUT, INB, OUTB, INW, OUTW, INL, OUTL, INSTR, OUTSTR
+- ✅ Extended: MOVEX, ADDEX, SUBEX, ADD64, SUB64, MOV64, LOAD_IMM64
+- ✅ Modes: MODE32, MODE64, MODECMP
+
+**Not Yet Implemented** (88 opcodes defined but not functional):
+- ⚠️ SIMD/SSE operations (planned)
+- ⚠️ FPU floating-point operations (planned)
+- ⚠️ AVX vector operations (planned)
+- ⚠️ MMX multimedia operations (planned)
+- ⚠️ Some 64-bit extended operations (partial)
 
 ---
 

@@ -1,12 +1,17 @@
 # DemiEngine Instruction Set Quick Reference
 
+## Overview
+
+**Currently Implemented**: 63 opcodes (fully functional)
+**Defined but Not Implemented**: 88 opcodes (SIMD, FPU, AVX, MMX - planned for future)
+
 ## Basic Syntax
 - Instructions are written in hexadecimal
 - Comments start with `#`
-- Registers: R0-R7 (encoded as 0x00-0x07)
+- Registers: R0-R7 (basic), R0-R15 (extended), plus special/system registers
 - LOAD_IMM uses 3-byte format: opcode + register + immediate_value (8-bit)
 
-## Instruction Categories
+## Implemented Instruction Categories
 
 ### Basic Operations
 ```hex
@@ -160,3 +165,126 @@ Low Memory  │  Code   │ ← PC starts here
 4. **Register encoding**: Registers are single bytes (0x00-0x07)
 5. **Address sizes**: Jump addresses are 8-bit (0-255 program space)
 6. **Carry flag**: Requires 32-bit overflow to trigger (use NOT + ADD technique)
+
+## Testing Quick Reference
+
+### Run Tests
+```bash
+./bin/demi-engine -t                          # All unit tests (78)
+./bin/demi-engine -ut                         # Unit tests only
+./bin/demi-engine -it                         # Integration tests (42)
+./bin/demi-engine -at                         # Assembly tests (68)
+./bin/demi-engine -atq                        # Assembly tests (quiet mode)
+```
+
+### Test Specific Files
+```bash
+./bin/demi-engine -at tests/asm/test_arithmetic.asm   # Test single file
+./bin/demi-engine -atq tests/asm/test_stack.asm       # Quiet mode
+```
+
+### In-Assembly Test Format
+```assembly
+#test test_name
+    #description What this test validates
+    #author Your Name
+    #category Test Category
+    #tag tag1, tag2
+    
+    LOAD_IMM R0, 5
+    LOAD_IMM R1, 10
+    ADD R0, R1
+    #assert_eq R0, 15
+#endtest
+```
+
+### Test Metadata Directives
+- `#description` - Brief test description (recommended)
+- `#author` - Test author/team (optional)
+- `#category` - Test category/group (optional)
+- `#tag` - Comma-separated tags (optional)
+
+### Test Commands
+- `#assert_eq <reg>, <value>` - Assert register equals value
+- `#assert_ne <reg>, <value>` - Assert register not equals value
+- `#assert_lt <reg>, <value>` - Assert register less than value
+- `#assert_gt <reg>, <value>` - Assert register greater than value
+
+See [TEST_FLAGS.md](testing/TEST_FLAGS.md) and [tests/asm/README.md](../tests/asm/README.md) for complete documentation.
+
+---
+
+## Planned But Not Yet Implemented
+
+The following instruction categories are **defined** in the opcode table but **not yet implemented**:
+
+### SIMD/SSE Operations (0x80-0x9F) - 26 opcodes ⚠️
+```
+MOVAPS, MOVUPS, ADDPS, SUBPS, MULPS, DIVPS, SQRTPS, MAXPS, MINPS,
+ANDPS, ORPS, XORPS, CMPPS,
+MOVAPD, MOVUPD, ADDPD, SUBPD, MULPD, DIVPD, SQRTPD, MAXPD, MINPD,
+ANDPD, ORPD, XORPD, CMPPD
+```
+**Status**: Opcodes defined, handlers not implemented
+**Use Case**: Vector operations for parallel processing
+
+### FPU Operations (0xA0-0xBF) - 23 opcodes ⚠️
+```
+FLD, FST, FSTP, FILD, FIST, FISTP,
+FADD, FSUB, FMUL, FDIV, FSIN, FCOS, FTAN, FSQRT, FABS, FCHS,
+FINIT, FCLEX, FSTCW, FLDCW, FSTSW, FCOMPP, FUCOMPP
+```
+**Status**: Opcodes defined, handlers not implemented
+**Use Case**: Floating-point arithmetic
+
+### AVX Operations (0xC0-0xDF) - 20 opcodes ⚠️
+```
+VADDPS, VSUBPS, VMULPS, VDIVPS, VSQRTPS, VMAXPS, VMINPS,
+VANDPS, VORPS, VXORPS,
+VADDPD, VSUBPD, VMULPD, VDIVPD, VSQRTPD, VMAXPD, VMINPD,
+VANDPD, VORPD, VXORPD
+```
+**Status**: Opcodes defined, handlers not implemented
+**Use Case**: 256-bit vector operations (AVX)
+
+### MMX Operations (0xE0-0xEF) - 11 opcodes ⚠️
+```
+MOVQ, PADDB, PADDW, PADDD, PSUBB, PSUBW, PSUBD,
+PCMPEQB, PCMPEQW, PCMPEQD, EMMS
+```
+**Status**: Opcodes defined, handlers not implemented
+**Use Case**: Multimedia/integer SIMD operations
+
+### Additional 64-bit Operations - 18 opcodes ⚠️
+```
+MUL64, DIV64, AND64, OR64, XOR64, SHL64, SHR64, CMP64,
+NOT64, INC64, DEC64,
+MULEX, DIVEX, CMPEX, LOADEX, STOREX, PUSHEX, POPEX, MODEFLAG
+```
+**Status**: Partially implemented (ADD64, SUB64, MOV64, LOAD_IMM64 work)
+**Use Case**: Extended 64-bit register operations
+
+---
+
+## Implementation Status Summary
+
+| Category | Defined | Implemented | Status |
+|----------|---------|-------------|--------|
+| **Core Operations** | 48 | 48 | ✅ 100% |
+| **Extended 64-bit** | 22 | 4 | ⚠️ 18% |
+| **SIMD/SSE** | 26 | 0 | ❌ 0% |
+| **FPU** | 23 | 0 | ❌ 0% |
+| **AVX** | 20 | 0 | ❌ 0% |
+| **MMX** | 11 | 0 | ❌ 0% |
+| **Mode Control** | 1 | 1 | ✅ 100% |
+| **TOTAL** | **151** | **63** | **42%** |
+
+**Note**: Attempting to use unimplemented opcodes will result in an "Unknown opcode" error.
+
+---
+
+## See Also
+
+- [README.md](../README.md) - Main project documentation
+- [roadmap.md](../roadmap.md) - Future development plans
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues and solutions
