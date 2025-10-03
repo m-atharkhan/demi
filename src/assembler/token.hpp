@@ -21,6 +21,8 @@ enum class TokenType {
     SEMICOLON,       // ;
     DOT,             // .
     HASH,            // #
+    LBRACE,          // {
+    RBRACE,          // }
     
     // Addressing modes
     LBRACKET,        // [
@@ -31,6 +33,19 @@ enum class TokenType {
     
     // Directives
     DIRECTIVE,       // .data, .text, .org, etc.
+    
+    // Test directives
+    TEST_DIRECTIVE,  // #test
+    ASSERT_MEM,      // #assert_mem
+    ASSERT_REG,      // #assert_reg
+    ASSERT_OUTPUT,   // #assert_output
+    EXPECT_ERROR,    // #expect_error
+    
+    // Test metadata directives
+    DESCRIPTION,     // #description
+    AUTHOR,          // #author
+    CATEGORY,        // #category
+    TAG,             // #tag
     
     // Special
     NEWLINE,         // \n

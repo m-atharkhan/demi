@@ -13,7 +13,14 @@ std::unique_ptr<Program> Parser::parse() {
     while (!is_at_end()) {
         auto stmt = parse_statement();
         if (stmt) {
-            program->add_statement(std::move(stmt));
+            // Check if this is a test case using dynamic_cast
+            if (auto* test_ptr = dynamic_cast<TestCase*>(stmt.get())) {
+                // Move ownership from stmt to test_cases
+                stmt.release();
+                program->add_test_case(std::unique_ptr<TestCase>(test_ptr));
+            } else {
+                program->add_statement(std::move(stmt));
+            }
         }
         skip_newlines();
     }
@@ -89,6 +96,41 @@ std::unique_ptr<Statement> Parser::parse_statement() {
             size_t col = token.column;
             advance();
             return parse_directive(directive, line, col);
+        }
+        
+        case TokenType::TEST_DIRECTIVE: {
+            size_t line = token.line;
+            size_t col = token.column;
+            advance();
+            return parse_test_case(line, col);
+        }
+        
+        case TokenType::ASSERT_MEM: {
+            size_t line = token.line;
+            size_t col = token.column;
+            advance();
+            return parse_test_assertion(TestAssertionType::ASSERT_MEM, line, col);
+        }
+        
+        case TokenType::ASSERT_REG: {
+            size_t line = token.line;
+            size_t col = token.column;
+            advance();
+            return parse_test_assertion(TestAssertionType::ASSERT_REG, line, col);
+        }
+        
+        case TokenType::ASSERT_OUTPUT: {
+            size_t line = token.line;
+            size_t col = token.column;
+            advance();
+            return parse_test_assertion(TestAssertionType::ASSERT_OUTPUT, line, col);
+        }
+        
+        case TokenType::EXPECT_ERROR: {
+            size_t line = token.line;
+            size_t col = token.column;
+            advance();
+            return parse_test_assertion(TestAssertionType::EXPECT_ERROR, line, col);
         }
         
         case TokenType::IDENTIFIER: {
@@ -236,6 +278,147 @@ std::unique_ptr<Expression> Parser::parse_memory_reference() {
     }
     
     return std::make_unique<MemoryReferenceExpression>(std::move(base), std::move(offset));
+}
+
+std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
+    // Expect: #test "test name" { ... }
+    
+    // Parse test name (should be a STRING token)
+    if (current_token().type != TokenType::STRING) {
+        add_error("Expected string literal for test name", current_token());
+        return nullptr;
+    }
+    
+    std::string test_name = current_token().as_string();
+    advance();
+    
+    // Expect opening brace
+    if (!consume(TokenType::LBRACE, "Expected '{' to start test body")) {
+        return nullptr;
+    }
+    
+    // Create test case
+    auto test_case = std::make_unique<TestCase>(test_name, line, col);
+    
+    // Parse test body statements and metadata
+    while (current_token().type != TokenType::RBRACE && 
+           current_token().type != TokenType::END_OF_FILE) {
+        
+        // Handle metadata directives
+        if (current_token().type == TokenType::DESCRIPTION) {
+            advance();
+            if (current_token().type == TokenType::STRING) {
+                test_case->set_description(current_token().as_string());
+                advance();
+            } else {
+                add_error("Expected string after #description", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::AUTHOR) {
+            advance();
+            if (current_token().type == TokenType::STRING) {
+                test_case->set_author(current_token().as_string());
+                advance();
+            } else {
+                add_error("Expected string after #author", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::CATEGORY) {
+            advance();
+            if (current_token().type == TokenType::STRING) {
+                test_case->set_category(current_token().as_string());
+                advance();
+            } else {
+                add_error("Expected string after #category", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::TAG) {
+            advance();
+            if (current_token().type == TokenType::STRING) {
+                test_case->add_tag(current_token().as_string());
+                advance();
+            } else {
+                add_error("Expected string after #tag", current_token());
+            }
+            continue;
+        }
+        
+        // Parse regular statements
+        auto stmt = parse_statement();
+        if (stmt) {
+            test_case->add_statement(std::move(stmt));
+        }
+    }
+    
+    // Expect closing brace
+    if (!consume(TokenType::RBRACE, "Expected '}' to close test body")) {
+        return nullptr;
+    }
+    
+    return test_case;
+}
+
+std::unique_ptr<TestAssertion> Parser::parse_test_assertion(TestAssertionType type, size_t line, size_t col) {
+    // Parse assertion arguments - all assertions expect comma-separated expressions
+    std::vector<std::unique_ptr<Expression>> args;
+    
+    // Different assertions expect different numbers of arguments:
+    // ASSERT_MEM: address, expected_value
+    // ASSERT_REG: register_name, expected_value  
+    // ASSERT_OUTPUT: expected_string
+    // EXPECT_ERROR: error_message (optional)
+    
+    if (current_token().type == TokenType::NEWLINE || 
+        current_token().type == TokenType::END_OF_FILE) {
+        // No arguments (only valid for EXPECT_ERROR)
+        if (type != TestAssertionType::EXPECT_ERROR) {
+            add_error("Expected arguments for assertion", current_token());
+            return nullptr;
+        }
+        return std::make_unique<TestAssertion>(type, std::move(args), line, col);
+    }
+    
+    // Parse comma-separated argument list
+    do {
+        auto arg = parse_expression();
+        if (!arg) {
+            add_error("Expected expression in assertion", current_token());
+            return nullptr;
+        }
+        args.push_back(std::move(arg));
+        
+        if (current_token().type == TokenType::COMMA) {
+            advance();
+        } else {
+            break;
+        }
+    } while (true);
+    
+    // Validate argument counts
+    switch (type) {
+        case TestAssertionType::ASSERT_MEM:
+        case TestAssertionType::ASSERT_REG:
+            if (args.size() != 2) {
+                add_error("Expected 2 arguments for " + 
+                         std::string(type == TestAssertionType::ASSERT_MEM ? "#assert_mem" : "#assert_reg"));
+                return nullptr;
+            }
+            break;
+        case TestAssertionType::ASSERT_OUTPUT:
+            if (args.size() != 1) {
+                add_error("Expected 1 argument for #assert_output");
+                return nullptr;
+            }
+            break;
+        case TestAssertionType::EXPECT_ERROR:
+            if (args.size() > 1) {
+                add_error("Expected 0 or 1 arguments for #expect_error");
+                return nullptr;
+            }
+            break;
+    }
+    
+    return std::make_unique<TestAssertion>(type, std::move(args), line, col);
 }
 
 void Parser::add_error(const std::string& message) {

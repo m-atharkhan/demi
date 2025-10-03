@@ -1,6 +1,7 @@
 #include "demi_assembler.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
+#include "../test/in_assembly_test_validator.hpp"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -71,6 +72,57 @@ std::string DemiAssembler::read_file(const std::string& filename) {
     std::stringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
+}
+
+int DemiAssembler::validate_and_print_tests(const std::string& filename) {
+    clear_errors();
+    
+    std::string source = read_file(filename);
+    if (source.empty()) {
+        return 0;
+    }
+    
+    // Lexical analysis
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+    
+    if (lexer.has_errors()) {
+        collect_errors(lexer.get_errors());
+        std::cerr << "Lexer errors while parsing tests:\n";
+        for (const auto& error : lexer.get_errors()) {
+            std::cerr << "  " << error << "\n";
+        }
+        return 0;
+    }
+    
+    // Parsing
+    Parser parser(tokens);
+    auto program = parser.parse();
+    
+    if (parser.has_errors()) {
+        collect_errors(parser.get_errors());
+        std::cerr << "Parser errors while parsing tests:\n";
+        for (const auto& error : parser.get_errors()) {
+            std::cerr << "  " << error << "\n";
+        }
+        return 0;
+    }
+    
+    // Validate tests
+    auto validation_results = InAssemblyTestValidator::validate_tests(*program);
+    
+    // Print results
+    InAssemblyTestValidator::print_validation_results(validation_results);
+    
+    // Count valid tests
+    int valid_count = 0;
+    for (const auto& result : validation_results) {
+        if (result.valid) {
+            valid_count++;
+        }
+    }
+    
+    return valid_count;
 }
 
 // Convenience functions

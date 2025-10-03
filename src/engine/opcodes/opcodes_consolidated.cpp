@@ -275,9 +275,10 @@ void handle_div(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [DIV] PC={} R{} /= R{}", cpu.get_pc(), cpu.get_pc(), reg1, reg2) << std::endl;
         if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
             if (cpu.get_registers()[reg2] == 0) {
-                Logger::instance().error() << fmt::format("[PC=0x{:04X}] [DIV] Invalid Division Division by zero at PC={}", cpu.get_pc(), cpu.get_pc()) << std::endl;
+                std::string error_msg = fmt::format("[PC=0x{:04X}] [DIV] Invalid Division Division by zero at PC={}", cpu.get_pc(), cpu.get_pc());
+                Logger::instance().error() << error_msg << std::endl;
                 running = false;
-                return;
+                throw CPUException(error_msg);
             }
             uint8_t before = cpu.get_registers()[reg1];
             cpu.get_registers()[reg1] /= cpu.get_registers()[reg2];
@@ -485,11 +486,11 @@ void handle_jmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t addr = program[cpu.get_pc() + 1];
         // Simple validation - check if address is within program bounds
         if (addr >= program.size()) {
-            Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ')
-                << "Invalid jump address " << " (JMP): "
-                << static_cast<int>(addr) << " at PC=" << cpu.get_pc() << std::endl;
+            std::string error_msg = fmt::format("Invalid jump address (JMP): {} at PC={}", static_cast<int>(addr), cpu.get_pc());
+            Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ') << error_msg << std::endl;
+            Config::error_count++;
             running = false;
-            return;
+            throw CPUException(error_msg);
         }
         cpu.set_pc(addr);
     } else {
@@ -548,11 +549,10 @@ void handle_js(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         if (cpu.get_flags() & FLAG_SIGN) {
             // Simple validation - check if address is within program bounds
             if (addr >= program.size()) {
-                Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ')
-                    << "Invalid jump address " << " (JS): "
-                    << static_cast<int>(addr) << " at PC=" << cpu.get_pc() << std::endl;
+                std::string error_msg = fmt::format("Invalid jump address (JS): {} at PC={}", static_cast<int>(addr), cpu.get_pc());
+                Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ') << error_msg << std::endl;
                 running = false;
-                return;
+                throw CPUException(error_msg);
             }
             cpu.set_pc(addr);
         } else {
@@ -572,11 +572,10 @@ void handle_jz(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         if (cpu.get_flags() & FLAG_ZERO) {
             // Simple validation - check if address is within program bounds
             if (addr >= program.size()) {
-                Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ')
-                    << "Invalid jump address " << " (JZ): "
-                    << static_cast<int>(addr) << " at PC=" << cpu.get_pc() << std::endl;
+                std::string error_msg = fmt::format("Invalid jump address (JZ): {} at PC={}", static_cast<int>(addr), cpu.get_pc());
+                Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ') << error_msg << std::endl;
                 running = false;
-                return;
+                throw CPUException(error_msg);
             }
             cpu.set_pc(addr);
         } else {
@@ -594,9 +593,24 @@ void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         uint8_t addr = program[cpu.get_pc() + 2];
-        if (reg < cpu.get_registers().size() && addr < cpu.get_memory().size()) {
-            cpu.get_registers()[reg] = cpu.get_memory()[addr];
+        
+        // Check bounds
+        if (reg >= cpu.get_registers().size()) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOAD] Invalid register R{}", cpu.get_pc(), reg);
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
         }
+        if (addr >= cpu.get_memory().size()) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOAD] Memory out of bounds: address 0x{:X} >= size 0x{:X}", cpu.get_pc(), addr, cpu.get_memory().size());
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
+        }
+        
+        cpu.get_registers()[reg] = cpu.get_memory()[addr];
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
         running = false;
@@ -965,6 +979,16 @@ void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [PUSH] PC={} Pushing R{}={}", cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), cpu.get_registers()[reg]) << std::endl;
+        
+        // Check for stack overflow (SP going below reasonable minimum)
+        if (cpu.get_sp() < 8) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [PUSH] Stack overflow: SP={}", cpu.get_pc(), cpu.get_sp());
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
+        }
+        
         cpu.set_sp(cpu.get_sp() - 4);
         cpu.write_mem32(cpu.get_sp(), cpu.get_registers()[reg]);
         cpu.set_pc(cpu.get_pc() + 2);
@@ -992,6 +1016,19 @@ void handle_ret(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, 
         "[PC=0x{:04X}] [RET] SP={} Restoring FP and popping return address",
         pc, sp
     ) << std::endl;
+
+    // Check if RET is being called without a matching CALL
+    // SP should be well below memory size if there's a valid call frame
+    if (sp + 8 > cpu.get_memory().size()) {
+        std::string error_msg = fmt::format(
+            "[PC=0x{:04X}] [RET] Invalid RET without matching CALL (SP={}, memory_size={})",
+            pc, sp, cpu.get_memory().size()
+        );
+        Logger::instance().error() << error_msg << std::endl;
+        Config::error_count++;
+        running = false;
+        throw CPUException(error_msg);
+    }
 
     // Stack layout from CALL:
     // SP: return address
@@ -1059,9 +1096,24 @@ void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         uint8_t addr = program[cpu.get_pc() + 2];
-        if (reg < cpu.get_registers().size() && addr < cpu.get_memory().size()) {
-            cpu.get_memory()[addr] = cpu.get_registers()[reg];
+        
+        // Check bounds
+        if (reg >= cpu.get_registers().size()) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [STORE] Invalid register R{}", cpu.get_pc(), reg);
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
         }
+        if (addr >= cpu.get_memory().size()) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [STORE] Memory out of bounds: address 0x{:X} >= size 0x{:X}", cpu.get_pc(), addr, cpu.get_memory().size());
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
+        }
+        
+        cpu.get_memory()[addr] = cpu.get_registers()[reg];
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
         running = false;
@@ -1544,6 +1596,10 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
                             static_cast<char>(opcode) : '.') << "')"
                 << " at PC=" << std::dec << cpu.get_pc() << std::endl;
             running = false;
+            Config::error_count++;
+            throw CPUException("Invalid opcode: 0x" + 
+                             fmt::format("{:02X}", static_cast<int>(opcode)) +
+                             " at PC=" + std::to_string(cpu.get_pc()));
             break;
     }
 }
