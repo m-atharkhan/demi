@@ -1,0 +1,202 @@
+# Test Suite Command-Line Flags
+
+## Overview
+
+DemiEngine now supports granular test execution with specific flags to run different test suites independently. This makes it easier to focus on specific types of tests during development.
+
+## Available Test Flags
+
+### Run All Tests
+```bash
+./bin/demi-engine --test
+# or
+./bin/demi-engine -t
+```
+
+Runs all test suites in order:
+1. Unit tests (C++ test framework)
+2. In-assembly tests (validation)
+3. Integration tests (.hex files)
+
+**Use when:** You want comprehensive testing before committing changes.
+
+---
+
+### Run Unit Tests Only
+```bash
+./bin/demi-engine --unit-test
+# or
+./bin/demi-engine -ut
+```
+
+Runs only the C++ unit tests (79 tests).
+
+**Features tested:**
+- Assembler functionality
+- Parser operations
+- CPU instruction validation
+- Memory bounds checking
+- Error handling
+- Negative test cases
+
+**Use when:** 
+- Testing core assembler/parser changes
+- Quick feedback on code changes
+- CI/CD pipelines (fastest test suite)
+
+**Average runtime:** ~1-2 seconds
+
+---
+
+### Run Integration Tests Only
+```bash
+./bin/demi-engine --integration-test
+# or
+./bin/demi-engine -it
+```
+
+Runs only the integration tests (42 .hex file tests).
+
+**Features tested:**
+- End-to-end program execution
+- CPU instruction implementation
+- Device I/O
+- Complex program flows
+- Real-world scenarios
+
+**Use when:**
+- Testing CPU instruction changes
+- Verifying device implementations
+- Testing complete programs
+- Regression testing
+
+**Average runtime:** ~2-3 seconds
+
+---
+
+### Run In-Assembly Tests Only
+```bash
+./bin/demi-engine --assembly-test
+# or
+./bin/demi-engine -at
+```
+
+Runs only the in-assembly test validation (61 tests across 10 files).
+
+**Features tested:**
+- Test syntax parsing
+- Test structure validation
+- Assertion parsing
+- Complex test scenarios
+
+**Use when:**
+- Testing #test/#assert directive parsing
+- Validating test file structure
+- Quick feedback on assembly test files
+- Developing new test cases
+
+**Average runtime:** ~1 second
+
+---
+
+## Usage Examples
+
+### Quick Unit Test During Development
+```bash
+# Make a change to assembler
+vim src/assembler/assembler.cpp
+
+# Quick validation
+./bin/demi-engine -ut
+```
+
+### Test Integration After CPU Changes
+```bash
+# Modify CPU instruction
+vim src/engine/opcodes/opcodes_consolidated.cpp
+
+# Test with integration suite
+./bin/demi-engine -it
+```
+
+### Validate New Assembly Test Files
+```bash
+# Create new test
+vim tests/asm/my_new_test.asm
+
+# Validate structure
+./bin/demi-engine -at
+```
+
+### Full Testing Before Commit
+```bash
+# Run everything
+./bin/demi-engine -t
+```
+
+## Test Suite Comparison
+
+| Flag | Tests | Runtime | Best For |
+|------|-------|---------|----------|
+| `-t` / `--test` | All (182) | ~5-7s | Pre-commit, releases |
+| `-ut` / `--unit-test` | 79 | ~1-2s | Rapid iteration, CI |
+| `-it` / `--integration-test` | 42 | ~2-3s | CPU/device changes |
+| `-at` / `--assembly-test` | 61 | ~1s | Test file validation |
+
+## Exit Codes
+
+All test flags exit with:
+- `0` - All tests passed
+- `1` - One or more tests failed (for unit/integration tests)
+- `0` - Validation complete (for assembly tests, which only validate structure)
+
+## CI/CD Integration
+
+### GitHub Actions Example
+```yaml
+- name: Run Unit Tests
+  run: ./bin/demi-engine --unit-test
+
+- name: Run Integration Tests
+  run: ./bin/demi-engine --integration-test
+
+- name: Run Assembly Test Validation
+  run: ./bin/demi-engine --assembly-test
+```
+
+### Makefile Integration
+```makefile
+test: build
+	./bin/demi-engine --test
+
+test-unit: build
+	./bin/demi-engine --unit-test
+
+test-integration: build
+	./bin/demi-engine --integration-test
+
+test-assembly: build
+	./bin/demi-engine --assembly-test
+
+.PHONY: test test-unit test-integration test-assembly
+```
+
+## Tips
+
+1. **Fastest Feedback Loop**: Use `-ut` during active development
+2. **CPU Changes**: Always run `-it` after modifying CPU instructions
+3. **Assembly Files**: Use `-at` to quickly validate test syntax
+4. **Before Push**: Run full `-t` to ensure everything passes
+
+## Future Enhancements
+
+- `--test-filter <pattern>` - Run specific test names matching pattern
+- `--test-category <name>` - Run tests from specific category
+- `--test-parallel` - Parallel test execution
+- `--test-verbose` - Detailed test output
+- Assembly test execution (currently only validates structure)
+
+---
+
+**Last Updated:** October 3, 2025
+**Version:** DemiEngine 1.0
