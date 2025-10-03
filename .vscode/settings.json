@@ -92,6 +92,9 @@
     "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
     "C_Cpp.default.cppStandard": "c++17",
     "C_Cpp.default.compilerPath": "/usr/bin/g++",
+    "C_Cpp.errorSquiggles": "enabled",
+    "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.intelliSenseEngineFallback": "enabled",
     "cmake.sourceDirectory": "/mnt/e/VirtComp/extern/fmt",
     "cSpell.words": [
         "glfw",
@@ -100,5 +103,13 @@
         "opengl",
         "ramdisk"
     ],
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/workspaces/demi/bin",
+            "binaryPath": "/workspaces/demi/bin/demi-engine",
+            "binaryArgs": []
+        }
+    ],
+    "makefile.buildLog": "build/log.txt"
 }

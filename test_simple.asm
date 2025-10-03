@@ -1,0 +1,5 @@
+; Simple test
+LOAD_IMM R0, 5
+LOAD_IMM R1, 10
+ADD R0, R1
+HALT
