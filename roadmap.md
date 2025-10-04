@@ -296,6 +296,196 @@ eigenvals = λ(A)  # Custom eigenvalue function
 - ✅ Comparison: CMP, MODECMP
 - ✅ System: NOP, HALT, DB, MODE32, MODE64
 
+### 🎯 **ENHANCED ASSEMBLY LANGUAGE FEATURES**
+
+**Assembly Language Enhancement Roadmap:**
+
+#### 📋 **Phase A1: Core Assembly Language Extensions**
+
+**🔧 Macro System for Code Reusability** (#6)
+```asm
+; Macro definitions with parameters
+.macro PRINT_MESSAGE msg, newline=1
+    LOAD_IMM R0, \msg
+    OUT 0x01, R0
+    .if \newline
+        LOAD_IMM R0, 0x0A
+        OUT 0x01, R0
+    .endif
+.endmacro
+
+; Usage
+PRINT_MESSAGE "Hello World", 1
+PRINT_MESSAGE "No newline", 0
+```
+
+**🔀 Conditional Assembly Directives** (#7)
+```asm
+; Conditional compilation
+.ifdef DEBUG
+    .define LOG_LEVEL 3
+    .include "debug_macros.inc"
+.else
+    .define LOG_LEVEL 0
+.endif
+
+.if TARGET_ARCH == "x86_64"
+    ; x86-64 specific code
+    MOV RAX, 0x123456789ABCDEF
+.elif TARGET_ARCH == "arm64"
+    ; ARM64 specific code
+    MOV X0, 0x123456789ABCDEF
+.endif
+```
+
+**📊 Advanced Data Definition** (#8)
+```asm
+; Struct definitions
+.struct Point
+    x: .dword
+    y: .dword
+.endstruct
+
+; Enum definitions
+.enum Status
+    SUCCESS = 0
+    ERROR = 1
+    PENDING = 2
+.endenum
+
+; Array support with bounds checking
+.array buffer, 256, byte    ; 256-byte array
+.array matrix, 10, 10, dword ; 10x10 matrix
+```
+
+**🔧 User-Defined Instructions** (#9)
+```asm
+; Custom instruction definitions
+.define INC_AND_MOV reg1, reg2
+    INC \reg1
+    MOV \reg2, \reg1
+.enddefine
+
+.define SAFE_DIV dividend, divisor, result
+    CMP \divisor, 0
+    JZ div_by_zero_error
+    DIV \dividend, \divisor
+    MOV \result, \dividend
+.enddefine
+
+; Usage
+INC_AND_MOV R1, R2
+SAFE_DIV R3, R4, R5
+```
+
+**🏷️ Register Aliases** (#15)
+```asm
+; Register aliasing for improved readability
+.alias Accumulator R0
+.alias Counter R1
+.alias BasePtr R2
+.alias StackPtr R3
+
+; Usage with aliases
+MOV Accumulator, 42
+INC Counter
+LOAD BasePtr, [StackPtr + 8]
+```
+
+#### 📋 **Phase A2: Enhanced Control Flow** (#10)
+
+**🔄 Enhanced Control Flow Features**
+```asm
+; High-level loop constructs
+.loop 10                    ; Loop 10 times
+    MOV R0, R1
+    INC R1
+.endloop
+
+.while R0 != 0              ; While condition
+    DEC R0
+    CALL process_item
+.endwhile
+
+.for R1, 0, 10              ; For loop: R1 from 0 to 10
+    ADD R0, R1
+.endfor
+
+; Advanced conditionals with expressions
+.if R0 == 42 && R1 > 0
+    CALL success_handler
+.elif R0 < 0 || R1 == 0
+    CALL error_handler
+.else
+    CALL default_handler
+.endif
+```
+
+#### 📋 **Phase A3: Scoped Labels & Namespaces** (#12)
+
+**🏷️ Scoped Labels and Namespaces**
+```asm
+; Local scope labels
+function_name:
+    .local_label_1:
+        MOV R0, 1
+        JMP .local_label_2
+    .local_label_2:
+        RET
+
+; Namespace system
+.namespace math_lib
+    sqrt:
+        ; Square root implementation
+        RET
+    
+    pow:
+        ; Power function implementation
+        RET
+.endnamespace
+
+; Usage with qualified names
+CALL math_lib::sqrt
+CALL math_lib::pow
+```
+
+#### 📋 **Phase A4: Advanced Assembly Features**
+
+**📊 Inline Data Support** (#13)
+```asm
+; Inline hex and binary data
+.data
+    hex_data: .hex "48656C6C6F20576F726C64"  ; "Hello World" in hex
+    bin_data: .bin "0100100001100101011011000110110001101111"
+    mixed_data: .db 0x48, 0x65, 0x6C, 0x6C, 0x6F
+
+; String with embedded data
+message: .string "Status: ", .hex "4F4B", .string "\n"
+```
+
+**🐛 Debug Directives** (#16)
+```asm
+; Debugging directives
+.debug_start "main_function"
+main:
+    .debug_info "Entering main function"
+    LOAD_IMM R0, 42
+    
+    .debug_breakpoint           ; Debugger breakpoint
+    ADD R0, 1
+    
+    .debug_watch R0             ; Watch register R0
+    CALL subroutine
+    
+    .debug_end "main_function"
+    RET
+
+; Conditional debugging
+.ifdef DEBUG_MEMORY
+    .debug_memory_dump 0x1000, 256
+.endif
+```
+
 ### 🚀 Phase 2A: SIMD/Vector Operations (26 opcodes) - **HIGH PRIORITY**
 
 **Goal**: Enable vectorized computation for performance-critical applications
@@ -322,6 +512,25 @@ Scalar Single-Precision:
 
 Comparison:
 - CMPPS                    # Packed comparison with predicates
+```
+
+**🎯 SIMD Performance Benchmarks** (#1)
+When SIMD is implemented, comprehensive benchmarks will validate vectorized performance:
+```asm
+; SIMD vs Scalar Performance Testing
+.test "simd_performance"
+    ; Scalar addition benchmark
+    .loop 1000
+        ADD R0, R1
+    .endloop
+    
+    ; SIMD packed addition benchmark  
+    .loop 250                ; 4x fewer iterations for 4x data
+        ADDPS XMM0, XMM1     ; Process 4 floats simultaneously
+    .endloop
+    
+    ; Validate performance improvement
+    .assert_performance_gain 3.5  ; Expect ~3.5x speedup
 ```
 
 **x86-64 Mapping**: Direct 1:1 mapping to native SSE instructions
@@ -357,6 +566,20 @@ Mathematical Functions:
 
 Constants:
 - FLDZ, FLD1, FLDPI        # Load common constants (0, 1, π)
+```
+
+**🎯 Type System Foundation** (#18)
+FPU implementation provides the foundation for advanced type system:
+```asm
+; Type annotations in assembly
+.type float32 single_var
+.type float64 double_var
+.type int32 integer_var
+
+; Type-safe operations
+FLDS single_var          ; Load single-precision
+FLDL double_var          ; Load double-precision
+FADD                     ; Type-checked addition
 ```
 
 **x86-64 Mapping**: Direct mapping to x87 FPU instructions
@@ -509,6 +732,72 @@ Comparison:
 - **Then** build Demi high-level language frontend
 
 ---
+
+---
+
+## 🆕 **NEW FEATURE ROADMAP INTEGRATION**
+
+### 📋 **Complete Feature List with Implementation Timeline**
+
+The following 20 features have been integrated into the existing roadmap across appropriate development stages:
+
+#### 🔥 **Phase 1: Assembly Language Extensions** *(Q1-Q2 2026)*
+- **#6 - Macro System** → Integrated into Assembly Language Enhancement Phase A1
+- **#7 - Conditional Assembly** → Integrated into Assembly Language Enhancement Phase A1  
+- **#8 - Advanced Data Structures** → Integrated into Assembly Language Enhancement Phase A1
+- **#9 - User-Defined Instructions** → Integrated into Assembly Language Enhancement Phase A1
+- **#10 - Enhanced Control Flow** → Integrated into Assembly Language Enhancement Phase A2
+- **#12 - Scoped Labels & Namespaces** → Integrated into Assembly Language Enhancement Phase A3
+- **#13 - Inline Data Support** → Integrated into Assembly Language Enhancement Phase A4
+- **#15 - Register Aliases** → Integrated into Assembly Language Enhancement Phase A1
+- **#16 - Debug Directives** → Integrated into Assembly Language Enhancement Phase A4
+
+#### ⚡ **Phase 2: Core Infrastructure** *(Q2-Q3 2026)*
+- **#1 - SIMD Performance Benchmarks** → Integrated into Phase 2A SIMD Implementation
+- **#4 - Enhanced Error Handling** → Integrated into Stage 5 Custom Linker
+- **#11 - Interrupt System** → Integrated into Stage 5 Custom Linker  
+- **#14 - Memory-Mapped Devices** → Integrated into Stage 5 Custom Linker
+- **#18 - Type System** → Foundation integrated into Phase 2B FPU Implementation
+
+#### 🚀 **Phase 3: High-Level Language Features** *(Q4 2026 - Q1 2027)*
+- **#17 - Performance & Profiling** → Integrated into Stage 6 Demi Language
+- **#19 - Parallelism** → Integrated into Stage 6 Demi Language
+- **#20 - Program Metadata** → Integrated into Stage 6 Demi Language
+
+#### 🛠️ **Phase 4: Advanced Tooling** *(Q1-Q2 2027)*
+- **#2 - Development Tool Enhancements** → Integrated into Stage 7 Unified Toolchain
+- **#3 - Portal System** → Integrated into Stage 7 Unified Toolchain
+- **#5 - Website Configuration Platform** → Integrated into Stage 7 Unified Toolchain
+
+### 🎯 **Implementation Priority Matrix**
+
+| Priority | Features | Timeline | Dependencies |
+|----------|----------|----------|--------------|
+| **CRITICAL** | #6, #7, #8, #9, #15 (Assembly Core) | Q1 2026 | Current VirtComp Complete |
+| **HIGH** | #1, #10, #12, #13, #16, #18 (Enhanced Assembly) | Q1-Q2 2026 | Assembly Core Complete |
+| **MEDIUM** | #4, #11, #14 (Infrastructure) | Q2-Q3 2026 | Assembly Expansion Complete |
+| **IMPORTANT** | #17, #19, #20 (Language Features) | Q4 2026-Q1 2027 | Native Codegen Complete |
+| **ENHANCEMENT** | #2, #3, #5 (Advanced Tools) | Q1-Q2 2027 | Demi Language Complete |
+
+### 💡 **Feature Integration Strategy**
+
+**Incremental Implementation Approach:**
+1. **Foundation First**: Assembly language enhancements build the foundation
+2. **Infrastructure Next**: Error handling, interrupts, and device integration
+3. **Language Features**: High-level features built on solid foundation
+4. **Advanced Tooling**: Final polish with developer experience enhancements
+
+**Cross-Feature Synergies:**
+- **Type System (#18)** + **FPU Operations** = Type-safe floating-point arithmetic
+- **Performance Metrics (#17)** + **SIMD Benchmarks (#1)** = Comprehensive performance validation
+- **Portal System (#3)** + **Debug Directives (#16)** = Advanced testing and debugging
+- **Error Codes (#4)** + **Website Platform (#5)** = Enhanced developer experience
+
+**Quality Assurance:**
+- Each feature includes comprehensive test coverage
+- Documentation requirements integrated with feature development
+- Performance benchmarks validate improvements
+- Community feedback incorporated at key milestones
 
 ## 🚀 **CUSTOM DUAL-MODE TOOLCHAIN ROADMAP**
 
@@ -998,6 +1287,98 @@ demi -L main.dl --shared -o libmycode.so   # Create shared library
 demi -L main.dl --format elf64 -o myapp    # Specify output format
 ```
 
+**🎯 Enhanced Error Handling with Error Codes** (#4)
+```cpp
+// Enhanced error handling system
+enum class DemiErrorCode {
+    // Linking errors (4000-4999)
+    UNDEFINED_SYMBOL = 4001,
+    DUPLICATE_SYMBOL = 4002,
+    INCOMPATIBLE_OBJECT = 4003,
+    MISSING_LIBRARY = 4004,
+    
+    // Assembly errors (3000-3999)
+    SYNTAX_ERROR = 3001,
+    UNDEFINED_LABEL = 3002,
+    INVALID_OPCODE = 3003,
+    TYPE_MISMATCH = 3004,
+    
+    // Runtime errors (2000-2999)
+    DIVISION_BY_ZERO = 2001,
+    STACK_OVERFLOW = 2002,
+    INVALID_MEMORY_ACCESS = 2003,
+    DEVICE_IO_ERROR = 2004
+};
+
+class DemiError {
+    DemiErrorCode code;
+    std::string message;
+    std::string file;
+    int line;
+    std::string documentation_url;
+    
+    std::string getErrorCodeReference() {
+        return fmt::format("See documentation: https://demi-lang.org/errors/{}", 
+                          static_cast<int>(code));
+    }
+};
+```
+
+**🎯 Memory-Mapped Devices** (#14)
+```cpp
+// Memory-mapped device integration
+class MemoryMappedDevice {
+    virtual void map_to_address(uint64_t base_address, size_t size) = 0;
+    virtual uint64_t read(uint64_t offset, size_t bytes) = 0;
+    virtual void write(uint64_t offset, uint64_t value, size_t bytes) = 0;
+};
+
+// GPIO device example
+class GPIODevice : public MemoryMappedDevice {
+    void map_to_address(uint64_t base, size_t size) override {
+        // Map GPIO registers to memory range
+        memory_base = base;
+        register_size = size;
+    }
+    
+    uint64_t read(uint64_t offset, size_t bytes) override {
+        // Read from GPIO pins/registers
+        return gpio_state[offset];
+    }
+    
+    void write(uint64_t offset, uint64_t value, size_t bytes) override {
+        // Write to GPIO pins/registers
+        gpio_state[offset] = value;
+        update_hardware_pins();
+    }
+};
+```
+
+**🎯 Interrupt System Support** (#11)
+```asm
+; Interrupt handler definitions
+.interrupt TIMER_INT, timer_handler
+.interrupt KEYBOARD_INT, keyboard_handler
+.interrupt NETWORK_INT, network_handler
+
+timer_handler:
+    PUSH_ALL                    ; Save all registers
+    ; Handle timer interrupt
+    CALL update_system_time
+    POP_ALL                     ; Restore registers
+    IRET                        ; Return from interrupt
+
+keyboard_handler:
+    PUSH_ALL
+    IN AL, KEYBOARD_PORT        ; Read keyboard data
+    CALL process_keypress
+    POP_ALL
+    IRET
+
+; Software interrupts
+SYSCALL_INTERRUPT 0x80, system_call_handler
+```
+
 **🎯 Output Format Support**
 ```cpp
 // Multi-platform executable formats
@@ -1098,6 +1479,94 @@ demi run hello.dem                        # Interpret for rapid development
 demi run hello.dem --config custom.toml   # Custom language dialect
 ```
 
+**🎯 Parallelism Support** (#19)
+```demi
+// Built-in parallelism primitives
+parallel {
+    task1: compute_matrix_a(),
+    task2: compute_matrix_b(),
+    task3: compute_vector_c()
+}
+
+// Data parallel operations
+array.parallel_map(|x| x * 2)
+matrix.parallel_reduce(|acc, row| acc + row.sum())
+
+// Actor-based concurrency
+actor Worker {
+    fn process(data: Data) -> Result {
+        // Process data asynchronously
+    }
+}
+
+// Fork-join parallelism
+let result = parallel_for(0..1000) |i| {
+    expensive_computation(i)
+}.reduce(|a, b| a + b)
+```
+
+**🎯 Built-in Performance and Profiling Metrics** (#17)
+```demi
+// Performance annotations
+@profile
+@benchmark(iterations=1000)
+fn critical_path(data: &mut Data) {
+    // Function is automatically profiled
+    data.process();
+}
+
+// Built-in timing
+let timing = time_it! {
+    expensive_operation();
+};
+println!("Operation took: {}ms", timing.milliseconds());
+
+// Memory profiling
+@memory_profile
+fn memory_intensive() {
+    let large_array = vec![0; 1_000_000];
+    // Memory usage tracked automatically
+}
+
+// Performance assertions
+@assert_performance(max_time_ms=100, max_memory_mb=50)
+fn performance_critical() {
+    // Compile-time performance verification
+}
+```
+
+**🎯 Program Metadata** (#20)
+```demi
+// Program metadata annotations
+@metadata {
+    name: "Data Processing Pipeline",
+    version: "2.1.0",
+    author: "Engineering Team",
+    description: "High-performance data transformation engine",
+    license: "MIT",
+    build_date: compile_time!(),
+    target_architecture: "x86_64",
+    optimization_level: "aggressive",
+    dependencies: ["demi_io", "demi_math", "demi_parallel"]
+}
+
+// Build information metadata
+@build_info {
+    compiler_version: demi_version!(),
+    build_flags: build_flags!(),
+    git_commit: git_hash!(),
+    build_timestamp: build_time!()
+}
+
+// Performance characteristics metadata
+@performance_profile {
+    expected_memory_usage: "< 100MB",
+    expected_cpu_usage: "< 80%",
+    threading_model: "data_parallel",
+    simd_optimized: true
+}
+```
+
 **🎯 Implementation Phases**
 
 **Phase 1: Core Language (4-6 weeks)**
@@ -1151,6 +1620,66 @@ demi -A code.dasm --format elf64   # Specify object format
 demi -L obj1.dl obj2.dl -o app     # Link object files
 demi -L main.dl -l stdlib -o app   # Link with libraries
 demi --create-lib -o mylib.dl *.dl # Create static library
+```
+
+**🎯 Development Tool Enhancements** (#2)
+```bash
+# Advanced debugging (GDB-like interface)
+demi debug myapp                   # Start interactive debugger
+demi debug myapp --script debug.cmd # Run debugging script
+
+# Debugger commands (GDB-compatible)
+(demi-gdb) break main             # Set breakpoint at main function
+(demi-gdb) run arg1 arg2          # Run program with arguments
+(demi-gdb) step                   # Step into function calls
+(demi-gdb) next                   # Step over function calls
+(demi-gdb) continue               # Continue execution
+(demi-gdb) backtrace              # Show call stack
+(demi-gdb) print variable         # Print variable value
+(demi-gdb) watch expression       # Watch expression changes
+(demi-gdb) info registers         # Show register contents
+(demi-gdb) disassemble            # Show assembly code
+```
+
+**🎯 Website Configuration Platform** (#5)
+```bash
+# Official website integration
+demi config generate              # Generate config via web interface
+demi config validate             # Validate current configuration
+demi config optimize             # AI-powered config optimization
+
+# Web platform features:
+# - Checkbox-driven customization interface
+# - AI-powered configuration assistant
+# - Community-shared configurations
+# - Interactive documentation with examples
+```
+
+**🎯 Portal System for Enhanced Testing** (#3)
+```demi
+// Portal system for cross-virtual CPU access
+fn main() {
+    let shared_data = [1, 2, 3, 4, 5];
+    save_to_portal("test_data", shared_data);
+}
+
+#test "testing portals" {
+    // Access code and data outside the test virtual CPU
+    let data = load_from_portal!("test_data");
+    call_external!{main};  // Call main function from outside context
+    
+    // Portal allows access to memory addresses outside test
+    let external_memory = portal_memory!(0x1000, 256);
+    assert_mem external_memory[0], 42;
+}
+
+// Portal security and validation
+#portal_config {
+    allow_external_calls: true,
+    allow_memory_access: true,
+    sandbox_level: "medium",
+    max_portal_size: 1024
+}
 ```
 
 **🎯 Intelligent Workflow Management**
