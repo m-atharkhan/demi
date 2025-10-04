@@ -170,12 +170,11 @@ void run_in_assembly_tests() {
         }
     }
     
-    // Also include example files
-    test_files.push_back("examples/test_example.asm");
-    test_files.push_back("examples/test_with_metadata.asm");
+    // Note: Removed examples files from default -at execution
+    // To include examples, run with specific file path: ./bin/demi-engine -at examples/test_example.asm
     
     if (test_files.empty()) {
-        fmt::print("\nNo in-assembly test files found.\n");
+        fmt::print("\nNo in-assembly test files found in tests/asm/.\n");
         return;
     }
     
@@ -200,7 +199,7 @@ void run_in_assembly_tests() {
     
     // Print consolidated results
     if (all_results.empty()) {
-        fmt::print("\nNo in-assembly tests found.\n");
+        fmt::print("\nNo in-assembly tests found in tests/asm/.\n");
     } else {
         executor.print_results(all_results);
     }
