@@ -71,6 +71,30 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         CPU cpu(256);  // Use small memory size so out-of-bounds tests work correctly
         output_capture.clear();
         
+        // Print test metadata right after CPU initialization
+        if (!Config::quiet_assembly_test) {
+            if (!result.test_name.empty()) {
+                Logger::instance().info() << fmt::format("Test: {}", result.test_name) << std::endl;
+            }
+            if (!result.description.empty()) {
+                Logger::instance().info() << fmt::format("  Description: {}", result.description) << std::endl;
+            }
+            if (!result.author.empty()) {
+                Logger::instance().info() << fmt::format("  Author: {}", result.author) << std::endl;
+            }
+            if (!result.category.empty()) {
+                Logger::instance().info() << fmt::format("  Category: {}", result.category) << std::endl;
+            }
+            if (!result.tags.empty()) {
+                std::string tags_str = "  Tags: ";
+                for (size_t i = 0; i < result.tags.size(); ++i) {
+                    if (i > 0) tags_str += ", ";
+                    tags_str += result.tags[i];
+                }
+                Logger::instance().info() << tags_str << std::endl;
+            }
+        }
+        
         // Assemble test code (main program + test body)
         std::vector<uint8_t> bytecode = assemble_test_code(test_case.body);
         
@@ -139,6 +163,31 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
     
     auto end_time = std::chrono::high_resolution_clock::now();
     result.execution_time_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+    
+    // Print test completion status immediately after execution
+    if (!Config::quiet_assembly_test) {
+        if (result.passed) {
+            Logger::instance().info() << "\033[32m✓ Test completed successfully\033[0m" << std::endl;
+        } else {
+            Logger::instance().error() << "\033[31m✗ Test failed\033[0m" << std::endl;
+            
+            if (!result.error_message.empty()) {
+                Logger::instance().error() << fmt::format("  Error: {}", result.error_message) << std::endl;
+            }
+            
+            // Print failed assertions
+            for (const auto& assertion : result.assertions) {
+                if (!assertion.passed) {
+                    Logger::instance().error() << fmt::format(
+                        "  {} at line {}: {}",
+                        assertion.assertion_type,
+                        assertion.line,
+                        assertion.message
+                    ) << std::endl;
+                }
+            }
+        }
+    }
     
     return result;
 }
@@ -346,79 +395,19 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
         total_assertions += result.assertions.size();
         passed_assertions += result.get_passed_count();
         
-        // Print individual test result
-        if (result.passed) {
-            if (!Config::quiet_assembly_test) {
-                Logger::instance().info() << fmt::format("\033[32m✓\033[0m {}", result.test_name) << std::endl;
-            } else {
+        // For quiet mode, print simple test name and description
+        if (Config::quiet_assembly_test) {
+            if (result.passed) {
                 Logger::instance().info() << result.test_name << std::endl;
-            }
-        } else {
-            if (!Config::quiet_assembly_test) {
-                Logger::instance().error() << fmt::format("\033[31m✗\033[0m {}", result.test_name) << std::endl;
             } else {
                 Logger::instance().error() << result.test_name << std::endl;
             }
-            
-            if (!Config::quiet_assembly_test) {
-                if (!result.error_message.empty()) {
-                    Logger::instance().error() << fmt::format("  Error: {}", result.error_message) << std::endl;
-                }
-                
-                // Print failed assertions
-                for (const auto& assertion : result.assertions) {
-                    if (!assertion.passed) {
-                        Logger::instance().error() << fmt::format(
-                            "  {} at line {}: {}",
-                            assertion.assertion_type,
-                            assertion.line,
-                            assertion.message
-                        ) << std::endl;
-                    }
-                }
-            }
-        }
-        
-        // Print metadata if available (for both passed and failed tests)
-        if (!result.description.empty()) {
-            if (result.passed) {
-                if (Config::quiet_assembly_test) {
+            if (!result.description.empty()) {
+                if (result.passed) {
                     Logger::instance().info() << fmt::format("  {}", result.description) << std::endl;
                 } else {
-                    Logger::instance().info() << fmt::format("  \033[90mDescription:\033[0m {}", result.description) << std::endl;
-                }
-            } else {
-                if (Config::quiet_assembly_test) {
                     Logger::instance().error() << fmt::format("  {}", result.description) << std::endl;
-                } else {
-                    Logger::instance().error() << fmt::format("  \033[90mDescription:\033[0m {}", result.description) << std::endl;
                 }
-            }
-        }
-        if (!Config::quiet_assembly_test && !result.author.empty()) {
-            if (result.passed) {
-                Logger::instance().info() << fmt::format("  \033[90mAuthor:\033[0m {}", result.author) << std::endl;
-            } else {
-                Logger::instance().error() << fmt::format("  \033[90mAuthor:\033[0m {}", result.author) << std::endl;
-            }
-        }
-        if (!Config::quiet_assembly_test && !result.category.empty()) {
-            if (result.passed) {
-                Logger::instance().info() << fmt::format("  \033[90mCategory:\033[0m {}", result.category) << std::endl;
-            } else {
-                Logger::instance().error() << fmt::format("  \033[90mCategory:\033[0m {}", result.category) << std::endl;
-            }
-        }
-        if (!Config::quiet_assembly_test && !result.tags.empty()) {
-            std::string tags_str = fmt::format("  \033[90mTags:\033[0m ");
-            for (size_t i = 0; i < result.tags.size(); ++i) {
-                if (i > 0) tags_str += ", ";
-                tags_str += result.tags[i];
-            }
-            if (result.passed) {
-                Logger::instance().info() << tags_str << std::endl;
-            } else {
-                Logger::instance().error() << tags_str << std::endl;
             }
         }
     }
