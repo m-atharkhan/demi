@@ -20,6 +20,13 @@ using Logging::Logger;
 #include "db.hpp"
 #include "dec.hpp"
 #include "div.hpp"
+#include "fadd.hpp"
+#include "fild.hpp"
+#include "finit.hpp"
+#include "fistp.hpp"
+#include "fld.hpp"
+#include "fst.hpp"
+#include "fstp.hpp"
 #include "halt.hpp"
 #include "inb.hpp"
 #include "inc.hpp"
@@ -1586,6 +1593,29 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
         case Opcode::MODECMP:
             handle_modecmp(cpu, program, running);
+            break;
+
+        // FPU Operations
+        case Opcode::FLD:
+            handle_FLD(cpu, program, running);
+            break;
+        case Opcode::FST:
+            handle_FST(cpu, program, running);
+            break;
+        case Opcode::FSTP:
+            handle_FSTP(cpu, program, running);
+            break;
+        case Opcode::FILD:
+            handle_FILD(cpu, program, running);
+            break;
+        case Opcode::FISTP:
+            handle_FISTP(cpu, program, running);
+            break;
+        case Opcode::FADD:
+            handle_FADD(cpu, program, running);
+            break;
+        case Opcode::FINIT:
+            handle_FINIT(cpu, program, running);
             break;
 
         default:

@@ -431,6 +431,19 @@ public:
     uint32_t read_port_dword(uint8_t port) { return vhw::DeviceManager::instance().readPortDWord(port); }
     void write_port_dword(uint8_t port, uint32_t value) { vhw::DeviceManager::instance().writePortDWord(port, value); }
 
+    // FPU Stack Management Methods
+    void fpu_push(double value);
+    double fpu_pop();
+    double fpu_peek(uint8_t offset = 0) const;
+    void fpu_store(uint8_t offset, double value);
+    uint8_t get_fpu_stack_top() const { return fpu_stack_top; }
+    void set_fpu_stack_top(uint8_t top) { fpu_stack_top = top & 0x7; }
+    uint16_t get_fpu_control_word() const { return fpu_control_word; }
+    void set_fpu_control_word(uint16_t cw) { fpu_control_word = cw; }
+    uint16_t get_fpu_status_word() const { return fpu_status_word; }
+    void set_fpu_status_word(uint16_t sw) { fpu_status_word = sw; }
+    void fpu_init(); // Initialize FPU state
+
 private:
     // CPU operation mode (32-bit or 64-bit)
     CPUMode cpu_mode;
@@ -445,6 +458,12 @@ private:
     int arg_offset; // Offset for arguments
     mutable uint32_t last_accessed_addr = static_cast<uint32_t>(-1);
     uint32_t last_modified_addr = static_cast<uint32_t>(-1);
+
+    // FPU Stack Management
+    uint8_t fpu_stack_top = 0;        // Points to the top of the FPU stack (0-7)
+    uint16_t fpu_control_word = 0x037F; // Default FPU control word
+    uint16_t fpu_status_word = 0x0000;  // FPU status word
+    uint8_t fpu_tag_word = 0xFF;        // Tag word (all empty initially)
 
     // Internal register synchronization
     void sync_legacy_registers();
