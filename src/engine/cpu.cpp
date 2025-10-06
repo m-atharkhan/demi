@@ -492,3 +492,110 @@ std::string CPU::readPortString(uint8_t port, uint8_t maxLength) {
 void CPU::writePortString(uint8_t port, const std::string& str) {
     vhw::DeviceManager::instance().writePortString(port, str);
 }
+
+// FPU Stack Management Implementation
+void CPU::fpu_push(double value) {
+    // Convert double to x87 80-bit format (simplified implementation)
+    // For now, we'll store as 64-bit mantissa + 16-bit exponent/sign
+    
+    // Move stack top down (stack grows downward)
+    fpu_stack_top = (fpu_stack_top - 1) & 0x7;
+    
+    // Convert double to our internal representation
+    uint64_t mantissa;
+    uint64_t exponent_sign;
+    
+    if (value == 0.0) {
+        mantissa = 0;
+        exponent_sign = 0;
+    } else {
+        // Use IEEE 754 double as mantissa for now (simplified)
+        union { double d; uint64_t i; } converter;
+        converter.d = value;
+        mantissa = converter.i;
+        exponent_sign = 0; // Simplified - normally would extract IEEE 754 parts
+    }
+    
+    // Store in ST(0) position (current stack top)
+    Register st_reg = static_cast<Register>(static_cast<size_t>(Register::ST0) + fpu_stack_top * 2);
+    set_fpu_register(st_reg, mantissa, exponent_sign);
+    
+    // Update tag word to mark register as valid
+    fpu_tag_word &= ~(0x3 << (fpu_stack_top * 2)); // Clear tag bits
+    fpu_tag_word |= (0x0 << (fpu_stack_top * 2));  // Set as valid (00)
+}
+
+double CPU::fpu_pop() {
+    // Get value from ST(0)
+    double value = fpu_peek(0);
+    
+    // Mark register as empty
+    fpu_tag_word |= (0x3 << (fpu_stack_top * 2)); // Set as empty (11)
+    
+    // Move stack top up
+    fpu_stack_top = (fpu_stack_top + 1) & 0x7;
+    
+    return value;
+}
+
+double CPU::fpu_peek(uint8_t offset) const {
+    // Calculate actual register index
+    uint8_t reg_index = (fpu_stack_top + offset) & 0x7;
+    Register st_reg = static_cast<Register>(static_cast<size_t>(Register::ST0) + reg_index * 2);
+    
+    uint64_t mantissa, exponent_sign;
+    get_fpu_register(st_reg, mantissa, exponent_sign);
+    
+    // Convert back to double (simplified)
+    if (mantissa == 0 && exponent_sign == 0) {
+        return 0.0;
+    }
+    
+    union { double d; uint64_t i; } converter;
+    converter.i = mantissa;
+    return converter.d;
+}
+
+void CPU::fpu_store(uint8_t offset, double value) {
+    // Calculate actual register index
+    uint8_t reg_index = (fpu_stack_top + offset) & 0x7;
+    
+    // Convert double to our internal representation
+    uint64_t mantissa;
+    uint64_t exponent_sign;
+    
+    if (value == 0.0) {
+        mantissa = 0;
+        exponent_sign = 0;
+    } else {
+        union { double d; uint64_t i; } converter;
+        converter.d = value;
+        mantissa = converter.i;
+        exponent_sign = 0; // Simplified
+    }
+    
+    // Store in specified ST register
+    Register st_reg = static_cast<Register>(static_cast<size_t>(Register::ST0) + reg_index * 2);
+    set_fpu_register(st_reg, mantissa, exponent_sign);
+    
+    // Update tag word to mark register as valid
+    fpu_tag_word &= ~(0x3 << (reg_index * 2)); // Clear tag bits
+    fpu_tag_word |= (0x0 << (reg_index * 2));  // Set as valid (00)
+}
+
+void CPU::fpu_init() {
+    // Initialize FPU to default state
+    fpu_stack_top = 0;
+    fpu_control_word = 0x037F; // Default control word
+    fpu_status_word = 0x0000;  // Clear status
+    fpu_tag_word = 0xFFFF;     // All registers empty (changed from 0xFF to 0xFFFF for 16-bit)
+    
+    // Clear all FPU registers safely
+    for (int i = 0; i < 8; i++) {
+        Register st_reg = static_cast<Register>(static_cast<size_t>(Register::ST0) + i * 2);
+        // Use the safer approach by setting registers directly
+        set_register(st_reg, 0);  // mantissa part
+        Register meta_reg = static_cast<Register>(static_cast<size_t>(st_reg) + 1);
+        set_register(meta_reg, 0);  // exponent/sign part
+    }
+}

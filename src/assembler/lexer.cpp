@@ -106,6 +106,31 @@ void Lexer::init_tables() {
     mnemonics["MODE64"] = TokenType::MNEMONIC;
     mnemonics["MODECMP"] = TokenType::MNEMONIC;
     
+    // FPU Operations
+    mnemonics["FLD"] = TokenType::MNEMONIC;
+    mnemonics["FST"] = TokenType::MNEMONIC;
+    mnemonics["FSTP"] = TokenType::MNEMONIC;
+    mnemonics["FILD"] = TokenType::MNEMONIC;
+    mnemonics["FIST"] = TokenType::MNEMONIC;
+    mnemonics["FISTP"] = TokenType::MNEMONIC;
+    mnemonics["FADD"] = TokenType::MNEMONIC;
+    mnemonics["FSUB"] = TokenType::MNEMONIC;
+    mnemonics["FMUL"] = TokenType::MNEMONIC;
+    mnemonics["FDIV"] = TokenType::MNEMONIC;
+    mnemonics["FSIN"] = TokenType::MNEMONIC;
+    mnemonics["FCOS"] = TokenType::MNEMONIC;
+    mnemonics["FTAN"] = TokenType::MNEMONIC;
+    mnemonics["FSQRT"] = TokenType::MNEMONIC;
+    mnemonics["FABS"] = TokenType::MNEMONIC;
+    mnemonics["FCHS"] = TokenType::MNEMONIC;
+    mnemonics["FINIT"] = TokenType::MNEMONIC;
+    mnemonics["FLDZ"] = TokenType::MNEMONIC;
+    mnemonics["FLD1"] = TokenType::MNEMONIC;
+    mnemonics["FLDPI"] = TokenType::MNEMONIC;
+    mnemonics["FSTCW"] = TokenType::MNEMONIC;
+    mnemonics["FLDCW"] = TokenType::MNEMONIC;
+    mnemonics["FSTSW"] = TokenType::MNEMONIC;
+
     // Legacy 8-register names (R0-R7)
     for (int i = 0; i < 8; ++i) {
         registers["R" + std::to_string(i)] = TokenType::REGISTER;
