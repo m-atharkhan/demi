@@ -111,5 +111,7 @@
             "binaryArgs": []
         }
     ],
-    "makefile.buildLog": "build/log.txt"
+    "makefile.buildLog": "build/log.txt",
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": []
 }
