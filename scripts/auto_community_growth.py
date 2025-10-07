@@ -44,17 +44,25 @@ class AutoCommunityGrowth:
             print(f"Twitter API setup failed: {e}")
             self.twitter = None
         
-        # Reddit API setup (for script-type application)
-        try:
-            self.reddit = praw.Reddit(
-                client_id=os.getenv('REDDIT_CLIENT_ID'),
-                client_secret=os.getenv('REDDIT_CLIENT_SECRET'),
-                username=os.getenv('REDDIT_USERNAME'),
-                password=os.getenv('REDDIT_PASSWORD'),
-                user_agent='DemiEngine Community Bot v1.0 by /u/YOUR_USERNAME'
-            )
-        except Exception as e:
-            print(f"Reddit API setup failed: {e}")
+        # Reddit API setup (skip if credentials not available)
+        reddit_client_id = os.getenv('REDDIT_CLIENT_ID')
+        reddit_client_secret = os.getenv('REDDIT_CLIENT_SECRET')
+        
+        if reddit_client_id and reddit_client_secret and reddit_client_id.strip() and reddit_client_secret.strip():
+            try:
+                self.reddit = praw.Reddit(
+                    client_id=reddit_client_id,
+                    client_secret=reddit_client_secret,
+                    username=os.getenv('REDDIT_USERNAME'),
+                    password=os.getenv('REDDIT_PASSWORD'),
+                    user_agent='DemiEngine Community Bot v1.0 by /u/YOUR_USERNAME'
+                )
+                print("✅ Reddit API configured")
+            except Exception as e:
+                print(f"❌ Reddit API setup failed: {e}")
+                self.reddit = None
+        else:
+            print("⏭️  Skipping Reddit (no credentials configured - Twitter-only mode)")
             self.reddit = None
     
     def get_project_status(self):
