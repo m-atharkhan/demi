@@ -85,3 +85,11 @@ docs/project_pitch.txt
 # Backup files
 *.old.*
 .aider*
+
+# Test scripts and automation configs
+scripts/test_*.py
+scripts/check_*.py
+config/auto_growth_config.env
+
+# Automation test files
+test_*.py
