@@ -4,7 +4,6 @@ Enhanced Daily Post Generator for DemiEngine
 Creates varied, engaging content automatically every day
 """
 
-import openai
 import tweepy
 import praw
 import requests
@@ -15,18 +14,12 @@ from datetime import datetime, timedelta
 import os
 import subprocess
 
-# Try to import additional AI providers
+# Try to import Gemini AI provider
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
-
-try:
-    import anthropic
-    CLAUDE_AVAILABLE = True
-except ImportError:
-    CLAUDE_AVAILABLE = False
 
 class DailyPostGenerator:
     def __init__(self):
@@ -55,9 +48,6 @@ class DailyPostGenerator:
         """Setup Gemini AI provider only"""
         self.ai_providers = []
         
-        # Remove OpenAI - not using it anymore
-        self.openai_client = None
-        
         # Setup Gemini with free model
         if GEMINI_AVAILABLE:
             gemini_key = os.getenv('GEMINI_API_KEY')
@@ -77,9 +67,6 @@ class DailyPostGenerator:
         else:
             print("⚠️  google-generativeai package not available")
             self.gemini_model = None
-        
-        # Remove Claude setup - focusing on Gemini only
-        self.claude_client = None
         
         print(f"🤖 AI provider configured: {'Gemini (free)' if self.ai_providers else 'None (using fallback content)'}")
     
