@@ -1,5 +1,6 @@
 #include <iostream>
 #include <ios>
+#include <iomanip>
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -50,6 +51,7 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["JLE"] = static_cast<uint8_t>(Opcode::JLE);
     mnemonic_to_opcode["MUL"] = static_cast<uint8_t>(Opcode::MUL);
     mnemonic_to_opcode["DIV"] = static_cast<uint8_t>(Opcode::DIV);
+    mnemonic_to_opcode["MOD"] = static_cast<uint8_t>(Opcode::MOD);
     mnemonic_to_opcode["INC"] = static_cast<uint8_t>(Opcode::INC);
     mnemonic_to_opcode["DEC"] = static_cast<uint8_t>(Opcode::DEC);
     mnemonic_to_opcode["AND"] = static_cast<uint8_t>(Opcode::AND);
@@ -374,7 +376,8 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
     while (bytecode.size() < current_address) {
         bytecode.push_back(0);
     }
-    Logging::Logger::instance().debug() << "Emitting instruction '" << instruction.mnemonic << "' at current_address: 0x" << std::hex << current_address << std::dec << std::endl;
+    Logging::Logger::instance().debug() << "Emitting instruction '" << instruction.mnemonic << "' at address: 0x" 
+        << std::setw(4) << std::setfill('0') << std::hex << std::uppercase << current_address << std::dec << std::endl;
     uint8_t opcode = get_opcode(instruction.mnemonic);
     if (opcode == 0xFF && instruction.mnemonic != "HALT") {
         add_error("Unknown instruction: " + instruction.mnemonic, instruction.line, instruction.column);
@@ -453,8 +456,10 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
     } else if (instruction.mnemonic == "ADD" || instruction.mnemonic == "SUB" ||
                instruction.mnemonic == "MOV" || instruction.mnemonic == "CMP" ||
                instruction.mnemonic == "MUL" || instruction.mnemonic == "DIV" ||
-               instruction.mnemonic == "AND" || instruction.mnemonic == "OR" ||
-               instruction.mnemonic == "XOR" || instruction.mnemonic == "ADD64") {
+               instruction.mnemonic == "MOD" || instruction.mnemonic == "AND" ||
+               instruction.mnemonic == "OR" || instruction.mnemonic == "XOR" ||
+               instruction.mnemonic == "ADD64" || instruction.mnemonic == "SUB64" ||
+               instruction.mnemonic == "MOV64" || instruction.mnemonic == "MODECMP") {
         // Format: INSTRUCTION reg1, reg2
         if (instruction.operands.size() != 2) {
             add_error(instruction.mnemonic + " requires 2 operands", instruction.line, instruction.column);
@@ -469,6 +474,13 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                 return;
             }
         }
+    } else if (instruction.mnemonic == "MODE32" || instruction.mnemonic == "MODE64") {
+        // Format: MODE32 or MODE64 (no operands)
+        if (instruction.operands.size() != 0) {
+            add_error(instruction.mnemonic + " requires no operands", instruction.line, instruction.column);
+            return;
+        }
+        // Opcode already emitted above, no additional bytes needed
     } else if (instruction.mnemonic == "JMP" || instruction.mnemonic == "JZ" ||
                instruction.mnemonic == "JNZ" || instruction.mnemonic == "JS" ||
                instruction.mnemonic == "JNS" || instruction.mnemonic == "JC" ||
@@ -681,8 +693,8 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
         return 10; // opcode + register + 8-byte immediate
     } else if (mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "MOV" ||
                mnemonic == "CMP" || mnemonic == "MUL" || mnemonic == "DIV" ||
-               mnemonic == "AND" || mnemonic == "OR" || mnemonic == "XOR" ||
-               mnemonic == "ADD64") {
+               mnemonic == "MOD" || mnemonic == "AND" || mnemonic == "OR" ||
+               mnemonic == "XOR" || mnemonic == "ADD64") {
         return 3; // opcode + reg1 + reg2
     } else if (mnemonic == "JMP" || mnemonic == "JZ" || mnemonic == "JNZ" ||
                mnemonic == "JS" || mnemonic == "JNS" || mnemonic == "JC" ||

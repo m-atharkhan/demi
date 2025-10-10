@@ -298,6 +298,30 @@ void handle_div(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("DIV");
 }
 
+// Implementation for MOD
+void handle_mod(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 < program.size()) {
+        uint8_t reg1 = program[cpu.get_pc() + 1];
+        uint8_t reg2 = program[cpu.get_pc() + 2];
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MOD] PC={} R{} %= R{}", cpu.get_pc(), cpu.get_pc(), reg1, reg2) << std::endl;
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            if (cpu.get_registers()[reg2] == 0) {
+                std::string error_msg = fmt::format("[PC=0x{:04X}] [MOD] Invalid Modulo Division by zero at PC={}", cpu.get_pc(), cpu.get_pc());
+                Logger::instance().error() << error_msg << std::endl;
+                running = false;
+                throw CPUException(error_msg);
+            }
+            uint8_t before = cpu.get_registers()[reg1];
+            cpu.get_registers()[reg1] %= cpu.get_registers()[reg2];
+            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MOD] R{}: {} % {} = {}", cpu.get_pc(), reg1, before, cpu.get_registers()[reg2], cpu.get_registers()[reg1]) << std::endl;
+        }
+        cpu.set_pc(cpu.get_pc() + 3);
+    } else {
+        running = false;
+    }
+    cpu.print_state("MOD");
+}
+
 // Implementation from halt.cpp
 void handle_halt(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     Logger::instance().debug() << fmt::format(
@@ -633,6 +657,8 @@ void handle_load_imm(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
         Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM] PC=0x{:02X} reg={} imm=0x{:02X}", cpu.get_pc(), cpu.get_pc(), reg, imm) << std::endl;
         if (reg < cpu.get_registers().size()) {
             cpu.get_registers()[reg] = imm;
+            // Note: Don't call sync_from_legacy_registers() here as it would overwrite
+            // any values set via set_sp() or other non-legacy operations
             Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM] Set R{} = 0x{:02X}", cpu.get_pc(), reg, imm) << std::endl;
         }
         cpu.set_pc(cpu.get_pc() + 3);
@@ -944,8 +970,9 @@ void handle_pop_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& progr
 void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
-        cpu.get_registers()[reg] = cpu.read_mem32(cpu.get_sp());
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [POP] PC={} Popping to R{}={}", cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), cpu.get_registers()[reg]) << std::endl;
+        uint32_t value = cpu.read_mem32(cpu.get_sp());
+        cpu.get_registers()[reg] = value;
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [POP] PC={} Popping to R{}={}", cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), value) << std::endl;
         cpu.set_sp(cpu.get_sp() + 4);
         cpu.set_pc(cpu.get_pc() + 2);
     } else {
@@ -1419,6 +1446,9 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
         case Opcode::DIV:
             handle_div(cpu, program, running);
             break;
+        case Opcode::MOD:
+            handle_mod(cpu, program, running);
+            break;
         case Opcode::INC:
             handle_inc(cpu, program, running);
             break;
@@ -1707,16 +1737,99 @@ void handle_add64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
 
 // Implementation for SUB64 opcode - 64-bit subtraction
 void handle_sub64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [SUB64] 64-bit subtraction operation", cpu.get_pc()) << std::endl;
-    // Placeholder: delegate to regular SUB for now
-    handle_sub(cpu, program, running);
+    uint32_t pc = cpu.get_pc();
+
+    if (pc + 2 < program.size()) {
+        uint8_t reg1 = program[pc + 1];
+        uint8_t reg2 = program[pc + 2];
+
+        Logger::instance().debug() << fmt::format(
+            "[PC=0x{:04X}] [SUB64] Subtracting 64-bit registers R{} - R{}",
+            pc, reg1, reg2) << std::endl;
+
+        // Use 64-bit register access for extended registers
+        uint64_t value1 = cpu.get_register_64(static_cast<Register>(reg1));
+        uint64_t value2 = cpu.get_register_64(static_cast<Register>(reg2));
+        uint64_t result = value1 - value2;
+
+        // Update flags for 64-bit arithmetic
+        uint32_t flags = cpu.get_flags();
+
+        // Check for borrow (unsigned underflow)
+        if (value1 < value2) {
+            flags |= FLAG_CARRY;  // Carry flag indicates borrow
+        } else {
+            flags &= ~FLAG_CARRY;
+        }
+
+        // Check for signed overflow
+        bool sign1 = (value1 >> 63) & 1;
+        bool sign2 = (value2 >> 63) & 1;
+        bool signr = (result >> 63) & 1;
+        
+        // Overflow occurs when subtracting numbers of opposite signs produces wrong sign
+        if ((sign1 != sign2) && (sign1 != signr)) {
+            flags |= FLAG_OVERFLOW;
+        } else {
+            flags &= ~FLAG_OVERFLOW;
+        }
+
+        // Check for zero
+        if (result == 0) {
+            flags |= FLAG_ZERO;
+        } else {
+            flags &= ~FLAG_ZERO;
+        }
+
+        // Check for negative (using sign bit)
+        if (signr) {
+            flags |= FLAG_SIGN;
+        } else {
+            flags &= ~FLAG_SIGN;
+        }
+
+        // Update flags and register
+        cpu.set_flags(flags);
+        cpu.set_register_64(static_cast<Register>(reg1), result);
+
+        Logger::instance().debug() << fmt::format(
+            "[PC=0x{:04X}] [SUB64] Result: R{} = 0x{:016X} - 0x{:016X} = 0x{:016X}",
+            pc, reg1, value1, value2, result) << std::endl;
+
+        cpu.set_pc(pc + 3); // Advance past opcode and two register operands
+    } else {
+        running = false;
+    }
+
+    cpu.print_state("SUB64");
 }
 
 // Implementation for MOV64 opcode - 64-bit move
 void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MOV64] 64-bit move operation", cpu.get_pc()) << std::endl;
-    // Placeholder: delegate to regular MOV for now
-    handle_mov(cpu, program, running);
+    uint32_t pc = cpu.get_pc();
+
+    if (pc + 2 < program.size()) {
+        uint8_t dest_reg = program[pc + 1];
+        uint8_t src_reg = program[pc + 2];
+
+        Logger::instance().debug() << fmt::format(
+            "[PC=0x{:04X}] [MOV64] Moving 64-bit value from R{} to R{}",
+            pc, src_reg, dest_reg) << std::endl;
+
+        // Use 64-bit register access for extended registers
+        uint64_t value = cpu.get_register_64(static_cast<Register>(src_reg));
+        cpu.set_register_64(static_cast<Register>(dest_reg), value);
+
+        Logger::instance().debug() << fmt::format(
+            "[PC=0x{:04X}] [MOV64] Result: R{} = 0x{:016X}",
+            pc, dest_reg, value) << std::endl;
+
+        cpu.set_pc(pc + 3); // Advance past opcode and two register operands
+    } else {
+        running = false;
+    }
+
+    cpu.print_state("MOV64");
 }
 
 // Implementation for LOAD_IMM64 opcode - 64-bit immediate load
@@ -1731,7 +1844,7 @@ void handle_load_imm64(CPU& cpu, const std::vector<uint8_t>& program, bool& runn
             imm |= static_cast<uint64_t>(program[pc + 2 + i]) << (8 * i);
         }
         Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM64] reg={} imm=0x{:016X}", pc, reg, imm) << std::endl;
-        if (reg < cpu.get_registers().size()) {
+        if (reg < TOTAL_REGISTERS) {
             cpu.set_register_64(static_cast<Register>(reg), imm);
             Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM64] Set R{} = 0x{:016X}", pc, reg, imm) << std::endl;
         }
@@ -1760,7 +1873,95 @@ void handle_mode64(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
 
 // Implementation for MODECMP opcode - Mode-aware comparison
 void handle_modecmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MODECMP] Mode-aware comparison", cpu.get_pc()) << std::endl;
-    // Placeholder: delegate to regular CMP for now
-    handle_cmp(cpu, program, running);
+    uint32_t pc = cpu.get_pc();
+
+    if (pc + 2 < program.size()) {
+        uint8_t reg1 = program[pc + 1];
+        uint8_t reg2 = program[pc + 2];
+
+        // Get current CPU mode
+        CPUMode mode = cpu.get_cpu_mode();
+
+        Logger::instance().debug() << fmt::format(
+            "[PC=0x{:04X}] [MODECMP] Comparing R{} and R{} in {} mode",
+            pc, reg1, reg2, (mode == CPUMode::MODE_64BIT ? "64-bit" : "32-bit")) << std::endl;
+
+        uint32_t flags = cpu.get_flags();
+
+        if (mode == CPUMode::MODE_64BIT) {
+            // 64-bit comparison
+            uint64_t value1 = cpu.get_register_64(static_cast<Register>(reg1));
+            uint64_t value2 = cpu.get_register_64(static_cast<Register>(reg2));
+            
+            // Perform subtraction for comparison (don't store result)
+            uint64_t result = value1 - value2;
+
+            // Zero flag
+            if (result == 0) {
+                flags |= FLAG_ZERO;
+            } else {
+                flags &= ~FLAG_ZERO;
+            }
+
+            // Sign flag (bit 63 for 64-bit)
+            if ((result >> 63) & 1) {
+                flags |= FLAG_SIGN;
+            } else {
+                flags &= ~FLAG_SIGN;
+            }
+
+            // Carry flag (unsigned comparison: value1 < value2)
+            if (value1 < value2) {
+                flags |= FLAG_CARRY;
+            } else {
+                flags &= ~FLAG_CARRY;
+            }
+
+            Logger::instance().debug() << fmt::format(
+                "[PC=0x{:04X}] [MODECMP] 64-bit compare: 0x{:016X} vs 0x{:016X}",
+                pc, value1, value2) << std::endl;
+        } else {
+            // 32-bit comparison (MODE_32BIT or default)
+            // Use legacy registers for R0-R7 in 32-bit mode
+            uint32_t value1 = (reg1 < cpu.get_registers().size()) ? 
+                cpu.get_registers()[reg1] : static_cast<uint32_t>(cpu.get_register(static_cast<Register>(reg1)));
+            uint32_t value2 = (reg2 < cpu.get_registers().size()) ? 
+                cpu.get_registers()[reg2] : static_cast<uint32_t>(cpu.get_register(static_cast<Register>(reg2)));
+            
+            // Perform subtraction for comparison (don't store result)
+            uint32_t result = value1 - value2;
+
+            // Zero flag
+            if (result == 0) {
+                flags |= FLAG_ZERO;
+            } else {
+                flags &= ~FLAG_ZERO;
+            }
+
+            // Sign flag (bit 31 for 32-bit)
+            if ((result >> 31) & 1) {
+                flags |= FLAG_SIGN;
+            } else {
+                flags &= ~FLAG_SIGN;
+            }
+
+            // Carry flag (unsigned comparison: value1 < value2)
+            if (value1 < value2) {
+                flags |= FLAG_CARRY;
+            } else {
+                flags &= ~FLAG_CARRY;
+            }
+
+            Logger::instance().debug() << fmt::format(
+                "[PC=0x{:04X}] [MODECMP] 32-bit compare: 0x{:08X} vs 0x{:08X}",
+                pc, value1, value2) << std::endl;
+        }
+
+        cpu.set_flags(flags);
+        cpu.set_pc(pc + 3); // Advance past opcode and two register operands
+    } else {
+        running = false;
+    }
+
+    cpu.print_state("MODECMP");
 }

@@ -50,6 +50,7 @@ void Lexer::init_tables() {
     mnemonics["JLE"] = TokenType::MNEMONIC;
     mnemonics["MUL"] = TokenType::MNEMONIC;
     mnemonics["DIV"] = TokenType::MNEMONIC;
+    mnemonics["MOD"] = TokenType::MNEMONIC;
     mnemonics["INC"] = TokenType::MNEMONIC;
     mnemonics["DEC"] = TokenType::MNEMONIC;
     mnemonics["AND"] = TokenType::MNEMONIC;
@@ -86,6 +87,7 @@ void Lexer::init_tables() {
     mnemonics["LOAD_IMM64"] = TokenType::MNEMONIC;
     mnemonics["MUL64"] = TokenType::MNEMONIC;
     mnemonics["DIV64"] = TokenType::MNEMONIC;
+    mnemonics["MOD64"] = TokenType::MNEMONIC;
     mnemonics["INC64"] = TokenType::MNEMONIC;
     mnemonics["DEC64"] = TokenType::MNEMONIC;
     

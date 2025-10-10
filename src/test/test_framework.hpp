@@ -194,6 +194,15 @@ public:
         }
     }
 
+    void assert_register_64_eq(int reg, uint64_t expected) {
+        uint64_t actual = cpu.get_register_64(static_cast<Register>(reg));
+        if (actual != expected) {
+            throw AssertionFailure(fmt::format(
+                "Register R{} (64-bit) assertion failed: expected 0x{:016X}, got 0x{:016X}",
+                reg, expected, actual));
+        }
+    }
+
     void assert_register_ne(int reg, uint32_t unexpected) {
         uint32_t actual = get_register(reg);
         if (actual == unexpected) {
