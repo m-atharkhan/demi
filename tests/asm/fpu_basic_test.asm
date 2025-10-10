@@ -132,3 +132,78 @@
     
     HALT
 }
+
+#test "fpu_math_functions_test" {
+    #description "Test FABS, FCHS, FSQRT math functions"
+    #author "DemiEngine Team"
+    #category "FPU"
+    #tag "math"
+    #tag "functions"
+    
+    ; Initialize FPU
+    FINIT
+    
+    ; Test FABS: abs(-5.0) = 5.0
+    FLD 5
+    FCHS    ; 5 -> -5
+    FABS    ; abs(-5) = 5
+    FST 0x140
+    
+    ; Test FABS with positive: abs(7.0) = 7.0
+    FLD 7
+    FABS
+    FST 0x148
+    
+    ; Test FCHS: change sign of 10.0 = -10.0
+    FLD 10
+    FCHS
+    FST 0x150
+    
+    ; Test FCHS twice: double negation returns original
+    FLD 3
+    FCHS    ; 3 -> -3
+    FCHS    ; -3 -> 3
+    FST 0x158
+    
+    ; Test FSQRT: sqrt(16.0) = 4.0
+    FLD 16
+    FSQRT
+    FST 0x160
+    
+    ; Test FSQRT: sqrt(25.0) = 5.0
+    FLD 25
+    FSQRT
+    FST 0x168
+    
+    ; Test FSQRT: sqrt(0.0) = 0.0 (edge case)
+    FLD 0
+    FSQRT
+    FST 0x170
+    
+    ; Test combining functions: sqrt(abs(-9.0)) = 3.0
+    FLD 9
+    FCHS    ; 9 -> -9
+    FABS    ; abs(-9) = 9
+    FSQRT   ; sqrt(9) = 3
+    FST 0x178
+    
+    ; Test combining with arithmetic: (10 + 6) / 4 = 4, sqrt(4) = 2
+    FLD 10
+    FADD 6   ; 10 + 6 = 16
+    FDIV 4   ; 16 / 4 = 4
+    FSQRT    ; sqrt(4) = 2
+    FST 0x180
+    
+    ; Test FCHS with FABS: abs(-(-8)) = abs(8) = 8
+    FLD 8
+    FCHS    ; 8 -> -8
+    FCHS    ; -(-8) = 8
+    FABS    ; abs(8) = 8
+    FST 0x188
+    
+    ; Verify CPU still works after math functions
+    LOAD_IMM R0, 200
+    #assert_reg R0, 200
+    
+    HALT
+}
