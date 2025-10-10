@@ -21,12 +21,8 @@
     LOAD_IMM R6, 3
     LOAD_IMM R7, 4
     
-    ; Future SIMD instruction: VADD R0-R3, R4-R7
-    ; For now, simulate with sequential adds
-    ADD R0, R4  ; R0 = 11
-    ADD R1, R5  ; R1 = 22
-    ADD R2, R6  ; R2 = 33
-    ADD R3, R7  ; R3 = 44
+    ; SIMD instruction - will fail until implemented
+    VADD R0, R4
     
     #assert_reg R0, 11
     #assert_reg R1, 22
@@ -56,12 +52,8 @@
     LOAD_IMM R6, 10
     LOAD_IMM R7, 10
     
-    ; Future SIMD instruction: VMUL R0-R3, R4-R7
-    ; For now, simulate with sequential multiplies
-    MUL R0, R4  ; R0 = 20
-    MUL R1, R5  ; R1 = 30
-    MUL R2, R6  ; R2 = 40
-    MUL R3, R7  ; R3 = 50
+    ; SIMD instruction - will fail until implemented
+    VMUL R0, R4
     
     #assert_reg R0, 20
     #assert_reg R1, 30
@@ -91,18 +83,8 @@
     LOAD_IMM R6, 7
     LOAD_IMM R7, 8
     
-    ; Compute dot product: 1*5 + 2*6 + 3*7 + 4*8 = 5 + 12 + 21 + 32 = 70
-    ; Future: VDOT R0-R3, R4-R7 -> result in R0
-    
-    ; Manual simulation
-    MUL R0, R4  ; R0 = 5
-    MUL R1, R5  ; R1 = 12
-    MUL R2, R6  ; R2 = 21
-    MUL R3, R7  ; R3 = 32
-    
-    ADD R0, R1  ; R0 = 17
-    ADD R0, R2  ; R0 = 38
-    ADD R0, R3  ; R0 = 70
+    ; SIMD instruction - will fail until implemented
+    VDOT R0, R4
     
     #assert_reg R0, 70
     
@@ -123,28 +105,10 @@
     LOAD_IMM R2, 78
     LOAD_IMM R3, 23
     
-    ; Future: VMAX R0-R3 -> result in R0
+    ; SIMD instruction - will fail until implemented
+    VMAX R0
     
-    ; Manual simulation
-    LOAD_IMM R4, 0  ; Current max
-    
-    CMP R0, R4
-    ; JG update_max_0  ; TODO: Need greater-than jump
-    MOV R4, R0
-    
-    CMP R1, R4
-    ; JG update_max_1
-    ; MOV R4, R1
-    
-    CMP R2, R4
-    ; JG update_max_2
-    MOV R4, R2  ; 78 is max
-    
-    CMP R3, R4
-    ; JG update_max_3
-    ; MOV R4, R3
-    
-    #assert_reg R4, 78
+    #assert_reg R0, 78
     
     HALT
 }
@@ -159,13 +123,8 @@
     
     LOAD_IMM R0, 99
     
-    ; Future: VBROADCAST R0 -> R1-R4 (broadcast R0 to R1, R2, R3, R4)
-    
-    ; Manual simulation
-    MOV R1, R0
-    MOV R2, R0
-    MOV R3, R0
-    MOV R4, R0
+    ; SIMD instruction - will fail until implemented
+    VBROADCAST R0
     
     #assert_reg R1, 99
     #assert_reg R2, 99
@@ -195,12 +154,14 @@
     LOAD_IMM R6, 15
     LOAD_IMM R7, 15
     
-    ; Future: VCMPGT R0-R3, R4-R7 -> mask in R0-R3
-    ; Compare each element, result is 0 (false) or 1 (true)
+    ; SIMD instruction - will fail until implemented
+    VCMPGT R0, R4
     
-    ; Manual simulation
-    CMP R0, R4  ; 10 > 15? No
-    ; Result: [0, 1, 1, 1]
+    ; Expected result: [0, 1, 1, 1]
+    #assert_reg R0, 0
+    #assert_reg R1, 1
+    #assert_reg R2, 1
+    #assert_reg R3, 1
     
     HALT
 }
@@ -213,17 +174,17 @@
     #tag "bytes"
     #tag "future"
     
-    ; Future: Pack 4 bytes into one 32-bit register
-    ; R0 = [0x12, 0x34, 0x56, 0x78]
-    
-    ; For now, demonstrate concept with separate bytes
+    ; Load bytes: [0x12, 0x34, 0x56, 0x78]
     LOAD_IMM R0, 0x12
     LOAD_IMM R1, 0x34
     LOAD_IMM R2, 0x56
     LOAD_IMM R3, 0x78
     
-    ; Future: PACKB R4, R0-R3 (pack bytes into R4)
-    ; Future: UNPACKB R4 -> R0-R3 (unpack R4 into bytes)
+    ; SIMD instruction - will fail until implemented
+    PACKB R4, R0
+    
+    ; Unpack back
+    UNPACKB R4
     
     #assert_reg R0, 0x12
     #assert_reg R1, 0x34
