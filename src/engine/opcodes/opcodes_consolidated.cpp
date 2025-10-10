@@ -37,6 +37,12 @@ using Logging::Logger;
 #include "fsin.hpp"
 #include "fcos.hpp"
 #include "ftan.hpp"
+#include "fcompp.hpp"
+#include "fucompp.hpp"
+#include "fclex.hpp"
+#include "fstcw.hpp"
+#include "fldcw.hpp"
+#include "fstsw.hpp"
 #include "halt.hpp"
 #include "inb.hpp"
 #include "inc.hpp"
@@ -1686,6 +1692,24 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
         case Opcode::FTAN:
             handle_FTAN(cpu, program, running);
+            break;
+        case Opcode::FCOMPP:
+            handle_FCOMPP(cpu, program, running);
+            break;
+        case Opcode::FUCOMPP:
+            handle_FUCOMPP(cpu, program, running);
+            break;
+        case Opcode::FCLEX:
+            handle_FCLEX(cpu, program, running);
+            break;
+        case Opcode::FSTCW:
+            handle_FSTCW(cpu, program, running);
+            break;
+        case Opcode::FLDCW:
+            handle_FLDCW(cpu, program, running);
+            break;
+        case Opcode::FSTSW:
+            handle_FSTSW(cpu, program, running);
             break;
 
         default:

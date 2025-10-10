@@ -111,6 +111,12 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["FSIN"] = static_cast<uint8_t>(Opcode::FSIN);
     mnemonic_to_opcode["FCOS"] = static_cast<uint8_t>(Opcode::FCOS);
     mnemonic_to_opcode["FTAN"] = static_cast<uint8_t>(Opcode::FTAN);
+    mnemonic_to_opcode["FCOMPP"] = static_cast<uint8_t>(Opcode::FCOMPP);
+    mnemonic_to_opcode["FUCOMPP"] = static_cast<uint8_t>(Opcode::FUCOMPP);
+    mnemonic_to_opcode["FCLEX"] = static_cast<uint8_t>(Opcode::FCLEX);
+    mnemonic_to_opcode["FSTCW"] = static_cast<uint8_t>(Opcode::FSTCW);
+    mnemonic_to_opcode["FLDCW"] = static_cast<uint8_t>(Opcode::FLDCW);
+    mnemonic_to_opcode["FSTSW"] = static_cast<uint8_t>(Opcode::FSTSW);
 }
 
 void AssemblerEngine::init_register_table() {
@@ -411,8 +417,10 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         instruction.mnemonic == "POP_FLAG" || instruction.mnemonic == "FINIT" ||
         instruction.mnemonic == "FABS" || instruction.mnemonic == "FCHS" ||
         instruction.mnemonic == "FSQRT" || instruction.mnemonic == "FSIN" ||
-        instruction.mnemonic == "FCOS" || instruction.mnemonic == "FTAN") {
-        // No operands - these instructions operate on ST(0) implicitly
+        instruction.mnemonic == "FCOS" || instruction.mnemonic == "FTAN" ||
+        instruction.mnemonic == "FCOMPP" || instruction.mnemonic == "FUCOMPP" ||
+        instruction.mnemonic == "FCLEX") {
+        // No operands - these instructions operate on ST(0) implicitly or have no operands
         return;
     }
 
@@ -771,6 +779,61 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         emit_byte(0x01);
         
         // Memory address operand
+        bool is_symbol;
+        std::string symbol_name;
+        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
+
+        if (is_symbol) {
+            emit_forward_ref(symbol_name, 4); // 32-bit address
+        } else {
+            // Emit 32-bit address
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+        }
+    } else if (instruction.mnemonic == "FSTCW" || instruction.mnemonic == "FLDCW") {
+        // FSTCW/FLDCW - Store/Load FPU control word
+        // Format: FSTCW <memory_addr> or FLDCW <memory_addr>
+        if (instruction.operands.size() != 1) {
+            add_error(instruction.mnemonic + " requires 1 operand", instruction.line, instruction.column);
+            return;
+        }
+
+        // Memory address operand (no operand type byte for these)
+        bool is_symbol;
+        std::string symbol_name;
+        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
+
+        if (is_symbol) {
+            emit_forward_ref(symbol_name, 4); // 32-bit address
+        } else {
+            // Emit 32-bit address directly
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+        }
+    } else if (instruction.mnemonic == "FSTSW") {
+        // FSTSW - Store FPU status word
+        // Format: FSTSW <memory_addr> or FSTSW AX
+        if (instruction.operands.size() != 1) {
+            add_error("FSTSW requires 1 operand", instruction.line, instruction.column);
+            return;
+        }
+
+        // Check if operand is AX register (R0 in our case)
+        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
+            if (reg_expr->name == "R0" || reg_expr->name == "AX") {
+                // Store to AX register
+                emit_byte(0x01); // operand type = register
+                return;
+            }
+        }
+
+        // Otherwise, store to memory address
+        emit_byte(0x00); // operand type = memory
+        
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);

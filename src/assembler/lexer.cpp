@@ -132,6 +132,9 @@ void Lexer::init_tables() {
     mnemonics["FSTCW"] = TokenType::MNEMONIC;
     mnemonics["FLDCW"] = TokenType::MNEMONIC;
     mnemonics["FSTSW"] = TokenType::MNEMONIC;
+    mnemonics["FCOMPP"] = TokenType::MNEMONIC;
+    mnemonics["FUCOMPP"] = TokenType::MNEMONIC;
+    mnemonics["FCLEX"] = TokenType::MNEMONIC;
 
     // Legacy 8-register names (R0-R7)
     for (int i = 0; i < 8; ++i) {

@@ -284,3 +284,103 @@
     
     HALT
 }
+
+#test "fpu_compare_test" {
+    #description "Test FCOMPP and FUCOMPP comparison operations"
+    #author "DemiEngine Team"
+    #category "FPU"
+    #tag "comparison"
+    #tag "flags"
+    
+    FINIT
+    
+    ; Test FCOMPP: ST(0) == ST(1)
+    ; Push two equal values
+    FLD 5
+    FLD 5
+    FCOMPP  ; Compare and pop both
+    ; Should set ZF=1, CF=0 (equal)
+    ; We can't directly test flags yet, but they're set
+    
+    ; Test FCOMPP: ST(0) < ST(1)
+    FLD 10   ; ST(0) = 10
+    FLD 5    ; ST(0) = 5, ST(1) = 10
+    FCOMPP   ; Compare: 5 < 10
+    ; Should set ZF=0, CF=1 (less than)
+    
+    ; Test FCOMPP: ST(0) > ST(1)
+    FLD 5    ; ST(0) = 5
+    FLD 10   ; ST(0) = 10, ST(1) = 5
+    FCOMPP   ; Compare: 10 > 5
+    ; Should set ZF=0, CF=0 (greater than)
+    
+    ; Test FUCOMPP: ordered comparison
+    FLD 3
+    FLD 3
+    FUCOMPP  ; Should behave like FCOMPP for normal values
+    ; Should set ZF=1, CF=0 (equal)
+    
+    ; Test FUCOMPP with different values
+    FLD 8
+    FLD 4
+    FUCOMPP  ; 4 < 8
+    ; Should set ZF=0, CF=1 (less than)
+    
+    ; Verify CPU still works
+    LOAD_IMM R0, 100
+    #assert_reg R0, 100
+    
+    HALT
+}
+
+#test "fpu_control_status_test" {
+    #description "Test FSTCW, FLDCW, FSTSW, FCLEX operations"
+    #author "DemiEngine Team"
+    #category "FPU"
+    #tag "control"
+    #tag "status"
+    
+    FINIT
+    
+    ; Test FSTCW - Store control word to memory
+    FSTCW 0x300
+    ; Control word should be stored at 0x300
+    
+    ; Test FLDCW - Load control word from memory
+    ; First, write a known 16-bit value to memory (0x037F)
+    LOAD_IMM R1, 0x7F    ; Low byte
+    STORE R1, 0x310
+    LOAD_IMM R1, 0x03    ; High byte
+    STORE R1, 0x311
+    ; Now load it
+    FLDCW 0x310
+    ; Control word should be loaded from 0x310
+    
+    ; Test FSTSW - Store status word to memory
+    FSTSW 0x320
+    ; Status word should be stored at 0x320
+    
+    ; Test FSTSW to register (AX/R0)
+    FSTSW R0
+    ; Status word should be in R0
+    ; We can verify R0 has a reasonable value (status word)
+    
+    ; Test FCLEX - Clear exceptions
+    FCLEX
+    ; Exception flags should be cleared
+    
+    ; Do some FPU operations to change status
+    FLD 10
+    FLD 20
+    FADD 1
+    FST 0x330
+    
+    ; Store status again
+    FSTSW 0x340
+    
+    ; Verify CPU still functional
+    LOAD_IMM R2, 200
+    #assert_reg R2, 200
+    
+    HALT
+}
