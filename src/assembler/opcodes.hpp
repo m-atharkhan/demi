@@ -30,6 +30,7 @@ enum class Opcode : uint8_t {
     JL  = 0x26,         // Jump if less (signed)
     JGE = 0x27,         // Jump if greater or equal (signed)
     JLE = 0x28,         // Jump if less or equal (signed)
+    MOD = 0x29,         // Modulo (remainder) reg1, reg2
 
     MUL = 0x10,         // Multiply reg1, reg2
     DIV = 0x11,         // Divide reg1, reg2
@@ -80,6 +81,7 @@ enum class Opcode : uint8_t {
     NOT64 = 0x5C,       // 64-bit Bitwise NOT reg
     INC64 = 0x5D,       // 64-bit Increment reg
     DEC64 = 0x5E,       // 64-bit Decrement reg
+    MOD64 = 0x5F,       // 64-bit Modulo (remainder) reg1, reg2
 
     // Extended Register Set Operations (0x60-0x6F range)
     MOVEX = 0x60,       // Move between extended registers (R8-R15)

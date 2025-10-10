@@ -53,6 +53,7 @@ enum class Opcode : uint8_t {
     JL  = 0x26,         // Jump if less (signed)
     JGE = 0x27,         // Jump if greater or equal (signed)
     JLE = 0x28,         // Jump if less or equal (signed)
+    MOD = 0x29,         // Modulo (remainder) reg1, reg2
 
     MUL = 0x10,         // Multiply reg1, reg2
     DIV = 0x11,         // Divide reg1, reg2
@@ -103,6 +104,7 @@ enum class Opcode : uint8_t {
     CMP64 = 0x5C,       // 64-bit Compare reg1, reg2
     INC64 = 0x5D,       // 64-bit Increment reg
     DEC64 = 0x5E,       // 64-bit Decrement reg
+    MOD64 = 0x5F,       // 64-bit Modulo (remainder) reg1, reg2
 
     // Extended Register Set Operations (0x60-0x6F range)
     MOVEX = 0x60,       // Move between extended registers (R8-R15)
@@ -444,6 +446,9 @@ public:
     void set_fpu_status_word(uint16_t sw) { fpu_status_word = sw; }
     void fpu_init(); // Initialize FPU state
 
+    // Register synchronization (public for opcode handlers)
+    void sync_legacy_registers();
+
 private:
     // CPU operation mode (32-bit or 64-bit)
     CPUMode cpu_mode;
@@ -464,9 +469,6 @@ private:
     uint16_t fpu_control_word = 0x037F; // Default FPU control word
     uint16_t fpu_status_word = 0x0000;  // FPU status word
     uint8_t fpu_tag_word = 0xFF;        // Tag word (all empty initially)
-
-    // Internal register synchronization
-    void sync_legacy_registers();
 
     uint8_t readPort(uint8_t port);
     void writePort(uint8_t port, uint8_t value);

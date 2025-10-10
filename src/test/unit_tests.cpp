@@ -431,13 +431,13 @@ TEST_CASE(jc_carry_set, "conditional_jumps") {
     // Test JC (Jump if Carry) when carry flag is set
     // Use a simpler approach: load max value and add to it
     ctx.load_program({
-        0x01, 0x00, 0x00,  // LOAD_IMM R0, 0 (start with 0)
-        0x17, 0x00,        // NOT R0 (R0 becomes 0xFFFFFFFF, max 32-bit value)
-        0x01, 0x01, 0x01,  // LOAD_IMM R1, 1
-        0x02, 0x00, 0x01,  // ADD R0, R1 (0xFFFFFFFF + 1 = 0, causes carry)
-        0x0F, 0x0F,        // JC 0x0F (jump if carry flag set)
-        0x01, 0x02, 0x42,  // LOAD_IMM R2, 0x42 (should be skipped)
-        0xFF               // HALT (at address 0x0F = 15)
+        0x01, 0x00, 0x00,  // 0x00: LOAD_IMM R0, 0 (start with 0)
+        0x17, 0x00,        // 0x03: NOT R0 (R0 becomes 0xFFFFFFFF, max 32-bit value)
+        0x01, 0x01, 0x01,  // 0x05: LOAD_IMM R1, 1
+        0x02, 0x00, 0x01,  // 0x08: ADD R0, R1 (0xFFFFFFFF + 1 = 0, causes carry)
+        0x0F, 0x10,        // 0x0B: JC 0x10 (jump to HALT if carry flag set)
+        0x01, 0x02, 0x42,  // 0x0D: LOAD_IMM R2, 0x42 (should be skipped)
+        0xFF               // 0x10: HALT
     });
 
     ctx.execute_program();
@@ -1516,4 +1516,213 @@ TEST_CASE_EXPECT_ERROR(ret_without_call, "negative_tests") {
         0xFF               // HALT
     });
     ctx.execute_program();
+}
+
+// ============================================================================
+// 64-bit Operation Tests
+// ============================================================================
+
+TEST_CASE(sub64_basic, "64bit_operations") {
+    // Test basic 64-bit subtraction: 100 - 30 = 70
+    ctx.assemble_code(R"(
+        LOAD_IMM64 R10, 100
+        LOAD_IMM64 R11, 30
+        SUB64 R10, R11
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_register_64_eq(10, 70);
+    ctx.assert_register_64_eq(11, 30);  // R11 should be unchanged
+    ctx.assert_flag_clear(FLAG_ZERO);
+    ctx.assert_flag_clear(FLAG_CARRY);
+    ctx.assert_flag_clear(FLAG_SIGN);
+}
+
+TEST_CASE(sub64_zero_result, "64bit_operations") {
+    // Test subtraction resulting in zero: 50 - 50 = 0
+    ctx.assemble_code(R"(
+        LOAD_IMM64 R10, 50
+        LOAD_IMM64 R11, 50
+        SUB64 R10, R11
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_register_64_eq(10, 0);
+    ctx.assert_flag_set(FLAG_ZERO);
+}
+
+TEST_CASE(sub64_borrow, "64bit_operations") {
+    // Test subtraction with borrow: 30 - 100 = -70 (unsigned underflow)
+    ctx.assemble_code(R"(
+        LOAD_IMM64 R10, 30
+        LOAD_IMM64 R11, 100
+        SUB64 R10, R11
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // Result should wrap around (30 - 100 in unsigned = large positive number)
+    ctx.assert_flag_set(FLAG_CARRY);  // Borrow occurred
+    ctx.assert_flag_set(FLAG_SIGN);   // Result is negative in signed interpretation
+}
+
+TEST_CASE(sub64_large_values, "64bit_operations") {
+    // Test with large 64-bit values using LOAD_IMM64
+    ctx.assemble_code(R"(
+        LOAD_IMM64 R10, 0x1000000000000000
+        LOAD_IMM64 R11, 0x0000000100000000
+        SUB64 R10, R11
+        HALT
+    )");
+    ctx.execute_program();
+    
+    uint64_t expected = 0x1000000000000000ULL - 0x0000000100000000ULL;
+    ctx.assert_register_64_eq(10, expected);
+    ctx.assert_flag_clear(FLAG_CARRY);
+}
+
+TEST_CASE(mov64_basic, "64bit_operations") {
+    // Test basic 64-bit move operation
+    ctx.assemble_code(R"(
+        LOAD_IMM64 R10, 0x123456789ABCDEF0
+        MOV64 R11, R10
+        HALT
+    )");
+    ctx.execute_program();
+    
+    uint64_t expected = 0x123456789ABCDEF0ULL;
+    ctx.assert_register_64_eq(10, expected);
+    ctx.assert_register_64_eq(11, expected);  // Should be copied
+}
+
+TEST_CASE(mov64_preserves_source, "64bit_operations") {
+    // Test that MOV64 preserves source register
+    ctx.assemble_code(R"(
+        LOAD_IMM64 R10, 12345678
+        LOAD_IMM64 R11, 87654321
+        MOV64 R12, R10
+        MOV64 R13, R11
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_register_64_eq(10, 12345678);
+    ctx.assert_register_64_eq(11, 87654321);
+    ctx.assert_register_64_eq(12, 12345678);  // Copy of R10
+    ctx.assert_register_64_eq(13, 87654321);  // Copy of R11
+}
+
+TEST_CASE(mov64_chain, "64bit_operations") {
+    // Test chaining multiple MOV64 operations
+    ctx.assemble_code(R"(
+        LOAD_IMM64 R10, 999999
+        MOV64 R11, R10
+        MOV64 R12, R11
+        MOV64 R13, R12
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // All registers should have the same value
+    ctx.assert_register_64_eq(10, 999999);
+    ctx.assert_register_64_eq(11, 999999);
+    ctx.assert_register_64_eq(12, 999999);
+    ctx.assert_register_64_eq(13, 999999);
+}
+
+TEST_CASE(modecmp_32bit_equal, "mode_operations") {
+    // Test MODECMP in 32-bit mode with equal values
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM R0, 42
+        LOAD_IMM R1, 42
+        MODECMP R0, R1
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_flag_set(FLAG_ZERO);      // Values are equal
+    ctx.assert_flag_clear(FLAG_CARRY);   // No borrow (R0 >= R1)
+    ctx.assert_flag_clear(FLAG_SIGN);    // Result is zero (not negative)
+}
+
+TEST_CASE(modecmp_32bit_less_than, "mode_operations") {
+    // Test MODECMP in 32-bit mode with R0 < R1
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM R0, 10
+        LOAD_IMM R1, 20
+        MODECMP R0, R1
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_flag_clear(FLAG_ZERO);    // Not equal
+    ctx.assert_flag_set(FLAG_CARRY);     // R0 < R1 (borrow occurred)
+    ctx.assert_flag_set(FLAG_SIGN);      // Result is negative (10-20 = -10)
+}
+
+TEST_CASE(modecmp_32bit_greater_than, "mode_operations") {
+    // Test MODECMP in 32-bit mode with R0 > R1
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM R0, 50
+        LOAD_IMM R1, 30
+        MODECMP R0, R1
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_flag_clear(FLAG_ZERO);    // Not equal
+    ctx.assert_flag_clear(FLAG_CARRY);   // R0 > R1 (no borrow)
+    ctx.assert_flag_clear(FLAG_SIGN);    // Result is positive (50-30 = 20)
+}
+
+TEST_CASE(modecmp_64bit_equal, "mode_operations") {
+    // Test MODECMP in 64-bit mode with equal values
+    ctx.assemble_code(R"(
+        MODE64
+        LOAD_IMM64 R10, 0x123456789ABCDEF0
+        LOAD_IMM64 R11, 0x123456789ABCDEF0
+        MODECMP R10, R11
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_flag_set(FLAG_ZERO);      // Values are equal
+    ctx.assert_flag_clear(FLAG_CARRY);   // No borrow
+    ctx.assert_flag_clear(FLAG_SIGN);    // Result is zero
+}
+
+TEST_CASE(modecmp_64bit_less_than, "mode_operations") {
+    // Test MODECMP in 64-bit mode with R10 < R11
+    ctx.assemble_code(R"(
+        MODE64
+        LOAD_IMM64 R10, 1000
+        LOAD_IMM64 R11, 2000
+        MODECMP R10, R11
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_flag_clear(FLAG_ZERO);    // Not equal
+    ctx.assert_flag_set(FLAG_CARRY);     // R10 < R11
+    ctx.assert_flag_set(FLAG_SIGN);      // Result is negative
+}
+
+TEST_CASE(modecmp_64bit_greater_than, "mode_operations") {
+    // Test MODECMP in 64-bit mode with R10 > R11
+    ctx.assemble_code(R"(
+        MODE64
+        LOAD_IMM64 R10, 0xFFFFFFFFFFFFFFFF
+        LOAD_IMM64 R11, 0x1000000000000000
+        MODECMP R10, R11
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_flag_clear(FLAG_ZERO);    // Not equal
+    ctx.assert_flag_clear(FLAG_CARRY);   // R10 > R11 (no borrow in unsigned)
 }

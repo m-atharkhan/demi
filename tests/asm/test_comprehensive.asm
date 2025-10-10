@@ -205,10 +205,11 @@ target:
     #tag "backward"
     LOAD_IMM R0, 0
     LOAD_IMM R1, 3
+    LOAD_IMM R2, 0
 loop_start:
     INC R0
     DEC R1
-    CMP R1, 0
+    CMP R1, R2
     JG loop_start
     #assert_reg R0, 3
 }
@@ -227,7 +228,8 @@ loop_start:
     JMP done
 first_true:
     LOAD_IMM R2, 1
-    CMP R2, 1
+    LOAD_IMM R4, 1
+    CMP R2, R4
     JZ second_true
     LOAD_IMM R3, 0
     JMP done
