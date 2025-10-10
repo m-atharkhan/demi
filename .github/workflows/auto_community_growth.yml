@@ -1,14 +1,15 @@
-name: Automated Community Growth
+name: Automated Community Growth (DISABLED)
 on:
-  push:
-    branches: [ main ]
-  schedule:
-    # Run multiple times per day for varied content
-    - cron: '0 9 * * *'   # 9 AM UTC - Morning post
-    - cron: '0 17 * * *'  # 5 PM UTC - Evening engagement  
-    - cron: '0 21 * * 1'  # 9 PM UTC on Mondays - Weekly planning
-    - cron: '0 15 * * 3'  # 3 PM UTC on Wednesdays - Midweek boost
-    - cron: '0 12 * * 5'  # 12 PM UTC on Fridays - Weekend prep
+  # Temporarily disabled - will re-enable once properly configured
+  # push:
+  #   branches: [ main ]
+  # schedule:
+  #   # Run multiple times per day for varied content
+  #   - cron: '0 9 * * *'   # 9 AM UTC - Morning post
+  #   - cron: '0 17 * * *'  # 5 PM UTC - Evening engagement  
+  #   - cron: '0 21 * * 1'  # 9 PM UTC on Mondays - Weekly planning
+  #   - cron: '0 15 * * 3'  # 3 PM UTC on Wednesdays - Midweek boost
+  #   - cron: '0 12 * * 5'  # 12 PM UTC on Fridays - Weekend prep
   workflow_dispatch:
 
 jobs:
