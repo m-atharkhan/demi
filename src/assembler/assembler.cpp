@@ -108,6 +108,9 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["FABS"] = static_cast<uint8_t>(Opcode::FABS);
     mnemonic_to_opcode["FCHS"] = static_cast<uint8_t>(Opcode::FCHS);
     mnemonic_to_opcode["FSQRT"] = static_cast<uint8_t>(Opcode::FSQRT);
+    mnemonic_to_opcode["FSIN"] = static_cast<uint8_t>(Opcode::FSIN);
+    mnemonic_to_opcode["FCOS"] = static_cast<uint8_t>(Opcode::FCOS);
+    mnemonic_to_opcode["FTAN"] = static_cast<uint8_t>(Opcode::FTAN);
 }
 
 void AssemblerEngine::init_register_table() {
@@ -407,7 +410,8 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         instruction.mnemonic == "RET" || instruction.mnemonic == "PUSH_FLAG" ||
         instruction.mnemonic == "POP_FLAG" || instruction.mnemonic == "FINIT" ||
         instruction.mnemonic == "FABS" || instruction.mnemonic == "FCHS" ||
-        instruction.mnemonic == "FSQRT") {
+        instruction.mnemonic == "FSQRT" || instruction.mnemonic == "FSIN" ||
+        instruction.mnemonic == "FCOS" || instruction.mnemonic == "FTAN") {
         // No operands - these instructions operate on ST(0) implicitly
         return;
     }
