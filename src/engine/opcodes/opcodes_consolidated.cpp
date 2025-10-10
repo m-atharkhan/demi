@@ -31,6 +31,9 @@ using Logging::Logger;
 #include "fld.hpp"
 #include "fst.hpp"
 #include "fstp.hpp"
+#include "fabs.hpp"
+#include "fchs.hpp"
+#include "fsqrt.hpp"
 #include "halt.hpp"
 #include "inb.hpp"
 #include "inc.hpp"
@@ -1662,6 +1665,15 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
         case Opcode::FINIT:
             handle_FINIT(cpu, program, running);
+            break;
+        case Opcode::FABS:
+            handle_FABS(cpu, program, running);
+            break;
+        case Opcode::FCHS:
+            handle_FCHS(cpu, program, running);
+            break;
+        case Opcode::FSQRT:
+            handle_FSQRT(cpu, program, running);
             break;
 
         default:
