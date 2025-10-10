@@ -1,2 +1,0 @@
-# Shift Right: R0 = 8, SHR R0 by 2, HALT
-01 00 08 19 00 02 FF
