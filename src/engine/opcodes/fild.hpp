@@ -1,53 +1,111 @@
 #pragma once
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
+#include "../../debug/logger.hpp"
 
-// FILD - Load integer as floating point
-void handle_FILD(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
-    uint8_t operand_type = cpu.fetch_operand();
+void handle_FILD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    // FILD - Load integer as floating point
+    // Format: FILD <source> - loads integer from source, converts to double, pushes onto FPU stack
+    // Operand types:
+    //   0x00: Immediate 32-bit integer
+    //   0x01: Memory address (32-bit integer)
+    //   0x02: Memory address (16-bit integer)
+    //   0x03: Memory address (64-bit integer)
+    
+    if (cpu.get_pc() + 1 >= program.size()) {
+        running = false;
+        return;
+    }
+    
+    uint8_t operand_type = program[cpu.get_pc() + 1];
+    cpu.set_pc(cpu.get_pc() + 2); // Skip opcode and operand_type
+    
+    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FILD] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
     
     switch (operand_type) {
+        case 0x00: { // Immediate 32-bit integer
+            if (cpu.get_pc() + 4 > program.size()) {
+                running = false;
+                return;
+            }
+            
+            uint32_t raw_value = program[cpu.get_pc()] | (program[cpu.get_pc()+1] << 8) | 
+                                 (program[cpu.get_pc()+2] << 16) | (program[cpu.get_pc()+3] << 24);
+            cpu.set_pc(cpu.get_pc() + 4);
+            
+            int32_t int_value = static_cast<int32_t>(raw_value);
+            double float_value = static_cast<double>(int_value);
+            cpu.fpu_push(float_value);
+            
+            Logger::instance().debug() << fmt::format("[FILD] Loaded immediate int32 {} as double {}", int_value, float_value) << std::endl;
+            break;
+        }
+        
         case 0x01: { // Memory address (32-bit integer)
-            uint32_t addr = cpu.read_mem32(cpu.get_pc());
+            if (cpu.get_pc() + 4 > program.size()) {
+                running = false;
+                return;
+            }
+            
+            uint32_t addr = program[cpu.get_pc()] | (program[cpu.get_pc()+1] << 8) | 
+                           (program[cpu.get_pc()+2] << 16) | (program[cpu.get_pc()+3] << 24);
             cpu.set_pc(cpu.get_pc() + 4);
             
             // Load 32-bit integer from memory
             int32_t int_value = static_cast<int32_t>(cpu.read_mem32(addr));
-            
-            // Convert to double and push onto FPU stack
             double float_value = static_cast<double>(int_value);
             cpu.fpu_push(float_value);
+            
+            Logger::instance().debug() << fmt::format("[FILD] Loaded int32 {} from addr 0x{:04X} as double {}", int_value, addr, float_value) << std::endl;
             break;
         }
+        
         case 0x02: { // Memory address (16-bit integer)
-            uint32_t addr = cpu.read_mem32(cpu.get_pc());
+            if (cpu.get_pc() + 4 > program.size()) {
+                running = false;
+                return;
+            }
+            
+            uint32_t addr = program[cpu.get_pc()] | (program[cpu.get_pc()+1] << 8) | 
+                           (program[cpu.get_pc()+2] << 16) | (program[cpu.get_pc()+3] << 24);
             cpu.set_pc(cpu.get_pc() + 4);
             
-            // Load 16-bit integer from memory (read as 32-bit and cast)
+            // Load 16-bit integer from memory
             uint32_t raw_value = cpu.read_mem32(addr);
             int16_t int_value = static_cast<int16_t>(raw_value & 0xFFFF);
-            
-            // Convert to double and push onto FPU stack
             double float_value = static_cast<double>(int_value);
             cpu.fpu_push(float_value);
+            
+            Logger::instance().debug() << fmt::format("[FILD] Loaded int16 {} from addr 0x{:04X} as double {}", int_value, addr, float_value) << std::endl;
             break;
         }
+        
         case 0x03: { // Memory address (64-bit integer)
-            uint32_t addr = cpu.read_mem32(cpu.get_pc());
+            if (cpu.get_pc() + 4 > program.size()) {
+                running = false;
+                return;
+            }
+            
+            uint32_t addr = program[cpu.get_pc()] | (program[cpu.get_pc()+1] << 8) | 
+                           (program[cpu.get_pc()+2] << 16) | (program[cpu.get_pc()+3] << 24);
             cpu.set_pc(cpu.get_pc() + 4);
             
             // Load 64-bit integer from memory (as two 32-bit reads)
             uint32_t low = cpu.read_mem32(addr);
             uint32_t high = cpu.read_mem32(addr + 4);
             int64_t int_value = (static_cast<int64_t>(high) << 32) | low;
-            
-            // Convert to double and push onto FPU stack
             double float_value = static_cast<double>(int_value);
             cpu.fpu_push(float_value);
+            
+            Logger::instance().debug() << fmt::format("[FILD] Loaded int64 {} from addr 0x{:04X} as double {}", int_value, addr, float_value) << std::endl;
             break;
         }
+        
         default:
-            // Invalid operand type
+            Logger::instance().error() << fmt::format("[FILD] Invalid operand type 0x{:02X}", operand_type) << std::endl;
+            running = false;
             break;
     }
+    
+    cpu.print_state("FILD");
 }

@@ -3,9 +3,9 @@
 #include "../../assembler/opcodes.hpp"
 #include "../../debug/logger.hpp"
 
-void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // FISTP - Store floating point as integer and pop
-    // Format: FISTP <dest> - converts ST(0) to integer, stores, and pops from FPU stack
+void handle_FIST(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    // FIST - Store floating point as integer (without popping)
+    // Format: FIST <dest> - converts ST(0) to integer and stores, keeping ST(0) on stack
     // Operand types:
     //   0x01: Memory address (32-bit integer)
     //   0x02: Memory address (16-bit integer)
@@ -19,7 +19,7 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     uint8_t operand_type = program[cpu.get_pc() + 1];
     cpu.set_pc(cpu.get_pc() + 2); // Skip opcode and operand_type
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FISTP] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
+    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FIST] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
     
     switch (operand_type) {
         case 0x01: { // Memory address - store as 32-bit integer
@@ -32,14 +32,14 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
                            (program[cpu.get_pc()+2] << 16) | (program[cpu.get_pc()+3] << 24);
             cpu.set_pc(cpu.get_pc() + 4);
             
-            // Pop value from FPU stack and convert to integer
-            double float_value = cpu.fpu_pop();
+            // Peek value from FPU stack (don't pop) and convert to integer
+            double float_value = cpu.fpu_peek(0);
             int32_t int_value = static_cast<int32_t>(float_value);
             
             // Store 32-bit integer to memory
             cpu.write_mem32(addr, static_cast<uint32_t>(int_value));
             
-            Logger::instance().debug() << fmt::format("[FISTP] Popped ST(0)={} as int32 {} to addr 0x{:04X}", float_value, int_value, addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[FIST] Stored ST(0)={} as int32 {} to addr 0x{:04X}", float_value, int_value, addr) << std::endl;
             break;
         }
         
@@ -53,8 +53,8 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
                            (program[cpu.get_pc()+2] << 16) | (program[cpu.get_pc()+3] << 24);
             cpu.set_pc(cpu.get_pc() + 4);
             
-            // Pop value from FPU stack and convert to integer
-            double float_value = cpu.fpu_pop();
+            // Peek value from FPU stack (don't pop) and convert to integer
+            double float_value = cpu.fpu_peek(0);
             int16_t int_value = static_cast<int16_t>(float_value);
             
             // Store 16-bit integer to memory (store as lower 16 bits of 32-bit value)
@@ -62,7 +62,7 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             uint32_t new_value = (existing & 0xFFFF0000) | (static_cast<uint16_t>(int_value) & 0xFFFF);
             cpu.write_mem32(addr, new_value);
             
-            Logger::instance().debug() << fmt::format("[FISTP] Popped ST(0)={} as int16 {} to addr 0x{:04X}", float_value, int_value, addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[FIST] Stored ST(0)={} as int16 {} to addr 0x{:04X}", float_value, int_value, addr) << std::endl;
             break;
         }
         
@@ -76,8 +76,8 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
                            (program[cpu.get_pc()+2] << 16) | (program[cpu.get_pc()+3] << 24);
             cpu.set_pc(cpu.get_pc() + 4);
             
-            // Pop value from FPU stack and convert to integer
-            double float_value = cpu.fpu_pop();
+            // Peek value from FPU stack (don't pop) and convert to integer
+            double float_value = cpu.fpu_peek(0);
             int64_t int_value = static_cast<int64_t>(float_value);
             
             // Store 64-bit integer to memory (as two 32-bit writes)
@@ -86,15 +86,15 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             cpu.write_mem32(addr, low);
             cpu.write_mem32(addr + 4, high);
             
-            Logger::instance().debug() << fmt::format("[FISTP] Popped ST(0)={} as int64 {} to addr 0x{:04X}", float_value, int_value, addr) << std::endl;
+            Logger::instance().debug() << fmt::format("[FIST] Stored ST(0)={} as int64 {} to addr 0x{:04X}", float_value, int_value, addr) << std::endl;
             break;
         }
         
         default:
-            Logger::instance().error() << fmt::format("[FISTP] Invalid operand type 0x{:02X}", operand_type) << std::endl;
+            Logger::instance().error() << fmt::format("[FIST] Invalid operand type 0x{:02X}", operand_type) << std::endl;
             running = false;
             break;
     }
     
-    cpu.print_state("FISTP");
+    cpu.print_state("FIST");
 }

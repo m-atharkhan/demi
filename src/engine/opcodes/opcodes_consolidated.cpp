@@ -25,6 +25,7 @@ using Logging::Logger;
 #include "fmul.hpp"
 #include "fdiv.hpp"
 #include "fild.hpp"
+#include "fist.hpp"
 #include "finit.hpp"
 #include "fistp.hpp"
 #include "fld.hpp"
@@ -1640,6 +1641,9 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
         case Opcode::FILD:
             handle_FILD(cpu, program, running);
+            break;
+        case Opcode::FIST:
+            handle_FIST(cpu, program, running);
             break;
         case Opcode::FISTP:
             handle_FISTP(cpu, program, running);

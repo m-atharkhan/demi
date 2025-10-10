@@ -102,6 +102,9 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["FSUB"] = static_cast<uint8_t>(Opcode::FSUB);
     mnemonic_to_opcode["FMUL"] = static_cast<uint8_t>(Opcode::FMUL);
     mnemonic_to_opcode["FDIV"] = static_cast<uint8_t>(Opcode::FDIV);
+    mnemonic_to_opcode["FILD"] = static_cast<uint8_t>(Opcode::FILD);
+    mnemonic_to_opcode["FIST"] = static_cast<uint8_t>(Opcode::FIST);
+    mnemonic_to_opcode["FISTP"] = static_cast<uint8_t>(Opcode::FISTP);
 }
 
 void AssemblerEngine::init_register_table() {
@@ -688,6 +691,74 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
 
         // Otherwise, treat as memory address
         // Operand type 0x01 = memory address (64-bit double)
+        emit_byte(0x01);
+        
+        // Memory address operand
+        bool is_symbol;
+        std::string symbol_name;
+        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
+
+        if (is_symbol) {
+            emit_forward_ref(symbol_name, 4); // 32-bit address
+        } else {
+            // Emit 32-bit address
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+        }
+    } else if (instruction.mnemonic == "FILD") {
+        // FILD - Load integer as floating point
+        // Format: FILD <memory_addr> or FILD <immediate_int>
+        if (instruction.operands.size() != 1) {
+            add_error("FILD requires 1 operand", instruction.line, instruction.column);
+            return;
+        }
+
+        // Check if it's an immediate value
+        if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instruction.operands[0].get())) {
+            // FILD with immediate 32-bit integer
+            // Operand type 0x00 = immediate 32-bit integer
+            emit_byte(0x00);
+            
+            // Emit 4 bytes little-endian
+            int32_t int_val = static_cast<int32_t>(imm_expr->value);
+            uint32_t raw_int = static_cast<uint32_t>(int_val);
+            emit_byte(static_cast<uint8_t>(raw_int & 0xFF));
+            emit_byte(static_cast<uint8_t>((raw_int >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((raw_int >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((raw_int >> 24) & 0xFF));
+            return;
+        }
+
+        // Otherwise, treat as memory address
+        // Operand type 0x01 = memory address (32-bit integer)
+        emit_byte(0x01);
+        
+        // Memory address operand
+        bool is_symbol;
+        std::string symbol_name;
+        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
+
+        if (is_symbol) {
+            emit_forward_ref(symbol_name, 4); // 32-bit address
+        } else {
+            // Emit 32-bit address
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+        }
+    } else if (instruction.mnemonic == "FIST" || instruction.mnemonic == "FISTP") {
+        // FIST/FISTP - Store floating point as integer
+        // Format: FIST <memory_addr> or FISTP <memory_addr>
+        if (instruction.operands.size() != 1) {
+            add_error(instruction.mnemonic + " requires 1 operand", instruction.line, instruction.column);
+            return;
+        }
+
+        // Must be a memory address (no immediate for store operations)
+        // Operand type 0x01 = memory address (32-bit integer)
         emit_byte(0x01);
         
         // Memory address operand
