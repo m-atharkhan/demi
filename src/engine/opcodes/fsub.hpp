@@ -4,9 +4,9 @@
 #include "../../debug/logger.hpp"
 #include <cstring>
 
-void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // FADD - Floating point addition
-    // Format: FADD [source] - adds source to ST(0)
+void handle_FSUB(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    // FSUB - Floating point subtraction
+    // Format: FSUB [source] - subtracts source from ST(0)
     // Operand types:
     //   0x00: 32-bit float from memory
     //   0x01: 64-bit double from memory
@@ -20,11 +20,11 @@ void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint8_t operand_type = program[cpu.get_pc() + 1];
     cpu.set_pc(cpu.get_pc() + 2); // Skip opcode and operand_type
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FADD] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
+    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FSUB] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
     
     switch (operand_type) {
         case 0x00: {
-            // FADD from memory (32-bit float)
+            // FSUB from memory (32-bit float)
             if (cpu.get_pc() + 4 > program.size()) {
                 running = false;
                 return;
@@ -39,17 +39,17 @@ void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             float float_val;
             std::memcpy(&float_val, &raw_float, sizeof(float));
             
-            // Add to ST(0)
+            // Subtract from ST(0)
             double st0_val = cpu.fpu_peek(0);
-            double result = st0_val + static_cast<double>(float_val);
+            double result = st0_val - static_cast<double>(float_val);
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FADD] {} + {} = {}", st0_val, static_cast<double>(float_val), result) << std::endl;
+            Logger::instance().debug() << fmt::format("[FSUB] {} - {} = {}", st0_val, static_cast<double>(float_val), result) << std::endl;
             break;
         }
         
         case 0x01: {
-            // FADD from memory (64-bit double)
+            // FSUB from memory (64-bit double)
             if (cpu.get_pc() + 4 > program.size()) {
                 running = false;
                 return;
@@ -65,17 +65,17 @@ void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double double_val;
             std::memcpy(&double_val, &raw_double, sizeof(double));
             
-            // Add to ST(0)
+            // Subtract from ST(0)
             double st0_val = cpu.fpu_peek(0);
-            double result = st0_val + double_val;
+            double result = st0_val - double_val;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FADD] {} + {} = {}", st0_val, double_val, result) << std::endl;
+            Logger::instance().debug() << fmt::format("[FSUB] {} - {} = {}", st0_val, double_val, result) << std::endl;
             break;
         }
         
         case 0x02: {
-            // FADD immediate 64-bit double
+            // FSUB immediate 64-bit double
             if (cpu.get_pc() + 8 > program.size()) {
                 running = false;
                 return;
@@ -94,20 +94,20 @@ void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double immediate_val;
             std::memcpy(&immediate_val, &raw_double, sizeof(double));
             
-            // Add to ST(0)
+            // Subtract from ST(0)
             double st0_val = cpu.fpu_peek(0);
-            double result = st0_val + immediate_val;
+            double result = st0_val - immediate_val;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FADD] {} + {} = {}", st0_val, immediate_val, result) << std::endl;
+            Logger::instance().debug() << fmt::format("[FSUB] {} - {} = {}", st0_val, immediate_val, result) << std::endl;
             break;
         }
         
         default:
-            Logger::instance().error() << fmt::format("[FADD] Invalid operand type 0x{:02X}", operand_type) << std::endl;
+            Logger::instance().error() << fmt::format("[FSUB] Invalid operand type 0x{:02X}", operand_type) << std::endl;
             running = false;
             break;
     }
     
-    cpu.print_state("FADD");
+    cpu.print_state("FSUB");
 }

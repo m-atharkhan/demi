@@ -98,6 +98,10 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["FLD"] = static_cast<uint8_t>(Opcode::FLD);
     mnemonic_to_opcode["FST"] = static_cast<uint8_t>(Opcode::FST);
     mnemonic_to_opcode["FSTP"] = static_cast<uint8_t>(Opcode::FSTP);
+    mnemonic_to_opcode["FADD"] = static_cast<uint8_t>(Opcode::FADD);
+    mnemonic_to_opcode["FSUB"] = static_cast<uint8_t>(Opcode::FSUB);
+    mnemonic_to_opcode["FMUL"] = static_cast<uint8_t>(Opcode::FMUL);
+    mnemonic_to_opcode["FDIV"] = static_cast<uint8_t>(Opcode::FDIV);
 }
 
 void AssemblerEngine::init_register_table() {
@@ -635,6 +639,51 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                 }
                 return;
             }
+        }
+
+        // Otherwise, treat as memory address
+        // Operand type 0x01 = memory address (64-bit double)
+        emit_byte(0x01);
+        
+        // Memory address operand
+        bool is_symbol;
+        std::string symbol_name;
+        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
+
+        if (is_symbol) {
+            emit_forward_ref(symbol_name, 4); // 32-bit address
+        } else {
+            // Emit 32-bit address
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+        }
+    } else if (instruction.mnemonic == "FADD" || instruction.mnemonic == "FSUB" || 
+               instruction.mnemonic == "FMUL" || instruction.mnemonic == "FDIV") {
+        // FPU Arithmetic instructions
+        // Format: FADD <memory_addr> or FADD <immediate_double>
+        if (instruction.operands.size() != 1) {
+            add_error(instruction.mnemonic + " requires 1 operand", instruction.line, instruction.column);
+            return;
+        }
+
+        // Check if it's an immediate value
+        if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instruction.operands[0].get())) {
+            // Arithmetic with immediate double value
+            // Operand type 0x02 = immediate 64-bit double
+            emit_byte(0x02);
+            
+            // Convert integer to double and emit as 64-bit value
+            double double_val = static_cast<double>(imm_expr->value);
+            uint64_t raw_double;
+            std::memcpy(&raw_double, &double_val, sizeof(double));
+            
+            // Emit 8 bytes little-endian
+            for (int i = 0; i < 8; ++i) {
+                emit_byte(static_cast<uint8_t>((raw_double >> (8 * i)) & 0xFF));
+            }
+            return;
         }
 
         // Otherwise, treat as memory address
