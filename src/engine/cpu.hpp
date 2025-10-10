@@ -468,7 +468,7 @@ private:
     uint8_t fpu_stack_top = 0;        // Points to the top of the FPU stack (0-7)
     uint16_t fpu_control_word = 0x037F; // Default FPU control word
     uint16_t fpu_status_word = 0x0000;  // FPU status word
-    uint8_t fpu_tag_word = 0xFF;        // Tag word (all empty initially)
+    uint16_t fpu_tag_word = 0xFFFF;     // Tag word (all empty initially)
 
     uint8_t readPort(uint8_t port);
     void writePort(uint8_t port, uint8_t value);

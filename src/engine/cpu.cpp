@@ -187,7 +187,12 @@ void CPU::set_register(Register reg, uint64_t value) {
     if (index < TOTAL_REGISTERS) {
         uint64_t old_value = registers[index];
         registers[index] = value;
-        sync_legacy_registers(); // Keep legacy registers in sync
+        
+        // Only sync legacy registers if we're modifying a legacy register (R0-R7)
+        // This prevents FPU/extended register updates from corrupting legacy registers
+        if (index < CPU_LEGACY_REGISTER_COUNT) {
+            sync_legacy_registers();
+        }
 
         // Print register update if value changed
         if (old_value != value) {

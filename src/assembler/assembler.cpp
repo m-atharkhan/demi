@@ -91,6 +91,9 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["MODE32"] = static_cast<uint8_t>(Opcode::MODE32);
     mnemonic_to_opcode["MODE64"] = static_cast<uint8_t>(Opcode::MODE64);
     mnemonic_to_opcode["MODECMP"] = static_cast<uint8_t>(Opcode::MODECMP);
+
+    // FPU Operations
+    mnemonic_to_opcode["FINIT"] = static_cast<uint8_t>(Opcode::FINIT);
 }
 
 void AssemblerEngine::init_register_table() {
@@ -388,7 +391,7 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
     // Encode operands based on instruction type
     if (instruction.mnemonic == "NOP" || instruction.mnemonic == "HALT" ||
         instruction.mnemonic == "RET" || instruction.mnemonic == "PUSH_FLAG" ||
-        instruction.mnemonic == "POP_FLAG") {
+        instruction.mnemonic == "POP_FLAG" || instruction.mnemonic == "FINIT") {
         // No operands
         return;
     }
