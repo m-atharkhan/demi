@@ -4,6 +4,7 @@
 #include <chrono>
 #include <fstream>
 #include <sstream>
+#include <map>
 
 namespace Testing {
 
@@ -71,29 +72,7 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         CPU cpu(256);  // Use small memory size so out-of-bounds tests work correctly
         output_capture.clear();
         
-        // Print test metadata right after CPU initialization
-        if (!Config::quiet_assembly_test) {
-            if (!result.test_name.empty()) {
-                Logger::instance().info() << fmt::format("Test: {}", result.test_name) << std::endl;
-            }
-            if (!result.description.empty()) {
-                Logger::instance().info() << fmt::format("  Description: {}", result.description) << std::endl;
-            }
-            if (!result.author.empty()) {
-                Logger::instance().info() << fmt::format("  Author: {}", result.author) << std::endl;
-            }
-            if (!result.category.empty()) {
-                Logger::instance().info() << fmt::format("  Category: {}", result.category) << std::endl;
-            }
-            if (!result.tags.empty()) {
-                std::string tags_str = "  Tags: ";
-                for (size_t i = 0; i < result.tags.size(); ++i) {
-                    if (i > 0) tags_str += ", ";
-                    tags_str += result.tags[i];
-                }
-                Logger::instance().info() << tags_str << std::endl;
-            }
-        }
+        // Note: Test metadata will be printed after test execution based on filter mode
         
         // Assemble test code (main program + test body)
         std::vector<uint8_t> bytecode = assemble_test_code(test_case.body);
@@ -165,7 +144,44 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
     result.execution_time_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
     
     // Print test completion status immediately after execution
-    if (!Config::quiet_assembly_test) {
+    // Apply filtering based on test_show_mode
+    bool should_show = false;
+    switch (Config::test_show_mode) {
+        case TestShowMode::ALL:
+            should_show = true;
+            break;
+        case TestShowMode::FAILS:
+            should_show = !result.passed;
+            break;
+        case TestShowMode::SUCCESS:
+            should_show = result.passed;
+            break;
+    }
+    
+    if (!Config::quiet_assembly_test && should_show) {
+        // Print test metadata
+        if (!result.test_name.empty()) {
+            Logger::instance().info() << fmt::format("Test: {}", result.test_name) << std::endl;
+        }
+        if (!result.description.empty()) {
+            Logger::instance().info() << fmt::format("  Description: {}", result.description) << std::endl;
+        }
+        if (!result.author.empty()) {
+            Logger::instance().info() << fmt::format("  Author: {}", result.author) << std::endl;
+        }
+        if (!result.category.empty()) {
+            Logger::instance().info() << fmt::format("  Category: {}", result.category) << std::endl;
+        }
+        if (!result.tags.empty()) {
+            std::string tags_str = "  Tags: ";
+            for (size_t i = 0; i < result.tags.size(); ++i) {
+                if (i > 0) tags_str += ", ";
+                tags_str += result.tags[i];
+            }
+            Logger::instance().info() << tags_str << std::endl;
+        }
+        
+        // Print test result
         if (result.passed) {
             Logger::instance().info() << "\033[32m✓ Test completed successfully\033[0m" << std::endl;
         } else {
@@ -385,15 +401,50 @@ uint32_t TestExecutor::get_memory_address(const Assembler::Expression& expr) {
 void TestExecutor::print_results(const std::vector<TestResult>& results) {
     size_t total_tests = results.size();
     size_t passed_tests = 0;
+    size_t failed_tests = 0;
     size_t total_assertions = 0;
     size_t passed_assertions = 0;
+    double total_execution_time = 0.0;
+    
+    // Count by category
+    std::map<std::string, size_t> category_totals;
+    std::map<std::string, size_t> category_passed;
     
     for (const auto& result : results) {
         if (result.passed) {
             passed_tests++;
+        } else {
+            failed_tests++;
         }
         total_assertions += result.assertions.size();
         passed_assertions += result.get_passed_count();
+        total_execution_time += result.execution_time_ms;
+        
+        // Track by category
+        if (!result.category.empty()) {
+            category_totals[result.category]++;
+            if (result.passed) {
+                category_passed[result.category]++;
+            }
+        }
+        
+        // Filter based on show mode
+        bool should_show = false;
+        switch (Config::test_show_mode) {
+            case TestShowMode::ALL:
+                should_show = true;
+                break;
+            case TestShowMode::FAILS:
+                should_show = !result.passed;
+                break;
+            case TestShowMode::SUCCESS:
+                should_show = result.passed;
+                break;
+        }
+        
+        if (!should_show) {
+            continue;  // Skip this test in output
+        }
         
         // For quiet mode, print simple test name and description
         if (Config::quiet_assembly_test) {
@@ -412,22 +463,52 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
         }
     }
     
-    // Print summary (skip in quiet mode)
+    // Print enhanced summary (skip in quiet mode)
     if (!Config::quiet_assembly_test) {
+        Logger::instance().info() << "\n\033[1m=== Test Summary ===\033[0m" << std::endl;
+        
+        // Overall statistics
         Logger::instance().info() << fmt::format(
-            "\033[1m=== Test Summary ===\033[0m\n"
-            "Tests: {}/{} passed\n"
-            "Assertions: {}/{} passed",
-            passed_tests, total_tests,
-            passed_assertions, total_assertions
+            "Total Tests: {} ({}passed: {}{}, {}failed: {}{})",
+            total_tests,
+            "\033[32m", passed_tests, "\033[0m",
+            "\033[31m", failed_tests, "\033[0m"
         ) << std::endl;
         
+        Logger::instance().info() << fmt::format(
+            "Total Assertions: {} ({}passed: {}{}, {}failed: {}{})",
+            total_assertions,
+            "\033[32m", passed_assertions, "\033[0m",
+            "\033[31m", total_assertions - passed_assertions, "\033[0m"
+        ) << std::endl;
+        
+        Logger::instance().info() << fmt::format(
+            "Total Execution Time: {:.2f}ms",
+            total_execution_time
+        ) << std::endl;
+        
+        // Category breakdown if categories exist
+        if (!category_totals.empty()) {
+            Logger::instance().info() << "\n\033[1mBy Category:\033[0m" << std::endl;
+            for (const auto& [category, total] : category_totals) {
+                size_t cat_passed = category_passed[category];
+                size_t cat_failed = total - cat_passed;
+                const char* color = (cat_failed == 0) ? "\033[32m" : "\033[33m";
+                Logger::instance().info() << fmt::format(
+                    "  {}{}: {}/{} passed{}",
+                    color, category, cat_passed, total, "\033[0m"
+                ) << std::endl;
+            }
+        }
+        
+        // Overall result
+        std::cout << std::endl;
         if (passed_tests == total_tests) {
-            Logger::instance().info() << "\033[1;32mAll tests passed!\033[0m" << std::endl;
+            Logger::instance().info() << "\033[1;32m✓ All tests passed!\033[0m" << std::endl;
         } else {
             Logger::instance().error() << fmt::format(
-                "\033[1;31m{} test(s) failed\033[0m",
-                total_tests - passed_tests
+                "\033[1;31m✗ {} test(s) failed\033[0m",
+                failed_tests
             ) << std::endl;
         }
     }
