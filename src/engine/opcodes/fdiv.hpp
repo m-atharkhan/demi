@@ -3,10 +3,11 @@
 #include "../../assembler/opcodes.hpp"
 #include "../../debug/logger.hpp"
 #include <cstring>
+#include <cmath>
 
-void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // FADD - Floating point addition
-    // Format: FADD [source] - adds source to ST(0)
+void handle_FDIV(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    // FDIV - Floating point division
+    // Format: FDIV [source] - divides ST(0) by source
     // Operand types:
     //   0x00: 32-bit float from memory
     //   0x01: 64-bit double from memory
@@ -20,11 +21,11 @@ void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint8_t operand_type = program[cpu.get_pc() + 1];
     cpu.set_pc(cpu.get_pc() + 2); // Skip opcode and operand_type
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FADD] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
+    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FDIV] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
     
     switch (operand_type) {
         case 0x00: {
-            // FADD from memory (32-bit float)
+            // FDIV from memory (32-bit float)
             if (cpu.get_pc() + 4 > program.size()) {
                 running = false;
                 return;
@@ -39,17 +40,26 @@ void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             float float_val;
             std::memcpy(&float_val, &raw_float, sizeof(float));
             
-            // Add to ST(0)
+            double divisor = static_cast<double>(float_val);
+            
+            // Check for divide by zero
+            if (std::abs(divisor) < 1e-15) {
+                Logger::instance().error() << "[FDIV] Division by zero" << std::endl;
+                running = false;
+                return;
+            }
+            
+            // Divide ST(0)
             double st0_val = cpu.fpu_peek(0);
-            double result = st0_val + static_cast<double>(float_val);
+            double result = st0_val / divisor;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FADD] {} + {} = {}", st0_val, static_cast<double>(float_val), result) << std::endl;
+            Logger::instance().debug() << fmt::format("[FDIV] {} / {} = {}", st0_val, divisor, result) << std::endl;
             break;
         }
         
         case 0x01: {
-            // FADD from memory (64-bit double)
+            // FDIV from memory (64-bit double)
             if (cpu.get_pc() + 4 > program.size()) {
                 running = false;
                 return;
@@ -65,17 +75,24 @@ void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double double_val;
             std::memcpy(&double_val, &raw_double, sizeof(double));
             
-            // Add to ST(0)
+            // Check for divide by zero
+            if (std::abs(double_val) < 1e-15) {
+                Logger::instance().error() << "[FDIV] Division by zero" << std::endl;
+                running = false;
+                return;
+            }
+            
+            // Divide ST(0)
             double st0_val = cpu.fpu_peek(0);
-            double result = st0_val + double_val;
+            double result = st0_val / double_val;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FADD] {} + {} = {}", st0_val, double_val, result) << std::endl;
+            Logger::instance().debug() << fmt::format("[FDIV] {} / {} = {}", st0_val, double_val, result) << std::endl;
             break;
         }
         
         case 0x02: {
-            // FADD immediate 64-bit double
+            // FDIV immediate 64-bit double
             if (cpu.get_pc() + 8 > program.size()) {
                 running = false;
                 return;
@@ -94,20 +111,27 @@ void handle_FADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double immediate_val;
             std::memcpy(&immediate_val, &raw_double, sizeof(double));
             
-            // Add to ST(0)
+            // Check for divide by zero
+            if (std::abs(immediate_val) < 1e-15) {
+                Logger::instance().error() << "[FDIV] Division by zero" << std::endl;
+                running = false;
+                return;
+            }
+            
+            // Divide ST(0)
             double st0_val = cpu.fpu_peek(0);
-            double result = st0_val + immediate_val;
+            double result = st0_val / immediate_val;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FADD] {} + {} = {}", st0_val, immediate_val, result) << std::endl;
+            Logger::instance().debug() << fmt::format("[FDIV] {} / {} = {}", st0_val, immediate_val, result) << std::endl;
             break;
         }
         
         default:
-            Logger::instance().error() << fmt::format("[FADD] Invalid operand type 0x{:02X}", operand_type) << std::endl;
+            Logger::instance().error() << fmt::format("[FDIV] Invalid operand type 0x{:02X}", operand_type) << std::endl;
             running = false;
             break;
     }
     
-    cpu.print_state("FADD");
+    cpu.print_state("FDIV");
 }

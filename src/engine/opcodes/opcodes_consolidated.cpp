@@ -21,6 +21,9 @@ using Logging::Logger;
 #include "dec.hpp"
 #include "div.hpp"
 #include "fadd.hpp"
+#include "fsub.hpp"
+#include "fmul.hpp"
+#include "fdiv.hpp"
 #include "fild.hpp"
 #include "finit.hpp"
 #include "fistp.hpp"
@@ -1643,6 +1646,15 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
         case Opcode::FADD:
             handle_FADD(cpu, program, running);
+            break;
+        case Opcode::FSUB:
+            handle_FSUB(cpu, program, running);
+            break;
+        case Opcode::FMUL:
+            handle_FMUL(cpu, program, running);
+            break;
+        case Opcode::FDIV:
+            handle_FDIV(cpu, program, running);
             break;
         case Opcode::FINIT:
             handle_FINIT(cpu, program, running);
