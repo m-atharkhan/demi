@@ -1,4 +1,0 @@
-# Stack and Arithmetic Operations Test
-# Tests: Stack manipulation, basic arithmetic with extended registers, and ADDEX instruction
-# Purpose: Validates stack operations, register manipulation, and extended register arithmetic (ADDEX)
-01 0A 01 03 01 00 0A 01 01 03 1C 01 1C 00 1A 18 1D 02 FF 00 00 00 00 1D 00 1D 01 01 02 61 01 1B
