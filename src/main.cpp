@@ -417,6 +417,21 @@ public:
         // Memory dump argument
         parser.add_bool_arg("memdump", "--memdump", "-m", "Print memory dump after execution", [this](bool value) { Config::memdump = value; });
 
+        // Show filter argument for tests
+        parser.add_value_arg("show", "--show", "", "Filter test output (all|fails|success)", 
+            [this](const std::string& value) {
+                if (value == "fails" || value == "fail") {
+                    Config::test_show_mode = TestShowMode::FAILS;
+                } else if (value == "success" || value == "pass") {
+                    Config::test_show_mode = TestShowMode::SUCCESS;
+                } else if (value == "all" || value.empty()) {
+                    Config::test_show_mode = TestShowMode::ALL;
+                } else {
+                    std::cerr << "Error: Invalid --show value '" << value << "'. Use 'all', 'fails', or 'success'." << std::endl;
+                    exit(1);
+                }
+            });
+
         parser.parse(argc, argv);
     }
 
