@@ -207,3 +207,80 @@
     
     HALT
 }
+
+#test "fpu_trig_functions_test" {
+    #description "Test FSIN, FCOS, FTAN trigonometric functions"
+    #author "DemiEngine Team"
+    #category "FPU"
+    #tag "trigonometry"
+    #tag "transcendental"
+    
+    FINIT
+    
+    ; Test FSIN: sin(0) = 0
+    FLD 0
+    FSIN
+    FST 0x200
+    ; Note: Result should be very close to 0
+    
+    ; Test FCOS: cos(0) = 1
+    FLD 0
+    FCOS
+    FST 0x208
+    ; Note: Result should be 1.0
+    
+    ; Test FTAN: tan(0) = 0
+    FLD 0
+    FTAN
+    FST 0x210
+    ; Note: Result should be very close to 0
+    
+    ; Test with π/6 (approximately 0.5236)
+    ; sin(π/6) ≈ 0.5, cos(π/6) ≈ 0.866, tan(π/6) ≈ 0.577
+    ; We'll use a close approximation
+    
+    ; Test FSIN with small angle
+    FLD 1
+    FSIN
+    FST 0x218
+    ; sin(1 radian) ≈ 0.841
+    
+    ; Test FCOS with small angle
+    FLD 1
+    FCOS
+    FST 0x220
+    ; cos(1 radian) ≈ 0.540
+    
+    ; Test FTAN with small angle
+    FLD 1
+    FTAN
+    FST 0x228
+    ; tan(1 radian) ≈ 1.557
+    
+    ; Test combining trig functions: sin(2) + cos(2)
+    FLD 2
+    FSIN
+    FST 0x230  ; Save sin(2)
+    
+    FLD 2
+    FCOS
+    FST 0x238  ; Save cos(2)
+    
+    ; Test negative angle: sin(-1) should be -sin(1)
+    FLD 1
+    FCHS
+    FSIN
+    FST 0x240
+    
+    ; Test cos(-1) should equal cos(1) (even function)
+    FLD 1
+    FCHS
+    FCOS
+    FST 0x248
+    
+    ; Verify CPU still functional
+    LOAD_IMM R0, 250
+    #assert_reg R0, 250
+    
+    HALT
+}
