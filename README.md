@@ -152,24 +152,24 @@ demi-engine Usage: demi-engine [options]
 ┌─────────────────────────────────────────────────────────────┐
 │                    DemiEngine Architecture                  │
 ├─────────────────────────────────────────────────────────────┤
-│  Future Demi Language Frontend (Stage 2)                   │
-│  ┌─────────────────┐  ┌─────────────────┐                 │
-│  │ Lexer/Parser    │  │ AST Generation  │                 │
-│  │ (.dem files)    │→ │ & Type Checking │                 │
-│  └─────────────────┘  └─────────────────┘                 │
-│                              ↓                             │
+│  Future Demi Language Frontend (Stage 2)                    │
+│  ┌─────────────────┐  ┌─────────────────┐                   │
+│  │ Lexer/Parser    │  │ AST Generation  │                   │
+│  │ (.dem files)    │→ │ & Type Checking │                   │
+│  └─────────────────┘  └─────────────────┘                   │
+│                              ↓                              │
 ├─────────────────────────────────────────────────────────────┤
-│  Current DemiEngine Backend (Stage 1) ✅ 95% Complete     │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
-│  │ Assembly        │  │ Virtual Machine │  │ Device      │ │
-│  │ Toolchain       │→ │ CPU (134 regs)  │↔ │ I/O System  │ │
-│  │ (.asm → bytes)  │  │ 63 opcodes      │  │ (4 devices) │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
-│                              ↓                             │
-│  ┌─────────────────┐  ┌─────────────────┐                 │
-│  │ Debug Interface │  │ Test Framework  │                 │
-│  │ (ImGui GUI)     │  │ (39/41 passing) │                 │
-│  └─────────────────┘  └─────────────────┘                 │
+│  Current DemiEngine Backend (Stage 1) ✅ 95% Complete       │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐  │
+│  │ Assembly        │  │ Virtual Machine │  │ Device      │  │
+│  │ Toolchain       │→ │ CPU (134 regs)  │↔ │ I/O System  │  │
+│  │ (.asm → bytes)  │  │ 63 opcodes      │  │ (4 devices) │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘  │
+│                              ↓                              │
+│  ┌─────────────────┐  ┌─────────────────┐                   │
+│  │ Debug Interface │  │ Test Framework  │                   │
+│  │ (ImGui GUI)     │  │ (39/41 passing) │                   │
+│  └─────────────────┘  └─────────────────┘                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -207,7 +207,7 @@ DemiEngine maintains exceptional quality through comprehensive testing with **pe
 
 # Achieved results:
 ┌──────────────────────────────────────────────────────────┐
-│     DemiEngine Test Results - PERFECT COVERAGE          │
+│     DemiEngine Test Results - PERFECT COVERAGE           │
 └──────────────────────────────────────────────────────────┘
 Unit tests passed: 78 / 78 (100% success rate)
 In-assembly tests validated: 68 / 68 (100% validation rate)
