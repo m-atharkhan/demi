@@ -232,6 +232,13 @@ private:
     void write_to_console(LogLevel level, const std::string& formatted_message) const;
 
     /**
+     * @brief Strip ANSI color codes from a string
+     * @param input The input string potentially containing ANSI codes
+     * @return String with ANSI color codes removed
+     */
+    std::string strip_ansi_codes(const std::string& input) const;
+
+    /**
      * @brief Write message to log file if enabled
      * @param formatted_message The formatted message to write
      */

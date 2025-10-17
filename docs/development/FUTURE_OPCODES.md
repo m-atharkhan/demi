@@ -11,7 +11,7 @@
 
 DemiEngine currently has **63 core opcodes** fully implemented and tested. These provide solid arithmetic, logic, memory, control flow, I/O, and stack operations. To enable seamless translation to native x86-64 code and support advanced computing applications, we're implementing **88 additional opcodes** across five categories.
 
-### Current Status (63 Opcodes - 100% Complete)
+### Current Status (86 Opcodes - 100% Complete)
 
 ✅ **Core Arithmetic**: ADD, SUB, MUL, DIV, INC, DEC (+ 64-bit variants)  
 ✅ **Logic Operations**: AND, OR, XOR, NOT, SHL, SHR  
@@ -21,34 +21,105 @@ DemiEngine currently has **63 core opcodes** fully implemented and tested. These
 ✅ **I/O Operations**: IN, OUT (byte/word/long variants), INSTR, OUTSTR  
 ✅ **Comparison**: CMP, MODECMP  
 ✅ **System**: NOP, HALT, DB, MODE32, MODE64  
+✅ **FPU Operations**: ALL 23 floating-point opcodes implemented and tested (FLD, FST, FSTP, FADD, FSUB, FMUL, FDIV, etc.)
 
-### Planned Additions (88 Opcodes)
+### ⚠️ CRITICAL: Performance Optimization Required
 
-🔄 **SIMD/SSE** (26 opcodes) - Vector operations  
-🔄 **FPU** (23 opcodes) - Floating-point arithmetic  
+**Current Status**: VM interpretation overhead causing 5-20x performance penalty
+- **87-case switch dispatcher** with branch prediction misses
+- **Per-instruction overhead** from bounds checking, logging, flag calculations
+- **Function call overhead** for each opcode handler
+
+**Immediate Priority**: VM optimization before continuing with remaining opcodes
+- **Quick wins available**: Threaded code + inlining for 2-5x improvement
+- **Timeline**: 2-4 weeks
+- **See**: `docs/development/VM_PERFORMANCE_ANALYSIS.md` for detailed analysis
+
+### Remaining Planned Additions (65 Opcodes)
+
+🔄 **SIMD/SSE** (26 opcodes) - Vector operations [NEXT PRIORITY]  
 🔄 **Extended 64-bit** (18 opcodes) - Complete addressing modes  
 🔄 **AVX** (20 opcodes) - Advanced vector processing  
 🔄 **MMX** (11 opcodes) - Legacy multimedia extensions  
 
 ---
 
-## Phase 1: Floating-Point Unit (FPU) - HIGH PRIORITY
+## ✅ **Phase 1 COMPLETE: Floating-Point Unit (FPU)**
 
-**Opcodes**: 23  
-**Timeline**: Q1 2026 (3-4 weeks)  
-**Rationale**: Most fundamental addition - enables scientific computing, graphics, physics
+**Status**: ✅ **100% COMPLETE** - All 23 FPU opcodes implemented  
+**Completed**: October 2025  
+**Result**: Full floating-point arithmetic support operational
 
-### Why FPU First?
+### FPU Implementation Summary
 
-1. **Fundamental Capability**: Every modern application needs floating-point math
-2. **Scientific Computing**: Essential for simulations, modeling, calculations
-3. **Graphics/Physics**: Required for rendering, game engines, physics simulation
-4. **Financial Applications**: Precise decimal arithmetic
-5. **Native Mapping**: Direct 1:1 mapping to x87 FPU instructions
+**All 23 FPU opcodes implemented in `src/engine/opcodes/f*.hpp`:**
 
-### FPU Opcodes to Implement
+#### Load/Store Operations ✅
+- **FLD** (0xA0) - Load floating-point value onto FP stack
+- **FST** (0xA1) - Store floating-point value from FP stack  
+- **FSTP** (0xA2) - Store floating-point value and pop stack
+- **FILD** (0xA3) - Load integer as floating-point
+- **FIST** (0xA4) - Store floating-point as integer
+- **FISTP** (0xA5) - Store floating-point as integer and pop
 
-#### Load/Store Operations
+#### Arithmetic Operations ✅
+- **FADD** (0xA6) - Floating-point addition
+- **FSUB** (0xA7) - Floating-point subtraction  
+- **FMUL** (0xA8) - Floating-point multiplication
+- **FDIV** (0xA9) - Floating-point division
+
+#### Mathematical Functions ✅
+- **FABS** (0xAD) - Absolute value
+- **FCHS** (0xAE) - Change sign
+- **FSQRT** (0xAF) - Square root
+- **FSIN** (0xB0) - Sine function
+- **FCOS** (0xB1) - Cosine function  
+- **FTAN** (0xB2) - Tangent function
+
+#### Comparison & Control ✅
+- **FCOMPP** (0xB3) - Compare and pop twice
+- **FUCOMPP** (0xB4) - Unordered compare and pop twice
+- **FCLEX** (0xB5) - Clear exception flags
+- **FSTCW** (0xB6) - Store control word
+- **FLDCW** (0xB7) - Load control word
+- **FSTSW** (0xB8) - Store status word
+- **FINIT** (0xAC) - Initialize FPU
+
+**Achievement**: Complete floating-point support enables scientific computing, graphics, physics simulations, and financial applications.
+
+---
+
+## 🚀 **Phase 2 IMMEDIATE: VM Performance Optimization**
+
+**Priority**: ⚠️ **CRITICAL** - Must address before continuing opcode expansion  
+**Timeline**: 2-4 weeks (parallel with SIMD planning)  
+**Goal**: Reduce VM interpretation penalty from 5-20x to 2-5x slower than native
+
+### Performance Bottlenecks Identified
+
+1. **Switch Dispatch Overhead** - 87-case switch causing branch prediction misses
+2. **Per-Instruction Overhead** - Bounds checking, logging, flag calculations  
+3. **Function Call Overhead** - Separate handler functions for each opcode
+4. **Memory Access Patterns** - 134 virtual registers vs 16 native
+
+### Quick Win Optimizations (2-4 weeks)
+
+1. **Threaded Code Interpretation** → 2-3x faster dispatch
+2. **Instruction Fusion** → 1.5-2x faster for common sequences
+3. **Aggressive Inlining** → Eliminate function call overhead
+4. **Conditional Compilation** → 2-3x faster in release builds
+
+**Expected Result**: 5-10x overall performance improvement
+
+**Documentation**: See `docs/development/VM_PERFORMANCE_ANALYSIS.md`
+
+---
+
+## 🎯 **Phase 3 NEXT: SIMD/Vector Operations** 
+
+**Priority**: HIGH - Next major capability expansion  
+**Timeline**: Q1 2026 (4-6 weeks after VM optimization)  
+**Goal**: Enable vectorized computation for performance-critical applications
 ```
 FLD    (0xA0) - Load floating-point value onto FP stack
 FST    (0xA1) - Store floating-point value from FP stack

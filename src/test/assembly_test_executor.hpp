@@ -165,6 +165,16 @@ private:
     int get_register_number(const Assembler::Expression& expr);
     
     /**
+     * Get ST register number from expression (for FPU testing)
+     */
+    int get_st_register_number(const Assembler::Expression& expr);
+    
+    /**
+     * Get expected floating point value from expression
+     */
+    double get_expected_float_value(const Assembler::Expression& expr);
+    
+    /**
      * Get memory address from expression
      */
     uint32_t get_memory_address(const Assembler::Expression& expr);

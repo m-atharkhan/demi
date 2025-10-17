@@ -102,6 +102,107 @@ test-all: unit-test test
 test-assembler: $(ASSEMBLER_TEST_TARGET)
 	./$(ASSEMBLER_TEST_TARGET)
 
+# Benchmark targets for performance comparison
+BENCHMARK_THREADED_TARGET := $(BIN_DIR)/demi-engine-threaded
+BENCHMARK_FALLBACK_TARGET := $(BIN_DIR)/demi-engine-fallback
+
+# Create a benchmark build directory for threaded version objects
+BENCHMARK_THREADED_BUILD_DIR := build-benchmark-threaded
+BENCHMARK_THREADED_OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BENCHMARK_THREADED_BUILD_DIR)/%.o,$(SRCS))
+BENCHMARK_THREADED_FMT_OBJS := $(patsubst $(FMT_DIR)/src/%.cc,$(BENCHMARK_THREADED_BUILD_DIR)/fmt/%.o,$(FMT_SRCS))
+
+# Create a benchmark build directory for fallback version objects  
+BENCHMARK_FALLBACK_BUILD_DIR := build-benchmark-fallback
+BENCHMARK_FALLBACK_OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BENCHMARK_FALLBACK_BUILD_DIR)/%.o,$(SRCS))
+BENCHMARK_FALLBACK_FMT_OBJS := $(patsubst $(FMT_DIR)/src/%.cc,$(BENCHMARK_FALLBACK_BUILD_DIR)/fmt/%.o,$(FMT_SRCS))
+
+# Threaded benchmark build (optimized, no AddressSanitizer)
+$(BENCHMARK_THREADED_BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) -Wall -Wextra -std=c++17 -O3 -MMD -MP -DNDEBUG -Iextern/fmt/include -c $< -o $@
+
+$(BENCHMARK_THREADED_BUILD_DIR)/fmt/%.o: $(FMT_DIR)/src/%.cc
+	@mkdir -p $(dir $@)
+	$(CXX) -Wall -Wextra -std=c++17 -O3 -MMD -MP -DNDEBUG -Iextern/fmt/include -c $< -o $@
+
+$(BENCHMARK_THREADED_TARGET): $(BENCHMARK_THREADED_OBJS) $(BENCHMARK_THREADED_FMT_OBJS)
+	@mkdir -p $(BIN_DIR)
+	$(CXX) -Wall -Wextra -std=c++17 -O3 -DNDEBUG -o $@ $^ -lstdc++fs
+
+# Fallback benchmark build (with AddressSanitizer to force fallback)
+$(BENCHMARK_FALLBACK_BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) -Wall -Wextra -std=c++17 -O2 -g -MMD -MP -fsanitize=address -Iextern/fmt/include -c $< -o $@
+
+$(BENCHMARK_FALLBACK_BUILD_DIR)/fmt/%.o: $(FMT_DIR)/src/%.cc
+	@mkdir -p $(dir $@)
+	$(CXX) -Wall -Wextra -std=c++17 -O2 -g -MMD -MP -fsanitize=address -Iextern/fmt/include -c $< -o $@
+
+$(BENCHMARK_FALLBACK_TARGET): $(BENCHMARK_FALLBACK_OBJS) $(BENCHMARK_FALLBACK_FMT_OBJS)
+	@mkdir -p $(BIN_DIR)
+	$(CXX) -Wall -Wextra -std=c++17 -O2 -g -fsanitize=address -o $@ $^ -lstdc++fs -fsanitize=address
+
+# Build both benchmark binaries
+benchmark-binaries: $(BENCHMARK_THREADED_TARGET) $(BENCHMARK_FALLBACK_TARGET)
+	@echo "✓ Benchmark binaries built:"
+	@echo "  $(BENCHMARK_THREADED_TARGET) - Optimized build (threaded dispatcher when available)"
+	@echo "  $(BENCHMARK_FALLBACK_TARGET) - AddressSanitizer build (forces fallback dispatcher)"
+
+# Run performance benchmark on all files in benchmarks/ directory
+benchmark: benchmark-binaries
+	@echo "DemiEngine Dispatcher Performance Benchmark"
+	@echo "==========================================="
+	@echo
+	@if [ ! -d benchmarks ]; then \
+		echo "Error: benchmarks/ directory not found."; \
+		exit 1; \
+	fi
+	@BENCHMARK_FILES=$$(find benchmarks -name "*.asm" | sort); \
+	if [ -z "$$BENCHMARK_FILES" ]; then \
+		echo "Error: No .asm files found in benchmarks/ directory."; \
+		exit 1; \
+	fi; \
+	echo "Found benchmark files:"; \
+	for file in $$BENCHMARK_FILES; do \
+		echo "  $$file"; \
+	done; \
+	echo; \
+	for file in $$BENCHMARK_FILES; do \
+		echo "Testing $$file"; \
+		echo "$$(printf '=%.0s' {1..50})"; \
+		echo; \
+		echo "Threaded Dispatcher Performance:"; \
+		echo "-------------------------------"; \
+		for i in 1 2 3; do \
+			echo -n "Run $$i: "; \
+			if timeout 30 ./$(BENCHMARK_THREADED_TARGET) -A "$$file" > /dev/null 2>&1; then \
+				echo "✓ Success"; \
+			else \
+				echo "✗ Failed/Crashed"; \
+			fi; \
+		done; \
+		echo; \
+		echo "Fallback Dispatcher Performance:"; \
+		echo "-------------------------------"; \
+		for i in 1 2 3; do \
+			echo -n "Run $$i: "; \
+			start=$$(date +%s.%N); \
+			if timeout 30 ./$(BENCHMARK_FALLBACK_TARGET) -A "$$file" > /dev/null 2>&1; then \
+				end=$$(date +%s.%N); \
+				runtime=$$(echo "$$end - $$start" | bc -l 2>/dev/null || echo "0.0000"); \
+				printf "%.4f seconds\n" $$runtime; \
+			else \
+				echo "✗ Failed"; \
+			fi; \
+		done; \
+		echo; \
+	done; \
+	echo "Benchmark complete!"; \
+	echo; \
+	echo "Note: If threaded dispatcher crashes, this indicates optimization-related"; \
+	echo "issues that need debugging. The fallback dispatcher uses AddressSanitizer"; \
+	echo "which adds overhead but ensures stability."
+
 prereqs:
 	@if ! dpkg -s libglfw3-dev libglew-dev libgl1-mesa-dev xorg-dev >/dev/null 2>&1; then \
 		echo "Installing required system libraries..."; \

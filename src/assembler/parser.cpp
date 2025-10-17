@@ -14,10 +14,10 @@ std::unique_ptr<Program> Parser::parse() {
         auto stmt = parse_statement();
         if (stmt) {
             // Check if this is a test case using dynamic_cast
-            if (auto* test_ptr = dynamic_cast<TestCase*>(stmt.get())) {
-                // Move ownership from stmt to test_cases
-                stmt.release();
-                program->add_test_case(std::unique_ptr<TestCase>(test_ptr));
+            if (dynamic_cast<TestCase*>(stmt.get())) {
+                // Safely cast and move the unique_ptr
+                std::unique_ptr<TestCase> test_case(static_cast<TestCase*>(stmt.release()));
+                program->add_test_case(std::move(test_case));
             } else {
                 program->add_statement(std::move(stmt));
             }
@@ -117,6 +117,13 @@ std::unique_ptr<Statement> Parser::parse_statement() {
             size_t col = token.column;
             advance();
             return parse_test_assertion(TestAssertionType::ASSERT_REG, line, col);
+        }
+        
+        case TokenType::ASSERT_FPU: {
+            size_t line = token.line;
+            size_t col = token.column;
+            advance();
+            return parse_test_assertion(TestAssertionType::ASSERT_FPU, line, col);
         }
         
         case TokenType::ASSERT_OUTPUT: {
@@ -223,13 +230,55 @@ std::unique_ptr<Expression> Parser::parse_primary_expression() {
         }
         
         case TokenType::NUMBER: {
-            int64_t value = token.as_int();
-            advance();
-            return std::make_unique<ImmediateExpression>(value, token.line, token.column);
+            if (token.is_float()) {
+                double value = token.as_float();
+                advance();
+                return std::make_unique<FloatExpression>(value, token.line, token.column);
+            } else {
+                int64_t value = token.as_int();
+                advance();
+                return std::make_unique<ImmediateExpression>(value, token.line, token.column);
+            }
         }
         
         case TokenType::IDENTIFIER: {
             std::string name = token.text;
+            
+            // Check for ST(i) syntax
+            if (name == "ST" || name == "st") {
+                advance(); // consume "ST"
+                
+                // Expect opening parenthesis
+                if (current_token().type != TokenType::LPAREN) {
+                    add_error("Expected '(' after ST", current_token());
+                    return std::make_unique<IdentifierExpression>(name, token.line, token.column);
+                }
+                advance(); // consume '('
+                
+                // Expect number (ST index)
+                if (current_token().type != TokenType::NUMBER) {
+                    add_error("Expected number in ST(...)", current_token());
+                    return std::make_unique<IdentifierExpression>(name, token.line, token.column);
+                }
+                
+                int64_t st_index = current_token().as_int();
+                if (st_index < 0 || st_index > 7) {
+                    add_error("ST index must be 0-7", current_token());
+                    return std::make_unique<IdentifierExpression>(name, token.line, token.column);
+                }
+                advance(); // consume number
+                
+                // Expect closing parenthesis
+                if (current_token().type != TokenType::RPAREN) {
+                    add_error("Expected ')' after ST index", current_token());
+                    return std::make_unique<IdentifierExpression>(name, token.line, token.column);
+                }
+                advance(); // consume ')'
+                
+                return std::make_unique<STRegisterExpression>(static_cast<uint8_t>(st_index), token.line, token.column);
+            }
+            
+            // Regular identifier
             advance();
             return std::make_unique<IdentifierExpression>(name, token.line, token.column);
         }
@@ -398,9 +447,16 @@ std::unique_ptr<TestAssertion> Parser::parse_test_assertion(TestAssertionType ty
     switch (type) {
         case TestAssertionType::ASSERT_MEM:
         case TestAssertionType::ASSERT_REG:
+        case TestAssertionType::ASSERT_FPU:
             if (args.size() != 2) {
-                add_error("Expected 2 arguments for " + 
-                         std::string(type == TestAssertionType::ASSERT_MEM ? "#assert_mem" : "#assert_reg"));
+                std::string assertion_name;
+                switch(type) {
+                    case TestAssertionType::ASSERT_MEM: assertion_name = "#assert_mem"; break;
+                    case TestAssertionType::ASSERT_REG: assertion_name = "#assert_reg"; break;
+                    case TestAssertionType::ASSERT_FPU: assertion_name = "#assert_fpu"; break;
+                    default: assertion_name = "#unknown"; break;
+                }
+                add_error("Expected 2 arguments for " + assertion_name);
                 return nullptr;
             }
             break;

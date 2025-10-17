@@ -324,10 +324,50 @@ void Logger::write_to_console(LogLevel level, const std::string& formatted_messa
     }
 }
 
+std::string Logger::strip_ansi_codes(const std::string& input) const {
+    std::string result;
+    result.reserve(input.length());
+    
+    for (size_t i = 0; i < input.length(); ++i) {
+        char c = input[i];
+        
+        if (c == '\033' && i + 1 < input.length() && input[i + 1] == '[') {
+            // Start of ANSI escape sequence \033[
+            i += 2; // Skip \033[
+            
+            // Continue skipping until we find a terminating character
+            while (i < input.length()) {
+                char term_char = input[i];
+                // Common ANSI terminating characters
+                if (term_char == 'm' || term_char == 'K' || term_char == 'J' || 
+                    term_char == 'H' || term_char == 'A' || term_char == 'B' || 
+                    term_char == 'C' || term_char == 'D' || term_char == 'f' || 
+                    term_char == 'G' || term_char == 'S' || term_char == 'T') {
+                    break;
+                }
+                i++;
+            }
+            // i now points to the terminating character, which will be skipped by the main loop increment
+        } else {
+            // Regular character, add to result
+            result += c;
+        }
+    }
+    
+    return result;
+}
+
 void Logger::write_to_file(const std::string& formatted_message) {
-    if (log_file_.is_open()) {
-        log_file_ << formatted_message << std::endl;
-        log_file_.flush();
+    if (!log_file_.is_open()) {
+        return;
+    }
+    
+    try {
+        std::string clean_message = strip_ansi_codes(formatted_message);
+        log_file_ << clean_message << std::endl;
+    } catch (const std::exception& e) {
+        // If file writing fails, at least output to console
+        std::cerr << "Error writing to log file: " << e.what() << std::endl;
     }
 }
 

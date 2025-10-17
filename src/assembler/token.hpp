@@ -23,6 +23,8 @@ enum class TokenType {
     HASH,            // #
     LBRACE,          // {
     RBRACE,          // }
+    LPAREN,          // (
+    RPAREN,          // )
     
     // Addressing modes
     LBRACKET,        // [
@@ -31,6 +33,9 @@ enum class TokenType {
     MINUS,           // -
     ASTERISK,        // *
     
+    // Memory size specifiers
+    SIZE_SPECIFIER,  // byte, word, dword, qword
+    
     // Directives
     DIRECTIVE,       // .data, .text, .org, etc.
     
@@ -38,6 +43,7 @@ enum class TokenType {
     TEST_DIRECTIVE,  // #test
     ASSERT_MEM,      // #assert_mem
     ASSERT_REG,      // #assert_reg
+    ASSERT_FPU,      // #assert_fpu
     ASSERT_OUTPUT,   // #assert_output
     EXPECT_ERROR,    // #expect_error
     
@@ -65,6 +71,7 @@ struct Token {
     
     // Helper methods for value access
     bool is_number() const { return std::holds_alternative<int64_t>(value) || std::holds_alternative<uint64_t>(value); }
+    bool is_float() const { return std::holds_alternative<double>(value); }
     bool is_string() const { return std::holds_alternative<std::string>(value); }
     
     int64_t as_int() const { 
@@ -77,6 +84,13 @@ struct Token {
         if (std::holds_alternative<uint64_t>(value)) return std::get<uint64_t>(value);
         if (std::holds_alternative<int64_t>(value)) return static_cast<uint64_t>(std::get<int64_t>(value));
         return 0;
+    }
+    
+    double as_float() const {
+        if (std::holds_alternative<double>(value)) return std::get<double>(value);
+        if (std::holds_alternative<int64_t>(value)) return static_cast<double>(std::get<int64_t>(value));
+        if (std::holds_alternative<uint64_t>(value)) return static_cast<double>(std::get<uint64_t>(value));
+        return 0.0;
     }
     
     std::string as_string() const {

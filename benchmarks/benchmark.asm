@@ -1,0 +1,9 @@
+; Simple benchmark
+LOAD_IMM R0, 1
+LOAD_IMM R1, 1  
+ADD R0, R1
+ADD R0, R1
+ADD R0, R1
+MOV R2, R0
+SUB R2, R1
+HALT

@@ -23,6 +23,8 @@ enum class ASTNodeType {
     EXPRESSION,
     REGISTER,
     IMMEDIATE,
+    FLOAT,
+    ST_REGISTER,
     MEMORY_REF,
     IDENTIFIER,
     STRING_LITERAL,
@@ -64,6 +66,22 @@ public:
     
     ImmediateExpression(int64_t val, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::IMMEDIATE, ln, col), value(val) {}
+};
+
+class FloatExpression : public Expression {
+public:
+    double value;
+    
+    FloatExpression(double val, size_t ln = 0, size_t col = 0)
+        : Expression(ASTNodeType::FLOAT, ln, col), value(val) {}
+};
+
+class STRegisterExpression : public Expression {
+public:
+    uint8_t index;  // ST(0) to ST(7)
+    
+    STRegisterExpression(uint8_t st_index, size_t ln = 0, size_t col = 0)
+        : Expression(ASTNodeType::ST_REGISTER, ln, col), index(st_index) {}
 };
 
 class IdentifierExpression : public Expression {
@@ -139,6 +157,7 @@ public:
 enum class TestAssertionType {
     ASSERT_MEM,      // #assert_mem address, expected_value
     ASSERT_REG,      // #assert_reg register, expected_value
+    ASSERT_FPU,      // #assert_fpu st_register, expected_value
     ASSERT_OUTPUT,   // #assert_output expected_string
     EXPECT_ERROR     // #expect_error
 };
