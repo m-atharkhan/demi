@@ -1,0 +1,104 @@
+{
+  "category": "programming",
+  "title": "Assembly Language Guide",
+  "description": "Complete guide to writing assembly programs in DemiEngine with test directives",
+  "tags": ["assembly", "programming", "testing", "asm"],
+  "lastUpdated": "2025-10-17",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Assembly Language Overview",
+      "content": "DemiEngine includes a powerful assembly language that supports human-readable mnemonics, labels, and in-assembly testing. The assembler converts `.asm` files into executable bytecode.",
+      "order": 1
+    },
+    {
+      "id": "basic_syntax",
+      "title": "Basic Syntax",
+      "content": "**Mnemonics:** Human-readable instruction names (e.g., `MOV`, `ADD`, `JMP`)\n\n**Registers:** R0-R7 for basic operations, R0-R15 for extended\n\n**Immediates:** Numeric values (`10`, `0x0A`, `0b1010`)\n\n**Labels:** Named addresses for jumps and calls\n\n**Comments:** Lines starting with `;` or `#`",
+      "order": 2
+    },
+    {
+      "id": "hello_world",
+      "title": "Hello World Example",
+      "content": "```asm\n; Hello World in DemiEngine Assembly\n\nLOAD_IMM R0, message_addr\nOUTSTR 1, R0\nHALT\n\nmessage_addr:\n    DB \"Hello, World!\", 0\n```",
+      "codeLanguage": "asm",
+      "order": 3
+    },
+    {
+      "id": "instructions",
+      "title": "Instruction Format",
+      "content": "**Load Immediate:**\n```asm\nLOAD_IMM R0, 42        ; Load 42 into R0\nLOAD_IMM R1, 0xFF      ; Load 255 into R1\n```\n\n**Arithmetic:**\n```asm\nADD R0, R1             ; R0 = R0 + R1\nSUB R2, R3             ; R2 = R2 - R3\nMUL R0, R1             ; R0 = R0 * R1\nDIV R0, R1             ; R0 = R0 / R1\nINC R0                 ; R0++\nDEC R1                 ; R1--\n```\n\n**Memory:**\n```asm\nLOAD R0, [100]         ; Load from address 100\nSTORE [100], R0        ; Store R0 to address 100\n```\n\n**Control Flow:**\n```asm\nJMP label              ; Unconditional jump\nCMP R0, R1             ; Compare registers\nJZ label               ; Jump if zero\nJNZ label              ; Jump if not zero\nCALL function          ; Call subroutine\nRET                    ; Return from subroutine\n```",
+      "codeLanguage": "asm",
+      "order": 4
+    },
+    {
+      "id": "labels",
+      "title": "Labels and Jumps",
+      "content": "```asm\n; Loop example with labels\nLOAD_IMM R0, 10        ; Counter\nLOAD_IMM R1, 0         ; Comparison value\n\nloop_start:\n    DEC R0\n    CMP R0, R1\n    JNZ loop_start     ; Continue if not zero\n\nHALT\n```",
+      "codeLanguage": "asm",
+      "order": 5
+    },
+    {
+      "id": "data_directives",
+      "title": "Data Directives",
+      "content": "**Define Byte (DB):**\n```asm\nmessage:  DB \"Hello\", 0\nbytes:    DB 0x10, 0x20, 0x30\narray:    DB 1, 2, 3, 4, 5\n```\n\n**Origin (.org):**\n```asm\n.org 0x100             ; Set code origin to 0x100\n```",
+      "codeLanguage": "asm",
+      "order": 6
+    },
+    {
+      "id": "testing",
+      "title": "In-Assembly Testing",
+      "content": "DemiEngine supports powerful in-assembly testing with `#test` blocks:\n\n```asm\n#test addition_test\n    #description Tests basic addition\n    #author DemiEngine Team\n    #category Arithmetic\n    #tag basic, math\n    \n    LOAD_IMM R0, 5\n    LOAD_IMM R1, 3\n    ADD R0, R1\n    \n    #assert_eq R0, 8\n#endtest\n```",
+      "codeLanguage": "asm",
+      "order": 7
+    },
+    {
+      "id": "test_directives",
+      "title": "Test Directives",
+      "content": "**Test Metadata:**\n- `#description` - Brief test description\n- `#author` - Test author/team\n- `#category` - Test category\n- `#tag` - Comma-separated tags\n\n**Assertions:**\n- `#assert_eq <reg>, <value>` - Assert register equals value\n- `#assert_ne <reg>, <value>` - Assert not equal\n- `#assert_lt <reg>, <value>` - Assert less than\n- `#assert_gt <reg>, <value>` - Assert greater than\n- `#assert_le <reg>, <value>` - Assert less or equal\n- `#assert_ge <reg>, <value>` - Assert greater or equal\n- `#assert_mem <addr>, <value>` - Assert memory value\n- `#assert_flag <flag>` - Assert flag is set\n- `#expect_error` - Expect test to trigger error",
+      "order": 8
+    },
+    {
+      "id": "test_example",
+      "title": "Complete Test Example",
+      "content": "```asm\n#test stack_operations\n    #description Tests PUSH and POP maintain LIFO order\n    #author DemiEngine Team\n    #category Stack\n    #tag stack, lifo, order\n    \n    ; Push three values\n    LOAD_IMM R0, 10\n    PUSH R0\n    LOAD_IMM R0, 20\n    PUSH R0\n    LOAD_IMM R0, 30\n    PUSH R0\n    \n    ; Pop and verify LIFO order\n    POP R1\n    #assert_eq R1, 30\n    \n    POP R2\n    #assert_eq R2, 20\n    \n    POP R3\n    #assert_eq R3, 10\n#endtest\n```",
+      "codeLanguage": "asm",
+      "order": 9
+    },
+    {
+      "id": "running_tests",
+      "title": "Running Tests",
+      "content": "```bash\n# Run all assembly tests\n./bin/demi-engine -at\n\n# Show only failures\n./bin/demi-engine -at --show=fails\n\n# Show only successes\n./bin/demi-engine -at --show=success\n\n# Test specific file\n./bin/demi-engine -at tests/asm/my_test.asm\n\n# Quiet mode (minimal output)\n./bin/demi-engine -atq\n```",
+      "codeLanguage": "bash",
+      "order": 10
+    },
+    {
+      "id": "function_example",
+      "title": "Function Call Example",
+      "content": "```asm\n; Main program\nLOAD_IMM R0, 5\nCALL square_function\n; R0 now contains 25\nHALT\n\n; Function: square a number\nsquare_function:\n    MOV R1, R0         ; Copy input\n    MUL R0, R1         ; R0 = R0 * R1\n    RET\n```",
+      "codeLanguage": "asm",
+      "order": 11
+    },
+    {
+      "id": "loop_example",
+      "title": "Loop Example",
+      "content": "```asm\n; Sum numbers from 1 to 10\nLOAD_IMM R0, 10        ; Counter\nLOAD_IMM R1, 0         ; Sum accumulator\nLOAD_IMM R2, 0         ; Comparison value\n\nloop:\n    ADD R1, R0         ; Add counter to sum\n    DEC R0             ; Decrement counter\n    CMP R0, R2         ; Compare to zero\n    JNZ loop           ; Continue if not zero\n\n; R1 now contains 55 (sum of 1-10)\nHALT\n```",
+      "codeLanguage": "asm",
+      "order": 12
+    },
+    {
+      "id": "string_example",
+      "title": "String I/O Example",
+      "content": "```asm\n; Print multiple strings\nLOAD_IMM R0, msg1\nOUTSTR 1, R0\n\nLOAD_IMM R0, msg2\nOUTSTR 1, R0\n\nHALT\n\nmsg1: DB \"Hello, \", 0\nmsg2: DB \"World!\", 0\n```",
+      "codeLanguage": "asm",
+      "order": 13
+    },
+    {
+      "id": "best_practices",
+      "title": "Best Practices",
+      "content": "1. **Use meaningful labels** - `calculate_sum` instead of `label1`\n2. **Comment complex logic** - Explain what the code does\n3. **Organize code in sections** - Separate code, data, and functions\n4. **Test edge cases** - Zero values, maximum values, negative results\n5. **Use consistent naming** - snake_case for labels, UPPERCASE for constants\n6. **Document register usage** - Comment which registers hold what data\n7. **Validate inputs** - Check for division by zero, invalid addresses",
+      "order": 14
+    }
+  ],
+  "relatedDocs": ["getting_started", "instruction_set", "examples", "testing"]
+}

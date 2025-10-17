@@ -1,0 +1,111 @@
+{
+  "category": "testing",
+  "title": "Testing Guide",
+  "description": "Complete guide to running tests and writing test cases in DemiEngine",
+  "tags": ["testing", "quality-assurance", "automation", "tdd"],
+  "lastUpdated": "2025-10-17",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Testing Overview",
+      "content": "DemiEngine features a comprehensive test suite with **100% test coverage** across 155 tests. The testing system includes unit tests, integration tests, and in-assembly tests with powerful assertion capabilities.",
+      "order": 1,
+      "stats": {
+        "totalTests": 155,
+        "unitTests": 78,
+        "integrationTests": 42,
+        "assemblyTests": 68,
+        "passRate": "100%"
+      }
+    },
+    {
+      "id": "quick_commands",
+      "title": "Quick Test Commands",
+      "content": "```bash\n# Run all tests\n./bin/demi-engine -t\nmake test\n\n# Run unit tests only (fastest)\n./bin/demi-engine -ut\n\n# Run integration tests\n./bin/demi-engine -it\n\n# Run assembly tests\n./bin/demi-engine -at\n\n# Filter by result\n./bin/demi-engine -at --show=fails\n./bin/demi-engine -at --show=success\n```",
+      "codeLanguage": "bash",
+      "order": 2
+    },
+    {
+      "id": "test_types",
+      "title": "Test Types",
+      "content": "**Unit Tests (78 tests, ~1-2s):**\n- Assembler functionality\n- Parser validation\n- CPU instruction validation\n- Error handling\n- Negative test cases\n\n**Integration Tests (42 tests, ~2-3s):**\n- Complete hex programs\n- CPU instruction execution\n- Device I/O operations\n- End-to-end workflows\n\n**Assembly Tests (68 tests, ~1s):**\n- In-assembly test validation\n- Test structure parsing\n- Assertion evaluation\n- Test metadata handling",
+      "order": 3
+    },
+    {
+      "id": "test_filtering",
+      "title": "Test Output Filtering",
+      "content": "Control which tests are displayed while still running all tests:\n\n```bash\n# Show all tests (default)\n./bin/demi-engine -at\n\n# Show only failed tests\n./bin/demi-engine -at --show=fails\n\n# Show only passed tests\n./bin/demi-engine -at --show=success\n```\n\n**Enhanced Summary:**\nAll modes show complete statistics including:\n- Total tests run (passed/failed)\n- Total assertions (passed/failed)\n- Total execution time\n- Breakdown by category",
+      "codeLanguage": "bash",
+      "order": 4
+    },
+    {
+      "id": "writing_tests",
+      "title": "Writing In-Assembly Tests",
+      "content": "Tests are written directly in assembly files using special directives:\n\n```asm\n#test my_test_name\n    #description Brief description of what is tested\n    #author Your Name\n    #category Test Category\n    #tag tag1, tag2, tag3\n    \n    ; Test code here\n    LOAD_IMM R0, 5\n    LOAD_IMM R1, 3\n    ADD R0, R1\n    \n    ; Assertions\n    #assert_eq R0, 8\n    #assert_ne R1, 0\n#endtest\n```",
+      "codeLanguage": "asm",
+      "order": 5
+    },
+    {
+      "id": "assertions",
+      "title": "Available Assertions",
+      "content": "**Register Assertions:**\n```asm\n#assert_eq R0, 42      ; Assert R0 equals 42\n#assert_ne R0, 0       ; Assert R0 not equal to 0\n#assert_lt R0, 100     ; Assert R0 less than 100\n#assert_gt R0, 10      ; Assert R0 greater than 10\n#assert_le R0, 50      ; Assert R0 less or equal 50\n#assert_ge R0, 20      ; Assert R0 greater or equal 20\n```\n\n**Memory Assertions:**\n```asm\n#assert_mem 100, 0x42  ; Assert memory[100] == 0x42\n```\n\n**Flag Assertions:**\n```asm\n#assert_flag zero      ; Assert zero flag is set\n#assert_flag carry     ; Assert carry flag is set\n#assert_flag overflow  ; Assert overflow flag is set\n```\n\n**Error Testing:**\n```asm\n#expect_error          ; Test should trigger an error\n```",
+      "codeLanguage": "asm",
+      "order": 6
+    },
+    {
+      "id": "test_metadata",
+      "title": "Test Metadata",
+      "content": "Metadata helps organize and document tests:\n\n**Required:**\n- Test name (in `#test` declaration)\n\n**Recommended:**\n- `#description` - What the test validates\n- `#category` - Grouping for test reports\n\n**Optional:**\n- `#author` - Who wrote the test\n- `#tag` - Keywords for searching/filtering",
+      "order": 7
+    },
+    {
+      "id": "example_arithmetic",
+      "title": "Example: Arithmetic Test",
+      "content": "```asm\n#test addition_overflow\n    #description Tests addition with overflow detection\n    #author DemiEngine Team\n    #category Arithmetic\n    #tag overflow, flags, edge-case\n    \n    ; Add two large numbers to cause overflow\n    LOAD_IMM R0, 255\n    LOAD_IMM R1, 1\n    ADD R0, R1\n    \n    ; Should wrap to 0 and set overflow flag\n    #assert_eq R0, 0\n    #assert_flag overflow\n#endtest\n```",
+      "codeLanguage": "asm",
+      "order": 8
+    },
+    {
+      "id": "example_error",
+      "title": "Example: Error Testing",
+      "content": "```asm\n#test division_by_zero\n    #description Tests that division by zero triggers error\n    #author DemiEngine Team\n    #category Error Handling\n    #tag error, division, validation\n    \n    #expect_error\n    \n    LOAD_IMM R0, 10\n    LOAD_IMM R1, 0\n    DIV R0, R1      ; Should trigger error\n#endtest\n```",
+      "codeLanguage": "asm",
+      "order": 9
+    },
+    {
+      "id": "test_organization",
+      "title": "Test File Organization",
+      "content": "Organize tests by category in separate files:\n\n```\ntests/asm/\n├── test_arithmetic.asm       # Basic math operations\n├── test_memory.asm           # Load/store operations\n├── test_control_flow.asm     # Jumps and branches\n├── test_stack.asm            # Push/pop operations\n├── test_logical.asm          # Bitwise operations\n├── test_error_cases.asm      # Error handling\n└── test_comprehensive.asm    # Complex scenarios\n```",
+      "codeLanguage": "text",
+      "order": 10
+    },
+    {
+      "id": "development_workflow",
+      "title": "Development Workflow",
+      "content": "**Quick Iteration:**\n```bash\n# 1. Make code change\nvim src/engine/cpu.cpp\n\n# 2. Quick test (1-2 seconds)\n./bin/demi-engine -ut\n```\n\n**Testing CPU Changes:**\n```bash\n# Test instruction execution\n./bin/demi-engine -it\n```\n\n**Before Commit:**\n```bash\n# Full test suite\nmake test\n```",
+      "codeLanguage": "bash",
+      "order": 11
+    },
+    {
+      "id": "test_output",
+      "title": "Understanding Test Output",
+      "content": "**Successful Test:**\n```\n[INFO] Test: addition_test\n[INFO]   Description: Tests basic addition\n[INFO]   Category: Arithmetic\n[INFO] ✓ Test completed successfully\n```\n\n**Failed Test:**\n```\n[ERROR] Test: subtraction_test\n[ERROR]   Description: Tests subtraction\n[ERROR] ✗ Test failed\n[ERROR]   assert_eq at line 25: Expected R0 = 5, but got R0 = 7\n```\n\n**Summary:**\n```\n=== Test Summary ===\nTotal Tests: 155 (passed: 155, failed: 0)\nTotal Assertions: 211 (passed: 211, failed: 0)\nTotal Execution Time: 42.15ms\n\nBy Category:\n  Arithmetic: 22/22 passed\n  Control Flow: 20/20 passed\n  Memory: 16/16 passed\n  ...\n\n✓ All tests passed!\n```",
+      "codeLanguage": "text",
+      "order": 12
+    },
+    {
+      "id": "best_practices",
+      "title": "Testing Best Practices",
+      "content": "1. **Test one thing** - Each test should verify a single behavior\n2. **Use descriptive names** - `test_addition_overflow` not `test1`\n3. **Add descriptions** - Explain what and why you're testing\n4. **Test edge cases** - Zero, max values, negative numbers\n5. **Test error conditions** - Use `#expect_error` for invalid operations\n6. **Organize by category** - Group related tests together\n7. **Keep tests fast** - Avoid unnecessary operations\n8. **Run tests frequently** - Catch issues early\n9. **Document assumptions** - Comment any special setup\n10. **Verify all assertions** - Don't assume earlier checks guarantee later ones",
+      "order": 13
+    },
+    {
+      "id": "ci_integration",
+      "title": "CI/CD Integration",
+      "content": "DemiEngine tests integrate easily with CI/CD pipelines:\n\n```yaml\n# GitHub Actions example\n- name: Build DemiEngine\n  run: make\n\n- name: Run Tests\n  run: make test\n\n# Or run test types in parallel\n- name: Unit Tests\n  run: ./bin/demi-engine -ut\n  \n- name: Integration Tests\n  run: ./bin/demi-engine -it\n  \n- name: Assembly Tests\n  run: ./bin/demi-engine -at\n```",
+      "codeLanguage": "yaml",
+      "order": 14
+    }
+  ],
+  "relatedDocs": ["assembly_language", "troubleshooting", "examples"]
+}

@@ -1,0 +1,56 @@
+{
+  "category": "getting_started",
+  "title": "Getting Started with DemiEngine",
+  "description": "Quick start guide and basic usage for DemiEngine virtual machine",
+  "tags": ["beginner", "tutorial", "setup", "installation"],
+  "lastUpdated": "2025-10-17",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "content": "DemiEngine is a revolutionary virtual machine with 134 registers, 63 implemented opcodes, and 100% test coverage. It serves as the foundation for the upcoming Demi programming language - a fully customizable programming environment where you can tailor syntax, semantics, and behavior to your exact needs.",
+      "order": 1
+    },
+    {
+      "id": "prerequisites",
+      "title": "Prerequisites",
+      "content": "- C++17 compatible compiler (g++ 7.0 or later)\n- Make build system\n- Git for cloning the repository\n- Linux, macOS, or WSL2 (Windows)",
+      "order": 2
+    },
+    {
+      "id": "installation",
+      "title": "Installation",
+      "content": "```bash\n# Clone the repository\ngit clone https://github.com/bobrossrtx/demi.git\ncd demi\n\n# Build DemiEngine\nmake\n\n# Verify installation\n./bin/demi-engine --help\n```",
+      "codeLanguage": "bash",
+      "order": 3
+    },
+    {
+      "id": "first_program",
+      "title": "Running Your First Program",
+      "content": "```bash\n# Run a hello world example\n./bin/demi-engine tests/hex/helloworld.hex\n\n# Run with debug output\n./bin/demi-engine tests/hex/helloworld.hex --debug\n\n# Show extended register output\n./bin/demi-engine tests/hex/helloworld.hex --extended-registers\n```",
+      "codeLanguage": "bash",
+      "order": 4
+    },
+    {
+      "id": "assembly_mode",
+      "title": "Using Assembly Mode",
+      "content": "DemiEngine includes a powerful assembly language with test directives:\n\n```bash\n# Assemble and run .asm files\n./bin/demi-engine -A examples/hello_world.asm\n\n# Run in-assembly tests\n./bin/demi-engine -at\n\n# Show only failed tests\n./bin/demi-engine -at --show=fails\n\n# Show only passed tests\n./bin/demi-engine -at --show=success\n```",
+      "codeLanguage": "bash",
+      "order": 5
+    },
+    {
+      "id": "command_options",
+      "title": "Command-Line Options",
+      "content": "```\n--help, -h              Show help information\n--debug, -d             Enable debug mode with detailed logging\n--verbose, -v           Show informational messages\n--extended-registers    Show all 134 registers\n--hex, -H              Run hex file\n--assembly, -A         Assemble and run .asm file\n--assembly-test, -at   Run in-assembly tests\n--show=MODE            Filter test output (all|fails|success)\n--compile, -o          Compile to standalone executable\n```",
+      "codeLanguage": "text",
+      "order": 6
+    },
+    {
+      "id": "next_steps",
+      "title": "Next Steps",
+      "content": "- Read the [Instruction Set Reference](/docs/instruction-set) to learn available opcodes\n- Explore [Programming Examples](/docs/examples) for common patterns\n- Check out the [Assembly Language Guide](/docs/assembly) for writing .asm files\n- Learn about [Device I/O](/docs/devices) for interacting with virtual hardware",
+      "order": 7
+    }
+  ],
+  "relatedDocs": ["instruction_set", "assembly_language", "examples"]
+}

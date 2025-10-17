@@ -1,0 +1,169 @@
+{
+  "category": "instruction_set",
+  "title": "DemiEngine Instruction Set Reference",
+  "description": "Complete reference for all 63 implemented opcodes and instruction categories",
+  "tags": ["reference", "opcodes", "instructions", "programming"],
+  "lastUpdated": "2025-10-17",
+  "implementedCount": 63,
+  "plannedCount": 88,
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "content": "DemiEngine currently implements **63 opcodes** across multiple categories. Instructions are written in hexadecimal format, with comments starting with `#`. The VM features 134 registers (R0-R7 basic, R0-R15 extended, plus special/system registers).",
+      "order": 1
+    },
+    {
+      "id": "basic_syntax",
+      "title": "Basic Syntax",
+      "content": "- Instructions are hex-encoded bytes\n- Comments start with `#`\n- Registers: R0-R7 (basic), R0-R15 (extended)\n- LOAD_IMM format: `opcode + register + immediate_value`\n- Addresses are 8-bit (0-255)",
+      "order": 2
+    },
+    {
+      "id": "basic_operations",
+      "title": "Basic Operations",
+      "content": "```\n00                    NOP  - No operation\nFF                    HALT - Stop execution\n01 <reg> <imm8>       LOAD_IMM - Load 8-bit immediate\n04 <dst> <src>        MOV - Copy register value\n```",
+      "codeLanguage": "hex",
+      "order": 3,
+      "opcodes": [
+        {"code": "0x00", "mnemonic": "NOP", "description": "No operation"},
+        {"code": "0xFF", "mnemonic": "HALT", "description": "Stop execution"},
+        {"code": "0x01", "mnemonic": "LOAD_IMM", "description": "Load immediate value (8-bit)"},
+        {"code": "0x04", "mnemonic": "MOV", "description": "Copy register"}
+      ]
+    },
+    {
+      "id": "arithmetic",
+      "title": "Arithmetic Operations",
+      "content": "```\n02 <dst> <src>        ADD - Add registers\n03 <dst> <src>        SUB - Subtract registers\n10 <dst> <src>        MUL - Multiply registers\n11 <dst> <src>        DIV - Divide registers\n12 <reg>              INC - Increment register\n13 <reg>              DEC - Decrement register\n```",
+      "codeLanguage": "hex",
+      "order": 4,
+      "opcodes": [
+        {"code": "0x02", "mnemonic": "ADD", "description": "Add two registers"},
+        {"code": "0x03", "mnemonic": "SUB", "description": "Subtract registers"},
+        {"code": "0x10", "mnemonic": "MUL", "description": "Multiply registers"},
+        {"code": "0x11", "mnemonic": "DIV", "description": "Divide registers"},
+        {"code": "0x12", "mnemonic": "INC", "description": "Increment register"},
+        {"code": "0x13", "mnemonic": "DEC", "description": "Decrement register"}
+      ]
+    },
+    {
+      "id": "memory",
+      "title": "Memory Operations",
+      "content": "```\n06 <dst> <addr>       LOAD - Load from memory\n07 <addr> <src>       STORE - Store to memory\n20 <reg> <addr>       LEA - Load Effective Address\n21 <reg> <addr>       SWAP - Swap register with memory\n```",
+      "codeLanguage": "hex",
+      "order": 5,
+      "opcodes": [
+        {"code": "0x06", "mnemonic": "LOAD", "description": "Load from memory address"},
+        {"code": "0x07", "mnemonic": "STORE", "description": "Store to memory address"},
+        {"code": "0x20", "mnemonic": "LEA", "description": "Load Effective Address"},
+        {"code": "0x21", "mnemonic": "SWAP", "description": "Swap register with memory"}
+      ]
+    },
+    {
+      "id": "control_flow",
+      "title": "Control Flow",
+      "content": "```\n05 <addr>             JMP - Unconditional jump\n0A <reg1> <reg2>      CMP - Compare registers\n0B <addr>             JZ - Jump if zero\n0C <addr>             JNZ - Jump if not zero\n0D <addr>             JS - Jump if sign\n0E <addr>             JNS - Jump if not sign\n0F <addr>             JC - Jump if carry\n22 <addr>             JNC - Jump if no carry\n23 <addr>             JO - Jump if overflow\n24 <addr>             JNO - Jump if no overflow\n25 <addr>             JG - Jump if greater\n26 <addr>             JGE - Jump if greater/equal\n27 <addr>             JL - Jump if less\n28 <addr>             JLE - Jump if less/equal\n```",
+      "codeLanguage": "hex",
+      "order": 6,
+      "opcodes": [
+        {"code": "0x05", "mnemonic": "JMP", "description": "Unconditional jump"},
+        {"code": "0x0A", "mnemonic": "CMP", "description": "Compare two registers"},
+        {"code": "0x0B", "mnemonic": "JZ", "description": "Jump if zero flag set"},
+        {"code": "0x0C", "mnemonic": "JNZ", "description": "Jump if zero flag clear"},
+        {"code": "0x25", "mnemonic": "JG", "description": "Jump if greater"},
+        {"code": "0x26", "mnemonic": "JGE", "description": "Jump if greater or equal"},
+        {"code": "0x27", "mnemonic": "JL", "description": "Jump if less"},
+        {"code": "0x28", "mnemonic": "JLE", "description": "Jump if less or equal"}
+      ]
+    },
+    {
+      "id": "stack",
+      "title": "Stack Operations",
+      "content": "```\n08 <reg>              PUSH - Push register to stack\n09 <reg>              POP - Pop from stack to register\n1A <addr>             CALL - Call subroutine\n1B                    RET - Return from subroutine\n1C <reg>              PUSH_ARG - Push function argument\n1D <reg>              POP_ARG - Pop function argument\n1E <reg>              PUSH_FLAG - Push flags onto stack\n1F <reg>              POP_FLAG - Pop flags from stack\n```",
+      "codeLanguage": "hex",
+      "order": 7,
+      "opcodes": [
+        {"code": "0x08", "mnemonic": "PUSH", "description": "Push register to stack"},
+        {"code": "0x09", "mnemonic": "POP", "description": "Pop from stack"},
+        {"code": "0x1A", "mnemonic": "CALL", "description": "Call subroutine"},
+        {"code": "0x1B", "mnemonic": "RET", "description": "Return from subroutine"}
+      ]
+    },
+    {
+      "id": "bitwise",
+      "title": "Bitwise Operations",
+      "content": "```\n14 <dst> <src>        AND - Bitwise AND\n15 <dst> <src>        OR - Bitwise OR\n16 <dst> <src>        XOR - Bitwise XOR\n17 <reg>              NOT - Bitwise NOT\n18 <reg> <amt>        SHL - Shift left\n19 <reg> <amt>        SHR - Shift right\n```",
+      "codeLanguage": "hex",
+      "order": 8,
+      "opcodes": [
+        {"code": "0x14", "mnemonic": "AND", "description": "Bitwise AND"},
+        {"code": "0x15", "mnemonic": "OR", "description": "Bitwise OR"},
+        {"code": "0x16", "mnemonic": "XOR", "description": "Bitwise XOR"},
+        {"code": "0x17", "mnemonic": "NOT", "description": "Bitwise NOT"},
+        {"code": "0x18", "mnemonic": "SHL", "description": "Shift left"},
+        {"code": "0x19", "mnemonic": "SHR", "description": "Shift right"}
+      ]
+    },
+    {
+      "id": "io",
+      "title": "I/O Operations",
+      "content": "```\n30 <dst> <port>       IN - Read from I/O port\n31 <port> <src>       OUT - Write to I/O port\n32 <dst> <port>       INB - Read byte from port\n33 <port> <src>       OUTB - Write byte to port\n34 <dst> <port>       INW - Read word from port\n35 <port> <src>       OUTW - Write word to port\n36 <dst> <port>       INL - Read long from port\n37 <port> <src>       OUTL - Write long to port\n38 <dst> <port>       INSTR - Read string from port\n39 <port> <src>       OUTSTR - Write string to port\n```\n\n**Device Ports:**\n- Port 1: Console (text I/O)\n- Port 2: File device\n- Port 3: Counter device\n- Port 4: Serial port\n- Ports 5-255: Available for custom devices",
+      "codeLanguage": "hex",
+      "order": 9,
+      "opcodes": [
+        {"code": "0x30", "mnemonic": "IN", "description": "Read from I/O port"},
+        {"code": "0x31", "mnemonic": "OUT", "description": "Write to I/O port"},
+        {"code": "0x39", "mnemonic": "OUTSTR", "description": "Write string to port"}
+      ]
+    },
+    {
+      "id": "fpu",
+      "title": "FPU Operations (Floating-Point)",
+      "content": "```\nA0-A3    FLD, FST, FSTP        Load/Store FP values\nA4-A6    FILD, FIST, FISTP     Integer conversion\nA7-AA    FADD, FSUB, FMUL, FDIV Arithmetic\nAB-AF    FSIN, FCOS, FTAN      Trigonometry\nB0       FSQRT                 Square root\nB1       FABS                  Absolute value\nB2       FCHS                  Change sign\nB3       FINIT                 Initialize FPU\nB4-B6    FCLEX, FSTCW, FLDCW  Control/status\nB7-B8    FCOMPP, FUCOMPP      Comparison\nB9       FSTSW                 Store status word\n```\n\n**Note:** FPU uses a stack-based architecture with ST(0)-ST(7) registers.",
+      "codeLanguage": "hex",
+      "order": 10,
+      "opcodes": [
+        {"code": "0xA0", "mnemonic": "FLD", "description": "Load floating-point value"},
+        {"code": "0xA1", "mnemonic": "FST", "description": "Store FP value"},
+        {"code": "0xA7", "mnemonic": "FADD", "description": "FP addition"},
+        {"code": "0xA8", "mnemonic": "FSUB", "description": "FP subtraction"},
+        {"code": "0xA9", "mnemonic": "FMUL", "description": "FP multiplication"},
+        {"code": "0xAA", "mnemonic": "FDIV", "description": "FP division"}
+      ]
+    },
+    {
+      "id": "register_conventions",
+      "title": "Register Usage Conventions",
+      "content": "**General Purpose (R0-R7):**\n- R0-R3: Function parameters and return values\n- R4-R6: Local variables\n- R7: Temporary or frame pointer\n\n**Special Registers:**\n- PC: Program counter (automatic)\n- SP: Stack pointer (automatic)\n- FP: Frame pointer (manual management)\n- FLAGS: CPU flags (Zero, Carry, Sign, Overflow, etc.)",
+      "order": 11
+    },
+    {
+      "id": "memory_layout",
+      "title": "Memory Layout",
+      "content": "```\nHigh Memory  ┌─────────┐\n            │  Stack  │ ← SP (grows down)\n            ├─────────┤\n            │  Free   │\n            ├─────────┤\n            │  Heap   │\n            ├─────────┤\n            │  Data   │\n            ├─────────┤\nLow Memory  │  Code   │ ← PC starts here\n            └─────────┘\n```",
+      "codeLanguage": "text",
+      "order": 12
+    },
+    {
+      "id": "common_patterns",
+      "title": "Common Programming Patterns",
+      "content": "**Hello World:**\n```hex\n01 00 10              # LOAD_IMM R0, 0x10 (string addr)\n39 01 00              # OUTSTR port=1, R0\nFF                    # HALT\n# String at 0x10:\n48 65 6C 6C 6F 00     # \"Hello\\0\"\n```\n\n**Loop Counter:**\n```hex\n01 00 0A              # LOAD_IMM R0, 10\n01 01 00              # LOAD_IMM R1, 0\n# Loop (0x06):\n13 00                 # DEC R0\n0A 00 01              # CMP R0, R1\n0C 06                 # JNZ 0x06\nFF                    # HALT\n```\n\n**Function Call:**\n```hex\n01 00 05              # LOAD_IMM R0, 5\n1A 10                 # CALL 0x10\nFF                    # HALT\n# Function at 0x10:\n12 00                 # INC R0\n1B                    # RET\n```",
+      "codeLanguage": "hex",
+      "order": 13
+    },
+    {
+      "id": "gotchas",
+      "title": "Common Gotchas",
+      "content": "1. **8-bit immediates**: LOAD_IMM only supports values 0-255\n2. **Stack direction**: Stack grows downward (SP decreases on PUSH)\n3. **String termination**: Strings must be null-terminated for OUTSTR\n4. **Register encoding**: Registers are single bytes (0x00-0x07)\n5. **Address sizes**: Jump addresses are 8-bit (0-255 program space)\n6. **Division by zero**: Triggers runtime error\n7. **Overflow detection**: Requires 32-bit overflow (use NOT + ADD for carry)",
+      "order": 14
+    },
+    {
+      "id": "future_opcodes",
+      "title": "Planned Opcodes (Not Yet Implemented)",
+      "content": "**SIMD/SSE Operations (26 opcodes):** Vector operations for parallel processing\n\n**AVX Operations (20 opcodes):** 256-bit vector operations\n\n**MMX Operations (11 opcodes):** Multimedia/integer SIMD\n\n**Extended 64-bit (18 opcodes):** Full 64-bit register operations\n\n**Total:** 88 opcodes planned for future implementation\n\n**Note:** Using unimplemented opcodes will result in an \"Unknown opcode\" error.",
+      "order": 15
+    }
+  ],
+  "relatedDocs": ["getting_started", "assembly_language", "examples"]
+}
