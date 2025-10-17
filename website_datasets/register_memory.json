@@ -1,0 +1,118 @@
+{
+  "category": "reference",
+  "title": "Register and Memory Reference",
+  "description": "Complete reference for registers, memory layout, and addressing modes",
+  "tags": ["registers", "memory", "cpu", "reference", "architecture"],
+  "lastUpdated": "2025-10-17",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Architecture Overview",
+      "content": "DemiEngine features a rich register architecture with 134 total registers: 8 general-purpose registers (R0-R7), 8 extended registers (R8-R15), special registers (PC, SP, FP), and 100+ system registers. The CPU uses a stack-based memory model with support for both register-to-register and memory operations.",
+      "order": 1
+    },
+    {
+      "id": "general_registers",
+      "title": "General-Purpose Registers",
+      "content": "**R0-R7: Primary Registers (32-bit)**\n\nThese are the main working registers available in standard mode:\n\n- **R0**: Accumulator, function return values\n- **R1**: First parameter, comparison operand\n- **R2**: Second parameter\n- **R3**: Third parameter\n- **R4**: Local variables\n- **R5**: Local variables\n- **R6**: Local variables\n- **R7**: Temporary values, frame pointer\n\n**Register Encoding:**\n```hex\n00  # R0\n01  # R1\n02  # R2\n03  # R3\n04  # R4\n05  # R5\n06  # R6\n07  # R7\n```",
+      "codeLanguage": "hex",
+      "order": 2
+    },
+    {
+      "id": "extended_registers",
+      "title": "Extended Registers",
+      "content": "**R8-R15: Extended Registers (32-bit)**\n\nAvailable with the `--extended-registers` flag:\n\n- **R8-R15**: Additional general-purpose registers\n- Same capabilities as R0-R7\n- Useful for complex algorithms requiring more registers\n- Not commonly used in standard programs\n\n**Usage:**\n```bash\n./bin/demi-engine --extended-registers program.hex\n./bin/demi-engine -er program.hex\n```\n\n**Note:** Most programs use only R0-R7 for compatibility.",
+      "codeLanguage": "bash",
+      "order": 3
+    },
+    {
+      "id": "special_registers",
+      "title": "Special Registers",
+      "content": "**PC (Program Counter)**\n- Holds address of current instruction\n- Automatically incremented after each instruction\n- Modified by jump and call instructions\n- Read-only in most contexts\n\n**SP (Stack Pointer)**\n- Points to top of stack\n- Automatically managed by PUSH/POP\n- Decreases on PUSH (stack grows downward)\n- Increases on POP\n- Can be manually adjusted (advanced use)\n\n**FP (Frame Pointer)**\n- Used for stack frame management\n- Must be manually managed\n- Typically set at function entry\n- Useful for accessing parameters and locals\n\n**Flags Register**\n- Contains status flags from operations\n- Modified by arithmetic and compare instructions\n- Read by conditional jumps",
+      "order": 4
+    },
+    {
+      "id": "flags_register",
+      "title": "CPU Flags",
+      "content": "**Zero Flag (ZF)**\n- Set when result equals zero\n- Used by: JZ, JNZ\n- Set by: CMP, arithmetic operations\n\n**Carry Flag (CF)**\n- Set on unsigned overflow (32-bit)\n- Used by: JC, JNC\n- Set by: ADD, SUB\n\n**Sign Flag (SF)**\n- Set when result is negative\n- Used by: JS, JNS\n- Set by: arithmetic operations, CMP\n\n**Overflow Flag (OF)**\n- Set on signed overflow\n- Used by: JO, JNO\n- Set by: ADD, SUB, MUL\n\n**Example:**\n```hex\n# Compare and jump\n0E 00 01            # CMP R0, R1  ; Sets flags\n0F 10 00 00 00      # JZ target   ; Jump if equal (ZF=1)\n```",
+      "codeLanguage": "hex",
+      "order": 5
+    },
+    {
+      "id": "register_conventions",
+      "title": "Register Usage Conventions",
+      "content": "**Function Parameters:**\n- R0: First parameter / Return value\n- R1: Second parameter\n- R2: Third parameter\n- R3: Fourth parameter\n\n**Preserved Registers (Callee-Save):**\n- R4, R5, R6: Should be saved/restored by function\n- Functions must preserve these if used\n\n**Scratch Registers (Caller-Save):**\n- R0, R1, R2, R3, R7: Can be modified by function\n- Caller must save if needed after call\n\n**Example Function:**\n```hex\nmy_function:\n    0A 04               # PUSH R4      ; Save R4\n    04 04 00            # MOV R4, R0   ; Use R4\n    02 04 01            # ADD R4, R1   ; Compute\n    04 00 04            # MOV R0, R4   ; Return value\n    0B 04               # POP R4       ; Restore R4\n    1B                  # RET\n```",
+      "codeLanguage": "hex",
+      "order": 6
+    },
+    {
+      "id": "memory_layout",
+      "title": "Memory Layout",
+      "content": "```\nHigh Memory  ┌─────────┐ 0xFFFFFFFF\n            │  Stack  │ ← SP (grows down)\n            ├─────────┤\n            │  Free   │ ← Available for heap\n            ├─────────┤\n            │  Heap   │ ← Dynamic allocations\n            ├─────────┤\n            │  Data   │ ← Globals, strings\n            ├─────────┤\nLow Memory  │  Code   │ ← PC starts here (0x00)\n            └─────────┘\n```\n\n**Memory Segments:**\n\n- **Code Segment**: Program instructions (read-only)\n- **Data Segment**: Constants, strings (initialized data)\n- **Heap Segment**: Dynamic memory (manual management)\n- **Stack Segment**: Function calls, local variables (automatic)",
+      "order": 7
+    },
+    {
+      "id": "addressing_modes",
+      "title": "Addressing Modes",
+      "content": "**Immediate Addressing:**\n```hex\n01 00 2A 00 00 00    # LOAD_IMM R0, 42  ; Load constant\n```\n\n**Register Addressing:**\n```hex\n04 00 01            # MOV R0, R1       ; Copy register\n02 00 01            # ADD R0, R1       ; Register operation\n```\n\n**Direct Memory Addressing:**\n```hex\n06 00 10 00 00 00    # LOAD R0, [0x10]  ; Load from address\n07 20 00 00 00 00    # STORE [0x20], R0 ; Store to address\n```\n\n**Indirect Addressing:**\n```hex\n01 01 10 00 00 00    # LOAD_IMM R1, 0x10  ; R1 = address\n06 00 01            # LOAD R0, [R1]      ; Load from [R1]\n07 01 00            # STORE [R1], R0     ; Store to [R1]\n```\n\n**Effective Address:**\n```hex\n20 00 10 00 00 00    # LEA R0, 0x10  ; R0 = address (not contents)\n```",
+      "codeLanguage": "hex",
+      "order": 8
+    },
+    {
+      "id": "stack_operations",
+      "title": "Stack Architecture",
+      "content": "**Stack Characteristics:**\n- Grows downward (SP decreases on push)\n- 32-bit aligned\n- Managed by SP register\n- No automatic bounds checking\n\n**Stack Operations:**\n```hex\n# Push value\n0A 00               # PUSH R0      ; [SP] = R0, SP -= 4\n\n# Pop value\n0B 00               # POP R0       ; R0 = [SP], SP += 4\n\n# Push flags\n1E                  # PUSH_FLAG    ; Save flags\n\n# Pop flags\n1F                  # POP_FLAG     ; Restore flags\n```\n\n**Function Call Stack:**\n```\nHigh    ┌──────────┐\n        │ Arg 3    │ FP+16\n        ├──────────┤\n        │ Arg 2    │ FP+12\n        ├──────────┤\n        │ Arg 1    │ FP+8\n        ├──────────┤\n        │ Return   │ FP+4\n        ├──────────┤\n        │ Old FP   │ ← FP\n        ├──────────┤\n        │ Local 1  │ FP-4\n        ├──────────┤\nLow     │ Local 2  │ ← SP\n        └──────────┘\n```",
+      "codeLanguage": "hex",
+      "order": 9
+    },
+    {
+      "id": "data_types",
+      "title": "Data Types and Sizes",
+      "content": "**Byte (8-bit):**\n- Size: 1 byte\n- Range: 0-255 (unsigned), -128 to 127 (signed)\n- Used for: Characters, small integers\n\n**Word (16-bit):**\n- Size: 2 bytes\n- Range: 0-65535 (unsigned), -32768 to 32767 (signed)\n- Used for: Short integers\n\n**Long/Dword (32-bit):**\n- Size: 4 bytes\n- Range: 0-4294967295 (unsigned), -2147483648 to 2147483647 (signed)\n- Default register size\n- Used for: Integers, addresses, pointers\n\n**Qword (64-bit):**\n- Size: 8 bytes\n- Partially implemented\n- Used for: Large integers\n\n**String:**\n- Null-terminated byte array\n- Each character: 1 byte (ASCII)\n- Example: `48 65 6C 6C 6F 00` = \"Hello\\0\"",
+      "order": 10
+    },
+    {
+      "id": "memory_operations",
+      "title": "Memory Operation Examples",
+      "content": "**Loading Values:**\n```hex\n# Load immediate\n01 00 2A 00 00 00    # LOAD_IMM R0, 42\n\n# Load from memory\n06 00 10 00 00 00    # LOAD R0, [0x10]\n\n# Load indirect\n01 01 10 00 00 00    # LOAD_IMM R1, 0x10\n06 00 01            # LOAD R0, [R1]\n```\n\n**Storing Values:**\n```hex\n# Store direct\n01 00 2A 00 00 00    # LOAD_IMM R0, 42\n07 10 00 00 00 00    # STORE [0x10], R0\n\n# Store indirect\n01 01 10 00 00 00    # LOAD_IMM R1, 0x10\n07 01 00            # STORE [R1], R0\n```\n\n**Swapping:**\n```hex\n# Swap register with memory\n21 00 10 00 00 00    # SWAP R0, [0x10]\n# R0 and memory[0x10] exchanged\n```",
+      "codeLanguage": "hex",
+      "order": 11
+    },
+    {
+      "id": "endianness",
+      "title": "Byte Order (Endianness)",
+      "content": "DemiEngine uses **little-endian** byte order:\n\n**Example: 0x12345678 in memory**\n```\nAddress  Value\n0x00:    78  (least significant byte first)\n0x01:    56\n0x02:    34\n0x03:    12  (most significant byte last)\n```\n\n**LOAD_IMM Encoding:**\n```hex\n01 00 2A 00 00 00\n│  │  │  └──┴──┴── Padding (3 bytes)\n│  │  └────────── Immediate value (8-bit)\n│  └───────────── Register (8-bit)\n└──────────────── Opcode (8-bit)\n```\n\n**Multi-byte Addresses:**\n```hex\n05 34 12 00 00\n│  │  │  └──┴── High bytes (padding)\n│  │  └──────── Address high byte (0x12)\n│  └─────────── Address low byte (0x34)\n└────────────── Opcode (JMP)\n\nJumps to: 0x1234 (little-endian)\n```",
+      "codeLanguage": "hex",
+      "order": 12
+    },
+    {
+      "id": "alignment",
+      "title": "Memory Alignment",
+      "content": "**Alignment Requirements:**\n\n- **Byte access**: No alignment required\n- **Word access**: 2-byte aligned (address % 2 == 0)\n- **Dword access**: 4-byte aligned (address % 4 == 0)\n- **Stack**: Always 4-byte aligned\n\n**Best Practices:**\n```hex\n# Good: Aligned data\n.org 0x10           # Start at aligned address\n48 65 6C 6C 6F 00    # \"Hello\\0\" (6 bytes)\n00 00               # Padding to align next data\n\n.org 0x18           # Next dword at aligned address\n2A 00 00 00         # Integer 42\n```\n\n**Unaligned Access:**\n- May cause performance penalty\n- Or hardware exceptions (platform-dependent)\n- Use byte operations for unaligned data",
+      "codeLanguage": "hex",
+      "order": 13
+    },
+    {
+      "id": "register_limitations",
+      "title": "Limitations and Gotchas",
+      "content": "**LOAD_IMM 8-bit Limit:**\n```hex\n# Can only load 0-255\n01 00 2A 00 00 00    # LOAD_IMM R0, 42  ✓\n01 00 FF 00 00 00    # LOAD_IMM R0, 255 ✓\n# 01 00 00 01 00 00  # Cannot load 256  ✗\n\n# Workaround for larger values:\n01 00 FF 00 00 00    # LOAD_IMM R0, 255\n02 00 00            # ADD R0, R0       ; R0 = 510\n```\n\n**Carry Flag (32-bit):**\n- Requires true 32-bit overflow\n- Difficult to trigger intentionally\n- Use NOT + ADD technique for testing\n\n**Stack Overflow:**\n- No automatic bounds checking\n- Deep recursion can overwrite other memory\n- Monitor SP in complex programs\n\n**Register Encoding:**\n- Only R0-R7 available without extended mode\n- R8-R15 require `--extended-registers` flag\n- Check compatibility before using extended registers",
+      "codeLanguage": "hex",
+      "order": 14
+    },
+    {
+      "id": "performance_tips",
+      "title": "Performance Optimization",
+      "content": "**Register vs Memory:**\n```hex\n# Fast: Register operations\n02 00 01            # ADD R0, R1  (1 cycle)\n\n# Slower: Memory operations\n06 02 10 00 00 00    # LOAD R2, [0x10]  (3+ cycles)\n02 00 02            # ADD R0, R2       (1 cycle)\n```\n\n**Cache Values:**\n```hex\n# Bad: Repeated memory access\n06 00 10 00 00 00    # LOAD R0, [0x10]\n02 00 01            # ADD R0, R1\n07 10 00 00 00 00    # STORE [0x10], R0\n06 00 10 00 00 00    # LOAD R0, [0x10]  ; Unnecessary!\n\n# Good: Keep in register\n06 00 10 00 00 00    # LOAD R0, [0x10]\n02 00 01            # ADD R0, R1\n02 00 02            # ADD R0, R2       ; Use R0 directly\n07 10 00 00 00 00    # STORE [0x10], R0\n```\n\n**Minimize Stack Use:**\n- Use registers when possible\n- Only save registers you'll modify\n- Avoid excessive PUSH/POP in loops",
+      "codeLanguage": "hex",
+      "order": 15
+    },
+    {
+      "id": "system_registers",
+      "title": "System Registers",
+      "content": "**Extended Register Set (134 total):**\n\nBeyond R0-R15, DemiEngine includes 100+ system registers for advanced features:\n\n- **Control registers**: System configuration\n- **Debug registers**: Breakpoints, tracing\n- **Performance counters**: Profiling, metrics\n- **Device registers**: Hardware interface\n\n**Viewing System Registers:**\n```bash\n# Enable extended register display\n./bin/demi-engine --extended-registers program.hex\n./bin/demi-engine -er program.hex\n```\n\n**Note:** System registers are primarily for internal use and advanced debugging. Standard programs use only R0-R7.",
+      "codeLanguage": "bash",
+      "order": 16
+    }
+  ],
+  "relatedDocs": ["instruction_set", "getting_started", "assembly_language", "troubleshooting"]
+}

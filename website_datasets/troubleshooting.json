@@ -1,0 +1,128 @@
+{
+  "category": "support",
+  "title": "Troubleshooting Guide",
+  "description": "Solutions for common DemiEngine errors and issues",
+  "tags": ["troubleshooting", "debugging", "errors", "solutions", "problems"],
+  "lastUpdated": "2025-10-17",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Troubleshooting Overview",
+      "content": "This guide helps you diagnose and fix common issues when using DemiEngine. Most problems stem from incorrect hex formatting, uninitialized registers, or logic errors in program flow. The debug GUI is your best tool for understanding execution.",
+      "order": 1
+    },
+    {
+      "id": "invalid_instruction",
+      "title": "Invalid Instruction Error",
+      "content": "**Symptom:** Program halts with \"Invalid instruction\" error\n\n**Causes:**\n- Incorrect opcode in hex program\n- Jumping to data section or uninitialized memory\n- Corrupted program file\n\n**Solution:**\n```hex\n# Bad: Invalid opcode\nFE                  # Invalid opcode (not defined)\n\n# Good: Valid opcode\nFF                  # HALT (valid)\n```\n\n**Debug Steps:**\n1. Check the address where error occurred\n2. Verify opcodes against instruction set reference\n3. Ensure program counter isn't jumping to data",
+      "codeLanguage": "hex",
+      "order": 2
+    },
+    {
+      "id": "memory_access",
+      "title": "Memory Access Violation",
+      "content": "**Symptom:** \"Memory access violation\" or segmentation fault\n\n**Causes:**\n- Accessing memory outside allocated range\n- Uninitialized address registers\n- Stack overflow\n\n**Solution:**\n```hex\n# Bad: Uninitialized register\n06 00 01            # LOAD R0, [R1]  ; R1 not initialized!\n\n# Good: Initialize first\n01 01 10 00 00 00    # LOAD_IMM R1, 0x10\n06 00 01            # LOAD R0, [R1]   ; Now safe\n```\n\n**Prevention:**\n- Always initialize address registers before use\n- Check array bounds before access\n- Monitor stack pointer in recursive functions",
+      "codeLanguage": "hex",
+      "order": 3
+    },
+    {
+      "id": "stack_errors",
+      "title": "Stack Overflow/Underflow",
+      "content": "**Symptom:** Stack-related errors or unexpected behavior\n\n**Causes:**\n- Infinite recursion\n- Too many PUSH without POP\n- POP from empty stack\n\n**Solution:**\n```hex\n# Bad: Infinite recursion\nmy_function:\n0C 00 00 00 00      # CALL my_function  ; Calls itself!\n\n# Good: Base case\nmy_function:\n0E 00 01            # CMP R0, R1        ; Check condition\n0F 10 00 00 00      # JZ base_case      ; Exit condition\n0C 00 00 00 00      # CALL my_function  ; Recursive call\nbase_case:\n0D                  # RET\n```",
+      "codeLanguage": "hex",
+      "order": 4
+    },
+    {
+      "id": "division_by_zero",
+      "title": "Division by Zero",
+      "content": "**Symptom:** Program halts on DIV instruction\n\n**Cause:** Attempting to divide by zero\n\n**Solution:**\n```hex\n# Good: Check before division\n0E 01 02            # CMP R1, R2        ; Check if divisor is 0\n0F 20 00 00 00      # JZ error_handler  ; Handle zero case\n12 00 01            # DIV R0, R1        ; Safe division\n\nerror_handler:\n# Handle division by zero appropriately\n```",
+      "codeLanguage": "hex",
+      "order": 5
+    },
+    {
+      "id": "build_issues",
+      "title": "Build and Compilation Problems",
+      "content": "**Missing Dependencies:**\n```bash\n# Ubuntu/Debian\nsudo apt update\nsudo apt install g++ libfmt-dev libgl1-mesa-dev libglfw3-dev\n```\n\n**C++17 Support:**\n```bash\n# Check compiler version\ng++ --version\n\n# Update if needed (Ubuntu)\nsudo apt install g++-9\n```\n\n**Linking Errors:**\n```bash\n# Verify libraries\npkg-config --cflags --libs fmt\npkg-config --cflags --libs glfw3\n```\n\n**Clean Build:**\n```bash\nmake clean\nmake\n```",
+      "codeLanguage": "bash",
+      "order": 6
+    },
+    {
+      "id": "runtime_problems",
+      "title": "Runtime Problems",
+      "content": "**File Not Found:**\n```bash\n# Check file path and permissions\nls -la tests/your_program.hex\n./bin/demi-engine tests/your_program.hex\n\n# Use absolute path\n./bin/demi-engine $(pwd)/tests/your_program.hex\n```\n\n**Permission Issues:**\n```bash\n# Make executable\nchmod +x bin/demi-engine\n\n# Verify permissions\nls -la bin/demi-engine\n```\n\n**GUI Won't Start:**\n```bash\n# Check display\necho $DISPLAY\n\n# SSH X11 forwarding\nssh -X username@hostname\n\n# Check OpenGL\nglxinfo | grep \"OpenGL version\"\n```",
+      "codeLanguage": "bash",
+      "order": 7
+    },
+    {
+      "id": "debug_gui",
+      "title": "Using Debug GUI",
+      "content": "**Enable GUI:**\n```bash\n./bin/demi-engine your_program.hex --gui\n```\n\n**Key Debug Windows:**\n- **CPU State:** Monitor registers and flags\n- **Memory View:** Examine memory contents\n- **Device Status:** Check device states\n\n**Step-by-Step Execution:**\n1. Load program in GUI\n2. Set breakpoints at key instructions\n3. Step through execution\n4. Watch register and memory changes",
+      "codeLanguage": "bash",
+      "order": 8
+    },
+    {
+      "id": "manual_debugging",
+      "title": "Manual Debugging Techniques",
+      "content": "**Add Debug Output:**\n```hex\n# Print debug messages\n01 00 XX 00 00 00    # LOAD_IMM R0, debug_message_addr\n39 01 00            # OUTSTR port=1, R0\n```\n\n**Register Dumps:**\n```hex\n# Output register values\n02 00 01            # ADD R0, R1    ; R1 = ASCII '0'\n31 01 00            # OUT port=1, R0 ; Print R0 as digit\n```\n\n**Enable Logging:**\n```bash\n# Run with debug output\n./bin/demi-engine -d program.hex 2>&1 | tee debug.log\n```",
+      "codeLanguage": "hex",
+      "order": 9
+    },
+    {
+      "id": "infinite_loops",
+      "title": "Infinite Loops",
+      "content": "**Symptom:** Program never terminates\n\n**Cause:** Loop without exit condition\n\n**Solution:**\n```hex\n# Bad: No exit condition\nloop_start:\n07 00 00 00 00      # JMP loop_start  ; Infinite loop!\n\n# Good: Proper loop control\n01 00 0A 00 00 00    # LOAD_IMM R0, 10   ; Counter\nloop_start:\n13 00               # DEC R0            ; Decrement\n0E 00 02            # CMP R0, R2        ; Compare with 0\n08 XX XX XX XX      # JNZ loop_start    ; Continue if not zero\n```",
+      "codeLanguage": "hex",
+      "order": 10
+    },
+    {
+      "id": "hex_format_errors",
+      "title": "Hex Format Errors",
+      "content": "**Invalid Characters:**\n```hex\n# Bad: Invalid characters\n01 0G 10 00 00 00    # 'G' is not valid hex\n\n# Good: Valid hex only (0-9, A-F)\n01 06 10 00 00 00    # Correct format\n```\n\n**Missing Bytes:**\n```hex\n# Bad: Incomplete instruction\n01 00               # LOAD_IMM needs 6 bytes total\n\n# Good: Complete instruction\n01 00 10 00 00 00    # LOAD_IMM R0, 0x10 (6 bytes)\n```\n\n**Tips:**\n- Each hex digit represents 4 bits\n- Instructions must be complete (check opcode reference)\n- Use spaces or newlines for readability",
+      "codeLanguage": "hex",
+      "order": 11
+    },
+    {
+      "id": "register_corruption",
+      "title": "Register Corruption",
+      "content": "**Problem:** Overwriting important values\n\n**Solution:**\n```hex\n# Bad: Overwriting register\n01 00 10 00 00 00    # LOAD_IMM R0, 16\n# ... later in code ...\n01 00 05 00 00 00    # LOAD_IMM R0, 5  ; Overwrites R0!\n\n# Good: Save/restore or use different register\n01 00 10 00 00 00    # LOAD_IMM R0, 16\n0A 00               # PUSH R0          ; Save value\n01 00 05 00 00 00    # LOAD_IMM R0, 5   ; Temporary use\n# ... use R0 ...\n0B 00               # POP R0           ; Restore value\n```\n\n**Best Practices:**\n- Save important registers before function calls\n- Use R0-R7 for general purposes\n- Document register usage in comments",
+      "codeLanguage": "hex",
+      "order": 12
+    },
+    {
+      "id": "control_flow",
+      "title": "Control Flow Errors",
+      "content": "**Missing Return:**\n```hex\n# Bad: Function falls through\nmy_function:\n02 00 01            # ADD R0, R1\n# Missing RET!\n\n# Good: Always return\nmy_function:\n02 00 01            # ADD R0, R1\n1B                  # RET\n```\n\n**Wrong Jump Addresses:**\n```hex\n# Use comments to mark addresses\n\n# Address 0x10:\ntarget_address:\n01 00 05 00 00 00    # LOAD_IMM R0, 5\n\n# Jump to 0x10\n05 10 00 00 00      # JMP target_address\n```\n\n**Tips:**\n- Calculate addresses carefully\n- Use assembler labels when possible\n- Document jump targets",
+      "codeLanguage": "hex",
+      "order": 13
+    },
+    {
+      "id": "string_handling",
+      "title": "String Handling Errors",
+      "content": "**Missing Null Terminators:**\n```hex\n# Bad: String without null\n48 65 6C 6C 6F      # \"Hello\" - missing \\0\n\n# Good: Null-terminated\n48 65 6C 6C 6F 00    # \"Hello\\0\"\n```\n\n**Buffer Overflows:**\n- Allocate sufficient buffer space\n- Check string lengths before copying\n- Always null-terminate strings\n\n**OUTSTR Requirements:**\n- String must be null-terminated\n- R0 must contain valid memory address\n- Port must be configured (usually port 1)",
+      "codeLanguage": "hex",
+      "order": 14
+    },
+    {
+      "id": "device_issues",
+      "title": "Device Communication Problems",
+      "content": "**Console Not Responding:**\n1. Check console device registered at port 1\n2. Verify OUTSTR/INSTR instructions correct\n3. Ensure strings null-terminated\n4. Check if device initialized\n\n**File Device Issues:**\n1. Verify file permissions and paths\n2. Ensure file exists and is readable\n3. Check device properly initialized\n4. Review device port configuration\n\n**Debug Steps:**\n```bash\n# Enable device logging\n./bin/demi-engine -d -v program.hex\n```",
+      "codeLanguage": "bash",
+      "order": 15
+    },
+    {
+      "id": "performance",
+      "title": "Performance Issues",
+      "content": "**Slow Execution:**\n- Check for infinite loops (no exit condition)\n- Optimize tight loops (minimize memory access)\n- Cache frequently used values in registers\n- Use better algorithms\n\n**Memory Usage:**\n- Optimize data structures\n- Remove unused code and data\n- Increase memory size if needed\n\n**Profiling:**\n```bash\n# Use time command\ntime ./bin/demi-engine program.hex\n\n# Enable debug timing\n./bin/demi-engine -d program.hex | grep \"Execution time\"\n```",
+      "codeLanguage": "bash",
+      "order": 16
+    },
+    {
+      "id": "getting_help",
+      "title": "Getting Help",
+      "content": "**When Reporting Issues:**\n\n1. **Complete Program:** Provide full code that reproduces issue\n2. **Error Messages:** Include exact error text\n3. **Platform Info:** OS, compiler version\n4. **Steps to Reproduce:** Clear sequence of commands\n\n**Debug Information:**\n```bash\n# Compile with debug symbols\nmake debug\n\n# Run with full logging\n./bin/demi-engine -d -v program.hex 2>&1 | tee debug.log\n```\n\n**Community Resources:**\n- Example programs in `examples/` directory\n- Documentation in `docs/` folder\n- Debug GUI for visual inspection\n- Start simple and build complexity gradually",
+      "codeLanguage": "bash",
+      "order": 17
+    }
+  ],
+  "relatedDocs": ["getting_started", "instruction_set", "cli_reference", "testing"]
+}

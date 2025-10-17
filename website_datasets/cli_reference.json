@@ -1,0 +1,93 @@
+{
+  "category": "reference",
+  "title": "Command-Line Reference",
+  "description": "Complete reference for all DemiEngine command-line options and flags",
+  "tags": ["cli", "reference", "commands", "flags"],
+  "lastUpdated": "2025-10-17",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Command-Line Overview",
+      "content": "DemiEngine provides a comprehensive command-line interface for running programs, executing tests, and compiling to native executables.",
+      "order": 1
+    },
+    {
+      "id": "basic_usage",
+      "title": "Basic Usage",
+      "content": "```bash\ndemi-engine [options] [file]\n\n# Run hex program\n./bin/demi-engine -H program.hex\n\n# Assemble and run\n./bin/demi-engine -A program.asm\n\n# Run tests\n./bin/demi-engine -t\n```",
+      "codeLanguage": "bash",
+      "order": 2
+    },
+    {
+      "id": "help",
+      "title": "Help and Information",
+      "content": "```bash\n--help, -h              Show help information and exit\n\n# Usage\n./bin/demi-engine --help\n./bin/demi-engine -h\n```",
+      "codeLanguage": "bash",
+      "order": 3
+    },
+    {
+      "id": "execution_modes",
+      "title": "Execution Modes",
+      "content": "**Hex Mode:**\n```bash\n--hex FILE, -H FILE     Run hex file\n./bin/demi-engine -H program.hex\n```\n\n**Assembly Mode:**\n```bash\n--assembly FILE, -A FILE    Assemble and run .asm file\n./bin/demi-engine -A program.asm\n```\n\n**Compile Mode:**\n```bash\n--compile [NAME], -o [NAME]    Compile to standalone executable\n./bin/demi-engine -o myapp program.hex\n./bin/demi-engine -o program.asm  # Auto-named\n```",
+      "codeLanguage": "bash",
+      "order": 4
+    },
+    {
+      "id": "testing_modes",
+      "title": "Testing Modes",
+      "content": "**All Tests:**\n```bash\n--test [FILE], -t [FILE]       Run all tests or specific file\n./bin/demi-engine -t\n./bin/demi-engine -t my_test.asm\n```\n\n**Unit Tests:**\n```bash\n--unit-test [FILE], -ut [FILE]    Run unit tests (fastest)\n./bin/demi-engine -ut\n```\n\n**Integration Tests:**\n```bash\n--integration-test [FILE], -it [FILE]    Run integration tests\n./bin/demi-engine -it\n```\n\n**Assembly Tests:**\n```bash\n--assembly-test [FILE], -at [FILE]    Run assembly tests\n./bin/demi-engine -at\n./bin/demi-engine -at tests/asm/test_arithmetic.asm\n```\n\n**Quiet Mode:**\n```bash\n--assembly-test-quiet [FILE], -atq [FILE]    Minimal output\n./bin/demi-engine -atq\n```",
+      "codeLanguage": "bash",
+      "order": 5
+    },
+    {
+      "id": "test_filtering",
+      "title": "Test Output Filtering",
+      "content": "Control which test results are displayed:\n\n```bash\n--show=MODE            Filter test output\n\n# Show all tests (default)\n./bin/demi-engine -at --show=all\n\n# Show only failed tests\n./bin/demi-engine -at --show=fails\n./bin/demi-engine -at --show=fail\n\n# Show only passed tests\n./bin/demi-engine -at --show=success\n./bin/demi-engine -at --show=pass\n```\n\n**Note:** All tests still run; filtering only affects output. Summary statistics always show complete results.",
+      "codeLanguage": "bash",
+      "order": 6
+    },
+    {
+      "id": "debug_options",
+      "title": "Debug Options",
+      "content": "**Debug Mode:**\n```bash\n--debug, -d            Enable detailed debug logging\n./bin/demi-engine -d -H program.hex\n```\n\n**Verbose Output:**\n```bash\n--verbose, -v          Show informational messages\n./bin/demi-engine -v -H program.hex\n\n# Disable verbose (useful when default is on)\n./bin/demi-engine --verbose=false -H program.hex\n```\n\n**Extended Registers:**\n```bash\n--extended-registers, -er    Show all 134 registers\n./bin/demi-engine -er -H program.hex\n```\n\n**Memory Dump:**\n```bash\n--memdump, -m          Print memory dump after execution\n./bin/demi-engine -m -H program.hex\n```\n\n**Debug File:**\n```bash\n--debug-file FILE, -f FILE    Write debug output to file\n./bin/demi-engine -d -f debug.log -H program.hex\n```",
+      "codeLanguage": "bash",
+      "order": 7
+    },
+    {
+      "id": "combined_flags",
+      "title": "Combining Flags",
+      "content": "Multiple flags can be combined:\n\n```bash\n# Debug with extended registers\n./bin/demi-engine -d -er -H program.hex\n\n# Verbose testing with failure filter\n./bin/demi-engine -v -at --show=fails\n\n# Compile with debug output\n./bin/demi-engine -d -o myapp program.hex\n\n# Assembly test with memory dump\n./bin/demi-engine -m -A program.asm\n```",
+      "codeLanguage": "bash",
+      "order": 8
+    },
+    {
+      "id": "examples",
+      "title": "Common Use Cases",
+      "content": "**Quick Test Run:**\n```bash\nmake test\n# or\n./bin/demi-engine -t\n```\n\n**Debug Failing Test:**\n```bash\n./bin/demi-engine -d -at tests/asm/failing_test.asm\n```\n\n**Check Only Failures:**\n```bash\n./bin/demi-engine -at --show=fails\n```\n\n**Compile Production Binary:**\n```bash\n./bin/demi-engine -o myapp program.asm\n./myapp  # Run standalone\n```\n\n**Development Iteration:**\n```bash\n# Fast unit test loop\n./bin/demi-engine -ut\n\n# Test specific assembly file\n./bin/demi-engine -at tests/asm/new_feature.asm\n\n# Full test before commit\n./bin/demi-engine -t\n```\n\n**Debugging Program:**\n```bash\n# Full debug with all registers\n./bin/demi-engine -d -er -m -H program.hex\n\n# Debug to file\n./bin/demi-engine -d -f debug.log -A program.asm\n```",
+      "codeLanguage": "bash",
+      "order": 9
+    },
+    {
+      "id": "exit_codes",
+      "title": "Exit Codes",
+      "content": "DemiEngine returns standard exit codes:\n\n- **0**: Success (all tests passed, program executed successfully)\n- **1**: Error (test failures, runtime errors, invalid arguments)\n\nUseful for scripting:\n\n```bash\nif ./bin/demi-engine -t; then\n    echo \"All tests passed!\"\n    git commit -m \"Tests passing\"\nelse\n    echo \"Tests failed!\"\n    exit 1\nfi\n```",
+      "codeLanguage": "bash",
+      "order": 10
+    },
+    {
+      "id": "performance",
+      "title": "Performance Tips",
+      "content": "**Fast Development Cycle:**\n```bash\n# Use unit tests for quick feedback (1-2s)\n./bin/demi-engine -ut\n```\n\n**Parallel Test Execution:**\n```bash\n# In separate terminals or CI\n./bin/demi-engine -ut &\n./bin/demi-engine -it &\n./bin/demi-engine -at &\nwait\n```\n\n**Filtered Output:**\n```bash\n# Only see what matters\n./bin/demi-engine -at --show=fails 2>&1 | grep -A 5 \"Test:\"\n```",
+      "codeLanguage": "bash",
+      "order": 11
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting Commands",
+      "content": "**Check Installation:**\n```bash\n./bin/demi-engine --help\n```\n\n**Verify Tests Work:**\n```bash\n./bin/demi-engine -ut\n```\n\n**Debug Build Issues:**\n```bash\nmake clean\nmake\n./bin/demi-engine -ut\n```\n\n**Check Specific Test:**\n```bash\n./bin/demi-engine -d -at tests/asm/failing_test.asm\n```\n\n**Memory Issues:**\n```bash\n./bin/demi-engine -d -m -er -H program.hex 2>&1 | less\n```",
+      "codeLanguage": "bash",
+      "order": 12
+    }
+  ],
+  "relatedDocs": ["getting_started", "testing", "troubleshooting"]
+}

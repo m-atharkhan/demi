@@ -1,0 +1,128 @@
+{
+  "category": "examples",
+  "title": "Programming Examples",
+  "description": "Practical examples and code snippets for common programming tasks in DemiEngine",
+  "tags": ["examples", "tutorials", "code-snippets", "patterns"],
+  "lastUpdated": "2025-10-17",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Examples Overview",
+      "content": "This guide provides practical examples for common programming tasks in DemiEngine. Each example includes both assembly and hex formats where applicable.",
+      "order": 1
+    },
+    {
+      "id": "hello_world",
+      "title": "Hello World",
+      "content": "**Assembly:**\n```asm\nLOAD_IMM R0, message\nOUTSTR 1, R0\nHALT\n\nmessage: DB \"Hello, World!\", 0\n```\n\n**Hex:**\n```hex\n# Load string address into R0\n01 00 10\n\n# Print to console (port 1)\n39 01 00\n\n# Halt\nFF\n\n# String data at address 0x10\n48 65 6C 6C 6F 2C 20 57 6F 72 6C 64 21 00\n```",
+      "codeLanguage": "asm",
+      "order": 2
+    },
+    {
+      "id": "simple_addition",
+      "title": "Simple Addition",
+      "content": "```asm\n; Add two numbers\nLOAD_IMM R0, 15\nLOAD_IMM R1, 27\nADD R0, R1\n; R0 now contains 42\nHALT\n```\n\n**With Output:**\n```asm\nLOAD_IMM R0, 15\nLOAD_IMM R1, 27\nADD R0, R1\n\n; Output result to console\nOUT 1, R0\nHALT\n```",
+      "codeLanguage": "asm",
+      "order": 3
+    },
+    {
+      "id": "loop_counter",
+      "title": "Loop Counter",
+      "content": "```asm\n; Count down from 10 to 0\nLOAD_IMM R0, 10\nLOAD_IMM R1, 0\n\nloop:\n    DEC R0\n    CMP R0, R1\n    JNZ loop\n\n; R0 is now 0\nHALT\n```\n\n**With Loop Body:**\n```asm\n; Sum numbers from 1 to 10\nLOAD_IMM R0, 10      ; Counter\nLOAD_IMM R1, 0       ; Sum\nLOAD_IMM R2, 0       ; Zero for comparison\n\nloop:\n    ADD R1, R0       ; Add counter to sum\n    DEC R0           ; Decrement\n    CMP R0, R2\n    JNZ loop\n\n; R1 contains 55\nHALT\n```",
+      "codeLanguage": "asm",
+      "order": 4
+    },
+    {
+      "id": "conditional",
+      "title": "Conditional Execution",
+      "content": "```asm\n; Compare two values and branch\nLOAD_IMM R0, 10\nLOAD_IMM R1, 20\n\nCMP R0, R1\nJL less_than        ; Jump if R0 < R1\n\n; R0 >= R1 path\nLOAD_IMM R2, 0\nJMP end\n\nless_than:\n    LOAD_IMM R2, 1\n\nend:\n    ; R2 contains 1 (true) if R0 < R1\n    HALT\n```",
+      "codeLanguage": "asm",
+      "order": 5
+    },
+    {
+      "id": "function_call",
+      "title": "Function Call",
+      "content": "```asm\n; Main program\nLOAD_IMM R0, 5\nCALL square\n; R0 now contains 25\nHALT\n\n; Function: square a number\nsquare:\n    MOV R1, R0\n    MUL R0, R1\n    RET\n```\n\n**With Multiple Parameters:**\n```asm\n; Calculate: (a + b) * c\nLOAD_IMM R0, 3       ; a = 3\nLOAD_IMM R1, 4       ; b = 4\nLOAD_IMM R2, 5       ; c = 5\nCALL calculate\n; R0 contains 35\nHALT\n\ncalculate:\n    ADD R0, R1       ; a + b\n    MUL R0, R2       ; result * c\n    RET\n```",
+      "codeLanguage": "asm",
+      "order": 6
+    },
+    {
+      "id": "stack_usage",
+      "title": "Stack Operations",
+      "content": "```asm\n; Save and restore registers\nLOAD_IMM R0, 10\nLOAD_IMM R1, 20\nLOAD_IMM R2, 30\n\n; Save registers\nPUSH R0\nPUSH R1\nPUSH R2\n\n; Modify registers\nLOAD_IMM R0, 0\nLOAD_IMM R1, 0\nLOAD_IMM R2, 0\n\n; Restore (LIFO order)\nPOP R2\nPOP R1\nPOP R0\n\n; Registers restored: R0=10, R1=20, R2=30\nHALT\n```",
+      "codeLanguage": "asm",
+      "order": 7
+    },
+    {
+      "id": "memory_operations",
+      "title": "Memory Operations",
+      "content": "```asm\n; Store and load from memory\nLOAD_IMM R0, 42\nSTORE [100], R0      ; Store at address 100\n\nLOAD_IMM R1, 0       ; Clear R1\nLOAD R1, [100]       ; Load from address 100\n; R1 now contains 42\n\nHALT\n```\n\n**Array Access:**\n```asm\n; Store array values\nLOAD_IMM R0, 10\nSTORE [100], R0\n\nLOAD_IMM R0, 20\nSTORE [101], R0\n\nLOAD_IMM R0, 30\nSTORE [102], R0\n\n; Load array values\nLOAD R1, [100]       ; R1 = 10\nLOAD R2, [101]       ; R2 = 20\nLOAD R3, [102]       ; R3 = 30\n\nHALT\n```",
+      "codeLanguage": "asm",
+      "order": 8
+    },
+    {
+      "id": "bitwise",
+      "title": "Bitwise Operations",
+      "content": "```asm\n; Bit manipulation examples\nLOAD_IMM R0, 0b11110000\nLOAD_IMM R1, 0b00001111\n\n; AND operation (both bits set)\nAND R2, R0\nAND R2, R1           ; R2 = 0b00000000\n\n; OR operation (either bit set)\nMOV R3, R0\nOR R3, R1            ; R3 = 0b11111111\n\n; XOR operation (bits differ)\nMOV R4, R0\nXOR R4, R1           ; R4 = 0b11111111\n\n; NOT operation (flip bits)\nMOV R5, R0\nNOT R5               ; R5 = 0b00001111\n\nHALT\n```",
+      "codeLanguage": "asm",
+      "order": 9
+    },
+    {
+      "id": "shift_operations",
+      "title": "Shift Operations",
+      "content": "```asm\n; Multiply by 2 using shift left\nLOAD_IMM R0, 5\nSHL R0, 1            ; R0 = 10\n\n; Multiply by 4\nLOAD_IMM R1, 5\nSHL R1, 2            ; R1 = 20\n\n; Divide by 2 using shift right\nLOAD_IMM R2, 20\nSHR R2, 1            ; R2 = 10\n\n; Divide by 4\nLOAD_IMM R3, 20\nSHR R3, 2            ; R3 = 5\n\nHALT\n```",
+      "codeLanguage": "asm",
+      "order": 10
+    },
+    {
+      "id": "string_manipulation",
+      "title": "String Manipulation",
+      "content": "```asm\n; Print multiple strings\nLOAD_IMM R0, str1\nOUTSTR 1, R0\n\nLOAD_IMM R0, str2\nOUTSTR 1, R0\n\nLOAD_IMM R0, str3\nOUTSTR 1, R0\n\nHALT\n\nstr1: DB \"Hello, \", 0\nstr2: DB \"World\", 0\nstr3: DB \"!\", 0\n```",
+      "codeLanguage": "asm",
+      "order": 11
+    },
+    {
+      "id": "fibonacci",
+      "title": "Fibonacci Sequence",
+      "content": "```asm\n; Calculate 10th Fibonacci number\nLOAD_IMM R0, 0       ; F(0)\nLOAD_IMM R1, 1       ; F(1)\nLOAD_IMM R2, 10      ; Counter\nLOAD_IMM R3, 2       ; Start index\n\nfib_loop:\n    CMP R3, R2\n    JGE done\n    \n    ; F(n) = F(n-1) + F(n-2)\n    MOV R4, R1\n    ADD R1, R0\n    MOV R0, R4\n    \n    INC R3\n    JMP fib_loop\n\ndone:\n    ; R1 contains F(10) = 55\n    HALT\n```",
+      "codeLanguage": "asm",
+      "order": 12
+    },
+    {
+      "id": "factorial",
+      "title": "Factorial Calculation",
+      "content": "```asm\n; Calculate 5! = 120\nLOAD_IMM R0, 5       ; Input\nLOAD_IMM R1, 1       ; Result\nLOAD_IMM R2, 1       ; Counter\n\nfactorial_loop:\n    CMP R2, R0\n    JG done\n    \n    MUL R1, R2\n    INC R2\n    JMP factorial_loop\n\ndone:\n    ; R1 contains 120\n    HALT\n```",
+      "codeLanguage": "asm",
+      "order": 13
+    },
+    {
+      "id": "bubble_sort",
+      "title": "Bubble Sort",
+      "content": "```asm\n; Sort 5 numbers in memory\n; Array at addresses 100-104\n\n; Initialize array\nLOAD_IMM R0, 5\nSTORE [100], R0\nLOAD_IMM R0, 2\nSTORE [101], R0\nLOAD_IMM R0, 8\nSTORE [102], R0\nLOAD_IMM R0, 1\nSTORE [103], R0\nLOAD_IMM R0, 9\nSTORE [104], R0\n\n; Bubble sort implementation\nLOAD_IMM R4, 5       ; Array size\n\nouter_loop:\n    DEC R4\n    CMP R4, 0\n    JLE done\n    \n    LOAD_IMM R5, 0   ; Inner counter\n    \n    inner_loop:\n        CMP R5, R4\n        JGE outer_loop\n        \n        ; Compare adjacent elements\n        LOAD R0, [100+R5]\n        MOV R6, R5\n        INC R6\n        LOAD R1, [100+R6]\n        \n        CMP R0, R1\n        JLE no_swap\n        \n        ; Swap elements\n        STORE [100+R5], R1\n        STORE [100+R6], R0\n        \n        no_swap:\n        INC R5\n        JMP inner_loop\n\ndone:\n    ; Array is now sorted\n    HALT\n```",
+      "codeLanguage": "asm",
+      "order": 14
+    },
+    {
+      "id": "max_value",
+      "title": "Find Maximum Value",
+      "content": "```asm\n; Find maximum of 4 values\nLOAD_IMM R0, 23\nLOAD_IMM R1, 45\nLOAD_IMM R2, 12\nLOAD_IMM R3, 67\n\n; Start with first value as max\nMOV R4, R0\n\n; Compare with R1\nCMP R4, R1\nJGE skip1\nMOV R4, R1\nskip1:\n\n; Compare with R2\nCMP R4, R2\nJGE skip2\nMOV R4, R2\nskip2:\n\n; Compare with R3\nCMP R4, R3\nJGE done\nMOV R4, R3\n\ndone:\n    ; R4 contains maximum (67)\n    HALT\n```",
+      "codeLanguage": "asm",
+      "order": 15
+    },
+    {
+      "id": "error_handling",
+      "title": "Error Handling",
+      "content": "```asm\n; Safe division with zero check\nLOAD_IMM R0, 42      ; Dividend\nLOAD_IMM R1, 0       ; Divisor\nLOAD_IMM R2, 0       ; Zero for comparison\n\nCMP R1, R2\nJZ division_error    ; Jump if divisor is zero\n\n; Safe to divide\nDIV R0, R1\nJMP done\n\ndivision_error:\n    ; Handle error - set result to 0\n    LOAD_IMM R0, 0\n\ndone:\n    HALT\n```",
+      "codeLanguage": "asm",
+      "order": 16
+    },
+    {
+      "id": "device_io",
+      "title": "Device I/O",
+      "content": "```asm\n; Read from and write to I/O ports\n\n; Write to console (port 1)\nLOAD_IMM R0, 65      ; ASCII 'A'\nOUT 1, R0\n\n; Read from input port (port 4)\nIN R1, 4\n\n; Echo input back to console\nOUT 1, R1\n\nHALT\n```\n\n**String I/O:**\n```asm\n; Output string\nLOAD_IMM R0, message\nOUTSTR 1, R0\nHALT\n\nmessage: DB \"Enter input: \", 0\n```",
+      "codeLanguage": "asm",
+      "order": 17
+    }
+  ],
+  "relatedDocs": ["assembly_language", "instruction_set", "getting_started"]
+}
