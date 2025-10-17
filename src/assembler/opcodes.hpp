@@ -11,8 +11,9 @@ enum class Opcode : uint8_t {
     SUB = 0x03,         // Subtract reg1, reg2
     MOV = 0x04,         // Move reg1, reg2 (reg1 = reg2)
     JMP = 0x05,         // Jump to address
-    LOAD = 0x06,        // Load value from memory to reg
+    LOAD = 0x06,        // Load value from memory to reg (direct addressing)
     STORE = 0x07,       // Store value from reg to memory
+    LOADR = 0x41,       // Load value from memory to reg (indirect addressing - addr in register)
 
     PUSH = 0x08,        // Push reg onto stack
     POP = 0x09,         // Pop value from stack to reg

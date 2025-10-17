@@ -9,6 +9,8 @@ This directory contains development plans, roadmaps, and future feature specific
 - **[FUTURE_OPCODES.md](FUTURE_OPCODES.md)** - Comprehensive plan for implementing 88 additional opcodes (SIMD, FPU, AVX, MMX, Extended 64-bit)
 - **[DEMI_LANGUAGE_PLAN.md](DEMI_LANGUAGE_PLAN.md)** - Specification for the Demi high-level language frontend (Stage 6)
 - **[NATIVE_COMPILER_PLAN.md](NATIVE_COMPILER_PLAN.md)** - Native x86-64 code generation implementation plan
+- **[VM_PERFORMANCE_ANALYSIS.md](VM_PERFORMANCE_ANALYSIS.md)** - Critical performance analysis and optimization strategies for VM interpretation overhead
+- **[REAL_SYSTEM_IO_INTEGRATION.md](REAL_SYSTEM_IO_INTEGRATION.md)** - Real hardware and system integration roadmap (network, GPIO, system calls)
 
 ### Implementation Notes
 

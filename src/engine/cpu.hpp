@@ -87,6 +87,7 @@ enum class Opcode : uint8_t {
     OUTSTR = 0x39,      // Output string from register to port/device
 
     DB = 0x40,          // Define byte
+    LOADR = 0x41,       // Load value from memory to reg (indirect addressing - addr in register)
 
     // Extended 64-bit Register Operations (0x50-0x6F range)
     ADD64 = 0x50,       // 64-bit Add reg1, reg2
@@ -348,6 +349,17 @@ public:
             auto meta_reg = static_cast<Register>(static_cast<size_t>(st_reg) + 1);
             set_register(meta_reg, exponent_sign);
         }
+    }
+
+    // Convenience method to get FPU register as double
+    double get_fpu_register_as_double(Register st_reg) const {
+        uint64_t mantissa, exponent_sign;
+        get_fpu_register(st_reg, mantissa, exponent_sign);
+        
+        // Simple conversion for testing - in practice would need full 80-bit conversion
+        // For now, interpret mantissa as 64-bit double representation
+        double* double_ptr = reinterpret_cast<double*>(&mantissa);
+        return *double_ptr;
     }
 
     // AVX register access (256-bit YMM registers)

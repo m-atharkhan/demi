@@ -31,6 +31,74 @@ DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionar
 - 🔄 **Performance Optimization**: Enable vectorization and floating-point computation
 - 🔄 **Comprehensive Testing**: Maintain 100% test coverage as opcodes are added
 
+### ⚡ **Current Priority: VM Performance Optimization**
+
+**Critical Performance Analysis** (October 2025): VM interpretation overhead identified as major bottleneck:
+
+**🔍 Performance Bottlenecks:**
+- **Switch dispatch overhead**: 87-case switch statement causing branch prediction misses (~5-15 cycles/instruction)
+- **Per-instruction overhead**: Bounds checking, debug logging, flag calculations (~5-10 cycles)
+- **Memory access patterns**: 134 registers vs native 16, complex virtualization layer
+- **Function call overhead**: Separate handler functions for each opcode (~3-5 cycles)
+
+**📊 Performance Impact**: Current VM is **5-20x slower** than native code execution
+
+**🚀 Quick Win Optimizations** (2-4 weeks implementation):
+1. **Threaded Code Interpretation**: Replace switch with computed goto → **2-3x faster dispatch**
+2. **Instruction Fusion**: Detect common patterns (ADD+STORE) → **1.5-2x faster sequences**  
+3. **Aggressive Inlining**: Move simple ops into switch body → **Eliminate function call overhead**
+4. **Conditional Compilation**: Remove bounds checking/logging in release → **2-3x faster**
+
+**🚀 Optimization Strategy**: Tactical VM improvements to reduce overhead from 5-20x to 2-5x while implementing SIMD operations, then transition to native code generation.
+
+---
+
+### 🔌 **Real System I/O Integration Priority**
+
+**Current Status**: Foundation complete - Real device infrastructure operational  
+**Goal**: Transition from virtual I/O to real system hardware integration  
+**Timeline**: Can be implemented parallel with VM optimization (3-4 weeks)
+
+#### **Existing Real Device Foundation** ✅
+- **RealDevice interface** with connect/disconnect methods
+- **SerialPortDevice** - Full Unix serial port implementation with security validation
+- **FileDevice** - Real filesystem access with path traversal protection  
+- **DeviceManager** - Port-based I/O routing (256 ports available)
+
+#### **Real System Integration Roadmap** (3-4 weeks)
+
+**Phase A: Network I/O** (1 week)
+```cpp
+class NetworkDevice : public RealDevice {
+    // TCP/UDP socket communication
+    // HTTP client/server capabilities
+    // WebSocket support for real-time communication
+};
+```
+
+**Phase B: GPIO/Hardware** (1 week)  
+```cpp
+class GPIODevice : public RealDevice {
+    // Linux GPIO access via /sys/class/gpio
+    // Digital input/output pins
+    // Hardware interrupts and events
+};
+```
+
+**Phase C: System Integration** (1-2 weeks)
+```cpp
+class SystemDevice : public RealDevice {
+    // Process spawning and communication
+    // Environment variable access
+    // System call interface
+    // Pipe and socket communication
+};
+```
+
+**Expected Result**: Full real-world system integration capabilities
+
+---
+
 ### 🚀 Future Phase: Demi Language Revolution
 
 **Phase 3+ Goal:** Build the most customizable programming language ever created (After assembly expansion)
@@ -816,6 +884,12 @@ Expand the instruction set to enable seamless native code generation and profess
 - ✅ **63 Core Opcodes**: Base instruction set fully implemented and tested
 - ✅ **Assembly Toolchain**: Lexer → Parser → Assembler → Bytecode fully functional
 - ✅ **Virtual Machine**: CPU emulation with device I/O system
+
+**⚠️ CRITICAL: VM Performance Optimization Required**
+- **Current Status**: VM interpretation 5-20x slower than native execution
+- **Immediate Action**: Implement quick wins (threaded code + inlining) for 2-5x improvement
+- **Timeline**: 2-4 weeks parallel with SIMD development
+- **Documentation**: See `docs/development/VM_PERFORMANCE_ANALYSIS.md`
 - ✅ **Test Suite**: 188/188 tests passing (100% coverage)
 - ✅ **Native Executable Generation**: x86-64 ELF creation with embedded VM
 - ✅ **ImGui Debugger**: Professional development and debugging interface
@@ -2248,6 +2322,191 @@ This project offers unique learning experiences in:
 - **Programming Language Theory**: Advanced type system experimentation
 - **Computer Architecture**: ISA design and evaluation platform
 - **Educational Technology**: Interactive compiler construction teaching tools
+
+---
+
+## 📚 **WEBSITE DOCUMENTATION DATASET CONVERSION**
+
+**Goal**: Transform comprehensive `docs/` folder into structured JSON datasets for user-friendly website presentation  
+**Timeline**: 2-3 weeks (parallel with other development)  
+**Scope**: Convert technical documentation to web-optimized content with user/contributor separation
+
+### **Documentation Conversion Strategy**
+
+#### **Target Audience Separation**
+- **User Documentation**: Core concepts, quick start, examples, API reference
+- **Contributor Documentation**: Technical implementation, development guides (GitHub-only)
+- **Internal Documentation**: Detailed technical specs, archived materials (GitHub-only)
+
+#### **Website Content Structure** (JSON Format)
+
+**1. User-Facing Content** (`/website/data/`)
+```json
+{
+  "quickStart": {
+    "title": "Get Started with DemiEngine",
+    "sections": [
+      { "id": "installation", "title": "Installation", "content": "...", "code_examples": [...] },
+      { "id": "first_program", "title": "Your First Program", "content": "...", "code_examples": [...] },
+      { "id": "examples", "title": "Example Programs", "content": "...", "code_examples": [...] }
+    ]
+  },
+  "apiReference": {
+    "title": "DemiEngine API Reference",
+    "categories": [
+      {
+        "name": "Core CPU",
+        "description": "CPU instruction set and execution",
+        "methods": [
+          { "name": "execute", "signature": "void execute(program)", "description": "...", "example": "..." }
+        ]
+      }
+    ]
+  },
+  "examples": {
+    "title": "Code Examples",
+    "categories": [
+      {
+        "name": "Basic Programs", 
+        "examples": [
+          { "name": "Hello World", "code": "...", "description": "...", "output": "..." }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**2. Feature Highlights** (`/website/data/features.json`)
+```json
+{
+  "hero": {
+    "title": "DemiEngine: Revolutionary Programming Language Platform",
+    "subtitle": "134-register architecture, custom instruction set, native compilation",
+    "highlights": ["Custom Syntax Control", "VM + Native Execution", "Complete Toolchain"]
+  },
+  "features": [
+    {
+      "icon": "cpu", 
+      "title": "Advanced VM Architecture",
+      "description": "134-register system with 86 implemented opcodes",
+      "details": ["Extended register set", "Floating-point operations", "Device I/O system"]
+    }
+  ]
+}
+```
+
+**3. Interactive Content** (`/website/data/interactive.json`)
+```json
+{
+  "playground": {
+    "defaultCode": "LOAD_IMM R0, 42\nOUT 0x01, R0\nHALT",
+    "examples": [
+      { "name": "Hello World", "code": "..." },
+      { "name": "Calculator", "code": "..." }
+    ]
+  },
+  "benchmarks": {
+    "performance_data": [
+      { "operation": "ADD", "cycles": 1, "vs_native": "10x slower" }
+    ]
+  }
+}
+```
+
+#### **Conversion Implementation Plan**
+
+**Phase 1: Content Analysis & Extraction** (1 week)
+```bash
+# Smart documentation parser
+docs_converter.py:
+  - Parse markdown files in docs/ 
+  - Extract code examples and format for web
+  - Identify user vs contributor content
+  - Generate structured JSON datasets
+  - Create content hierarchy and navigation
+```
+
+**Phase 2: Website-Optimized Content** (1 week)  
+```bash
+# Content optimization for web consumption
+content_optimizer.py:
+  - Simplify technical language for users
+  - Create interactive code examples
+  - Generate feature comparison tables
+  - Build progressive disclosure (basic → advanced)
+  - Add visual diagrams and flowcharts
+```
+
+**Phase 3: Dynamic Content Generation** (1 week)
+```bash
+# Automated updates from repository
+auto_updater.py:
+  - Monitor docs/ changes via GitHub webhook
+  - Regenerate JSON datasets automatically  
+  - Update API reference from source code
+  - Sync examples from examples/ folder
+  - Deploy to website automatically
+```
+
+#### **Content Transformation Rules**
+
+**User Content (Website)**:
+- ✅ Quick reference guides and getting started
+- ✅ High-level architecture overview  
+- ✅ Code examples and tutorials
+- ✅ API reference (simplified)
+- ✅ Performance benchmarks and comparisons
+- ✅ Use cases and project showcases
+
+**Developer Content (GitHub Only)**:
+- 🔒 Internal implementation details
+- 🔒 Development workflows and contribution guides
+- 🔒 Technical debt and TODO lists
+- 🔒 Detailed architecture specifications
+- 🔒 Testing framework documentation
+- 🔒 Historical development notes
+
+#### **Website Content Prompt Template**
+
+```markdown
+WEBSITE DOCUMENTATION CONVERSION PROMPT:
+
+Transform the DemiEngine docs/ folder into user-friendly website content:
+
+GOALS:
+1. Convert technical docs to JSON datasets for website consumption
+2. Separate user-facing content from contributor/internal documentation  
+3. Create interactive examples and progressive disclosure
+4. Maintain accuracy while improving accessibility
+
+INPUT: /workspaces/demi/docs/ folder contents
+OUTPUT: Structured JSON files for website integration
+
+GUIDELINES:
+- User content: Focus on "what" and "how to use"
+- Technical content: Keep detailed implementation on GitHub
+- Examples: Make interactive and copy-pastable
+- Navigation: Create clear content hierarchy
+- Performance: Highlight capabilities and benchmarks
+- Accessibility: Use plain language, avoid jargon
+
+CONTENT STRUCTURE:
+- quickStart.json: Getting started, first program, basic examples
+- apiReference.json: Simplified API docs with examples
+- features.json: Feature highlights and capabilities  
+- examples.json: Interactive code samples
+- performance.json: Benchmarks and comparisons
+- architecture.json: High-level system overview
+
+EXCLUSIONS (GitHub only):
+- Contributor guidelines and development workflows
+- Internal technical debt and implementation notes
+- Detailed testing and validation procedures
+- Historical development logs and archives
+```
+
+**Expected Result**: User-friendly website content with clear separation of concerns, interactive examples, and automated updates from repository changes.
 
 ---
 

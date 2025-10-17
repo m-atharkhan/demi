@@ -90,6 +90,8 @@ private:
     void handle_dd_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_string_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_org_directive(const std::vector<std::unique_ptr<Expression>>& args);
+    void handle_data_section();
+    void handle_text_section();
     
     // Utility methods
     void add_error(const std::string& message);

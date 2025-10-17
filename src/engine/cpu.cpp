@@ -10,6 +10,9 @@
 #include "cpu_flags.hpp"
 #include "cpu_registers.hpp"  // Include the new register system
 #include "opcodes/opcode_dispatcher.hpp"
+#include "opcodes/opcode_dispatcher_threaded.hpp"
+#include "opcodes/opcode_dispatcher_unified.hpp"  // Add unified dispatcher
+#include "opcodes/instruction_fusion.hpp"  // Instruction fusion optimizer
 
 using namespace DemiEngine_Registers;
 
@@ -368,8 +371,12 @@ void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address) {
     bool running = true;
 
     while (get_pc() < program.size() && running) {
-        // Use the new opcode dispatcher
-        dispatch_opcode(*this, program, running);
+        // Try instruction fusion first for performance
+        // If fusion doesn't apply, fall back to standard dispatch
+        if (!InstructionFusion::try_instruction_fusion(*this, program, running)) {
+            // Use the original switch-case dispatcher
+            dispatch_opcode(*this, program, running);
+        }
     }
 }
 

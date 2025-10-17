@@ -18,7 +18,7 @@
     #category "Error Handling"
     #tag "error"
     #tag "opcode"
-    DB 0x41     ; Invalid opcode (0x41 is not defined in opcode table)
+    DB 0xBB     ; Invalid opcode (0xBB should not be defined)
     #expect_error
 }
 

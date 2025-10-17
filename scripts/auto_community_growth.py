@@ -44,25 +44,17 @@ class AutoCommunityGrowth:
             print(f"Twitter API setup failed: {e}")
             self.twitter = None
         
-        # Reddit API setup (skip if credentials not available)
-        reddit_client_id = os.getenv('REDDIT_CLIENT_ID')
-        reddit_client_secret = os.getenv('REDDIT_CLIENT_SECRET')
-        
-        if reddit_client_id and reddit_client_secret and reddit_client_id.strip() and reddit_client_secret.strip():
-            try:
-                self.reddit = praw.Reddit(
-                    client_id=reddit_client_id,
-                    client_secret=reddit_client_secret,
-                    username=os.getenv('REDDIT_USERNAME'),
-                    password=os.getenv('REDDIT_PASSWORD'),
-                    user_agent='DemiEngine Community Bot v1.0 by /u/YOUR_USERNAME'
-                )
-                print("✅ Reddit API configured")
-            except Exception as e:
-                print(f"❌ Reddit API setup failed: {e}")
-                self.reddit = None
-        else:
-            print("⏭️  Skipping Reddit (no credentials configured - Twitter-only mode)")
+        # Reddit API setup (for script-type application)
+        try:
+            self.reddit = praw.Reddit(
+                client_id=os.getenv('REDDIT_CLIENT_ID'),
+                client_secret=os.getenv('REDDIT_CLIENT_SECRET'),
+                username=os.getenv('REDDIT_USERNAME'),
+                password=os.getenv('REDDIT_PASSWORD'),
+                user_agent='DemiEngine Community Bot v1.0 by /u/YOUR_USERNAME'
+            )
+        except Exception as e:
+            print(f"Reddit API setup failed: {e}")
             self.reddit = None
     
     def get_project_status(self):
@@ -308,61 +300,6 @@ We're looking for contributors to help expand the instruction set. Perfect for d
         # - Provide guidance on issues
         # - Thank people for PRs
         pass
-    
-    def respond_to_twitter_mentions(self):
-        """Auto-respond to Twitter mentions and replies"""
-        if not self.twitter:
-            return
-            
-        try:
-            # For now, just log that we're checking mentions
-            # Twitter API v2 mentions require special permissions
-            print("📭 Checking for Twitter mentions...")
-            print("💡 Note: Twitter API v2 mentions require elevated access")
-            
-            # Placeholder for future implementation when permissions are available
-            # This prevents the error and allows the automation to continue
-            return
-                
-        except Exception as e:
-            print(f"Error responding to Twitter mentions: {e}")
-    
-    def respond_to_reddit_activity(self):
-        """Auto-respond to Reddit comments and messages"""
-        if not self.reddit:
-            return
-            
-        try:
-            # Check inbox for mentions/replies
-            for item in self.reddit.inbox.unread(limit=5):
-                if isinstance(item, praw.models.Comment):
-                    # It's a comment reply
-                    comment_text = item.body
-                    
-                    # Generate helpful response
-                    prompt = f"""Generate a helpful response to this Reddit comment about DemiEngine:
-                    "{comment_text}"
-                    
-                    Make it:
-                    - Informative and technical
-                    - Encouraging for developers
-                    - Include relevant links if helpful
-                    - Professional tone
-                    """
-                    
-                    response_text = self.ai_manager.generate_content(prompt)
-                    
-                    if response_text:
-                        # Reply to the comment
-                        item.reply(response_text)
-                        item.mark_read()
-                        print(f"✅ Replied to Reddit comment in r/{item.subreddit.display_name}")
-                        
-                        # Rate limiting
-                        time.sleep(5)
-                
-        except Exception as e:
-            print(f"Error responding to Reddit activity: {e}")
     
     def generate_good_first_issues(self):
         """Automatically generate good first issues based on codebase analysis"""
