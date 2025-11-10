@@ -198,7 +198,7 @@ Current test coverage includes:
 
 When adding new tests:
 1. Use descriptive test names
-2. Add `#description`, `#author`, `#category`, and `#tag` metadata
+2. Add `.description`, `.author`, `.category`, and `.tag` metadata
 3. Include assertions to verify expected behavior
 4. Comment future features clearly
 5. Add test to appropriate category file or create new file

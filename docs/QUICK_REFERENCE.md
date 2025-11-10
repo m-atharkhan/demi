@@ -2,8 +2,12 @@
 
 ## Overview
 
-**Currently Implemented**: 63 opcodes (fully functional)
-**Defined but Not Implemented**: 88 opcodes (SIMD, FPU, AVX, MMX - planned for future)
+**Currently Implemented**: 94 opcodes (fully functional)
+- 63 Core opcodes (basic operations, arithmetic, memory, control flow, stack, bitwise, I/O)
+- 23 FPU opcodes (floating-point arithmetic and control)
+- 8 SIMD opcodes (vector operations)
+
+**Defined but Not Implemented**: 57 opcodes (SSE, AVX, MMX - planned for future)
 
 ## Basic Syntax
 - Instructions are written in hexadecimal
@@ -145,7 +149,7 @@ FF                    # HALT
 
 ## Memory Layout
 ```
-High Memory  ┌─────────┐
+High Memory ┌─────────┐
             │  Stack  │ ← SP
             ├─────────┤
             │  Free   │
@@ -185,34 +189,96 @@ Low Memory  │  Code   │ ← PC starts here
 
 ### In-Assembly Test Format
 ```assembly
-#test test_name
-    #description What this test validates
-    #author Your Name
-    #category Test Category
-    #tag tag1, tag2
+.test test_name
+    .description What this test validates
+    .author Your Name
+    .category Test Category
+    .tag tag1, tag2
     
     LOAD_IMM R0, 5
     LOAD_IMM R1, 10
     ADD R0, R1
-    #assert_eq R0, 15
-#endtest
+    .assert_eq R0, 15
+.endtest
 ```
 
 ### Test Metadata Directives
-- `#description` - Brief test description (recommended)
-- `#author` - Test author/team (optional)
-- `#category` - Test category/group (optional)
-- `#tag` - Comma-separated tags (optional)
+- `.description` - Brief test description (recommended)
+- `.author` - Test author/team (optional)
+- `.category` - Test category/group (optional)
+- `.tag` - Comma-separated tags (optional)
+- `.maxsteps` - Maximum execution steps (default: 10,000)
+- `.maxcalldepth` - Maximum call stack depth (default: 64 for tests, 256 for production)
+- `.timeout` - Maximum execution time in milliseconds (default: no timeout)
+- `.skip` - Skip this test (no value needed)
+
+### Benchmark Directives
+- `.benchmark` - Mark this test as a benchmark (measures performance)
+- `.warmup` - Number of warmup iterations before measurement
+- `.iterations` - Number of benchmark iterations (default: 1)
+- `.measure` - What to measure: "time", "cycles", or "instructions"
 
 ### Test Commands
-- `#assert_eq <reg>, <value>` - Assert register equals value
-- `#assert_ne <reg>, <value>` - Assert register not equals value
-- `#assert_lt <reg>, <value>` - Assert register less than value
-- `#assert_gt <reg>, <value>` - Assert register greater than value
+- `.assert_eq <reg>, <value>` - Assert register equals value
+- `.assert_ne <reg>, <value>` - Assert register not equals value
+- `.assert_lt <reg>, <value>` - Assert register less than value
+- `.assert_gt <reg>, <value>` - Assert register greater than value
 
 See [TEST_FLAGS.md](testing/TEST_FLAGS.md) and [tests/asm/README.md](../tests/asm/README.md) for complete documentation.
 
 ---
+
+### Floating Point Unit (FPU)
+```hex
+# FPU Load/Store (Floating-Point)
+A0 <format> <src>     # FLD - Load floating-point value
+A1 <format> <dst>     # FST - Store ST(0) (no pop)
+A2 <format> <dst>     # FSTP - Store ST(0) and pop
+
+# FPU Load/Store (Integer)
+A3 <format> <src>     # FILD - Load integer to FPU stack
+A4 <format> <dst>     # FIST - Store ST(0) as integer (no pop)
+A5 <format> <dst>     # FISTP - Store ST(0) as integer and pop
+
+# FPU Arithmetic
+A6 <format> <src>     # FADD - Floating-point add
+A7 <format> <src>     # FSUB - Floating-point subtract
+A8 <format> <src>     # FMUL - Floating-point multiply
+A9 <format> <src>     # FDIV - Floating-point divide
+
+# FPU Transcendental Functions
+AA                    # FSIN - Compute sine of ST(0)
+AB                    # FCOS - Compute cosine of ST(0)
+AC                    # FTAN - Compute tangent of ST(0)
+AD                    # FSQRT - Square root of ST(0)
+
+# FPU Sign Operations
+AE                    # FABS - Absolute value of ST(0)
+AF                    # FCHS - Change sign of ST(0)
+
+# FPU Control
+B0                    # FINIT - Initialize FPU
+B1                    # FCLEX - Clear FPU exceptions
+B2 <addr>             # FSTCW - Store FPU control word
+B3 <addr>             # FLDCW - Load FPU control word
+B4 <addr>             # FSTSW - Store FPU status word
+
+# FPU Comparison
+B5                    # FCOMPP - Compare ST(0) and ST(1), pop twice
+B6                    # FUCOMPP - Unordered compare ST(0) and ST(1), pop twice
+```
+
+### SIMD Vector Operations
+```hex
+D4 <dst> <src>        # VADD - Vector addition (element-wise)
+D5 <dst> <src>        # VMUL - Vector multiplication (element-wise)
+D6 <dst> <src>        # VDOT - Vector dot product
+D7 <dst> <src>        # VMAX - Vector maximum (element-wise)
+D8 <dst> <src>        # VBROADCAST - Broadcast scalar to vector
+D9 <dst> <src>        # VCMPGT - Vector compare greater than
+DA <dst> <src>        # PACKB - Pack bytes with saturation
+DB <dst> <src>        # UNPACKB - Unpack bytes
+```
 
 ## Planned But Not Yet Implemented
 
@@ -226,16 +292,7 @@ MOVAPD, MOVUPD, ADDPD, SUBPD, MULPD, DIVPD, SQRTPD, MAXPD, MINPD,
 ANDPD, ORPD, XORPD, CMPPD
 ```
 **Status**: Opcodes defined, handlers not implemented
-**Use Case**: Vector operations for parallel processing
-
-### FPU Operations (0xA0-0xBF) - 23 opcodes ⚠️
-```
-FLD, FST, FSTP, FILD, FIST, FISTP,
-FADD, FSUB, FMUL, FDIV, FSIN, FCOS, FTAN, FSQRT, FABS, FCHS,
-FINIT, FCLEX, FSTCW, FLDCW, FSTSW, FCOMPP, FUCOMPP
-```
-**Status**: Opcodes defined, handlers not implemented
-**Use Case**: Floating-point arithmetic
+**Use Case**: Vector operations for parallel processing (SSE/SSE2)
 
 ### AVX Operations (0xC0-0xDF) - 20 opcodes ⚠️
 ```
@@ -272,12 +329,13 @@ MULEX, DIVEX, CMPEX, LOADEX, STOREX, PUSHEX, POPEX, MODEFLAG
 |----------|---------|-------------|--------|
 | **Core Operations** | 48 | 48 | ✅ 100% |
 | **Extended 64-bit** | 22 | 4 | ⚠️ 18% |
+| **FPU** | 23 | 23 | ✅ 100% |
+| **SIMD (Foundation)** | 8 | 8 | ✅ 100% |
 | **SIMD/SSE** | 26 | 0 | ❌ 0% |
-| **FPU** | 23 | 0 | ❌ 0% |
 | **AVX** | 20 | 0 | ❌ 0% |
 | **MMX** | 11 | 0 | ❌ 0% |
 | **Mode Control** | 1 | 1 | ✅ 100% |
-| **TOTAL** | **151** | **63** | **42%** |
+| **TOTAL** | **159** | **94** | **59%** |
 
 **Note**: Attempting to use unimplemented opcodes will result in an "Unknown opcode" error.
 

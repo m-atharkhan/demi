@@ -22,10 +22,10 @@ Successfully implemented a full test execution system for in-assembly tests in D
   
 - `TestResult` and `AssertionResult` classes for tracking outcomes
 - Support for all assertion types:
-  - `#assert_reg` - Check register values
-  - `#assert_mem` - Check memory values  
-  - `#assert_output` - Check device output
-  - `#expect_error` - Expect execution error
+  - `.assert_reg` - Check register values
+  - `.assert_mem` - Check memory values  
+  - `.assert_output` - Check device output
+  - `.expect_error` - Expect execution error
 
 ### 2. Integration with Main
 - Updated `run_in_assembly_tests()` to use `TestExecutor`
