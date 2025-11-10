@@ -62,6 +62,7 @@ using Logging::Logger;
 #include "lea.hpp"
 #include "load.hpp"
 #include "load_imm.hpp"
+#include "loadr.hpp"
 #include "mov.hpp"
 #include "mul.hpp"
 #include "nop.hpp"
@@ -100,6 +101,16 @@ using Logging::Logger;
 #include "mode32.hpp"
 #include "mode64.hpp"
 #include "modecmp.hpp"
+
+// SIMD instruction headers
+#include "vadd.hpp"
+#include "vmul.hpp"
+#include "vdot.hpp"
+#include "vmax.hpp"
+#include "vbroadcast.hpp"
+#include "vcmpgt.hpp"
+#include "packb.hpp"
+#include "unpackb.hpp"
 
 // Consolidated implementations of all opcodes
 
@@ -188,14 +199,27 @@ void handle_and(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 void handle_call(CPU& cpu,[[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     uint32_t pc = cpu.get_pc();
 
+    // Check for call stack overflow (too many nested calls)
+    size_t max_depth = cpu.get_effective_max_call_depth();
+    if (cpu.get_call_depth() >= max_depth) {
+        std::string error_msg = fmt::format(
+            "[PC=0x{:04X}] [CALL] Call stack overflow: depth={} exceeds maximum of {}",
+            pc, cpu.get_call_depth(), max_depth
+        );
+        Logger::instance().error() << error_msg << std::endl;
+        Config::error_count++;
+        running = false;
+        throw CPUException(error_msg);
+    }
+
     // Reset offset at each call
     cpu.set_arg_offset(8);
 
     uint8_t addr = cpu.fetch_operand();
 
     Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [Call] PC=0x{:X}->addr=0x{:X} ret 0x{:X} and FP 0x{:X} to stack at SP=0x{:X}",
-        pc, pc, addr, (pc + 2), cpu.get_fp(), cpu.get_sp()
+        "[PC=0x{:04X}] [Call] PC=0x{:X}->addr=0x{:X} ret 0x{:X} and FP 0x{:X} to stack at SP=0x{:X} (depth={})",
+        pc, pc, addr, (pc + 2), cpu.get_fp(), cpu.get_sp(), cpu.get_call_depth()
     ) << std::endl;
 
     // Push old FP
@@ -210,6 +234,10 @@ void handle_call(CPU& cpu,[[maybe_unused]] const std::vector<uint8_t>& program, 
 
     // Set new FP
     cpu.set_fp(sp);
+    
+    // Increment call depth
+    cpu.increment_call_depth();
+    
     cpu.print_stack_frame("CALL");
     cpu.set_pc(addr);
 
@@ -228,9 +256,16 @@ void handle_cmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg2 = program[cpu.get_pc() + 2];
         if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
             int32_t result = static_cast<int32_t>(cpu.get_registers()[reg1]) - static_cast<int32_t>(cpu.get_registers()[reg2]);
-            uint32_t flags = 0;
+            uint32_t flags = cpu.get_flags();
+            
+            // Clear and update zero flag
+            flags &= ~FLAG_ZERO;
             if (result == 0) flags |= FLAG_ZERO;
-            if (result < 0)  flags |= FLAG_SIGN;
+            
+            // Clear and update sign flag
+            flags &= ~FLAG_SIGN;
+            if (result < 0) flags |= FLAG_SIGN;
+            
             cpu.set_flags(flags);
         }
         cpu.set_pc(cpu.get_pc() + 3);
@@ -665,6 +700,56 @@ void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("LOAD");
 }
 
+// Implementation of LOADR - Load value from memory to register (indirect addressing)
+void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    // LOADR dest_reg, addr_reg
+    // Load value from memory address stored in addr_reg into dest_reg
+    if (cpu.get_pc() + 2 < program.size()) {
+        uint8_t dest_reg = program[cpu.get_pc() + 1];
+        uint8_t addr_reg = program[cpu.get_pc() + 2];
+        
+        // Check destination register bounds
+        if (dest_reg >= cpu.get_registers().size()) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOADR] Invalid destination register R{}", cpu.get_pc(), dest_reg);
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
+        }
+        
+        // Check address register bounds
+        if (addr_reg >= cpu.get_registers().size()) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOADR] Invalid address register R{}", cpu.get_pc(), addr_reg);
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
+        }
+        
+        // Get the address from the address register
+        uint32_t addr = cpu.get_registers()[addr_reg];
+        
+        // Check memory bounds
+        if (addr >= cpu.get_memory().size()) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOADR] Memory out of bounds: address 0x{:X} >= size 0x{:X}", cpu.get_pc(), addr, cpu.get_memory().size());
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
+        }
+        
+        // Load value from memory address into destination register
+        cpu.get_registers()[dest_reg] = cpu.get_memory()[addr];
+        cpu.set_pc(cpu.get_pc() + 3);
+        
+        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOADR] R{} = memory[R{}] = memory[0x{:X}] = 0x{:02X}", 
+                                                 cpu.get_pc() - 3, dest_reg, addr_reg, addr, cpu.get_memory()[addr]) << std::endl;
+    } else {
+        running = false;
+    }
+    cpu.print_state("LOADR");
+}
+
 // Implementation from load_imm.cpp
 void handle_load_imm(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
@@ -969,6 +1054,16 @@ void handle_pop_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& progr
         cpu.set_arg_offset(cpu.get_arg_offset() + 4);
     } else {
         // Standalone context: pop from stack like regular POP
+        // Check for stack underflow
+        if (cpu.get_sp() >= cpu.get_memory().size()) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [POP_ARG] Stack underflow: SP={}, Memory size={}", 
+                pc, cpu.get_sp(), cpu.get_memory().size());
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
+        }
+        
         cpu.get_registers()[reg] = cpu.read_mem32(cpu.get_sp());
         cpu.set_sp(cpu.get_sp() + 4);
 
@@ -986,6 +1081,18 @@ void handle_pop_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& progr
 void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
+        
+        // Check for stack underflow (SP at or beyond initial position)
+        // Stack starts at memory.size() - 4, so if SP >= memory.size(), stack is empty
+        if (cpu.get_sp() >= cpu.get_memory().size()) {
+            std::string error_msg = fmt::format("[PC=0x{:04X}] [POP] Stack underflow: SP={}, Memory size={}", 
+                cpu.get_pc(), cpu.get_sp(), cpu.get_memory().size());
+            Logger::instance().error() << error_msg << std::endl;
+            Config::error_count++;
+            running = false;
+            throw CPUException(error_msg);
+        }
+        
         uint32_t value = cpu.read_mem32(cpu.get_sp());
         cpu.get_registers()[reg] = value;
         Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [POP] PC={} Popping to R{}={}", cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), value) << std::endl;
@@ -999,6 +1106,16 @@ void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Implementation from pop_flag.cpp
 void handle_pop_flag(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
+    // Check for stack underflow
+    if (cpu.get_sp() >= cpu.get_memory().size()) {
+        std::string error_msg = fmt::format("[PC=0x{:04X}] [POPF] Stack underflow: SP={}, Memory size={}", 
+            cpu.get_pc(), cpu.get_sp(), cpu.get_memory().size());
+        Logger::instance().error() << error_msg << std::endl;
+        Config::error_count++;
+        running = false;
+        throw CPUException(error_msg);
+    }
+    
     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [POPF] PC={} Popping FLAGS={:08X}", cpu.get_pc(), cpu.get_pc(), cpu.get_flags()) << std::endl;
     cpu.set_flags(cpu.read_mem32(cpu.get_sp()));
     cpu.set_sp(cpu.get_sp() + 4);
@@ -1090,6 +1207,9 @@ void handle_ret(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, 
     sp += 8;
     cpu.set_sp(sp);
     cpu.set_fp(old_fp);
+    
+    // Decrement call depth
+    cpu.decrement_call_depth();
 
     cpu.print_stack_frame("RET");
     cpu.set_pc(ret_addr);
@@ -1516,6 +1636,9 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
         case Opcode::LOAD:
             handle_load(cpu, program, running);
             break;
+        case Opcode::LOADR:
+            handle_loadr(cpu, program, running);
+            break;
         case Opcode::LEA:
             handle_lea(cpu, program, running);
             break;
@@ -1710,6 +1833,32 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
         case Opcode::FSTSW:
             handle_FSTSW(cpu, program, running);
+            break;
+
+        // SIMD Vector Operations
+        case Opcode::VADD:
+            handle_VADD(cpu, program, running);
+            break;
+        case Opcode::VMUL:
+            handle_VMUL(cpu, program, running);
+            break;
+        case Opcode::VDOT:
+            handle_VDOT(cpu, program, running);
+            break;
+        case Opcode::VMAX:
+            handle_VMAX(cpu, program, running);
+            break;
+        case Opcode::VBROADCAST:
+            handle_VBROADCAST(cpu, program, running);
+            break;
+        case Opcode::VCMPGT:
+            handle_VCMPGT(cpu, program, running);
+            break;
+        case Opcode::PACKB:
+            handle_PACKB(cpu, program, running);
+            break;
+        case Opcode::UNPACKB:
+            handle_UNPACKB(cpu, program, running);
             break;
 
         default:

@@ -27,6 +27,16 @@ void handle_FSTCW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     // Get control word
     uint16_t control_word = cpu.get_fpu_control_word();
     
+    // Check bounds - we need to write 2 bytes
+    if (addr + 1 >= cpu.get_memory_size()) {
+        Logger::instance().error() << fmt::format(
+            "[PC={:#06x}] [FSTCW] Memory access violation: address {:#010x} out of bounds (memory size: {})",
+            cpu.get_pc(), addr + 1, cpu.get_memory_size()
+        ) << std::endl;
+        running = false;
+        return;
+    }
+    
     // Store control word to memory (16-bit)
     cpu.get_memory()[addr] = static_cast<uint8_t>(control_word & 0xFF);
     cpu.get_memory()[addr + 1] = static_cast<uint8_t>((control_word >> 8) & 0xFF);

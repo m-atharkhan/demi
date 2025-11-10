@@ -9,6 +9,7 @@
 #include "cpu.hpp"
 #include "cpu_flags.hpp"
 #include "cpu_registers.hpp"  // Include the new register system
+#include "../config.hpp"  // Include config for quiet mode check
 #include "opcodes/opcode_dispatcher.hpp"
 #include "opcodes/opcode_dispatcher_threaded.hpp"
 #include "opcodes/opcode_dispatcher_unified.hpp"  // Add unified dispatcher
@@ -169,9 +170,12 @@ CPU::CPU(size_t memory_size)
     // Sync legacy registers for backward compatibility
     sync_legacy_registers();
 
-    Logger::instance().info() << fmt::format(
-        "Virtual CPU initialized with {} bytes ({:.1f}MB) of memory and {} total registers",
-        memory.size(), memory.size() / (1024.0 * 1024.0), TOTAL_REGISTERS) << std::endl;
+    // Only log CPU initialization if not in quiet assembly test mode
+    if (!Config::quiet_assembly_test) {
+        Logger::instance().info() << fmt::format(
+            "Virtual CPU initialized with {} bytes ({:.1f}MB) of memory and {} total registers",
+            memory.size(), memory.size() / (1024.0 * 1024.0), TOTAL_REGISTERS) << std::endl;
+    }
 }
 
 CPU::~CPU() = default;
@@ -277,6 +281,7 @@ void CPU::reset() {
     registers[static_cast<size_t>(Register::RFLAGS)] = 0;
 
     arg_offset = 0; // Initialize arg_offset for PUSH_ARG/POP_ARG operations
+    call_depth = 0; // Reset call stack depth
     last_accessed_addr = INVALID_ADDR; // Clear highlight
     last_modified_addr = INVALID_ADDR; // Clear highlight
 
@@ -358,7 +363,13 @@ void CPU::write_mem32(uint32_t addr, uint32_t value) {
     memory[addr + 3] = static_cast<uint8_t>(value >> 24);
 }
 
-void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address) {
+void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address, size_t max_steps) {
+    // Check if program fits in memory
+    if (program.size() > memory.size()) {
+        throw std::runtime_error("Program size (" + std::to_string(program.size()) + 
+                                " bytes) exceeds available memory (" + std::to_string(memory.size()) + " bytes)");
+    }
+    
     // Copy program into memory
     std::copy(program.begin(), program.end(), memory.begin());
     // Debug: Print entry address and PC before setting
@@ -369,14 +380,23 @@ void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address) {
     registers[static_cast<size_t>(Register::RSP)] = memory.size() - 4; // Stack pointer starts at the end of memory
     registers[static_cast<size_t>(Register::RBP)] = get_sp();
     bool running = true;
+    size_t step_count = 0;
 
     while (get_pc() < program.size() && running) {
+        // Check step limit if provided (0 means unlimited)
+        if (max_steps > 0 && step_count >= max_steps) {
+            throw std::runtime_error("Test exceeded maximum execution steps (possible infinite loop)");
+        }
+        
         // Try instruction fusion first for performance
-        // If fusion doesn't apply, fall back to standard dispatch
+        // If fusion doesn't apply, fall back to unified dispatch
         if (!InstructionFusion::try_instruction_fusion(*this, program, running)) {
-            // Use the original switch-case dispatcher
+            // Use unified dispatcher (switch-based) - has all opcodes implemented
+            // TODO: Enable threaded dispatcher once all opcodes are ported
             dispatch_opcode(*this, program, running);
         }
+        
+        step_count++;
     }
 }
 
@@ -484,7 +504,11 @@ bool CPU::step(const std::vector<uint8_t>& program) {
     }
 
     bool running = true;
-    dispatch_opcode(*this, program, running);
+    
+    // Try instruction fusion first, fall back to normal dispatch
+    if (!InstructionFusion::try_instruction_fusion(*this, program, running)) {
+        dispatch_opcode(*this, program, running);
+    }
 
     return running;
 }

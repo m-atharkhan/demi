@@ -28,7 +28,7 @@ extern void handle_jl(CPU& cpu, const std::vector<uint8_t>& program, bool& runni
 extern void handle_jge(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
-// extern void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running); // TODO: Implement LOADR
+extern void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_lea(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_swap(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
@@ -91,6 +91,16 @@ extern void handle_FLDCW(CPU& cpu, const std::vector<uint8_t>& program, bool& ru
 extern void handle_FSTSW(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_FCOMPP(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_FUCOMPP(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+
+// SIMD Operations - Forward declarations
+extern void handle_VADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_VMUL(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_VDOT(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_VMAX(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_VBROADCAST(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_VCMPGT(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_PACKB(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_UNPACKB(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 
 // Get the singleton instance
 OpcodeRegistry& OpcodeRegistry::instance() {
@@ -215,8 +225,18 @@ void OpcodeRegistry::initialize_handlers() {
     REGISTER_OPCODE(0xB5, handle_FCOMPP);    // FCOMPP - Compare and pop twice
     REGISTER_OPCODE(0xB6, handle_FUCOMPP);   // FUCOMPP - Unordered compare and pop twice
     
+    // SIMD Operations (0xD4-0xDB range)
+    REGISTER_OPCODE(0xD4, handle_VADD);      // VADD - Vector add
+    REGISTER_OPCODE(0xD5, handle_VMUL);      // VMUL - Vector multiply
+    REGISTER_OPCODE(0xD6, handle_VDOT);      // VDOT - Vector dot product
+    REGISTER_OPCODE(0xD7, handle_VMAX);      // VMAX - Vector maximum
+    REGISTER_OPCODE(0xD8, handle_VBROADCAST); // VBROADCAST - Vector broadcast
+    REGISTER_OPCODE(0xD9, handle_VCMPGT);    // VCMPGT - Vector compare greater than
+    REGISTER_OPCODE(0xDA, handle_PACKB);     // PACKB - Pack bytes
+    REGISTER_OPCODE(0xDB, handle_UNPACKB);   // UNPACKB - Unpack bytes
+    
     REGISTER_OPCODE(0x40, handle_out);        // OUT
-    // REGISTER_OPCODE(0x41, handle_loadr);      // LOADR - Load indirect (TODO: Not yet implemented)
+    REGISTER_OPCODE(0x41, handle_loadr);      // LOADR - Load indirect (address in register)
     REGISTER_OPCODE(0xFF, handle_halt);       // HALT
     
     initialized_ = true;

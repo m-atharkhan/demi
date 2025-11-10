@@ -103,10 +103,10 @@ void dispatch_opcode_threaded(CPU& cpu, const std::vector<uint8_t>& program, boo
     }
 
     op_loadr: {
-        // TODO: LOADR not yet implemented
-        Logger::instance().error() << "LOADR opcode (0x41) not yet implemented" << std::endl;
-        running = false;
-        return;
+        extern void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+        handle_loadr(cpu, program, running);
+        if (!running) return;
+        goto *dispatch_table[program[cpu.get_pc()]];
     }
 
     op_store: {
