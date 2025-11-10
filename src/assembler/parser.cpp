@@ -330,7 +330,7 @@ std::unique_ptr<Expression> Parser::parse_memory_reference() {
 }
 
 std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
-    // Expect: #test "test name" { ... }
+    // Expect: .test "test name" { ... }
     
     // Parse test name (should be a STRING token)
     if (current_token().type != TokenType::STRING) {
@@ -360,7 +360,7 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
                 test_case->set_description(current_token().as_string());
                 advance();
             } else {
-                add_error("Expected string after #description", current_token());
+                add_error("Expected string after .description", current_token());
             }
             continue;
         } else if (current_token().type == TokenType::AUTHOR) {
@@ -369,7 +369,7 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
                 test_case->set_author(current_token().as_string());
                 advance();
             } else {
-                add_error("Expected string after #author", current_token());
+                add_error("Expected string after .author", current_token());
             }
             continue;
         } else if (current_token().type == TokenType::CATEGORY) {
@@ -378,7 +378,7 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
                 test_case->set_category(current_token().as_string());
                 advance();
             } else {
-                add_error("Expected string after #category", current_token());
+                add_error("Expected string after .category", current_token());
             }
             continue;
         } else if (current_token().type == TokenType::TAG) {
@@ -387,7 +387,69 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
                 test_case->add_tag(current_token().as_string());
                 advance();
             } else {
-                add_error("Expected string after #tag", current_token());
+                add_error("Expected string after .tag", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::MAXSTEPS) {
+            advance();
+            if (current_token().type == TokenType::NUMBER) {
+                test_case->set_max_steps(static_cast<size_t>(current_token().as_uint()));
+                advance();
+            } else {
+                add_error("Expected number after .maxsteps", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::MAXCALLDEPTH) {
+            advance();
+            if (current_token().type == TokenType::NUMBER) {
+                test_case->set_max_call_depth(static_cast<size_t>(current_token().as_uint()));
+                advance();
+            } else {
+                add_error("Expected number after .maxcalldepth", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::TIMEOUT) {
+            advance();
+            if (current_token().type == TokenType::NUMBER) {
+                test_case->set_timeout(static_cast<size_t>(current_token().as_uint()));
+                advance();
+            } else {
+                add_error("Expected number after .timeout", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::SKIP) {
+            advance();
+            test_case->set_skip(true);
+            continue;
+        } else if (current_token().type == TokenType::BENCHMARK) {
+            advance();
+            test_case->set_benchmark(true);
+            continue;
+        } else if (current_token().type == TokenType::WARMUP) {
+            advance();
+            if (current_token().type == TokenType::NUMBER) {
+                test_case->set_warmup(static_cast<size_t>(current_token().as_uint()));
+                advance();
+            } else {
+                add_error("Expected number after .warmup", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::ITERATIONS) {
+            advance();
+            if (current_token().type == TokenType::NUMBER) {
+                test_case->set_iterations(static_cast<size_t>(current_token().as_uint()));
+                advance();
+            } else {
+                add_error("Expected number after .iterations", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::MEASURE) {
+            advance();
+            if (current_token().type == TokenType::STRING) {
+                test_case->set_measure_type(current_token().as_string());
+                advance();
+            } else {
+                add_error("Expected string after .measure", current_token());
             }
             continue;
         }

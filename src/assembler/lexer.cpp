@@ -12,6 +12,10 @@ bool Lexer::tables_initialized = false;
 void Lexer::init_tables() {
     if (tables_initialized) return;
     
+    // Clear existing data
+    keywords.clear();
+    mnemonics.clear();
+    
     // Assembly directives
     keywords[".data"] = TokenType::DIRECTIVE;
     keywords[".text"] = TokenType::DIRECTIVE;
@@ -22,7 +26,20 @@ void Lexer::init_tables() {
     keywords[".dw"] = TokenType::DIRECTIVE;
     keywords[".dd"] = TokenType::DIRECTIVE;
     keywords[".string"] = TokenType::DIRECTIVE;
+    keywords[".align"] = TokenType::DIRECTIVE;
+    keywords[".bss"] = TokenType::DIRECTIVE;
     keywords[".end"] = TokenType::DIRECTIVE;
+    
+    // Test directives (using dot syntax for consistency)
+    keywords[".test"] = TokenType::TEST_DIRECTIVE;
+    keywords[".assert_mem"] = TokenType::ASSERT_MEM;
+    keywords[".assert_reg"] = TokenType::ASSERT_REG;
+    keywords[".assert_output"] = TokenType::ASSERT_OUTPUT;
+    keywords[".expect_error"] = TokenType::EXPECT_ERROR;
+    keywords[".description"] = TokenType::DESCRIPTION;
+    keywords[".author"] = TokenType::AUTHOR;
+    keywords[".category"] = TokenType::CATEGORY;
+    keywords[".tag"] = TokenType::TAG;
     
     // DemiEngine instruction mnemonics (matching the CPU opcodes)
     mnemonics["NOP"] = TokenType::MNEMONIC;
@@ -32,6 +49,7 @@ void Lexer::init_tables() {
     mnemonics["MOV"] = TokenType::MNEMONIC;
     mnemonics["JMP"] = TokenType::MNEMONIC;
     mnemonics["LOAD"] = TokenType::MNEMONIC;
+    mnemonics["LOADR"] = TokenType::MNEMONIC;
     mnemonics["STORE"] = TokenType::MNEMONIC;
     mnemonics["PUSH"] = TokenType::MNEMONIC;
     mnemonics["POP"] = TokenType::MNEMONIC;
@@ -135,6 +153,16 @@ void Lexer::init_tables() {
     mnemonics["FCOMPP"] = TokenType::MNEMONIC;
     mnemonics["FUCOMPP"] = TokenType::MNEMONIC;
     mnemonics["FCLEX"] = TokenType::MNEMONIC;
+    
+    // SIMD/Vector instructions
+    mnemonics["VADD"] = TokenType::MNEMONIC;
+    mnemonics["VMUL"] = TokenType::MNEMONIC;
+    mnemonics["VDOT"] = TokenType::MNEMONIC;
+    mnemonics["VMAX"] = TokenType::MNEMONIC;
+    mnemonics["VBROADCAST"] = TokenType::MNEMONIC;
+    mnemonics["VCMPGT"] = TokenType::MNEMONIC;
+    mnemonics["PACKB"] = TokenType::MNEMONIC;
+    mnemonics["UNPACKB"] = TokenType::MNEMONIC;
 
     // Legacy 8-register names (R0-R7)
     for (int i = 0; i < 8; ++i) {
@@ -178,20 +206,8 @@ std::vector<Token> Lexer::tokenize() {
         
         char c = current_char();
         
-        // Handle test directives or comments starting with #
-        if (c == '#') {
-            // Check if this is a test directive
-            if (pos + 1 < source.length() && is_identifier_start(peek_char())) {
-                tokens.push_back(parse_test_directive());
-                continue;
-            }
-            // Otherwise it's a comment
-            skip_comment();
-            continue;
-        }
-        
-        // Handle comments starting with ;
-        if (c == ';') {
+        // Handle comments starting with # or ;
+        if (c == '#' || c == ';') {
             skip_comment();
             continue;
         }
@@ -436,8 +452,9 @@ Token Lexer::parse_directive() {
     std::string upper_text = text;
     std::transform(upper_text.begin(), upper_text.end(), upper_text.begin(), ::tolower);
     
-    if (keywords.find(upper_text) != keywords.end()) {
-        return Token(TokenType::DIRECTIVE, upper_text, start_line, start_column);
+    auto it = keywords.find(upper_text);
+    if (it != keywords.end()) {
+        return Token(it->second, upper_text, start_line, start_column);
     }
     
     add_error("Unknown directive: " + text);
@@ -466,48 +483,6 @@ bool Lexer::is_binary_digit(char c) const {
 
 void Lexer::add_error(const std::string& message) {
     errors.push_back("Line " + std::to_string(line) + ", Column " + std::to_string(column) + ": " + message);
-}
-
-Token Lexer::parse_test_directive() {
-    size_t start_line = line;
-    size_t start_column = column;
-    std::string text;
-    
-    text += current_char(); // '#'
-    advance();
-    
-    while (pos < source.length() && is_identifier_part(current_char())) {
-        text += current_char();
-        advance();
-    }
-    
-    std::string lower_text = text;
-    std::transform(lower_text.begin(), lower_text.end(), lower_text.begin(), ::tolower);
-    
-    // Map test directives to token types
-    if (lower_text == "#test") {
-        return Token(TokenType::TEST_DIRECTIVE, text, start_line, start_column);
-    } else if (lower_text == "#assert_mem") {
-        return Token(TokenType::ASSERT_MEM, text, start_line, start_column);
-    } else if (lower_text == "#assert_reg") {
-        return Token(TokenType::ASSERT_REG, text, start_line, start_column);
-    } else if (lower_text == "#assert_output") {
-        return Token(TokenType::ASSERT_OUTPUT, text, start_line, start_column);
-    } else if (lower_text == "#expect_error") {
-        return Token(TokenType::EXPECT_ERROR, text, start_line, start_column);
-    } else if (lower_text == "#description") {
-        return Token(TokenType::DESCRIPTION, text, start_line, start_column);
-    } else if (lower_text == "#author") {
-        return Token(TokenType::AUTHOR, text, start_line, start_column);
-    } else if (lower_text == "#category") {
-        return Token(TokenType::CATEGORY, text, start_line, start_column);
-    } else if (lower_text == "#tag") {
-        return Token(TokenType::TAG, text, start_line, start_column);
-    }
-    
-    // If it's not a recognized test directive, treat it as a comment
-    add_error("Unknown test directive: " + text);
-    return Token(TokenType::INVALID, text, start_line, start_column);
 }
 
 } // namespace Assembler

@@ -40,19 +40,39 @@ enum class TokenType {
     DIRECTIVE,       // .data, .text, .org, etc.
     
     // Test directives
-    TEST_DIRECTIVE,  // #test
-    ASSERT_MEM,      // #assert_mem
-    ASSERT_REG,      // #assert_reg
-    ASSERT_FPU,      // #assert_fpu
-    ASSERT_OUTPUT,   // #assert_output
-    EXPECT_ERROR,    // #expect_error
+    TEST_DIRECTIVE,  // .test
+    ASSERT_MEM,      // .assert_mem
+    ASSERT_REG,      // .assert_reg
+    ASSERT_FPU,      // .assert_fpu
+    ASSERT_OUTPUT,   // .assert_output
+    EXPECT_ERROR,    // .expect_error
     
     // Test metadata directives
-    DESCRIPTION,     // #description
-    AUTHOR,          // #author
-    CATEGORY,        // #category
-    TAG,             // #tag
+    DESCRIPTION,     // .description
+    AUTHOR,          // .author
+    CATEGORY,        // .category
+    TAG,             // .tag
+    MAXSTEPS,        // .maxsteps
+    MAXCALLDEPTH,    // .maxcalldepth
+    TIMEOUT,         // .timeout
+    SKIP,            // .skip
     
+    // Benchmark directives
+    BENCHMARK,       // .benchmark
+    WARMUP,          // .warmup
+    ITERATIONS,      // .iterations
+    MEASURE,         // .measure
+
+    // Preprocessor directives
+    INCLUDE,         // .include
+    DEFINE,          // .define
+    IFDEF,           // .ifdef
+    IFNDEF,          // .ifndef
+    ELIF,            // .elif
+    ELSE,            // .else
+    ENDIF,           // .endif
+    UNDEF,           // .undef
+
     // Special
     NEWLINE,         // \n
     END_OF_FILE,     // EOF

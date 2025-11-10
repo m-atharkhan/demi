@@ -186,6 +186,16 @@ public:
     std::string category;
     std::vector<std::string> tags;
     std::vector<std::unique_ptr<Statement>> body;
+    size_t max_steps = 10000;  // Default to 10,000 steps
+    size_t max_call_depth = 64;  // Default test mode call depth (vs 256 in production)
+    size_t timeout_ms = 0;  // 0 = no timeout
+    bool skip = false;  // Skip this test
+    
+    // Benchmark configuration
+    bool is_benchmark = false;
+    size_t warmup_iterations = 0;
+    size_t iterations = 1;
+    std::string measure_type = "time";  // "time", "cycles", "instructions"
     
     TestCase(const std::string& test_name, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::TEST_CASE, ln, col), name(test_name) {}
@@ -211,6 +221,38 @@ public:
     
     void add_tag(const std::string& tag) {
         tags.push_back(tag);
+    }
+    
+    void set_max_steps(size_t steps) {
+        max_steps = steps;
+    }
+    
+    void set_max_call_depth(size_t depth) {
+        max_call_depth = depth;
+    }
+    
+    void set_timeout(size_t ms) {
+        timeout_ms = ms;
+    }
+    
+    void set_skip(bool should_skip) {
+        skip = should_skip;
+    }
+    
+    void set_benchmark(bool is_bench) {
+        is_benchmark = is_bench;
+    }
+    
+    void set_warmup(size_t warmup) {
+        warmup_iterations = warmup;
+    }
+    
+    void set_iterations(size_t iters) {
+        iterations = iters;
+    }
+    
+    void set_measure_type(const std::string& type) {
+        measure_type = type;
     }
 };
 

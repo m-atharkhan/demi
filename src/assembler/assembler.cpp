@@ -34,6 +34,7 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["MOV"] = static_cast<uint8_t>(Opcode::MOV);
     mnemonic_to_opcode["JMP"] = static_cast<uint8_t>(Opcode::JMP);
     mnemonic_to_opcode["LOAD"] = static_cast<uint8_t>(Opcode::LOAD);
+    mnemonic_to_opcode["LOADR"] = static_cast<uint8_t>(Opcode::LOADR);
     mnemonic_to_opcode["STORE"] = static_cast<uint8_t>(Opcode::STORE);
     mnemonic_to_opcode["PUSH"] = static_cast<uint8_t>(Opcode::PUSH);
     mnemonic_to_opcode["POP"] = static_cast<uint8_t>(Opcode::POP);
@@ -117,6 +118,16 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["FSTCW"] = static_cast<uint8_t>(Opcode::FSTCW);
     mnemonic_to_opcode["FLDCW"] = static_cast<uint8_t>(Opcode::FLDCW);
     mnemonic_to_opcode["FSTSW"] = static_cast<uint8_t>(Opcode::FSTSW);
+    
+    // Simple SIMD Operations (custom opcodes 0xD4-0xDF)
+    mnemonic_to_opcode["VADD"] = 0xD4;
+    mnemonic_to_opcode["VMUL"] = 0xD5;
+    mnemonic_to_opcode["VDOT"] = 0xD6;
+    mnemonic_to_opcode["VMAX"] = 0xD7;
+    mnemonic_to_opcode["VBROADCAST"] = 0xD8;
+    mnemonic_to_opcode["VCMPGT"] = 0xD9;
+    mnemonic_to_opcode["PACKB"] = 0xDA;
+    mnemonic_to_opcode["UNPACKB"] = 0xDB;
 }
 
 void AssemblerEngine::init_register_table() {
@@ -226,6 +237,27 @@ void AssemblerEngine::first_pass(const Program& program) {
                     }
                 }
                 if (current_address > highest_address) highest_address = current_address;
+            } else if (directive.name == ".align") {
+                if (directive.arguments.size() == 1) {
+                    bool is_symbol;
+                    std::string symbol_name;
+                    int64_t alignment = evaluate_expression(*directive.arguments[0], is_symbol, symbol_name);
+                    if (!is_symbol && alignment > 0 && (alignment & (alignment - 1)) == 0) {
+                        uint32_t align_mask = static_cast<uint32_t>(alignment - 1);
+                        current_address = (current_address + align_mask) & ~align_mask;
+                        if (current_address > highest_address) highest_address = current_address;
+                    }
+                }
+            } else if (directive.name == ".bss") {
+                if (directive.arguments.size() == 1) {
+                    bool is_symbol;
+                    std::string symbol_name;
+                    int64_t bytes_to_reserve = evaluate_expression(*directive.arguments[0], is_symbol, symbol_name);
+                    if (!is_symbol && bytes_to_reserve >= 0) {
+                        current_address += static_cast<uint32_t>(bytes_to_reserve);
+                        if (current_address > highest_address) highest_address = current_address;
+                    }
+                }
             }
         }
     }
@@ -286,6 +318,10 @@ void Assembler::AssemblerEngine::process_directive(const Assembler::Directive& d
         handle_dd_directive(directive.arguments);
     } else if (directive.name == ".string") {
         handle_string_directive(directive.arguments);
+    } else if (directive.name == ".align") {
+        handle_align_directive(directive.arguments);
+    } else if (directive.name == ".bss") {
+        handle_bss_directive(directive.arguments);
     } else if (directive.name == ".org") {
     Logging::Logger::instance().debug() << "Processing .org directive, args: ";
         for (const auto& arg : directive.arguments) {
@@ -419,8 +455,13 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         instruction.mnemonic == "FSQRT" || instruction.mnemonic == "FSIN" ||
         instruction.mnemonic == "FCOS" || instruction.mnemonic == "FTAN" ||
         instruction.mnemonic == "FCOMPP" || instruction.mnemonic == "FUCOMPP" ||
-        instruction.mnemonic == "FCLEX") {
-        // No operands - these instructions operate on ST(0) implicitly or have no operands
+        instruction.mnemonic == "FCLEX" ||
+        // SIMD instructions with no operands (implicit register usage)
+        instruction.mnemonic == "VADD" || instruction.mnemonic == "VMUL" ||
+        instruction.mnemonic == "VDOT" || instruction.mnemonic == "VMAX" ||
+        instruction.mnemonic == "VBROADCAST" || instruction.mnemonic == "VCMPGT" ||
+        instruction.mnemonic == "PACKB" || instruction.mnemonic == "UNPACKB") {
+        // No operands - these instructions operate on registers implicitly or have no operands
         return;
     }
 
@@ -579,9 +620,9 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         } else {
             emit_byte(static_cast<uint8_t>(port_value));
         }
-    } else if (instruction.mnemonic == "LOAD" || instruction.mnemonic == "STORE" ||
+    } else if (instruction.mnemonic == "LOAD" || instruction.mnemonic == "LOADR" || instruction.mnemonic == "STORE" ||
                instruction.mnemonic == "LEA" || instruction.mnemonic == "SWAP") {
-        // Format: LOAD reg, addr  or  STORE reg, addr
+        // Format: LOAD reg, addr  or  LOADR reg, reg  or  STORE reg, addr
         if (instruction.operands.size() != 2) {
             add_error(instruction.mnemonic + " requires 2 operands", instruction.line, instruction.column);
             return;
@@ -932,7 +973,11 @@ void Assembler::AssemblerEngine::emit_forward_ref(const std::string& symbol, siz
 size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemonic, const std::vector<std::unique_ptr<Assembler::Expression>>& /* operands */) {
     // Basic instruction size calculations for Demi Engine
     if (mnemonic == "NOP" || mnemonic == "HALT" || mnemonic == "RET" ||
-        mnemonic == "PUSH_FLAG" || mnemonic == "POP_FLAG") {
+        mnemonic == "PUSH_FLAG" || mnemonic == "POP_FLAG" ||
+        // SIMD instructions with no operands
+        mnemonic == "VADD" || mnemonic == "VMUL" || mnemonic == "VDOT" ||
+        mnemonic == "VMAX" || mnemonic == "VBROADCAST" || mnemonic == "VCMPGT" ||
+        mnemonic == "PACKB" || mnemonic == "UNPACKB") {
         return 1;
     } else if (mnemonic == "LOAD_IMM") {
         return 3; // opcode + register + 1-byte immediate
@@ -965,11 +1010,46 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
 }
 
 void Assembler::AssemblerEngine::handle_db_directive(const std::vector<std::unique_ptr<Assembler::Expression>>& args) {
-    // For both handle_db_directive and DB in encode_instruction:
-    if (args.size() < 2) {
-        add_error("DB requires at least a string and length");
+    if (args.empty()) {
+        add_error(".db directive requires at least one argument");
         return;
     }
+
+    // Check if this is a simple byte list (like standard .db directive)
+    bool all_immediates = true;
+    for (const auto& arg : args) {
+        if (!dynamic_cast<const Assembler::ImmediateExpression*>(arg.get())) {
+            all_immediates = false;
+            break;
+        }
+    }
+
+    if (all_immediates) {
+        // Standard .db directive: emit bytes directly
+        for (const auto& arg : args) {
+            bool is_symbol;
+            std::string symbol_name;
+            int64_t value = evaluate_expression(*arg, is_symbol, symbol_name);
+            
+            if (is_symbol) {
+                emit_forward_ref(symbol_name, 1);
+            } else {
+                if (value < 0 || value > 255) {
+                    add_error(".db byte value " + std::to_string(value) + " out of range (must be 0-255)");
+                    return;
+                }
+                emit_byte(static_cast<uint8_t>(value));
+            }
+        }
+        return;
+    }
+
+    // Original string-based DB handling (for compatibility with existing DB instruction tests)
+    if (args.size() < 2) {
+        add_error(".db directive requires at least a string and length, or immediate value(s)");
+        return;
+    }
+    
     size_t str_idx = 0;
     size_t len_idx = 1;
     // Use static member db_next_addr
@@ -980,7 +1060,7 @@ void Assembler::AssemblerEngine::handle_db_directive(const std::vector<std::uniq
         if (auto addr_imm = dynamic_cast<const Assembler::ImmediateExpression*>(args[addr_idx].get())) {
             target_addr = static_cast<uint32_t>(addr_imm->value);
         } else {
-            add_error("DB address must be an immediate value");
+            add_error(".db address must be an immediate value");
             return;
         }
     } else {
@@ -1005,7 +1085,7 @@ void Assembler::AssemblerEngine::handle_db_directive(const std::vector<std::uniq
         emit_byte(0); // Null terminator for OUTSTR
         db_len++;
     } else {
-        add_error("DB first argument must be a string literal");
+        add_error(".db first argument must be a string literal or all arguments must be byte values");
         return;
     }
 
@@ -1016,7 +1096,7 @@ void Assembler::AssemblerEngine::handle_db_directive(const std::vector<std::uniq
     
     // Validate that specified length doesn't exceed actual string length (including null terminator)
     if (!is_symbol && value > static_cast<int64_t>(actual_string_len + 1)) {
-        add_error("DB length (" + std::to_string(value) + 
+        add_error(".db length (" + std::to_string(value) + 
                   ") exceeds actual string length (" + std::to_string(actual_string_len) + ")");
         return;
     }
@@ -1117,6 +1197,62 @@ void Assembler::AssemblerEngine::handle_org_directive(const std::vector<std::uni
     // Pad bytecode to the new address
     while (bytecode.size() < current_address) {
         bytecode.push_back(0);
+    }
+}
+
+void Assembler::AssemblerEngine::handle_align_directive(const std::vector<std::unique_ptr<Assembler::Expression>>& args) {
+    if (args.size() != 1) {
+        add_error(".align directive requires exactly one argument (alignment boundary)");
+        return;
+    }
+
+    bool is_symbol;
+    std::string symbol_name;
+    int64_t alignment = evaluate_expression(*args[0], is_symbol, symbol_name);
+
+    if (is_symbol) {
+        add_error(".align directive cannot use forward references");
+        return;
+    }
+
+    if (alignment <= 0 || (alignment & (alignment - 1)) != 0) {
+        add_error(".align directive requires a power of 2 alignment value (1, 2, 4, 8, 16, etc.)");
+        return;
+    }
+
+    // Calculate aligned address
+    uint32_t align_mask = static_cast<uint32_t>(alignment - 1);
+    uint32_t aligned_address = (current_address + align_mask) & ~align_mask;
+
+    // Pad with zeros to reach aligned address
+    while (current_address < aligned_address) {
+        emit_byte(0);
+    }
+}
+
+void Assembler::AssemblerEngine::handle_bss_directive(const std::vector<std::unique_ptr<Assembler::Expression>>& args) {
+    if (args.size() != 1) {
+        add_error(".bss directive requires exactly one argument (number of bytes to reserve)");
+        return;
+    }
+
+    bool is_symbol;
+    std::string symbol_name;
+    int64_t bytes_to_reserve = evaluate_expression(*args[0], is_symbol, symbol_name);
+
+    if (is_symbol) {
+        add_error(".bss directive cannot use forward references");
+        return;
+    }
+
+    if (bytes_to_reserve < 0) {
+        add_error(".bss directive requires a non-negative number of bytes");
+        return;
+    }
+
+    // Reserve uninitialized space by advancing current_address and padding with zeros
+    for (int64_t i = 0; i < bytes_to_reserve; i++) {
+        emit_byte(0);
     }
 }
 
