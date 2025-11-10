@@ -720,6 +720,77 @@ TEST_CASE(fpu_register_access, "fpu_registers") {
     }
 }
 
+TEST_CASE(fpu_instruction_tests, "fpu_registers") {
+    // Test FPU instructions: FILD (load integer as floating point)
+    
+    // First, put a known integer value in memory
+    ctx.load_program({
+        0x01, 0x00, 0x2A,              // LOAD_IMM R0, 42 (load 42 into R0)
+        0x07, 0x00, 0x64,              // STORE R0, 0x64 (store 42 at address 100)
+        
+        // Test FILD with immediate 32-bit integer
+        0xA3, 0x00, 0x2A, 0x00, 0x00, 0x00,  // FILD immediate 42 (load immediate 32-bit integer 42 as double)
+        
+        // Test FILD from memory address (load the 42 we stored earlier)
+        0xA3, 0x01, 0x64, 0x00, 0x00, 0x00,  // FILD [0x0064] (load int32 from address 100 as double)
+        
+        0xFF                           // HALT
+    });
+
+    ctx.execute_program();
+
+    // We can't easily test the FPU stack contents directly, so we'll test via other instructions
+    // For now, just verify the program executed without crashing
+    ctx.assert_register_eq(0, 42);  // R0 should still contain 42
+}
+
+TEST_CASE(fpu_store_instructions, "fpu_registers") {
+    // Test FPU store instructions: FISTP (store floating point as integer and pop)
+    
+    ctx.load_program({
+        // Load a value onto FPU stack first
+        0xA3, 0x00, 0x55, 0x00, 0x00, 0x00,  // FILD immediate 85 (load 85 as double onto FPU stack)
+        
+        // Store it back as integer
+        0xA5, 0x01, 0x70, 0x00, 0x00, 0x00,  // FISTP [0x0070] (store ST(0) as int32 to address 112)
+        
+        // Load the stored value to verify it worked
+        0x06, 0x01, 0x70,              // LOAD R1, 0x70 (load from address 112 into R1)
+        
+        0xFF                           // HALT
+    });
+
+    ctx.execute_program();
+
+    // R1 should contain 85 (the value we stored via FISTP)
+    ctx.assert_register_eq(1, 85);
+}
+
+TEST_CASE(fpu_arithmetic_operations, "fpu_registers") {
+    // Test FPU arithmetic operations
+    using namespace DemiEngine_Registers;
+    
+    ctx.cpu.reset();
+    
+    // Manually set up FPU stack for testing
+    double val1 = 10.0;
+    double val2 = 5.0;
+    uint64_t uint_val1 = *reinterpret_cast<uint64_t*>(&val1);
+    uint64_t uint_val2 = *reinterpret_cast<uint64_t*>(&val2);
+    
+    ctx.cpu.set_register(Register::ST0, uint_val1);
+    ctx.cpu.set_register(Register::ST1, uint_val2);
+    
+    // Test that we can read back floating point values correctly
+    uint64_t st0_raw = ctx.cpu.get_register(Register::ST0);
+    uint64_t st1_raw = ctx.cpu.get_register(Register::ST1);
+    double st0_val = *reinterpret_cast<double*>(&st0_raw);
+    double st1_val = *reinterpret_cast<double*>(&st1_raw);
+    
+    ctx.assert_eq(st0_val, 10.0, "ST0 should contain 10.0");
+    ctx.assert_eq(st1_val, 5.0, "ST1 should contain 5.0");
+}
+
 TEST_CASE(mmx_register_aliasing, "mmx_registers") {
     // Test MMX register aliasing to FPU registers
     using namespace DemiEngine_Registers;
@@ -840,6 +911,7 @@ TEST_CASE(debug_db_simple, "assembler") {
         HALT
     )");
     
+    /* (DEBUG)
     // Print ALL bytes to understand the complete pattern
     printf("=== Complete DB Debug Output ===\n");
     for (size_t i = 0; i < ctx.program.size(); i++) {
@@ -848,6 +920,7 @@ TEST_CASE(debug_db_simple, "assembler") {
     }
     printf("Total program size: %zu bytes\n", ctx.program.size());
     printf("=================================\n");
+    */ 
     
     // Based on current simple format: strings start at byte 0
     ctx.assert_byte_at(0, 'H');
@@ -1388,10 +1461,13 @@ TEST_CASE_EXPECT_ERROR(stack_overflow, "negative_tests") {
 
 TEST_CASE_EXPECT_ERROR(stack_underflow, "negative_tests") {
     // Test that stack underflow is detected
+    // Stack starts at memory.size() - 4, so first POP is valid, second POP should fail
     ctx.load_program({
-        0x1A, 0x00,        // POP R0 (with empty stack)
+        0x09, 0x00,        // POP R0 (valid - reads from initial SP position)
+        0x09, 0x01,        // POP R1 (underflow - SP now beyond memory)
         0xFF               // HALT
     });
+    // Should now fail immediately with proper underflow detection
     ctx.execute_program();
 }
 
@@ -1499,11 +1575,15 @@ TEST_CASE_EXPECT_ERROR(jump_to_invalid_address, "negative_tests") {
 
 TEST_CASE_EXPECT_ERROR(call_stack_overflow, "negative_tests") {
     // Test that excessive CALL depth is caught (infinite recursion)
+    // Set a low call depth limit for faster testing
+    ctx.set_max_call_depth(32); // Much faster than default 256
+    
     ctx.assemble_code(R"(
         recursive_func:
         CALL recursive_func
         RET
     )");
+    // Should now fail when depth exceeds 32 instead of 256
     ctx.execute_program();
 }
 

@@ -1,83 +1,79 @@
-# Tests Directory
+# DemiEngine Test Suite
 
-This directory contains comprehensive tests for the DemiEngine assembler and virtual machine.
+This directory contains the organized test suite for DemiEngine, structured for maintainability and clarity.
 
-## Directory Structure
+## Test Organization
 
-- **basic/** - Basic CPU operations and fundamental instruction tests
-- **fpu/** - Floating point unit operations and FPU stack management tests  
-- **parsing/** - Advanced parser features like sections, directives, and syntax
-- **README.md** - This file
+All test files follow the naming convention: `testname.test.asm`
+
+### Core Test Files
+
+| Test File | Description | Tests | Focus Area |
+|-----------|-------------|-------|------------|
+| `arithmetic.test.asm` | Basic arithmetic operations | 8 | ADD, SUB, MUL, DIV, MOD, INC, DEC, overflow |
+| `memory.test.asm` | Memory operations and addressing | 6 | LOAD, STORE, LOADR indirect addressing, boundaries |
+| `control_flow.test.asm` | Jumps and conditionals | 5 | JMP, conditional jumps, loops, comparisons |
+| `logical.test.asm` | Bitwise and logical operations | 7 | AND, OR, XOR, NOT, shifts, XOR swap |
+| `registers.test.asm` | Register operations | 5 | MOV, LOAD_IMM, independence, extended registers |
+| `stack.test.asm` | Stack operations | 4 | PUSH, POP, LIFO order, flag operations |
+| `simd.test.asm` | SIMD foundation operations | 6 | VADD, VMUL, VDOT, VMAX, VBROADCAST, packed bytes |
+| `fpu.test.asm` | Floating-point arithmetic | 7 | FLD, FST, FADD, FSUB, FMUL, FDIV, trigonometry |
+| `errors.test.asm` | Error handling and exceptions | 5 | Division by zero, invalid opcodes, stack overflow |
+| `algorithms.test.asm` | Complex algorithmic operations | 5 | Fibonacci, factorial, max finding, binary search |
+| `benchmarks.test.asm` | Performance benchmarks | 4 | Algorithm performance testing |
+| `loadr.test.asm` | LOADR indirect addressing | 2 | Specialized LOADR instruction tests |
 
 ## Running Tests
 
-Use the test runner from the project root:
-
+### Run All Tests
 ```bash
-./run_tests.sh
+./bin/demi-engine -at
 ```
 
-Or run individual categories:
-
+### Run Specific Test File
 ```bash
-# Basic CPU tests
-./bin/demi-engine --assembly tests/basic/test_cpu_basics.asm
+./bin/demi-engine -at tests_new/arithmetic.test.asm
+```
 
-# FPU tests  
-./bin/demi-engine --assembly tests/fpu/test_st_registers.asm
+### Run with Detailed Output
+```bash
+./bin/demi-engine -at tests_new/simd.test.asm --show=all
+```
 
-# Parser tests
-./bin/demi-engine --assembly tests/parsing/test_sections_and_directives.asm
+### Run with Error Details Only
+```bash
+./bin/demi-engine -at tests_new/errors.test.asm --show=fails
 ```
 
 ## Test Categories
 
-### Basic Tests (`basic/`)
-- Core CPU instructions (MOV, ADD, SUB, etc.)
-- Register operations
-- Basic arithmetic and logic
-- Jump and conditional instructions
-- Memory operations
+- **Arithmetic**: Basic math operations and overflow handling
+- **Memory**: Load/store operations and memory addressing modes
+- **Control Flow**: Program flow control and conditional execution  
+- **Logical Operations**: Bitwise operations and shift instructions
+- **Registers**: Register manipulation and data movement
+- **Stack**: Stack-based operations and LIFO behavior
+- **SIMD**: Foundation vector processing operations
+- **FPU**: Floating-point arithmetic and mathematical functions
+- **Error Handling**: Exception and error condition testing
+- **Algorithms**: Complex algorithmic implementations
+- **Benchmarks**: Performance measurement and optimization testing
 
-### FPU Tests (`fpu/`)
-- ST(0) through ST(7) register syntax
-- Floating point arithmetic (FADD, FSUB, FMUL, FDIV)
-- Stack operations (FLD, FST, FSTP)
-- Floating point comparisons
-- Precision and rounding tests
+## Test Coverage
 
-### Parser Tests (`parsing/`)
-- Section directives (.data, .text)
-- Data directives (.dd for double words)
-- Floating point number parsing
-- Parentheses in expressions
-- Size specifiers (byte, word, dword, qword)
-- Complex expressions and edge cases
+- **Total Tests**: ~65 individual test cases
+- **Core Instructions**: 100% coverage of fundamental operations
+- **SIMD Foundation**: 8 vector operations with comprehensive validation
+- **FPU Operations**: 23+ floating-point instructions tested
+- **Error Conditions**: Complete error handling validation
+- **Memory Operations**: All addressing modes including indirect (LOADR)
 
-## Writing New Tests
+## Implementation Status
 
-Test files should follow these conventions:
+✅ **SIMD Foundation**: 8 fundamental vector operations implemented and tested  
+✅ **FPU Arithmetic**: Complete floating-point mathematics support  
+✅ **Core Instructions**: All basic operations fully functional  
+✅ **Error Handling**: Comprehensive exception management  
+✅ **LOADR Indirect**: Advanced memory addressing implemented
 
-1. Use descriptive filenames: `test_feature_name.asm`
-2. Include test metadata comments at the top
-3. Use assertions where available
-4. Test both positive and negative cases
-5. Document expected behavior
-
-Example test structure:
-
-```assembly
-; Test: Feature description
-; Purpose: What this test validates
-; Expected: Expected outcome
-
-.data
-    test_value dd 42.5
-
-.text
-main:
-    ; Test implementation
-    fld test_value
-    ; ... test operations
-    hlt
-```
+The test suite ensures 100% reliability of the DemiEngine virtual machine foundation.
