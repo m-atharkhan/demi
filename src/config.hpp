@@ -1,6 +1,22 @@
 #pragma once
 #include <string>
 
+// DemiEngine Version Information
+#define DEMI_VERSION_MAJOR 1
+#define DEMI_VERSION_MINOR 0
+#define DEMI_VERSION_PATCH 0
+#define DEMI_VERSION_STRING "1.0.0"
+
+// Build information
+#define DEMI_BUILD_DATE __DATE__
+#define DEMI_BUILD_TIME __TIME__
+
+// Engine capabilities
+#define DEMI_SIMD_SUPPORT 1
+#define DEMI_PREPROCESSOR_SUPPORT 1
+#define DEMI_INCLUDE_SUPPORT 1
+#define DEMI_FUSION_SUPPORT 1
+
 // Enum for test filtering modes
 enum class TestShowMode {
     ALL,      // Show all tests (default)
