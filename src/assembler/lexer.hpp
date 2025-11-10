@@ -43,7 +43,6 @@ private:
     Token parse_number();
     Token parse_string();
     Token parse_directive();
-    Token parse_test_directive();
 
     // Utility methods
     bool is_identifier_start(char c) const;

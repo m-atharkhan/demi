@@ -89,6 +89,8 @@ private:
     void handle_dw_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_dd_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_string_directive(const std::vector<std::unique_ptr<Expression>>& args);
+    void handle_align_directive(const std::vector<std::unique_ptr<Expression>>& args);
+    void handle_bss_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_org_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_data_section();
     void handle_text_section();
