@@ -17,6 +17,7 @@ public:    inline static bool debug = false;
     inline static bool assembly_mode = false;  // Assembly mode enabled
     inline static bool memdump = false; // Print memory dump after execution if true
     inline static bool quiet_assembly_test = false;  // Quiet mode for assembly tests
+    inline static bool quiet = false;  // Global quiet mode - suppress logs and only show results
     inline static TestShowMode test_show_mode = TestShowMode::ALL;  // Test filtering mode
     inline static std::string debug_file = "debug.log";
     inline static std::string program_file = "";

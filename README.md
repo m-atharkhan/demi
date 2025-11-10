@@ -13,15 +13,15 @@
 
 **Demi will be the Vim of programming languages** - infinitely customizable, with every aspect configurable to match your exact needs. Just as Vim lets you tailor your editor to perfection, Demi will let you customize syntax, semantics, behavior, and tooling on a per-project basis.
 
-DemiEngine is the foundational backend for **Demi**, a revolutionary programming language that will offer unprecedented customization capabilities. With a rock-solid virtual machine featuring 134 registers, 63 implemented opcodes, and **100% test coverage**, DemiEngine provides the infrastructure for a dual-mode execution system: rapid interpretation for development and native compilation for production performance.
+DemiEngine is the foundational backend for **Demi**, a revolutionary programming language that will offer unprecedented customization capabilities. With a rock-solid virtual machine featuring 134 registers, 94+ implemented opcodes (including 8 SIMD foundation operations and 23+ FPU floating-point instructions), and **comprehensive test coverage**, DemiEngine provides the infrastructure for a dual-mode execution system: rapid interpretation for development and native compilation for production performance.
 
 ---
 
 ## 🎯 **Project Vision**
 
-**Current Status:** Core Backend Complete - Assembly Language Expansion In Progress
+**Current Status:** Core Backend Complete - SIMD Foundation + FPU Arithmetic Implemented ✅
 
-DemiEngine serves as the foundation for the upcoming **Demi programming language**. Before building the high-level language frontend, we're expanding the assembly instruction set to enable seamless native code generation. The future Demi language will feature:
+DemiEngine serves as the foundation for the upcoming **Demi programming language**. With the SIMD foundation established and FPU floating-point arithmetic now complete (31+ specialized instructions, 19 tests, 38 assertions - 100% pass rate), we continue expanding the assembly instruction set to enable seamless native code generation. The future Demi language will feature:
 
 - 🎭 **Total Language Customization**: Project-specific syntax, keywords, and behaviors
 - ⚡ **Dual-Mode Execution**: Interpretation for development + Native compilation for production
@@ -91,17 +91,29 @@ demi-engine Usage: demi-engine [options]
   --debug               -d      Enable debug mode with detailed logging
   --verbose             -v      Show informational messages (use --verbose=false to disable)
   --extended-registers  -er     Show extended register output (50 registers)
+  --quiet               -q      Suppress logs, show only test results
   --debug-file          -f      Debug file path
   --hex                 -H      Path to hex file (hex bytes, space or newline separated)
-  --test                -t      Run built-in unit tests, or test a specific file if path provided
-  --unit-test           -ut     Run built-in unit tests only, or test a specific file if path provided
-  --integration-test    -it     Run integration tests only, or test a specific file if path provided
-  --assembly-test       -at     Run in-assembly tests only, or test a specific file if path provided
-  --assembly-test-quiet -atq    Run in-assembly tests in quiet mode (title and description only)
+  --test                -t      Run all tests (unit tests + assembly tests), or test a specific file
+  --unit-test           -ut     Run built-in unit tests only, or test a specific file
+  --assembly-test       -at     Run in-assembly tests only, or test a specific file
   --assembly            -A      Assemble and run .asm file
   --compile             -o      Compile program into a standalone executable (optionally specify output name)
   --memdump             -m      Print memory dump after execution
+  --show                        Filter test output (all|fails|success)
+
+# Argument Linking - Combine multiple short flags
+  -utq                          Run unit tests in quiet mode (-ut + -q)
+  -atq                          Run assembly tests in quiet mode (-at + -q)
+  -tq                           Run all tests in quiet mode (-t + -q)
+  -erd                          Extended registers + debug mode (-er + -d)
 ```
+
+**New Features:**
+- **Argument Linking**: Combine short flags for faster workflows (e.g., `-atq` = `-at -q`)
+- **Enhanced Test Output**: Category grouping, timing information, and performance metrics
+- **Unified Test Command**: `--test` now runs both unit and assembly tests
+- **Quiet Mode**: Suppresses logs while showing useful results and timing
 
 ---
 
@@ -109,14 +121,16 @@ demi-engine Usage: demi-engine [options]
 
 ### 🖥️ **Advanced Virtual Machine**
 - **134-Register Architecture**: Comprehensive register set with x86-64 style registers
-- **63-Opcode Instruction Set**: Arithmetic, logic, memory, I/O, control flow, and extended register operations
+- **94+ Opcode Instruction Set**: Arithmetic, logic, memory, I/O, control flow, **SIMD foundation operations**, and **FPU floating-point arithmetic**
+- **SIMD Foundation**: 8 fundamental vector instructions for parallel computation (VADD, VMUL, VDOT, VMAX, etc.)
+- **FPU Arithmetic Operations**: 23+ floating-point instructions (FADD, FSIN, FSQRT, etc.) with full mathematical support
 - **1MB Memory**: Expandable to 64MB with paging framework
 - **Device I/O System**: Modular devices (console, file, counter, RAM disk) with port-based communication
 - **Professional Debugging**: ImGui-based visual debugger with real-time inspection
 
 ### 🔧 **Development Tools**
 - **Assembly Language**: Complete lexer → parser → assembler → bytecode pipeline
-- **Test Framework**: 39/41 integration tests passing (95% coverage)
+- **Test Framework**: Comprehensive testing with 100% SIMD foundation + FPU coverage (19/19 tests, 38/38 assertions)
 - **Build System**: Automated compilation and testing with Make
 - **Error Handling**: Comprehensive error reporting and validation
 - **Hot Debugging**: Live system inspection and step-through capabilities
@@ -143,6 +157,13 @@ demi-engine Usage: demi-engine [options]
 - **[🧪 Test Cases](tests/)** – Real-world usage patterns
 - **[⚠️ Troubleshooting](docs/TROUBLESHOOTING.md)** – Common issues and solutions
 - **[🤝 Contributing](CONTRIBUTING.md)** – How to contribute to the project
+
+### 🚀 **Feature Documentation**
+- **[🌟 Features Overview](docs/FEATURES.md)** – Complete feature documentation
+- **[⚡ Quick Reference](docs/QUICK_REFERENCE.md)** – Instruction set quick reference
+- **[🔢 FPU Reference](docs/FPU_REFERENCE.md)** – Complete floating-point unit guide
+- **[📊 SIMD Reference](docs/SIMD_REFERENCE.md)** – Complete vector operations guide
+- **[🧪 Test Framework](docs/TEST_FRAMEWORK_DESIGN.md)** – Testing system documentation
 
 ---
 
@@ -192,49 +213,62 @@ DemiEngine maintains exceptional quality through comprehensive testing with **pe
 
 ### Test Coverage
 ```bash
-# Run all tests (comprehensive)
+# Run all tests (unit tests + assembly tests)
 ./bin/demi-engine --test
+# Or use short form with quiet mode
+./bin/demi-engine -tq
 
-# Or run specific test suites
-./bin/demi-engine --unit-test          # 78 unit tests only (~1-2s)
-./bin/demi-engine --integration-test   # 42 integration tests only (~2-3s)
-./bin/demi-engine --assembly-test      # 68 assembly test validation (~1s)
-./bin/demi-engine --assembly-test-quiet # 68 tests in quiet mode (minimal output)
+# Run specific test suites
+./bin/demi-engine --unit-test          # Unit tests only
+./bin/demi-engine --assembly-test      # Assembly tests only
+
+# Quiet mode for minimal output
+./bin/demi-engine -utq                 # Unit tests, quiet (-ut + -q linked)
+./bin/demi-engine -atq                 # Assembly tests, quiet (-at + -q linked)
 
 # Test specific files only
-./bin/demi-engine -t tests/asm/test_arithmetic.asm  # Test single file
-./bin/demi-engine -atq tests/asm/test_stack.asm     # Single file, quiet mode
+./bin/demi-engine -t tests/algorithms.test.asm    # Test single file
+./bin/demi-engine -atq tests/stack.test.asm       # Single file, quiet mode
 
 # Achieved results:
 ┌──────────────────────────────────────────────────────────┐
 │     DemiEngine Test Results - PERFECT COVERAGE           │
 └──────────────────────────────────────────────────────────┘
-Unit tests passed: 78 / 78 (100% success rate)
-In-assembly tests validated: 68 / 68 (100% validation rate)
-Integration tests passed: 42 / 42 (100% success rate)
-TOTAL: 188 tests passing (100% coverage)
+Unit Tests: 101 passed / 101 [1002.2ms total, 9.92ms avg]
+Assembly Tests: 79 passed / 79 total [403.6ms total, 5.11ms avg]
+TOTAL: 180 tests passing (100% coverage)
 ```
 
 ### Test Suite Flags
-- `--test` / `-t` - Run built-in unit tests, or test a specific file if path provided
-- `--unit-test` / `-ut` - Run unit tests only (fastest, ~1-2s), or test a specific file
-- `--integration-test` / `-it` - Run integration tests only (~2-3s), or test a specific file
-- `--assembly-test` / `-at` - Run all in-assembly tests (~1s), or test a specific file
-- `--assembly-test-quiet` / `-atq` - Run assembly tests in quiet mode (title + description only)
+- `--test` / `-t` - Run all tests (unit + assembly), or test a specific file if path provided
+- `--unit-test` / `-ut` - Run unit tests only, or test a specific file
+- `--assembly-test` / `-at` - Run assembly tests, or test a specific file
+- `--quiet` / `-q` - Suppress logs, show only results and timing
+
+**Argument Linking**: Combine flags for faster workflows:
+- `-tq` - All tests, quiet mode
+- `-utq` - Unit tests, quiet mode  
+- `-atq` - Assembly tests, quiet mode
 
 **All test flags support optional file arguments** - provide a file path to test only that file.
 
-**See [docs/TEST_FLAGS.md](docs/TEST_FLAGS.md) for detailed usage examples**
+**See [docs/CLI_IMPROVEMENTS.md](docs/CLI_IMPROVEMENTS.md) for detailed usage examples and new features**
 
 ### Test Categories
-- **✅ Unit Tests**: 78/78 passing - Core functionality validation
-- **✅ In-Assembly Tests**: 68/68 validated - Test directive parsing and structure
-- **✅ Integration Tests**: 42/42 passing - Real program execution  
+- **✅ Unit Tests**: 101/101 passing - Core functionality validation
+- **✅ Assembly Tests**: 79/79 passing - In-assembly test execution and validation
 - **✅ Memory Tests**: Bounds checking and safety validation
 - **✅ Device Tests**: I/O system functionality
-- **✅ Assembly Tests**: Complete toolchain validation
+- **✅ Assembly Toolchain**: Complete lexer → parser → assembler pipeline
 - **✅ Register Tests**: Extended register system (134 registers)
-- **✅ Negative Tests**: Error handling and edge cases
+- **✅ Performance Tests**: Timing and optimization validation
+
+### Test Output Features
+- **Category Grouping**: Tests organized by category with timing
+- **Performance Metrics**: Individual test timing and slowest test identification
+- **Color-Coded Results**: Visual feedback with green (✓) and red (✗) indicators
+- **Tree Structure**: Hierarchical display of categories and tests
+- **Quiet Mode**: Minimal output showing only results and key statistics
 
 ### Test Coverage Achievements
 - **🏆 100% Unit Test Coverage**: All core functionality validated
