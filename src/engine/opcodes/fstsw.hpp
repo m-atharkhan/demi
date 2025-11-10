@@ -32,6 +32,16 @@ void handle_FSTSW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
                        (program[cpu.get_pc() + 4] << 16) |
                        (program[cpu.get_pc() + 5] << 24);
         
+        // Check bounds - we need to write 2 bytes
+        if (addr + 1 >= cpu.get_memory_size()) {
+            Logger::instance().error() << fmt::format(
+                "[PC={:#06x}] [FSTSW] Memory access violation: address {:#010x} out of bounds (memory size: {})",
+                cpu.get_pc(), addr + 1, cpu.get_memory_size()
+            ) << std::endl;
+            running = false;
+            return;
+        }
+        
         // Store status word to memory (16-bit)
         cpu.get_memory()[addr] = static_cast<uint8_t>(status_word & 0xFF);
         cpu.get_memory()[addr + 1] = static_cast<uint8_t>((status_word >> 8) & 0xFF);

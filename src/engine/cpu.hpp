@@ -206,6 +206,16 @@ enum class Opcode : uint8_t {
     VORPD = 0xD2,       // AVX Bitwise OR Packed Double
     VXORPD = 0xD3,      // AVX Bitwise XOR Packed Double
 
+    // SIMD Vector Operations (0xD4-0xDB range)
+    VADD = 0xD4,        // Vector Add (R0-R3 + R4-R7 → R0-R3)
+    VMUL = 0xD5,        // Vector Multiply (R0-R3 * R4-R7 → R0-R3)  
+    VDOT = 0xD6,        // Vector Dot Product (R0-R3 • R4-R7 → R0)
+    VMAX = 0xD7,        // Vector Maximum (max(R0-R3) → R0)
+    VBROADCAST = 0xD8,  // Vector Broadcast (R0 → R4-R7)
+    VCMPGT = 0xD9,      // Vector Compare Greater Than (R0-R3 > R4-R7 → R0-R3)
+    PACKB = 0xDA,       // Pack Bytes (R0-R3 → R4 as 32-bit)
+    UNPACKB = 0xDB,     // Unpack Bytes (R4 → R0-R3)
+
     // MMX Operations (0xE0-0xEF range)
     MOVQ = 0xE0,        // Move Quadword
     PADDB = 0xE1,       // Add Packed Bytes
@@ -224,12 +234,15 @@ enum class Opcode : uint8_t {
 
 class CPU {
 public:
+    // Constants
+    static constexpr size_t MAX_CALL_DEPTH = 256; // Maximum call stack depth
+    
     CPU(size_t memory_size = 0); // 0 means use default size
     static CPU create_test_cpu(); // Factory method for test compatibility
     ~CPU();
 
     void reset();
-    void execute(const std::vector<uint8_t>& program, uint32_t entry_address = 0);
+    void execute(const std::vector<uint8_t>& program, uint32_t entry_address = 0, size_t max_steps = 0);
     void run(const std::vector<uint8_t>& program); // resets and runs whole program
     bool step(const std::vector<uint8_t>& program); // executes one instruction, returns false if halted or error
     void print_state(const std::string& info) const;
@@ -246,9 +259,12 @@ public:
     CPUMode get_cpu_mode() const { return cpu_mode; }
     void set_cpu_mode(CPUMode mode) {
         cpu_mode = mode;
-        Logger::instance().info() << fmt::format(
-            "CPU mode switched to {}-bit",
-            (mode == CPUMode::MODE_64BIT) ? 64 : 32) << std::endl;
+        // Only log mode switch if not in quiet assembly test mode
+        if (!Config::quiet_assembly_test) {
+            Logger::instance().info() << fmt::format(
+                "CPU mode switched to {}-bit",
+                (mode == CPUMode::MODE_64BIT) ? 64 : 32) << std::endl;
+        }
     }
     bool is_64bit_mode() const { return cpu_mode == CPUMode::MODE_64BIT; }
     bool is_32bit_mode() const { return cpu_mode == CPUMode::MODE_32BIT; }
@@ -419,6 +435,18 @@ public:
     uint32_t get_fp() const { return static_cast<uint32_t>(registers[static_cast<size_t>(Register::RBP)]); }
     int get_arg_offset() const { return arg_offset; }
     void set_arg_offset(int value) { arg_offset = value; }
+    
+    // Call stack depth management
+    size_t get_call_depth() const { return call_depth; }
+    void increment_call_depth() { call_depth++; }
+    void decrement_call_depth() { if (call_depth > 0) call_depth--; }
+    void reset_call_depth() { call_depth = 0; }
+    
+    // Set custom max call depth for testing (0 = use default MAX_CALL_DEPTH)
+    void set_max_call_depth_override(size_t depth) { max_call_depth_override = depth; }
+    size_t get_effective_max_call_depth() const { 
+        return max_call_depth_override > 0 ? max_call_depth_override : MAX_CALL_DEPTH; 
+    }
 
     void set_pc(uint32_t value) { registers[static_cast<size_t>(Register::RIP)] = value; }
     void set_sp(uint32_t value) { registers[static_cast<size_t>(Register::RSP)] = value; }
@@ -473,6 +501,8 @@ private:
 
     std::vector<uint8_t> memory;
     int arg_offset; // Offset for arguments
+    size_t call_depth = 0; // Track CALL stack depth to prevent overflow
+    size_t max_call_depth_override = 0; // Override for testing (0 = use MAX_CALL_DEPTH)
     mutable uint32_t last_accessed_addr = static_cast<uint32_t>(-1);
     uint32_t last_modified_addr = static_cast<uint32_t>(-1);
 

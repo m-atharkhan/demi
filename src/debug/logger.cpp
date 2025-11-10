@@ -4,6 +4,7 @@
 #include <cstring>
 #include <ctime>
 #include <iomanip>
+#include <regex>
 
 #include <fmt/core.h>
 
@@ -69,8 +70,14 @@ Logger& Logger::operator<<(std::ostream& (*manip)(std::ostream&)) {
 void Logger::log(LogLevel level, const std::string& message) {
     std::lock_guard<std::recursive_mutex> lock(console_mutex_);
 
-    // Skip empty messages (trim whitespace first)
+    // Skip empty messages (trim whitespace and ANSI codes first)
     std::string trimmed_message = message;
+    
+    // Remove ANSI escape sequences first
+    std::regex ansi_code_re("\033\\[[0-9;]*m");
+    trimmed_message = std::regex_replace(trimmed_message, ansi_code_re, "");
+    
+    // Then trim whitespace
     trimmed_message.erase(0, trimmed_message.find_first_not_of(" \t\n\r"));
     trimmed_message.erase(trimmed_message.find_last_not_of(" \t\n\r") + 1);
     if (trimmed_message.empty()) {
@@ -256,6 +263,11 @@ bool Logger::should_filter_message(LogLevel level) const {
     // If force flag is set, never filter
     if (force_next_) {
         return false;
+    }
+
+    // In quiet mode, filter everything except SUCCESS
+    if (Config::quiet) {
+        return level != LogLevel::SUCCESS;
     }
 
     // Never filter ERROR, SUCCESS, WARNING, RUNNING, ENGINE, or ERRORINFO

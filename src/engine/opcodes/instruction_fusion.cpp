@@ -1,354 +1,212 @@
 #include "instruction_fusion.hpp"
+#include "../cpu.hpp"
 #include "../cpu_flags.hpp"
 #include "../../assembler/opcodes.hpp"
+#include "../../debug/logger.hpp"
+#include "../../config.hpp"
 #include <fmt/core.h>
 
 namespace InstructionFusion {
 
-// Global fusion engine instance
-FusionEngine g_fusion_engine;
-
-// Helper: Get legacy register value (registers are stored as uint32_t, but only lower 8 bits used in legacy mode)
-inline uint8_t get_legacy_register_value(const CPU& cpu, uint8_t reg_idx) {
-    return static_cast<uint8_t>(cpu.get_registers()[reg_idx] & 0xFF);
+// Helper to check if register is valid (R0-R7)
+static inline bool is_valid_legacy_register(uint8_t reg) {
+    return reg < 8;
 }
 
-inline void set_legacy_register_value(CPU& cpu, uint8_t reg_idx, uint8_t value) {
-    cpu.get_registers()[reg_idx] = value;
-}
-
-// Helper: Check if register index is valid (0-7 for legacy)
-inline bool is_valid_legacy_register(uint8_t reg_idx) {
-    return reg_idx <= 7;
-}
-
-// Helper: Update flags after arithmetic operation
-inline void update_add_flags(CPU& cpu, uint8_t before, uint8_t operand, uint16_t sum) {
-    uint8_t result = static_cast<uint8_t>(sum & 0xFF);
-    uint32_t flags = cpu.get_flags();
-    
-    // Carry flag
-    if (sum > 0xFF) {
-        flags |= FLAG_CARRY;
-    } else {
-        flags &= ~FLAG_CARRY;
-    }
-    
-    // Overflow flag
-    bool sign_before = (before & 0x80) != 0;
-    bool sign_operand = (operand & 0x80) != 0;
-    bool sign_result = (result & 0x80) != 0;
-    if ((sign_before == sign_operand) && (sign_before != sign_result)) {
-        flags |= FLAG_OVERFLOW;
-    } else {
-        flags &= ~FLAG_OVERFLOW;
-    }
-    
-    // Zero flag
-    if (result == 0) {
-        flags |= FLAG_ZERO;
-    } else {
-        flags &= ~FLAG_ZERO;
-    }
-    
-    // Sign flag
-    if (sign_result) {
-        flags |= FLAG_SIGN;
-    } else {
-        flags &= ~FLAG_SIGN;
-    }
-    
-    cpu.set_flags(flags);
-}
-
-inline void update_sub_flags(CPU& cpu, uint8_t before, uint8_t operand) {
-    int16_t signed_result = static_cast<int16_t>(before) - static_cast<int16_t>(operand);
-    uint8_t result = static_cast<uint8_t>(signed_result & 0xFF);
-    uint32_t flags = cpu.get_flags();
-    
-    // Zero flag
-    if (result == 0) {
-        flags |= FLAG_ZERO;
-    } else {
-        flags &= ~FLAG_ZERO;
-    }
-    
-    // Sign flag
-    if (result & 0x80) {
-        flags |= FLAG_SIGN;
-    } else {
-        flags &= ~FLAG_SIGN;
-    }
-    
-    // Carry flag (borrow)
-    if (before < operand) {
-        flags |= FLAG_CARRY;
-    } else {
-        flags &= ~FLAG_CARRY;
-    }
-    
-    // Overflow flag
-    bool sign_before = (before & 0x80) != 0;
-    bool sign_operand = (operand & 0x80) != 0;
-    bool sign_result = (result & 0x80) != 0;
-    if ((sign_before != sign_operand) && (sign_before != sign_result)) {
-        flags |= FLAG_OVERFLOW;
-    } else {
-        flags &= ~FLAG_OVERFLOW;
-    }
-    
-    cpu.set_flags(flags);
-}
-
-bool InstructionFusion::try_instruction_fusion(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    if (cpu.get_pc() >= program.size()) {
+// FusionEngine::try_fuse_and_execute
+bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (!enabled) {
+        if (Config::debug && stats.total_attempts == 0) {
+            Logger::instance().debug() << "[FUSION] Engine disabled!" << std::endl;
+        }
         return false;
     }
-
+    if (cpu.get_pc() >= program.size()) return false;
+    
+    stats.total_attempts++;
+    
     // Get current opcode
     Opcode current_op = static_cast<Opcode>(program[cpu.get_pc()]);
     
-    // Log fusion attempt in debug mode
-    if (Config::debug) {
-        Logger::instance().debug() << fmt::format("[FUSION] Checking fusion for opcode 0x{:02X} at PC=0x{:04X}", 
-                                                   static_cast<uint8_t>(current_op), cpu.get_pc()) << std::endl;
-    }
-
-    // Try fusion patterns in order of likelihood
+    // Try fusion patterns
     switch (current_op) {
-
-bool FusionEngine::fuse_load_imm_arithmetic(CPU& cpu, const std::vector<uint8_t>& program, bool& /*running*/) {
-    // Pattern: LOAD_IMM Rx, imm + ADD/SUB Ry, Rx
-    // Fuse into: ADD/SUB Ry, immediate value
-    
-    uint32_t pc = cpu.get_pc();
-    
-    // LOAD_IMM format varies - for legacy it's 3 bytes: opcode + reg + imm8
-    if (!can_lookahead(cpu, program, 3 + 3)) return false;
-    
-    uint8_t load_dst = program[pc + 1];
-    uint8_t imm_value = program[pc + 2];  // 8-bit immediate
-    
-    // Validate legacy register
-    if (!is_valid_legacy_register(load_dst)) return false;
-    
-    Opcode next_op = peek_opcode(program, pc, 3);
-    
-    // Check if next operation uses the loaded immediate
-    if (pc + 3 + 3 > program.size()) return false;
-    
-    uint8_t arith_dst = program[pc + 4];
-    uint8_t arith_src = program[pc + 5];
-    
-    // Validate registers
-    if (!is_valid_legacy_register(arith_dst) || !is_valid_legacy_register(arith_src)) return false;
-    
-    // Verify the arithmetic op uses the register we just loaded as source
-    if (arith_src != load_dst) return false;
-    
-    FusionPattern pattern = FusionPattern::NONE;
-    switch (next_op) {
+        case Opcode::CMP:
+            if (Config::debug) {
+                Logger::instance().debug() << fmt::format("[FUSION] Attempting CMP fusion at PC=0x{:04X}", cpu.get_pc()) << std::endl;
+            }
+            return fuse_cmp_branch(cpu, program, running);
+            
+        case Opcode::LOAD_IMM:
+            return fuse_load_imm_arithmetic(cpu, program, running);
+            
         case Opcode::ADD:
-            pattern = FusionPattern::LOAD_IMM_ADD;
-            break;
         case Opcode::SUB:
-            pattern = FusionPattern::LOAD_IMM_SUB;
-            break;
+        case Opcode::MUL:
+        case Opcode::DIV:
+            return fuse_arithmetic_store(cpu, program, running);
+            
         default:
             return false;
     }
-    
-    // Execute fused operation
-    uint8_t dst_val = get_legacy_register_value(cpu, arith_dst);
-    uint16_t sum = 0;
-    uint8_t result = 0;
-    
-    switch (pattern) {
-        case FusionPattern::LOAD_IMM_ADD:
-            sum = static_cast<uint16_t>(dst_val) + static_cast<uint16_t>(imm_value);
-            result = static_cast<uint8_t>(sum & 0xFF);
-            set_legacy_register_value(cpu, arith_dst, result);
-            update_add_flags(cpu, dst_val, imm_value, sum);
-            break;
-        case FusionPattern::LOAD_IMM_SUB:
-            result = dst_val - imm_value;
-            set_legacy_register_value(cpu, arith_dst, result);
-            update_sub_flags(cpu, dst_val, imm_value);
-            break;
-        default:
-            return false;
-    }
-    
-    // Skip both instructions
-    cpu.set_pc(pc + 3 + 3);
-    
-    stats.record_fusion(pattern);
-    
-    Logger::instance().debug() << fmt::format(
-        "[FUSION] LOAD_IMM+{} at PC=0x{:04X}: R{}={} + imm={} -> {}",
-        (pattern == FusionPattern::LOAD_IMM_ADD) ? "ADD" : "SUB",
-        pc, arith_dst, dst_val, imm_value, result
-    ) << std::endl;
-    
-    return true;
 }
 
-bool FusionEngine::fuse_cmp_branch(CPU& cpu, const std::vector<uint8_t>& program, bool& /*running*/) {
-    // Pattern: CMP Rx, Ry + conditional branch
-    // Fuse into: compare-and-branch operation
-    
+// FusionEngine::fuse_cmp_branch - CMP + conditional jump
+bool FusionEngine::fuse_cmp_branch(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
     
-    // CMP is 3 bytes, branch is 2 bytes
-    if (!can_lookahead(cpu, program, 3 + 2)) return false;
+    // CMP format: opcode (1) + reg1 (1) + reg2 (1) = 3 bytes
+    // Jump format: opcode (1) + addr (1) = 2 bytes
+    if (!can_lookahead(cpu, program, 5)) return false;
     
-    uint8_t cmp_r1 = program[pc + 1];
-    uint8_t cmp_r2 = program[pc + 2];
+    // Read CMP operands
+    uint8_t reg1 = program[pc + 1];
+    uint8_t reg2 = program[pc + 2];
     
-    // Validate legacy registers
-    if (!is_valid_legacy_register(cmp_r1) || !is_valid_legacy_register(cmp_r2)) return false;
+    if (!is_valid_legacy_register(reg1) || !is_valid_legacy_register(reg2)) {
+        return false;
+    }
     
+    // Check next opcode
     Opcode branch_op = peek_opcode(program, pc, 3);
     
+    // Only fuse with conditional jumps
+    bool is_conditional_jump = false;
     FusionPattern pattern = FusionPattern::NONE;
+    
     switch (branch_op) {
-        case Opcode::JZ:  pattern = FusionPattern::CMP_JZ; break;
-        case Opcode::JNZ: pattern = FusionPattern::CMP_JNZ; break;
-        default:
-            return false;  // Only support JZ/JNZ for now (most common)
-    }
-    
-    // Read jump address (1 byte for short jumps)
-    uint8_t jump_addr = program[pc + 4];
-    
-    // Execute fused compare-and-branch
-    uint8_t val1 = get_legacy_register_value(cpu, cmp_r1);
-    uint8_t val2 = get_legacy_register_value(cpu, cmp_r2);
-    
-    // Update flags
-    update_sub_flags(cpu, val1, val2);
-    
-    // Check branch condition
-    bool take_branch = false;
-    uint32_t flags = cpu.get_flags();
-    
-    switch (pattern) {
-        case FusionPattern::CMP_JZ:
-            take_branch = (flags & FLAG_ZERO) != 0;
+        case Opcode::JZ:
+            is_conditional_jump = true;
+            pattern = FusionPattern::CMP_JZ;
             break;
-        case FusionPattern::CMP_JNZ:
-            take_branch = (flags & FLAG_ZERO) == 0;
+        case Opcode::JNZ:
+            is_conditional_jump = true;
+            pattern = FusionPattern::CMP_JNZ;
+            break;
+        case Opcode::JG:
+            is_conditional_jump = true;
+            pattern = FusionPattern::CMP_JG;
+            break;
+        case Opcode::JL:
+            is_conditional_jump = true;
+            pattern = FusionPattern::CMP_JL;
+            break;
+        case Opcode::JGE:
+            is_conditional_jump = true;
+            pattern = FusionPattern::CMP_JGE;
+            break;
+        case Opcode::JLE:
+            is_conditional_jump = true;
+            pattern = FusionPattern::CMP_JLE;
             break;
         default:
             return false;
     }
     
-    if (take_branch) {
-        cpu.set_pc(jump_addr);
-    } else {
-        cpu.set_pc(pc + 3 + 2); // Skip both instructions
+    if (!is_conditional_jump) return false;
+    
+    // Get register values
+    uint32_t val1 = cpu.get_registers()[reg1];
+    uint32_t val2 = cpu.get_registers()[reg2];
+    
+    // Perform comparison
+    uint32_t result = val1 - val2;
+    bool zero = (result == 0);
+    bool sign = (static_cast<int32_t>(result) < 0);
+    
+    // Get jump target address
+    uint8_t target_addr = program[pc + 4];
+    
+    // Determine if branch should be taken
+    bool take_branch = false;
+    switch (branch_op) {
+        case Opcode::JZ:   take_branch = zero; break;
+        case Opcode::JNZ:  take_branch = !zero; break;
+        case Opcode::JG:   take_branch = !zero && !sign; break;
+        case Opcode::JL:   take_branch = sign; break;
+        case Opcode::JGE:  take_branch = !sign || zero; break;
+        case Opcode::JLE:  take_branch = sign || zero; break;
+        default: return false;
     }
     
-    stats.record_fusion(pattern);
-    
-    Logger::instance().debug() << fmt::format(
-        "[FUSION] CMP+{} at PC=0x{:04X}: R{}({}) vs R{}({}) -> {}",
-        (pattern == FusionPattern::CMP_JZ) ? "JZ" : "JNZ",
-        pc, cmp_r1, val1, cmp_r2, val2,
-        take_branch ? "JUMP" : "CONT"
-    ) << std::endl;
-    
-    return true;
-}
-
-bool FusionEngine::fuse_arithmetic_store(CPU& cpu, const std::vector<uint8_t>& program, bool& /*running*/) {
-    // Pattern: arithmetic Rx, Ry + STORE [addr], Rx
-    // TODO: Implement for memory-intensive operations
-    // Complexity: Need to handle memory bounds checking
-    
-    uint32_t pc = cpu.get_pc();
-    (void)pc;  // Suppress unused warning
-    (void)program;
-    return false;  // Not implemented yet
-}
-
-bool FusionEngine::fuse_inc_dec_cmp(CPU& cpu, const std::vector<uint8_t>& program, bool& /*running*/) {
-    // Pattern: INC/DEC Rx + CMP Rx, Ry
-    // Common in loop counters
-    
-    uint32_t pc = cpu.get_pc();
-    
-    // INC/DEC is 2 bytes, CMP is 3 bytes
-    if (!can_lookahead(cpu, program, 2 + 3)) return false;
-    
-    Opcode first_op = static_cast<Opcode>(program[pc]);
-    uint8_t inc_dec_reg = program[pc + 1];
-    
-    // Validate register
-    if (!is_valid_legacy_register(inc_dec_reg)) return false;
-    
-    Opcode next_op = peek_opcode(program, pc, 2);
-    if (next_op != Opcode::CMP) return false;
-    
-    uint8_t cmp_r1 = program[pc + 3];
-    uint8_t cmp_r2 = program[pc + 4];
-    
-    // Validate registers
-    if (!is_valid_legacy_register(cmp_r1) || !is_valid_legacy_register(cmp_r2)) return false;
-    
-    // Verify CMP uses the modified register
-    if (cmp_r1 != inc_dec_reg) return false;  // Only support INC/DEC R0 + CMP R0, R1 pattern
-    
-    FusionPattern pattern = (first_op == Opcode::INC) ? 
-        FusionPattern::INC_CMP : FusionPattern::DEC_CMP;
+    // Debug output
+    if (Config::debug) {
+        const char* branch_name = 
+            branch_op == Opcode::JZ ? "JZ" :
+            branch_op == Opcode::JNZ ? "JNZ" :
+            branch_op == Opcode::JG ? "JG" :
+            branch_op == Opcode::JL ? "JL" :
+            branch_op == Opcode::JGE ? "JGE" : "JLE";
+            
+        std::string decision = take_branch ? 
+            fmt::format("JUMP to 0x{:04X}", target_addr) : "CONT";
+            
+        Logger::instance().debug() << fmt::format(
+            "[FUSION] CMP+{} at PC=0x{:04X}: R{}({}) vs R{}({}) -> {}",
+            branch_name, pc, reg1, val1, reg2, val2, decision
+        ) << std::endl;
+    }
     
     // Execute fused operation
-    uint8_t val = get_legacy_register_value(cpu, inc_dec_reg);
-    uint8_t result = (first_op == Opcode::INC) ? (val + 1) : (val - 1);
+    if (take_branch) {
+        cpu.set_pc(target_addr);
+    } else {
+        cpu.set_pc(pc + 5);  // Skip both CMP and jump
+    }
     
-    set_legacy_register_value(cpu, inc_dec_reg, result);
-    
-    // Update flags for inc/dec (simple - just set zero/sign)
+    // Set CPU flags based on comparison result
     uint32_t flags = cpu.get_flags();
-    if (result == 0) flags |= FLAG_ZERO; else flags &= ~FLAG_ZERO;
-    if (result & 0x80) flags |= FLAG_SIGN; else flags &= ~FLAG_SIGN;
+    flags &= ~(FLAG_ZERO | FLAG_SIGN);  // Clear zero and sign flags
+    if (zero) flags |= FLAG_ZERO;
+    if (sign) flags |= FLAG_SIGN;
+    cpu.set_flags(flags);
     
-    // Now perform compare
-    uint8_t cmp_val2 = get_legacy_register_value(cpu, cmp_r2);
-    update_sub_flags(cpu, result, cmp_val2);  // Compare new value with second operand
-    
-    // Skip both instructions
-    cpu.set_pc(pc + 2 + 3);
-    
+    // Record fusion success
     stats.record_fusion(pattern);
-    
-    Logger::instance().debug() << fmt::format(
-        "[FUSION] {}{} +CMP at PC=0x{:04X}: R{}:{}->{}  cmp R{}({})",
-        (first_op == Opcode::INC) ? "INC" : "DEC",
-        inc_dec_reg, pc, inc_dec_reg, val, result, cmp_r2, cmp_val2
-    ) << std::endl;
     
     return true;
 }
 
-bool FusionEngine::fuse_load_arithmetic(CPU& cpu, const std::vector<uint8_t>& program, bool& /*running*/) {
-    // Pattern: LOAD Rx, [addr] + arithmetic Rx, Ry
-    // TODO: Implement for memory-heavy operations
-    
-    uint32_t pc = cpu.get_pc();
-    (void)pc;  // Suppress unused warning
+// FusionEngine::fuse_load_imm_arithmetic - LOAD_IMM + arithmetic (STUBBED)
+bool FusionEngine::fuse_load_imm_arithmetic(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    (void)cpu;
     (void)program;
-    return false;  // Not implemented yet
+    (void)running;
+    return false;
 }
 
-bool FusionEngine::fuse_mov_arithmetic(CPU& cpu, const std::vector<uint8_t>& program, bool& /*running*/) {
-    // Pattern: MOV Rx, Ry + arithmetic Rx, Rz
-    // TODO: Implement for register-heavy operations
-    
-    uint32_t pc = cpu.get_pc();
-    (void)pc;  // Suppress unused warning
+// FusionEngine::fuse_arithmetic_store - arithmetic + STORE (STUBBED)
+bool FusionEngine::fuse_arithmetic_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    (void)cpu;
     (void)program;
-    return false;  // Not implemented yet
+    (void)running;
+    return false;
 }
+
+// FusionEngine::fuse_inc_dec_cmp - INC/DEC + CMP (STUBBED)
+bool FusionEngine::fuse_inc_dec_cmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    (void)cpu;
+    (void)program;
+    (void)running;
+    return false;
+}
+
+// FusionEngine::fuse_load_arithmetic - LOAD + arithmetic (STUBBED)
+bool FusionEngine::fuse_load_arithmetic(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    (void)cpu;
+    (void)program;
+    (void)running;
+    return false;
+}
+
+// FusionEngine::fuse_mov_arithmetic - MOV + arithmetic (STUBBED)
+bool FusionEngine::fuse_mov_arithmetic(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    (void)cpu;
+    (void)program;
+    (void)running;
+    return false;
+}
+
+// Global fusion engine instance
+FusionEngine g_fusion_engine;
 
 } // namespace InstructionFusion

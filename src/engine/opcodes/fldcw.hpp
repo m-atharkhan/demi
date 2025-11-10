@@ -24,6 +24,16 @@ void handle_FLDCW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
                    (program[cpu.get_pc() + 3] << 16) |
                    (program[cpu.get_pc() + 4] << 24);
     
+    // Check bounds - we need to read 2 bytes
+    if (addr + 1 >= cpu.get_memory_size()) {
+        Logger::instance().error() << fmt::format(
+            "[PC={:#06x}] [FLDCW] Memory access violation: address {:#010x} out of bounds (memory size: {})",
+            cpu.get_pc(), addr + 1, cpu.get_memory_size()
+        ) << std::endl;
+        running = false;
+        return;
+    }
+    
     // Load control word from memory (16-bit)
     uint8_t low_byte = cpu.get_memory()[addr];
     uint8_t high_byte = cpu.get_memory()[addr + 1];
