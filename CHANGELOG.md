@@ -1,0 +1,261 @@
+# Changelog
+
+All notable changes to DemiEngine will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0] - 2025-11-10
+
+### ✨ Features
+
+- Add roadmap for planned opcodes and operations (c2b0663) - Owen Boreham
+- Refactor CPU instruction handling: add MOV, JMP, LOAD, STORE, PUSH, POP, and CMP opcodes with improved state management (afd3ec5) - Owen Boreham
+- Enhance I/O operations with new opcodes and string handling (be975cb) - Owen Boreham
+- Update compilation command to include additional source files and headers (67ac1d3) - Owen Boreham
+- Enhance logging functionality with new log level and force bypass option feat(cpu): Improve memory dump output with forced logging and better formatting options (6aa17cd) - Owen Boreham
+- Add support for pending VirtComp messages and improve logging output (3e33d79) - Owen Boreham
+- Enhance argument parser with pending message logging and debug options (b3a45f0) - Owen Boreham
+- Enhance argument parsing to support output name specification and sanitize filenames (398ec66) - Owen Boreham
+- add port overflow checks and logging for read/write operations (4ef64e0) - Bobrossrtx
+- Add LEA and SWAP opcode implementations and corresponding header files (a4416c0) - Bobrossrtx
+- Add test program for LEA and SWAP opcodes to validate functionality (e5b7c97) - Bobrossrtx
+- integrate modern C++ unit testing framework (a4e6c93) - Bobrossrtx
+- add private memory bank and project knowledge system (574bc78) - Bobrossrtx
+- enhance merge script with branch argument support (c5da7ac) - Bobrossrtx
+- Add JC and JNC conditional jump instructions (972c474) - Bobrossrtx
+- Integrate JC/JNC instructions and fix carry flag handling (51bd018) - Bobrossrtx
+- Add JC and JNC conditional jump instructions (2626d40) - Bobrossrtx
+- Integrate JC/JNC instructions and fix carry flag handling (468f3d0) - Bobrossrtx
+- implement overflow flag support with JO/JNO instructions (4cd0c34) - Bobrossrtx
+- implement overflow flag support with JO/JNO instructions (b0796c1) - Bobrossrtx
+- implement extended register architecture with 50 x64-style registers (084893b) - Bobrossrtx
+- integrate extended registers into CPU class with dual-mode support (342b045) - Bobrossrtx
+- implement extended register operations and mode switching opcodes (1e2a830) - Bobrossrtx
+- add UI enhancement and professional output formatting (bfa21bf) - Bobrossrtx
+- update testing framework for extended register architecture (e351b42) - Bobrossrtx
+- add compilation codegen infrastructure with AST generation and optimization techniques (5a87f11) - Bobrossrtx
+- Implement complete assembly language support (46638da) - Bobrossrtx
+- Add comprehensive assembly language examples (bbec417) - Bobrossrtx
+- Expand VirtComp register architecture from 50 to 134 registers (90b9ef4) - Bobrossrtx
+- Update CPU class to support 134-register architecture (b6215eb) - Bobrossrtx
+- Add comprehensive SIMD/FPU/AVX/MMX opcode definitions (a974654) - Bobrossrtx
+- Add comparative jump opcodes (JG, JL, JGE, JLE) (ce587f6) - Bobrossrtx
+- Implement comparative jump instruction handlers (6ed8575) - Bobrossrtx
+- Implement DB directive with hybrid format detection (eae6d61) - Owen Boreham
+- Add ADDEX instruction for extended register operations (08f4385) - Owen Boreham
+- add test directive parsing and CPU exception handling (3f04b55) - Owen Boreham
+- Implement comprehensive FPU operations (0e47007) - Owen Boreham
+- Implement multi-provider AI system for auto growth scripts (dd342c1) - Owen Boreham
+- Complete automated community growth system with AI integration (ca2a8b9) - Owen Boreham
+- implement MOD instruction and fix assembly test issues (d1db886) - Owen Boreham
+- implement FINIT instruction and fix register synchronization (8fa12ce) - Owen Boreham
+- implement FLD, FST, and FSTP floating point instructions (6b6bae7) - Owen Boreham
+- implement FPU arithmetic instructions (FADD, FSUB, FMUL, FDIV) (a28d5ba) - Owen Boreham
+- implement FPU integer conversion instructions (FILD, FIST, FISTP) (9ff950e) - Owen Boreham
+- implement FPU math functions (FABS, FCHS, FSQRT) (b6fabb7) - Owen Boreham
+- implement FPU transcendental functions (FSIN, FCOS, FTAN) (2134118) - Owen Boreham
+- implement final FPU opcodes (FCOMPP, FUCOMPP, FCLEX, FSTCW, FLDCW, FSTSW) (f419ce3) - Owen Boreham
+- add comprehensive test suite for future implementations (f5053b4) - Owen Boreham
+- add test filtering and enhanced summary (6c6a656) - Owen Boreham
+- implement instruction fusion optimization system (d46ac39) - Owen Boreham
+- Implement comprehensive preprocessor system (b2dde49) - Owen Boreham
+- Add SIMD vector operation foundation (8a40692) - Owen Boreham
+
+### ⚡ Performance Improvements
+
+- Enhance CPU functionality with additional instructions and debugging support (a2af336) - Owen Boreham
+- Enhance CPU engine with SIMD and opcode improvements (8709e49) - Owen Boreham
+
+### 🐛 Bug Fixes
+
+- reformat code for clarity and enhance datetime buffer safety (0005dbc) - Bobrossrtx
+- Correctly include Logger in file_device.hpp for proper logging functionality (81234ac) - Bobrossrtx
+- correct jump addresses in simple_overflow_test.hex (a9976cd) - Bobrossrtx
+- correct jump addresses in simple_overflow_test.hex (3a30492) - Bobrossrtx
+- resolve merge conflict in simple_overflow_test.hex (bcda728) - Bobrossrtx
+- resolve merge conflict in simple_overflow_test.hex (61cf67a) - Bobrossrtx
+- remove obsolete simple_overflow_test.hex file (9daef5e) - Bobrossrtx
+- correct typo in header comment and clean up whitespace in output section (0c7ada8) - Bobrossrtx
+- Add missing implementations for extended opcodes (679cc01) - Bobrossrtx
+- Resolve integration test failures and enhance examples (c7c16d3) - Owen Boreham
+- Fix argument parsing and include directive processing (8cea1ff) - Owen Boreham
+
+### 🧪 Tests
+
+- Add test cases for basic arithmetic and logical operations (f16048f) - Owen Boreham
+- Add test hex files for CPU functionality (6ab57e0) - Owen Boreham
+- Enhance CPU class functionality and update test hex file (e9fec62) - Bobrossrtx
+- Add pushf_popf.hex to validate PUSH_FLAG and POP_FLAG instructions (5bfa7c3) - Bobrossrtx
+- improve test data and error expectations (42e8179) - Bobrossrtx
+- Add comprehensive carry flag and conditional jump tests (9f7d885) - Bobrossrtx
+- Add debugging tools and test programs for development (92a2945) - Bobrossrtx
+- Add comprehensive carry flag and conditional jump tests (ce13e74) - Bobrossrtx
+- Add debugging tools and test programs for development (d00a5b6) - Bobrossrtx
+- Add comprehensive assembler test suite (8d99469) - Bobrossrtx
+- Add comprehensive SIMD/FPU register architecture unit tests (31e6660) - Bobrossrtx
+- implement in-assembly test framework with metadata support (75e8e23) - Owen Boreham
+- Add FPU test suite for floating-point operations (2673c9d) - Owen Boreham
+- Enhance instruction fusion test suite (a1495f3) - Owen Boreham
+- Add include system and shared library tests (854aaea) - Owen Boreham
+- Add comprehensive core instruction test suites (13d2bf8) - Owen Boreham
+- Add advanced algorithm and specialized test suites (6f2d0b1) - Owen Boreham
+- Add test framework feature and error handling suites (cd3caa7) - Owen Boreham
+- Add comprehensive preprocessor and macro testing suites (ca1c554) - Owen Boreham
+- Add specialized instruction and benchmark test suites (1465af9) - Owen Boreham
+- Enhance test framework with advanced features (065dd7d) - Owen Boreham
+
+### 📚 Documentation
+
+- Add contributing guidelines for VirtComp project (3277cd5) - Owen Boreham
+- Replace roadmap.txt with markdown version for improved clarity and structure (a2e07a3) - Bobrossrtx
+- Update README for improved structure and clarity (ef1179f) - Bobrossrtx
+- Update roadmap to clarify status of Flags & Status Operations (864bab1) - Bobrossrtx
+- restructure roadmap and add comprehensive test framework design (dd9c692) - Bobrossrtx
+- Update project roadmap with completed milestones (14595f6) - Bobrossrtx
+- Update memory bank with critical development knowledge (ac4e998) - Bobrossrtx
+- Fix critical opcode errors in QUICK_REFERENCE.md (23a9833) - Bobrossrtx
+- Fix opcode and format errors in TROUBLESHOOTING.md (1b8aba8) - Bobrossrtx
+- Fix opcode errors in CONTRIBUTING.md test examples (18d5a1f) - Bobrossrtx
+- Major overhaul of docs/usage/README.md instruction accuracy (08afadb) - Bobrossrtx
+- Fix opcode constants in API_REFERENCE.md (2cdc0c9) - Bobrossrtx
+- Complete rewrite of main README.md instruction set (b7bef14) - Bobrossrtx
+- Document VirtComp merge workflow and final system patterns (21e5898) - Bobrossrtx
+- Document VirtComp merge workflow in memory bank (e2d43d0) - Bobrossrtx
+- Update project roadmap with completed milestones (0cc6565) - Bobrossrtx
+- Fix critical opcode errors in QUICK_REFERENCE.md (9f27cba) - Bobrossrtx
+- Fix opcode and format errors in TROUBLESHOOTING.md (f57b808) - Bobrossrtx
+- Fix opcode errors in CONTRIBUTING.md test examples (df2a748) - Bobrossrtx
+- Major overhaul of docs/usage/README.md instruction accuracy (b2a2d66) - Bobrossrtx
+- Fix opcode constants in API_REFERENCE.md (68475c1) - Bobrossrtx
+- Complete rewrite of main README.md instruction set (567db1d) - Bobrossrtx
+- update documentation for overflow flag implementation (0f6f78e) - Bobrossrtx
+- update progress and decisions for overflow flag implementation (58540f2) - Bobrossrtx
+- update documentation for overflow flag implementation (08ae01a) - Bobrossrtx
+- update roadmap and project documentation for Phase 2.5 completion (c579d19) - Bobrossrtx
+- finalize roadmap for Phase 2 assembly language development (5823b0f) - Bobrossrtx
+- Update roadmap (a069c49) - Bobrossrtx
+- Update project vision and roadmap details for DemiEngine (8a565dc) - Bobrossrtx
+- Update documentation for 100% test coverage achievement (e36218f) - Owen Boreham
+- correct opcode implementation claims (63 implemented, 88 planned) (d13f0c1) - Owen Boreham
+- update roadmap priorities - assembly expansion before frontend (fbdb963) - Owen Boreham
+- reorganize documentation into logical structure (56c4f66) - Owen Boreham
+- remove duplicate files after reorganization (b633641) - Owen Boreham
+- add comprehensive future features roadmap (674bbf2) - Owen Boreham
+- add comprehensive website documentation datasets (JSON) (c5336af) - Owen Boreham
+- Update project configuration and documentation (ce3b80b) - Owen Boreham
+
+### ♻️ Code Refactoring
+
+- Update argument parser and improve process execution handling in compilation argument (7b32e74) - Owen Boreham
+- updated printf statements to cout - Fix to flawfinder scan #22-26 (0a43341) - Bobrossrtx
+- Mark unused variables with [[maybe_unused]] in gui.cpp and main.cpp (59a630c) - Bobrossrtx
+- remove generated program_data.hpp from repository (aee170d) - Bobrossrtx
+- Reorganize test files from tests/ to tests/hex/ structure (9427c81) - Bobrossrtx
+- Improve code readability and structure (137d391) - Bobrossrtx
+- Update default test directory and improve log formatting (76b599d) - Bobrossrtx
+- Improve logging during device initialization and update test runner path (7dc4220) - Bobrossrtx
+- Remove GUI system and simplify build (e98cb19) - Owen Boreham
+- Improve device management and logging (f3f2677) - Owen Boreham
+- update SIMD tests to use actual opcodes (87895fe) - Owen Boreham
+
+### 💅 Code Style
+
+- Update test result header formatting for consistency (db561d1) - Bobrossrtx
+- Update settings.json with additional file associations and spell check words (8ed7c62) - Bobrossrtx
+
+### 🔧 Build System
+
+- Enhance Makefile structure and add dependency tracking (147476c) - Bobrossrtx
+- enhance test infrastructure with error handling (524c4ec) - Bobrossrtx
+
+### 👷 Continuous Integration
+
+- disable autogrowth workflow until properly configured (bd0a4d2) - Owen Boreham
+
+### 🔨 Chores
+
+- Refactor CPU header: Clean up formatting and maintain consistency & update terminal output with box-creation unicode (a981e8d) - Bobrossrtx
+- Cleanup: Remove unnecessary blank lines in GUI rendering code (6874d2e) - Bobrossrtx
+- Cleanup: Remove fixed version of advanced I/O test with corrupt bytes (19d69dd) - Owen Boreham
+- Remove obsolete hex test files for helloworld_memory and helloworld_with_loop to clean up the test suite. (9ee10fc) - Bobrossrtx
+- update development environment configuration (947bc7f) - Bobrossrtx
+- exclude external dependencies from repository (169eb0b) - Bobrossrtx
+- Update VS Code settings and virtual storage data (48a8f87) - Bobrossrtx
+- Clean up temporary debug files (d7a3d65) - Bobrossrtx
+- Update VS Code settings and virtual storage data (19f945d) - Bobrossrtx
+- Remove obsolete debug files and scripts (4a9d563) - Bobrossrtx
+- Add additional debugging files to .gitignore (1ac473a) - Bobrossrtx
+- remove obsolete development scripts (c264f28) - Bobrossrtx
+- add memory bank and development files to .gitignore (e6b3bee) - Bobrossrtx
+- improve .gitignore with debug file patterns and fix test file (f44eb32) - Bobrossrtx
+- Update .gitignore for improved file management (e6f39ee) - Bobrossrtx
+- Add project pitch to .gitignore (c511423) - Bobrossrtx
+- Update .gitignore to exclude development tools and documentation (ac68b61) - Bobrossrtx
+- update documentation links and development environment (2cf4aff) - Owen Boreham
+- remove obsolete hex test files (695ee4a) - Owen Boreham
+- Clean up legacy test files and add comprehensive documentation (1a1af16) - Owen Boreham
+
+### 🔄 Other Changes
+
+- Initial commit (21f99bc) - Owen Boreham
+- Update .gitignore to include additional debug files and build directories (312b1e9) - Owen Boreham
+- Add initial implementation of the VirtComp project (294edb7) - Owen Boreham
+- Add initial configuration files for VSCode (5c24476) - Owen Boreham
+- Add README.md with project overview, structure, and usage instructions (de19b43) - Owen Boreham
+- Update README.md to clarify program writing guidelines and assembly language status (3486a05) - Owen Boreham
+- Add current and future instruction set documentation to README.md (4ab11a1) - Owen Boreham
+- Create build.yml (dcedbbc) - Owen Boreham
+- Update build.yml (4dcbcb7) - Owen Boreham
+- Create flawfinder.yml (22c18ab) - Owen Boreham
+- Add launch and tasks configuration files for C++ development (4f0b00d) - Owen Boreham
+- Add debugging flags to C++ compilation in Makefile (c9c37ee) - Owen Boreham
+- Fix instruction sequence in push_pop.hex for correct R0 and R1 operations (8e08dda) - Owen Boreham
+- Add ImGui integration for VirtComp VM debug GUI and update Makefile (6d291a4) - Owen Boreham
+- Add prerequisites installation to Makefile and update README instructions (87364c8) - Owen Boreham
+- Add Fira Code font files for improved typography (f925bee) - Bobrossrtx
+- Update VSCode configuration files: refine include paths, adjust C standard, and enhance file associations (078e7d9) - Bobrossrtx
+- Refactor ImGui window settings: adjust positions, sizes, and docking configurations for improved layout (ffb70a0) - Bobrossrtx
+- Enhance Makefile: add fmt library prerequisites and improve installation messages (493a0f7) - Bobrossrtx
+- Update test hex file: add header comment and correct data format (f15e122) - Bobrossrtx
+- Update roadmap: format opcode list for improved readability (9998d15) - Bobrossrtx
+- Update build.yml (0612def) - Owen Boreham
+- Refactor argument parser: Improve code structure and enhance readability (9ae77eb) - Bobrossrtx
+- Add virtual device management and I/O device implementations (da46b6e) - Bobrossrtx
+- Update .gitignore: Add cache file patterns to ignore list (1073fce) - Bobrossrtx
+- Add configuration provider to C++ IntelliSense settings (64ef19f) - Bobrossrtx
+- Add compile mode and program data generation functionality (f5dda94) - Bobrossrtx
+- Add comprehensive usage documentation for VirtComp and update roadmap (c5216b9) - Owen Boreham
+- Potential fix for code scanning alert no. 28: Workflow does not contain permissions (841f1ec) - Owen Boreham
+- Merge pull request #1 from bobrossrtx/alert-autofix-28 (9ec3213) - Owen Boreham
+- security: Fix critical buffer overflow and file security vulnerabilities (6fd793a) - Bobrossrtx
+- security: Fix critical TOCTOU race condition in serial port device (CWE-362) (27f5393) - Bobrossrtx
+- security: Complete buffer boundary fixes for file device operations (054e129) - Bobrossrtx
+- Refactor(Opcodes/CPU): Implement opcode handlers for various operations (72dcc08) - Bobrossrtx
+- Remove obsolete opcode handlers for OR, OUT, OUTB, OUTL, OUTSTR, OUTW, POP, POP_ARG, POP_FLAG, PUSH, PUSH_ARG, PUSH_FLAG, RET, SHL, SHR, STORE, SUB, and XOR instructions to streamline the codebase and improve maintainability. (16e9075) - Bobrossrtx
+- Remove obsolete jmp, jz, and sub opcode files to streamline the codebase (f507951) - Owen Boreham
+- Update README.md (e98a72b) - Owen Boreham
+- Merge branch 'main' into private-memory-bank (606a275) - Bobrossrtx
+- Implement LEA and SWAP opcodes with comprehensive testing (d9d2e23) - Bobrossrtx
+- Update roadmap to reflect current progress and test results (3e24b07) - Bobrossrtx
+- 🎉 Phase 1 Complete: Achieve 100% Test Coverage (53/53 tests) (92785b2) - Bobrossrtx
+- Merge Assembly Update (c322ad2) - Bobrossrtx
+- Phase 3A: Complete codebase documentation overhaul (20f75d7) - Bobrossrtx
+- Update register implementation notes and workspace changes (54940bc) - Bobrossrtx
+- Pre-rename backup: Complete VirtComp codebase before DemiEngine transition (1a5dacf) - Bobrossrtx
+- Step-by-step rename: Core VirtComp → DemiEngine transformation complete (861175a) - Bobrossrtx
+- Complete VirtComp → DemiEngine rename transformation (85be170) - Bobrossrtx
+- Update build status to use correct repo url (ad07388) - Owen Boreham
+- Fix LOAD_IMM64 instruction: properly decode 64-bit immediates and advance PC (c982ca0) - Owen Boreham
+- Fix ADD instruction to handle 8-bit overflow and flags (6b1c339) - Owen Boreham
+- Fix assembly test metadata printing and completion message placement (3e226f0) - Owen Boreham
+- Exclude examples from default assembly test runs (67f2611) - Owen Boreham
+- Integrate 20 comprehensive features into development roadmap (5e254ce) - Owen Boreham
+- Fix GitHub Actions workflow for Gemini AI and Twitter-only mode (107f966) - Owen Boreham
+- Remove OpenAI dependency from daily post generator (18a8225) - Owen Boreham
+- Add packed byte manipulation instructions (011a77f) - Owen Boreham
+- Add LOADR indirect addressing instruction (0e4b1ea) - Owen Boreham
+- Add example programs and include demonstrations (2376cda) - Owen Boreham
+- Enhance core assembler with preprocessor integration (a970591) - Owen Boreham
+
+
