@@ -1,0 +1,60 @@
+; Demonstration of .maxsteps directive
+; Tests that the .maxsteps directive can override the default 10,000 step limit
+
+.test "default maxsteps (10000)" {
+    .description "Test that runs with the default 10,000 step limit for loop execution"
+    .author "DemiEngine Team"
+    .category "Test Framework"
+    .tag "maxsteps"
+    .tag "loop"
+    
+    ; This test uses the default 10,000 step limit
+    ; Running 100 iterations is well within the limit
+    LOAD_IMM R0, 0
+    LOAD_IMM R1, 1
+    LOAD_IMM R2, 100
+loop_start:
+    ADD R0, R1
+    CMP R0, R2
+    JL loop_start
+    .assert_reg R0, 100
+}
+
+.test "custom maxsteps (500)" {
+    .description "Test with custom .maxsteps directive set to 500 steps"
+    .author "DemiEngine Team"
+    .category "Test Framework"
+    .tag "maxsteps"
+    .tag "metadata"
+    .tag "loop"
+    .maxsteps 500
+    
+    ; This test sets a custom limit of 500 steps
+    ; Running 20 iterations should complete successfully
+    LOAD_IMM R0, 0
+    LOAD_IMM R1, 1
+    LOAD_IMM R2, 20
+repeat:
+    ADD R0, R1
+    CMP R0, R2
+    JL repeat
+    .assert_reg R0, 20
+}
+
+.test "infinite loop caught by limit" {
+    .description "Test that infinite loops are caught by maxsteps timeout"
+    .author "DemiEngine Team"
+    .category "Test Framework"
+    .tag "maxsteps"
+    .tag "error-handling"
+    .tag "timeout"
+    .maxsteps 50
+    .expect_error true
+    
+    ; This test should fail because it will exceed the 50 step limit
+    LOAD_IMM R0, 0
+    LOAD_IMM R1, 1
+endless:
+    ADD R0, R1
+    JMP endless
+}
