@@ -7,15 +7,15 @@ BIN_DIR := bin
 
 # Find all .cpp files in src and its subdirectories, excluding test files
 SRCS := $(shell find $(SRC_DIR) -name '*.cpp' -not -name 'test_runner.cpp' -not -name 'test_*.cpp')
-# Add the new register system source files explicitly
-REGISTER_SRCS := $(SRC_DIR)/engine/cpu_registers.cpp
-SRCS += $(REGISTER_SRCS)
 # Replace src/ with build/ and .cpp with .o for object files
 OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 # Generate dependency files
 DEPS := $(OBJS:.o=.d)
 
 TARGET := $(BIN_DIR)/demi-engine
+
+# Set explicit default goal
+.DEFAULT_GOAL := all
 
 # Assembler test target (minimal dependencies, no CPU execution)
 ASSEMBLER_TEST_TARGET := $(BIN_DIR)/test_assembler
@@ -31,12 +31,25 @@ TEST_RUNNER_SRC := $(SRC_DIR)/test/test_runner.cpp
 TEST_RUNNER_OBJ := $(BUILD_DIR)/test/test_runner.o
 TEST_RUNNER_DEP := $(TEST_RUNNER_OBJ:.o=.d)
 
-# Include dependency files if they exist
+# Fmt library
+FMT_DIR := extern/fmt
+FMT_SRCS = $(FMT_DIR)/src/format.cc
+FMT_OBJS = $(patsubst $(FMT_DIR)/src/%.cc,$(BUILD_DIR)/fmt/%.o,$(FMT_SRCS))
+FMT_DEPS = $(FMT_OBJS:.o=.d)
+
+# Add fmt include path to all compile rules
+CXXFLAGS += -Iextern/fmt/include
+
+# Default target
+all: $(TARGET)
+
+# Include dependency files if they exist (but don't error if they don't)
+ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 -include $(TEST_DEPS)
 -include $(TEST_RUNNER_DEP)
-
-all: $(TARGET)
+-include $(FMT_DEPS)
+endif
 
 # Test framework target
 $(TEST_TARGET): $(TEST_OBJS) $(TEST_RUNNER_OBJ) $(FMT_OBJS)
@@ -49,9 +62,6 @@ FMT_SRCS = $(FMT_DIR)/src/format.cc
 FMT_OBJS = $(patsubst $(FMT_DIR)/src/%.cc,$(BUILD_DIR)/fmt/%.o,$(FMT_SRCS))
 FMT_DEPS = $(FMT_OBJS:.o=.d)
 
-# Include FMT dependency files
--include $(FMT_DEPS)
-
 # Add fmt include path to all compile rules
 CXXFLAGS += -Iextern/fmt/include
 
@@ -60,7 +70,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Pattern rule for fmt sources
+# Pattern rule for fmt sources  
 $(BUILD_DIR)/fmt/%.o: $(FMT_DIR)/src/%.cc
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -73,11 +83,6 @@ $(TARGET): $(OBJS) $(FMT_OBJS)
 $(ASSEMBLER_TEST_TARGET): $(ASSEMBLER_TEST_OBJS) $(FMT_OBJS)
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
-
-# Rule for building test_assembler.o in test build directory
-$(BUILD_DIR)/test/test_assembler.o: $(SRC_DIR)/test/test_assembler.cpp
-	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
