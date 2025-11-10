@@ -1,3 +1,0 @@
-LOAD_IMM R0, 65
-OUT R0, 1
-HALT

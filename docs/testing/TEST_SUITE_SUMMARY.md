@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully created a comprehensive test suite for the DemiEngine assembler using the new in-assembly test framework with `#test` and `#assert` directives.
+Successfully created a comprehensive test suite for the DemiEngine assembler using the new in-assembly test framework with `.test` and `.assert` directives.
 
 ## Test Statistics
 
