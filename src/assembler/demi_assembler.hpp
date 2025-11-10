@@ -1,5 +1,6 @@
 #pragma once
 #include "assembler.hpp"
+#include "preprocessor.hpp"
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -15,10 +16,18 @@ public:
     
     /**
      * Assemble assembly source code into bytecode
-     * @param source Assembly source code
+     * @param source Assembly source code string
      * @return Bytecode vector (empty if errors occurred)
      */
     std::vector<uint8_t> assemble_string(const std::string& source);
+    
+    /**
+     * Assemble assembly source code into bytecode with base path for includes
+     * @param source Assembly source code string
+     * @param base_path Base directory path for resolving relative includes
+     * @return Bytecode vector (empty if errors occurred)
+     */
+    std::vector<uint8_t> assemble_string(const std::string& source, const std::string& base_path);
     
     /**
      * Assemble assembly source file into bytecode
@@ -43,6 +52,11 @@ public:
     const std::unordered_map<std::string, Symbol>& get_symbols() const { return symbols; }
     
     /**
+     * Get entry address from the last assembly operation
+     */
+    uint32_t get_entry_address() const { return entry_address; }
+    
+    /**
      * Clear all errors and reset state
      */
     void clear_errors();
@@ -57,6 +71,7 @@ public:
 private:
     std::vector<std::string> all_errors;
     std::unordered_map<std::string, Symbol> symbols;
+    uint32_t entry_address = 0;
     
     void collect_errors(const std::vector<std::string>& errors);
     std::string read_file(const std::string& filename);
