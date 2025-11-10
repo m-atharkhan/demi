@@ -29,6 +29,7 @@ namespace fs = std::experimental::filesystem;
 #include "test/test.hpp"
 #include "test/test_framework.hpp"
 #include "test/assembly_test_executor.hpp"
+#include <unistd.h>  // For _exit()
 
 // Include the assembler framework
 #include "assembler/demi_assembler.hpp"
@@ -82,6 +83,12 @@ struct ArgDef {
     std::function<void()> action;                         // For action args
 };
 
+struct ParsedArg {
+    std::string name;
+    std::string value;
+    ArgType type;
+};
+
 class ArgParser {
 public:
     void add_value_arg(const std::string& name, const std::string& arg, const std::string& alias,
@@ -102,9 +109,15 @@ public:
             }, nullptr});
     }
 
-    void parse(int argc, char* argv[]) {        for (int i = 1; i < argc; ++i) {
+    void parse(int argc, char* argv[]) {
+        // Phase 1: Collect all parsed arguments and positional arguments
+        std::vector<ParsedArg> parsed_args;
+        positional_args_.clear();
+        
+        for (int i = 1; i < argc; ++i) {
             std::string token = argv[i];
             bool matched = false;
+            
             for (auto& def : args_) {
                 // Check for exact match or --arg=value / -a=value format
                 bool is_match = false;
@@ -126,21 +139,69 @@ public:
 
                 if (is_match) {
                     matched = true;
+                    
                     if (def.type == ArgType::Value) {
                         // If we didn't get value from =, try next argument
                         if (value.empty() && i + 1 < argc && argv[i + 1][0] != '-') {
                             value = argv[++i];
                         }
-                        // If no value, value remains empty
-                        if (def.value_action) def.value_action(value);
+                        // Store the parsed argument
+                        parsed_args.push_back({def.name, value, def.type});
                     } else if (def.type == ArgType::Action) {
-                        if (def.action) def.action();
+                        // Store the parsed action
+                        parsed_args.push_back({def.name, "", def.type});
                     }
                     break;
                 }
             }
-            if (!matched && token.rfind("-", 0) == 0) {
-                std::cerr << "Unknown argument: " << token << std::endl;
+            
+            if (!matched) {
+                if (token.rfind("-", 0) == 0) {
+                    std::cerr << "Unknown argument: " << token << std::endl;
+                } else {
+                    // This is a positional argument (doesn't start with -)
+                    positional_args_.push_back(token);
+                }
+            }
+        }
+        
+        // Phase 2: Process arguments in a deterministic order
+        // Process boolean flags first (debug, verbose, etc.)
+        for (const auto& parsed : parsed_args) {
+            if (parsed.name == "debug" || parsed.name == "verbose" || parsed.name == "extended_registers" || 
+                parsed.name == "memdump" || parsed.name == "gui" || parsed.name == "interactive") {
+                auto def = find_arg_def(parsed.name);
+                if (def && def->value_action) {
+                    def->value_action(parsed.value);
+                }
+            }
+        }
+        
+        // Process value arguments next (files, paths, etc.)
+        for (const auto& parsed : parsed_args) {
+            if (parsed.name != "debug" && parsed.name != "verbose" && parsed.name != "extended_registers" && 
+                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" &&
+                parsed.name != "help" && parsed.name != "test" && parsed.name != "unit_test" && 
+                parsed.name != "assembly_test" && parsed.name != "assembly_test_quiet") {
+                auto def = find_arg_def(parsed.name);
+                if (def && def->value_action) {
+                    def->value_action(parsed.value);
+                }
+            }
+        }
+        
+        // Process action arguments last (test modes, help, etc.)
+        for (const auto& parsed : parsed_args) {
+            if (parsed.name == "help" || parsed.name == "test" || parsed.name == "unit_test" || 
+                parsed.name == "assembly_test" || parsed.name == "assembly_test_quiet") {
+                auto def = find_arg_def(parsed.name);
+                if (def) {
+                    if (def->type == ArgType::Action && def->action) {
+                        def->action();
+                    } else if (def->type == ArgType::Value && def->value_action) {
+                        def->value_action(parsed.value);
+                    }
+                }
             }
         }
     }
@@ -149,19 +210,37 @@ public:
         std::cout << "demi-engine Usage: demi-engine [options]" << std::endl;
         for (const auto& def : args_) {
             // Use printf to align arguments and help text
-            std::cout << fmt::format("  {:<20} {:<6}  {}\n", def.arg, def.alias, def.help);
+            std::cout << fmt::format("  {:<25} {:<6}  {}\n", def.arg, def.alias, def.help);
         }
     }
+
 private:
     std::vector<ArgDef> args_;
+    std::vector<std::string> positional_args_;
+    
+public:
+    const std::vector<std::string>& get_positional_args() const {
+        return positional_args_;
+    }
+    
+private:
+    // Helper function to find argument definition by name
+    ArgDef* find_arg_def(const std::string& name) {
+        for (auto& def : args_) {
+            if (def.name == name) {
+                return &def;
+            }
+        }
+        return nullptr;
+    }
 };
 
 void run_in_assembly_tests() {
-    // Scan tests/asm/ directory for .asm files
+    // Scan tests/ directory for .asm files
     std::vector<std::string> test_files;
     
-    // Use filesystem to find all .asm files in tests/asm/
-    std::string test_dir = "tests/asm";
+    // Use filesystem to find all .asm files in tests/
+    std::string test_dir = "tests";
     if (fs::exists(test_dir) && fs::is_directory(test_dir)) {
         for (const auto& entry : fs::directory_iterator(test_dir)) {
             if (entry.is_regular_file() && entry.path().extension() == ".asm") {
@@ -174,7 +253,7 @@ void run_in_assembly_tests() {
     // To include examples, run with specific file path: ./bin/demi-engine -at examples/test_example.asm
     
     if (test_files.empty()) {
-        fmt::print("\nNo in-assembly test files found in tests/asm/.\n");
+        fmt::print("\nNo in-assembly test files found in tests/.\n");
         return;
     }
     
@@ -199,7 +278,7 @@ void run_in_assembly_tests() {
     
     // Print consolidated results
     if (all_results.empty()) {
-        fmt::print("\nNo in-assembly tests found in tests/asm/.\n");
+        fmt::print("\nNo in-assembly tests found in tests/.\n");
     } else {
         executor.print_results(all_results);
     }
@@ -214,43 +293,18 @@ void run_unit_tests_only() {
     exit(0);
 }
 
-void run_integration_tests_only() {
-    const char* color = Config::debug ? "\033[38;5;208m" : "\033[36m";
-    std::cout << color << "┌──────────────────────────────────────────────────────┐\033[0m" << std::endl;
-    std::cout << color << "│     Running DemiEngine Integration Tests             │\033[0m" << std::endl;
-    std::cout << color << "└──────────────────────────────────────────────────────┤\033[0m" << std::endl;
-
-    TestRunner runner("tests/hex");
-    auto results = runner.run_all();
-    int passed = 0, failed = 0;
-    
-    const char* result_color = Config::debug ? "\033[38;5;208m" : "\033[36m";
-    std::cout << result_color << "┌──────────────────────────────────────────────────────┤\033[0m" << std::endl;
-    std::cout << result_color << "│     DemiEngine Integration Test Results              │\033[0m" << std::endl;
-    std::cout << result_color << "└──────────────────────────────────────────────────────┘\033[0m" << std::endl;
-    
-    for (const auto& result : results) {
-        [[maybe_unused]] constexpr int name_width = 24;
-        const char* color = result.passed ? "\033[32m" : "\033[31m";
-        const char* reset = "\033[0m";
-        std::cout << fmt::format("{0}[{1}]{2} {3:<28}", color, result.passed ? "/" : "X", reset, result.name);
-        if ((&result - &results[0] + 1) % 4 == 0)
-            std::cout << std::endl;
-        else
-            std::cout << "    ";
-        if (result.passed) ++passed; else ++failed;
-    }
-    std::cout << std::endl;
-    
-    const char* summary_color = (failed == 0) ? "\033[32m" : "\033[33m";
-    std::cout << summary_color << "Integration tests passed: " << passed << " / " << results.size() << "\033[0m" << std::endl;
-    exit(0);
-}
-
 void run_assembly_tests_only() {
     Config::verbose = true;  // Enable INFO logs for test output
-    run_in_assembly_tests();
-    exit(0);
+    try {
+        run_in_assembly_tests();
+    } catch (const std::exception& e) {
+        std::cerr << "Error: Exception in run_in_assembly_tests(): " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Error: Unknown exception in run_in_assembly_tests()" << std::endl;
+    }
+    std::flush(std::cerr);
+    std::flush(std::cout);
+    _exit(0); // Use _exit to completely bypass all destructors
 }
 
 void run_single_file_tests(const std::string& filepath) {
@@ -369,34 +423,32 @@ public:
                 }
             });
         
-        // Run integration tests only (or specific file)
-        parser.add_value_arg("integration_test", "--integration-test", "-it", "Run integration tests only, or test a specific file if path provided",
-            [this](const std::string& value) {
-                if (value.empty()) {
-                    run_integration_tests_only();
-                } else {
-                    run_single_file_tests(value);
-                }
-            });
-        
         // Run assembly tests only (or specific file)
-        parser.add_value_arg("assembly_test", "--assembly-test", "-at", "Run in-assembly tests only, or test a specific file if path provided",
-            [this](const std::string& value) {
-                if (value.empty()) {
+        parser.add_action_arg("assembly_test", "--assembly-test", "-at", "Run in-assembly tests only",
+            [this]() {
+                auto positional = parser.get_positional_args();
+                if (positional.empty()) {
                     run_assembly_tests_only();
                 } else {
-                    run_single_file_tests(value);
+                    // Run tests on specified files
+                    for (const auto& file : positional) {
+                        run_single_file_tests(file);
+                    }
                 }
             });
         
         // Run assembly tests in quiet mode (only show title and description)
-        parser.add_value_arg("assembly_test_quiet", "--assembly-test-quiet", "-atq", "Run in-assembly tests in quiet mode (title and description only), or test a specific file if path provided",
-            [this](const std::string& value) {
+        parser.add_action_arg("assembly_test_quiet", "--assembly-test-quiet", "-atq", "Run in-assembly tests in quiet mode (title and description only)",
+            [this]() {
                 Config::quiet_assembly_test = true;
-                if (value.empty()) {
+                auto positional = parser.get_positional_args();
+                if (positional.empty()) {
                     run_assembly_tests_only();
                 } else {
-                    run_single_file_tests(value);
+                    // Run tests on specified files
+                    for (const auto& file : positional) {
+                        run_single_file_tests(file);
+                    }
                 }
             });
 

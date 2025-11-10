@@ -8,6 +8,9 @@
 #include <memory>
 #include <sstream>
 #include <algorithm>
+#include <numeric>
+#include <cmath>
+#include <chrono>
 
 namespace Testing {
 
@@ -38,6 +41,49 @@ struct AssertionResult {
 /**
  * Result of a single test case execution
  */
+struct BenchmarkStats {
+    std::vector<double> iteration_times;
+    double min_time_ms = 0.0;
+    double max_time_ms = 0.0;
+    double avg_time_ms = 0.0;
+    double median_time_ms = 0.0;
+    double stddev_ms = 0.0;
+    size_t iterations = 0;
+    size_t warmup_iterations = 0;
+    std::string measure_type = "time";
+    
+    void calculate_statistics() {
+        if (iteration_times.empty()) return;
+        
+        iterations = iteration_times.size();
+        
+        // Calculate min, max, sum
+        min_time_ms = *std::min_element(iteration_times.begin(), iteration_times.end());
+        max_time_ms = *std::max_element(iteration_times.begin(), iteration_times.end());
+        
+        double sum = std::accumulate(iteration_times.begin(), iteration_times.end(), 0.0);
+        avg_time_ms = sum / iterations;
+        
+        // Calculate median
+        std::vector<double> sorted_times = iteration_times;
+        std::sort(sorted_times.begin(), sorted_times.end());
+        size_t mid = sorted_times.size() / 2;
+        if (sorted_times.size() % 2 == 0) {
+            median_time_ms = (sorted_times[mid-1] + sorted_times[mid]) / 2.0;
+        } else {
+            median_time_ms = sorted_times[mid];
+        }
+        
+        // Calculate standard deviation
+        double variance = 0.0;
+        for (double time : iteration_times) {
+            variance += (time - avg_time_ms) * (time - avg_time_ms);
+        }
+        variance /= iterations;
+        stddev_ms = std::sqrt(variance);
+    }
+};
+
 struct TestResult {
     std::string test_name;
     std::string description;
@@ -45,12 +91,15 @@ struct TestResult {
     std::string category;
     std::vector<std::string> tags;
     bool passed;
+    bool skipped;
+    bool is_benchmark;
     std::vector<AssertionResult> assertions;
     std::string error_message;
     double execution_time_ms;
+    BenchmarkStats benchmark_stats;
     
     TestResult(const std::string& name) 
-        : test_name(name), passed(true), execution_time_ms(0.0) {}
+        : test_name(name), passed(true), skipped(false), is_benchmark(false), execution_time_ms(0.0) {}
     
     void set_metadata(const std::string& desc, const std::string& auth, 
                      const std::string& cat, const std::vector<std::string>& test_tags) {
@@ -70,6 +119,19 @@ struct TestResult {
     void set_error(const std::string& error) {
         passed = false;
         error_message = error;
+    }
+    
+    void set_skipped(bool skip) {
+        skipped = skip;
+        passed = skip;  // Skipped tests count as passed
+    }
+    
+    void set_execution_time(double time_ms) {
+        execution_time_ms = time_ms;
+    }
+    
+    void set_benchmark(bool benchmark) {
+        is_benchmark = benchmark;
     }
     
     size_t get_passed_count() const {
@@ -140,7 +202,8 @@ public:
 private:
     DemiAssembler assembler;
     OutputCapture output_capture;
-    std::string current_source;  // Store current source for extraction
+    std::string current_source;     // Store current source for extraction
+    std::string current_file_path;  // Store current file path for include resolution
     
     /**
      * Evaluate a single assertion against CPU state
