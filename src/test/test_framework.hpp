@@ -7,6 +7,7 @@
 #include <fstream>
 #include <chrono>
 #include <limits>
+#include <map>
 #include <fmt/format.h>
 #include "../engine/cpu.hpp"
 #include "../engine/device_factory.hpp"
@@ -16,6 +17,7 @@
 #include "../assembler/lexer.hpp"
 #include "../assembler/parser.hpp" 
 #include "../assembler/assembler.hpp"
+#include "../engine/opcodes/instruction_fusion.hpp"
 
 // Forward declarations
 class TestContext;
@@ -79,6 +81,8 @@ public:
     TestContext() : cpu(CPU::create_test_cpu()), program() {
         cpu.reset();
         initialize_devices();
+        // Reset fusion stats for each test
+        InstructionFusion::g_fusion_engine.reset_stats();
     }
 
     ~TestContext() = default;
@@ -130,8 +134,14 @@ public:
             throw std::runtime_error("No program loaded");
         }
 
-        // Add a safety limit to prevent infinite loops in tests
-        const size_t MAX_STEPS = 10000;
+        execute_program_with_limit(10000);  // Default to 10,000 steps
+    }
+
+    void execute_program_with_limit(size_t max_steps) {
+        if (program.empty()) {
+            throw std::runtime_error("No program loaded");
+        }
+
         cpu.reset();
 
         // Copy program into memory
@@ -142,7 +152,7 @@ public:
 
         size_t step_count = 0;
 
-        while (step_count < MAX_STEPS) {
+        while (step_count < max_steps) {
             bool continue_execution = cpu.step(program);
             step_count++;
 
@@ -151,9 +161,14 @@ public:
             }
         }
 
-        if (step_count >= MAX_STEPS) {
+        if (step_count >= max_steps) {
             throw std::runtime_error("Test exceeded maximum execution steps (possible infinite loop)");
         }
+    }
+    
+    // Set maximum call depth for this test (useful for testing call stack overflow)
+    void set_max_call_depth(size_t depth) {
+        cpu.set_max_call_depth_override(depth);
     }
 
     // State inspection
@@ -431,6 +446,59 @@ public:
         }
     }
 
+    // Fusion testing utilities
+    
+    void reset_fusion_stats() {
+        InstructionFusion::g_fusion_engine.reset_stats();
+    }
+    
+    const InstructionFusion::FusionStats& get_fusion_stats() const {
+        return InstructionFusion::g_fusion_engine.get_stats();
+    }
+    
+    void assert_fusion_count(uint64_t expected_count) {
+        uint64_t actual = get_fusion_stats().successful_fusions;
+        if (actual != expected_count) {
+            throw AssertionFailure(fmt::format(
+                "Fusion count assertion failed: expected {} fusions, got {}",
+                expected_count, actual));
+        }
+    }
+    
+    void assert_fusion_pattern_count(InstructionFusion::FusionPattern pattern, uint64_t expected_count) {
+        uint64_t actual = get_fusion_stats().pattern_counts[static_cast<int>(pattern)];
+        if (actual != expected_count) {
+            throw AssertionFailure(fmt::format(
+                "Fusion pattern count assertion failed: expected {} occurrences of pattern {}, got {}",
+                expected_count, static_cast<int>(pattern), actual));
+        }
+    }
+    
+    void assert_no_fusion() {
+        assert_fusion_count(0);
+    }
+    
+    void assert_fusion_rate(double min_rate) {
+        double actual_rate = get_fusion_stats().fusion_rate();
+        if (actual_rate < min_rate) {
+            throw AssertionFailure(fmt::format(
+                "Fusion rate assertion failed: expected at least {:.1f}%, got {:.1f}%",
+                min_rate, actual_rate));
+        }
+    }
+    
+    void enable_fusion() {
+        InstructionFusion::g_fusion_engine.enable();
+    }
+    
+    void disable_fusion() {
+        InstructionFusion::g_fusion_engine.disable();
+    }
+    
+    bool is_fusion_enabled() const {
+        return InstructionFusion::g_fusion_engine.is_enabled();
+    }
+
     // CPU instance for direct access if needed
     CPU cpu;
     std::vector<uint8_t> program;
@@ -476,36 +544,156 @@ public:
     void print_results(const std::vector<TestResult>& results) {
         int passed = 0, failed = 0;
 
-        // Print header
-        std::cout << "\n" << fmt::format("{}┌────────────────────────────────────────────────────────────┐{}\n",
-                                "\033[36m", "\033[0m");
-        std::cout << fmt::format("{}│     DemiEngine Unit Test Results                           │{}\n",
-                                "\033[36m", "\033[0m");
-        std::cout << fmt::format("{}└────────────────────────────────────────────────────────────┘{}\n",
-                                "\033[36m", "\033[0m");
-
-        // Print individual results
-        for (const auto& result : results) {
-            const char* color = result.passed ? "\033[32m" : "\033[31m";
-            const char* reset = "\033[0m";
-            const char* status = result.passed ? "PASS" : "FAIL";
-
-            std::cout << fmt::format("{}[{}]{} {} [{:.1f}ms]",
-                                   color, status, reset, result.name, result.duration_ms);
-
-            if (!result.passed && !result.message.empty()) {
-                std::cout << fmt::format(" ── {}", result.message);
-            }
-            std::cout << std::endl;
-
-            if (result.passed) ++passed;
-            else ++failed;
+        // Print header (skip in quiet mode)
+        if (!Config::quiet) {
+            std::cout << "\n" << fmt::format("{}┌────────────────────────────────────────────────────────────┐{}\n",
+                                    "\033[36m", "\033[0m");
+            std::cout << fmt::format("{}│     DemiEngine Unit Test Results                           │{}\n",
+                                    "\033[36m", "\033[0m");
+            std::cout << fmt::format("{}└────────────────────────────────────────────────────────────┘{}\n",
+                                    "\033[36m", "\033[0m");
         }
 
-        // Print summary
+        // Collect failures and organize tests by category
+        std::vector<TestResult> failures;
+        // category -> (passed, total, total_time_ms, vector of results)
+        std::map<std::string, std::tuple<int, int, double, std::vector<TestResult>>> category_data;
+
+        // Organize results by category
+        for (const auto& result : results) {
+            // Track statistics
+            if (result.passed) ++passed;
+            else {
+                ++failed;
+                failures.push_back(result);
+            }
+
+            // Track category data
+            auto& data = category_data[result.category];
+            std::get<1>(data)++; // total count
+            std::get<2>(data) += result.duration_ms; // total time
+            if (result.passed) std::get<0>(data)++; // passed count
+            std::get<3>(data).push_back(result); // store the result
+        }
+
+        // In normal mode, show tree structure with categories and tests
+        if (!Config::quiet) {
+            for (const auto& [cat, data] : category_data) {
+                int passed_count = std::get<0>(data);
+                int total_count = std::get<1>(data);
+                double total_time = std::get<2>(data);
+                const auto& cat_results = std::get<3>(data);
+                
+                const char* cat_color = (passed_count == total_count) ? "\033[36m" : "\033[33m";
+                
+                // Print category header
+                std::cout << fmt::format("\n{}━━━ {} ({}/{}) [{:.1f}ms] ━━━\033[0m\n",
+                                       cat_color, cat, passed_count, total_count, total_time);
+                
+                // Print tests under this category
+                for (const auto& result : cat_results) {
+                    const char* color = result.passed ? "\033[32m" : "\033[31m";
+                    const char* reset = "\033[0m";
+                    const char* status = result.passed ? "✓" : "✗";
+                    
+                    {
+                        const int total_width = 60;
+                        std::string visible_body = fmt::format(" {} ", result.name);
+                        std::string time_str = fmt::format("[{:.1f}ms]", result.duration_ms);
+                        // include one extra visible space between the name/dashes and the time string
+                        int visible_len = 1 + static_cast<int>(visible_body.size()) + 1 + static_cast<int>(time_str.size()); // 1 for the visible symbol, 1 for the separating space
+                        int pad = total_width - visible_len;
+                        if (pad < 1) pad = 1;
+                        std::cout << color << status << reset << visible_body << std::string(pad, '-') << " " << time_str;
+                    }
+
+                    if (!result.passed && !result.message.empty()) {
+                        std::cout << fmt::format(" ── {}", result.message);
+                    }
+                    std::cout << std::endl;
+                }
+            }
+        }
+
+        // In quiet mode, show compact summary
+        if (Config::quiet) {
+            // Show failures if any
+            if (!failures.empty()) {
+                std::cout << "\n\033[31m━━━ Failures ━━━\033[0m\n";
+                for (const auto& result : failures) {
+                    {
+                        const int total_width = 60;
+                        std::string visible_body = fmt::format(" {} ({})", result.name, result.category);
+                        std::string time_str = fmt::format("[{:.1f}ms]", result.duration_ms);
+                        // 1 for the visible symbol, 1 for the single separating space before time_str
+                        int visible_len = 1 + static_cast<int>(visible_body.size()) + 1 + static_cast<int>(time_str.size());
+                        int pad = total_width - visible_len;
+                        if (pad < 1) pad = 1;
+                        // color only the symbol so ANSI codes do not affect visible length calculation
+                        std::cout << "\033[31m✗\033[0m" << visible_body << " " << std::string(pad, '-') << " " << time_str;
+                    }
+                    if (!result.message.empty()) {
+                        std::cout << fmt::format("\n  └─ {}", result.message);
+                    }
+                    std::cout << std::endl;
+                }
+            }
+
+            // Show category breakdown with timing and tests underneath
+            if (!category_data.empty()) {
+                std::cout << "\n\033[36m━━━ Categories ━━━\033[0m\n";
+                for (const auto& [cat, data] : category_data) {
+                    int passed_count = std::get<0>(data);
+                    int total_count = std::get<1>(data);
+                    double total_time = std::get<2>(data);
+                    const auto& cat_results = std::get<3>(data);
+                    
+                    const char* cat_color = (passed_count == total_count) ? "\033[32m" : "\033[33m";
+                    std::cout << fmt::format("{}  {:<20} {:>3}/{:<3} [{:>7.1f}ms]\033[0m\n",
+                                           cat_color, cat, passed_count, total_count, total_time);
+                    
+                    // Print individual tests under category
+                    for (const auto& result : cat_results) {
+                        const char* color = result.passed ? "\033[32m" : "\033[31m";
+                        const char* status = result.passed ? "✓" : "✗";
+                        {
+                            const int total_width = 60;
+                            std::string visible_body = fmt::format("    {}", result.name);
+                            std::string time_str = fmt::format("[{:>6.1f}ms]", result.duration_ms);
+                            // 1 for the visible symbol, 1 for the single separating space before time_str
+                            int visible_len = 1 + static_cast<int>(visible_body.size()) + 1 + static_cast<int>(time_str.size());
+                            int pad = total_width - visible_len;
+                            if (pad < 1) pad = 1;
+                            std::cout << color << status << "\033[0m" << visible_body << " " << std::string(pad, '-') << " " << time_str << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Print summary (always show this, even in quiet mode)
+        double total_time = 0.0;
+        const TestResult* slowest = nullptr;
+        for (const auto& result : results) {
+            total_time += result.duration_ms;
+            if (!slowest || result.duration_ms > slowest->duration_ms) {
+                slowest = &result;
+            }
+        }
+        
         const char* summary_color = (failed == 0) ? "\033[32m" : "\033[33m";
-        std::cout << fmt::format("\n{}Tests passed: {} / {}{}\n",
-                                summary_color, passed, results.size(), "\033[0m");
+        std::cout << fmt::format("\n{}Unit Tests: {} passed / {}{} \033[90m[{:.1f}ms total, {:.2f}ms avg]\033[0m\n",
+                                summary_color, passed, results.size(), "\033[0m",
+                                total_time, total_time / results.size());
+        
+        if (failed > 0) {
+            std::cout << fmt::format("\033[31m{} test(s) failed\033[0m\n", failed);
+        }
+        
+        if (!Config::quiet && slowest) {
+            std::cout << fmt::format("\033[90mSlowest test: {} [{:.1f}ms]\033[0m\n", 
+                                   slowest->name, slowest->duration_ms);
+        }
     }
 
 private:
@@ -527,9 +715,43 @@ private:
     TestResult run_test(const TestCase& test) {
         auto start = std::chrono::high_resolution_clock::now();
 
+        // Save original buffers
+        auto cout_buf = std::cout.rdbuf();
+        auto cerr_buf = std::cerr.rdbuf();
+
         try {
-            // Show which test is currently running using logger
-            Logger::instance().running() << fmt::format("Unit Test: {} ({})", test.name, test.category) << std::endl;
+            // Show which test is currently running using logger (skip in quiet mode)
+            if (!Config::quiet) {
+                Logger::instance().running() << fmt::format("Unit Test: {} ({})", test.name, test.category) << std::endl;
+            }
+
+            // Track if test produces output
+            bool has_output = false;
+            
+            // Create a custom buffer that tracks writes and also outputs normally
+            class TrackingBuf : public std::streambuf {
+                std::streambuf* original;
+                bool* output_flag;
+            public:
+                TrackingBuf(std::streambuf* orig, bool* flag) : original(orig), output_flag(flag) {}
+                
+                int overflow(int c) override {
+                    *output_flag = true;
+                    return original->sputc(c);
+                }
+                
+                std::streamsize xsputn(const char* s, std::streamsize n) override {
+                    if (n > 0) *output_flag = true;
+                    return original->sputn(s, n);
+                }
+            };
+            
+            TrackingBuf tracking_cout(cout_buf, &has_output);
+            TrackingBuf tracking_cerr(cerr_buf, &has_output);
+            
+            // Redirect to tracking buffers
+            std::cout.rdbuf(&tracking_cout);
+            std::cerr.rdbuf(&tracking_cerr);
 
             // Reset global state
             Config::error_count = 0;
@@ -539,6 +761,25 @@ private:
 
             // Run the test
             test.test_func(context);
+
+            // Restore original buffers
+            std::cout.rdbuf(cout_buf);
+            std::cerr.rdbuf(cerr_buf);
+
+            // Only print separators if test produced output
+            if (has_output) {
+                // Print footer separator with centered test name
+                const int total_width = 60;
+                const int label_width = test.name.length() + 4; // "[name] "
+                const int dashes_total = total_width - label_width;
+                const int left_dashes = dashes_total / 2;
+                const int right_dashes = dashes_total - left_dashes;
+                
+                std::cout << "\n\033[90m" 
+                         << std::string(left_dashes, '-') << "^[" << test.name << "]^"
+                         << std::string(right_dashes, '-')
+                         << "\033[0m\n";
+            }
 
             // Check if we expected an error but didn't get one
             if (test.expect_error && Config::error_count == 0) {
@@ -554,6 +795,10 @@ private:
             return TestResult(test.name, test.category, true, "", duration.count() / 1000.0);
 
         } catch (const AssertionFailure& e) {
+            // Restore buffers
+            std::cout.rdbuf(cout_buf);
+            std::cerr.rdbuf(cerr_buf);
+            
             // If we expected an error and got an assertion failure, that might be OK
             if (test.expect_error) {
                 auto end = std::chrono::high_resolution_clock::now();
@@ -567,6 +812,10 @@ private:
             return TestResult(test.name, test.category, false, e.what(), duration.count() / 1000.0);
 
         } catch (const std::exception& e) {
+            // Restore buffers
+            std::cout.rdbuf(cout_buf);
+            std::cerr.rdbuf(cerr_buf);
+            
             // If we expected an error and got a standard exception, that's probably OK
             if (test.expect_error) {
                 auto end = std::chrono::high_resolution_clock::now();
@@ -581,6 +830,10 @@ private:
                             "Exception: " + std::string(e.what()), duration.count() / 1000.0);
 
         } catch (...) {
+            // Restore buffers
+            std::cout.rdbuf(cout_buf);
+            std::cerr.rdbuf(cerr_buf);
+            
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
             return TestResult(test.name, test.category, false,
