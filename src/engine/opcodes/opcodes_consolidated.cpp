@@ -7,10 +7,14 @@
 #include "../cpu_flags.hpp"
 #include "../../assembler/opcodes.hpp"
 #include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
+#include "../../debug/error_handler.hpp"
 #include <fmt/core.h>
 #include <iomanip>
 
 using Logging::Logger;
+using Logging::ErrorHandler;
+using Logging::ErrorCode;
 
 // Include all opcode header files
 #include "add.hpp"
@@ -93,9 +97,15 @@ using Logging::Logger;
 #include "sub64.hpp"
 #include "mov64.hpp"
 #include "load_imm64.hpp"
+#include "mul64.hpp"
+#include "div64.hpp"
+#include "and64.hpp"
+#include "cmp64.hpp"
 #include "movex.hpp"
 #include "addex.hpp"
 #include "subex.hpp"
+#include "loadex.hpp"
+#include "storex.hpp"
 
 // CPU mode control headers
 #include "mode32.hpp"
@@ -133,17 +143,16 @@ void handle_add(CPU& cpu, const std::vector<uint8_t>& program, [[maybe_unused]] 
             // For backward compatibility, allow access to the full register array but warn
             // This prevents crashes while highlighting that extended operations should be used
             if (reg1 >= cpu.get_registers().size() || reg2 >= cpu.get_registers().size()) {
-                Logger::instance().error() << fmt::format(
-                    "[PC=0x{:04X}] [ADD] Invalid register access: R{}, R{} (max available: R{})", 
-                    cpu.get_pc(), reg1, reg2, cpu.get_registers().size() - 1
-                ) << std::endl;
+                std::string context = fmt::format("Register R{} or R{} out of range (max: R{})", reg1, reg2, cpu.get_registers().size() - 1);
+                std::string message = "Invalid register access in ADD instruction";
+                ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
                 cpu.set_pc(cpu.get_pc() + 3);
                 cpu.print_state("ADD");
                 return;
             }
         }
         
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [ADD] PC={} R{} += R{}", cpu.get_pc(), cpu.get_pc(), reg1, reg2) << std::endl;
+        DEBUG_INSTRUCTION("ADD", cpu.get_pc(), fmt::format("R{} += R{}", reg1, reg2), "");
 
         uint8_t before = static_cast<uint8_t>(cpu.get_registers()[reg1] & 0xFF);
         uint8_t operand = static_cast<uint8_t>(cpu.get_registers()[reg2] & 0xFF);
@@ -169,7 +178,9 @@ void handle_add(CPU& cpu, const std::vector<uint8_t>& program, [[maybe_unused]] 
         }
 
         cpu.get_registers()[reg1] = result;
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [ADD] R{}: {} + {} = {} (carry={}, overflow={})", cpu.get_pc(), reg1, before, operand, result, (cpu.get_flags() & FLAG_CARRY) ? 1 : 0, (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0) << std::endl;
+        DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} + {} = {} (carry={}, overflow={})", 
+                    reg1, before, operand, result, (cpu.get_flags() & FLAG_CARRY) ? 1 : 0, 
+                    (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0);
     }
     cpu.set_pc(cpu.get_pc() + 3);
     cpu.print_state("ADD");
@@ -202,25 +213,17 @@ void handle_call(CPU& cpu,[[maybe_unused]] const std::vector<uint8_t>& program, 
     // Check for call stack overflow (too many nested calls)
     size_t max_depth = cpu.get_effective_max_call_depth();
     if (cpu.get_call_depth() >= max_depth) {
-        std::string error_msg = fmt::format(
-            "[PC=0x{:04X}] [CALL] Call stack overflow: depth={} exceeds maximum of {}",
-            pc, cpu.get_call_depth(), max_depth
-        );
-        Logger::instance().error() << error_msg << std::endl;
-        Config::error_count++;
+        std::string context = fmt::format("Call depth: {} (max: {})", cpu.get_call_depth(), max_depth);
+        std::string message = fmt::format("Call stack overflow: maximum nesting depth exceeded");
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_CALL_STACK_OVERFLOW, message, pc, context);
         running = false;
-        throw CPUException(error_msg);
+        throw CPUException(message);
     }
 
     // Reset offset at each call
     cpu.set_arg_offset(8);
 
     uint8_t addr = cpu.fetch_operand();
-
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [Call] PC=0x{:X}->addr=0x{:X} ret 0x{:X} and FP 0x{:X} to stack at SP=0x{:X} (depth={})",
-        pc, pc, addr, (pc + 2), cpu.get_fp(), cpu.get_sp(), cpu.get_call_depth()
-    ) << std::endl;
 
     // Push old FP
     uint32_t sp = cpu.get_sp() - 4;
@@ -240,12 +243,6 @@ void handle_call(CPU& cpu,[[maybe_unused]] const std::vector<uint8_t>& program, 
     
     cpu.print_stack_frame("CALL");
     cpu.set_pc(addr);
-
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [CALL] After jump PC=0x{:X}",
-        pc, pc
-    ) << std::endl;
-
     cpu.print_state("CALL");
 }
 
@@ -312,11 +309,11 @@ void handle_db(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 void handle_dec(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [DEC] PC={} R{}", cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg)) << std::endl;
+        DEBUG_INSTRUCTION("DEC", cpu.get_pc(), fmt::format("R{}", static_cast<int>(reg)), "");
         if (reg < cpu.get_registers().size()) {
             uint8_t before = cpu.get_registers()[reg];
             --cpu.get_registers()[reg];
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [DEC] R{}: {} - 1 = {}", cpu.get_pc(), static_cast<int>(reg), before, cpu.get_registers()[reg]) << std::endl;
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} - 1 = {}", static_cast<int>(reg), before, cpu.get_registers()[reg]);
         }
         cpu.set_pc(cpu.get_pc() + 2);
     } else {
@@ -330,17 +327,18 @@ void handle_div(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [DIV] PC={} R{} /= R{}", cpu.get_pc(), cpu.get_pc(), reg1, reg2) << std::endl;
+        DEBUG_INSTRUCTION("DIV", cpu.get_pc(), fmt::format("R{} /= R{}", reg1, reg2), "");
         if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
             if (cpu.get_registers()[reg2] == 0) {
-                std::string error_msg = fmt::format("[PC=0x{:04X}] [DIV] Invalid Division Division by zero at PC={}", cpu.get_pc(), cpu.get_pc());
-                Logger::instance().error() << error_msg << std::endl;
+                std::string context = fmt::format("R{} = {}, R{} = 0", reg1, cpu.get_registers()[reg1], reg2);
+                std::string message = "Division by zero: attempted to divide by register with value 0";
+                ErrorHandler::instance().report_runtime(ErrorCode::CPU_DIVISION_BY_ZERO, message, cpu.get_pc(), context);
                 running = false;
-                throw CPUException(error_msg);
+                throw CPUException(message);
             }
             uint8_t before = cpu.get_registers()[reg1];
             cpu.get_registers()[reg1] /= cpu.get_registers()[reg2];
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [DIV] R{}: {} / {} = {}", cpu.get_pc(), reg1, before, cpu.get_registers()[reg2], cpu.get_registers()[reg1]) << std::endl;
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} / {} = {}", reg1, before, cpu.get_registers()[reg2], cpu.get_registers()[reg1]);
         }
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
@@ -354,17 +352,18 @@ void handle_mod(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MOD] PC={} R{} %= R{}", cpu.get_pc(), cpu.get_pc(), reg1, reg2) << std::endl;
+        DEBUG_INSTRUCTION("MOD", cpu.get_pc(), fmt::format("R{} %= R{}", reg1, reg2), "");
         if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
             if (cpu.get_registers()[reg2] == 0) {
-                std::string error_msg = fmt::format("[PC=0x{:04X}] [MOD] Invalid Modulo Division by zero at PC={}", cpu.get_pc(), cpu.get_pc());
-                Logger::instance().error() << error_msg << std::endl;
+                std::string context = fmt::format("R{} = {}, R{} = 0", reg1, cpu.get_registers()[reg1], reg2);
+                std::string message = "Modulo by zero: attempted to compute modulo with divisor of 0";
+                ErrorHandler::instance().report_runtime(ErrorCode::CPU_MODULO_BY_ZERO, message, cpu.get_pc(), context);
                 running = false;
-                throw CPUException(error_msg);
+                throw CPUException(message);
             }
             uint8_t before = cpu.get_registers()[reg1];
             cpu.get_registers()[reg1] %= cpu.get_registers()[reg2];
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MOD] R{}: {} % {} = {}", cpu.get_pc(), reg1, before, cpu.get_registers()[reg2], cpu.get_registers()[reg1]) << std::endl;
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} % {} = {}", reg1, before, cpu.get_registers()[reg2], cpu.get_registers()[reg1]);
         }
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
@@ -375,10 +374,11 @@ void handle_mod(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Implementation from halt.cpp
 void handle_halt(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [HALT] PC={}",
-        cpu.get_pc(), cpu.get_pc()
-    ) << std::endl;
+    // FIXED: Remove Logger call to prevent deadlock
+    // Logger::instance().debug() << fmt::format(
+    //     "[PC=0x{:04X}] [HALT] PC={}",
+    //     cpu.get_pc(), cpu.get_pc()
+    // ) << std::endl;
     running = false;
     cpu.set_pc(cpu.get_pc() + 1);
     cpu.print_state("HALT");
@@ -419,11 +419,11 @@ void handle_inb(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 void handle_inc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [INC] PC={} R{}", cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg)) << std::endl;
+        DEBUG_INSTRUCTION("INC", cpu.get_pc(), fmt::format("R{}", static_cast<int>(reg)), "");
         if (reg < cpu.get_registers().size()) {
             uint8_t before = cpu.get_registers()[reg];
             ++cpu.get_registers()[reg];
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [INC] R{}: {} + 1 = {}", cpu.get_pc(), static_cast<int>(reg), before, cpu.get_registers()[reg]) << std::endl;
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} + 1 = {}", static_cast<int>(reg), before, cpu.get_registers()[reg]);
         }
         cpu.set_pc(cpu.get_pc() + 2);
     } else {
@@ -568,11 +568,11 @@ void handle_jmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t addr = program[cpu.get_pc() + 1];
         // Simple validation - check if address is within program bounds
         if (addr >= program.size()) {
-            std::string error_msg = fmt::format("Invalid jump address (JMP): {} at PC={}", static_cast<int>(addr), cpu.get_pc());
-            Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ') << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Jump target: 0x{:X}, program size: 0x{:X}", static_cast<int>(addr), program.size());
+            std::string message = "Invalid jump address: target exceeds program bounds";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_JUMP, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         cpu.set_pc(addr);
     } else {
@@ -631,10 +631,11 @@ void handle_js(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         if (cpu.get_flags() & FLAG_SIGN) {
             // Simple validation - check if address is within program bounds
             if (addr >= program.size()) {
-                std::string error_msg = fmt::format("Invalid jump address (JS): {} at PC={}", static_cast<int>(addr), cpu.get_pc());
-                Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ') << error_msg << std::endl;
+                std::string context = fmt::format("Jump target: 0x{:X}, program size: 0x{:X}", static_cast<int>(addr), program.size());
+                std::string message = "Invalid jump address in JS instruction: target exceeds program bounds";
+                ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_JUMP, message, cpu.get_pc(), context);
                 running = false;
-                throw CPUException(error_msg);
+                throw CPUException(message);
             }
             cpu.set_pc(addr);
         } else {
@@ -654,10 +655,11 @@ void handle_jz(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         if (cpu.get_flags() & FLAG_ZERO) {
             // Simple validation - check if address is within program bounds
             if (addr >= program.size()) {
-                std::string error_msg = fmt::format("Invalid jump address (JZ): {} at PC={}", static_cast<int>(addr), cpu.get_pc());
-                Logger::instance().error() << std::right << std::setw(23) << std::setfill(' ') << error_msg << std::endl;
+                std::string context = fmt::format("Jump target: 0x{:X}, program size: 0x{:X}", static_cast<int>(addr), program.size());
+                std::string message = "Invalid jump address in JZ instruction: target exceeds program bounds";
+                ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_JUMP, message, cpu.get_pc(), context);
                 running = false;
-                throw CPUException(error_msg);
+                throw CPUException(message);
             }
             cpu.set_pc(addr);
         } else {
@@ -678,18 +680,18 @@ void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         
         // Check bounds
         if (reg >= cpu.get_registers().size()) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOAD] Invalid register R{}", cpu.get_pc(), reg);
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
+            std::string message = "Invalid register in LOAD instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         if (addr >= cpu.get_memory().size()) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOAD] Memory out of bounds: address 0x{:X} >= size 0x{:X}", cpu.get_pc(), addr, cpu.get_memory().size());
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Attempted access at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
+            std::string message = "Memory read out of bounds in LOAD instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         
         cpu.get_registers()[reg] = cpu.get_memory()[addr];
@@ -710,20 +712,20 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         
         // Check destination register bounds
         if (dest_reg >= cpu.get_registers().size()) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOADR] Invalid destination register R{}", cpu.get_pc(), dest_reg);
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Register R{} out of range (0-{})", dest_reg, cpu.get_registers().size() - 1);
+            std::string message = "Invalid destination register in LOADR instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         
         // Check address register bounds
         if (addr_reg >= cpu.get_registers().size()) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOADR] Invalid address register R{}", cpu.get_pc(), addr_reg);
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Register R{} out of range (0-{})", addr_reg, cpu.get_registers().size() - 1);
+            std::string message = "Invalid address register in LOADR instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         
         // Get the address from the address register
@@ -731,11 +733,11 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         
         // Check memory bounds
         if (addr >= cpu.get_memory().size()) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [LOADR] Memory out of bounds: address 0x{:X} >= size 0x{:X}", cpu.get_pc(), addr, cpu.get_memory().size());
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Attempted read at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
+            std::string message = "Memory read out of bounds in LOADR instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         
         // Load value from memory address into destination register
@@ -755,12 +757,20 @@ void handle_load_imm(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         uint8_t imm = program[cpu.get_pc() + 2];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM] PC=0x{:02X} reg={} imm=0x{:02X}", cpu.get_pc(), cpu.get_pc(), reg, imm) << std::endl;
+        DEBUG_INSTRUCTION("LOAD_IMM", cpu.get_pc(), fmt::format("R{}, 0x{:02X}", reg, imm), "");
         if (reg < cpu.get_registers().size()) {
             cpu.get_registers()[reg] = imm;
+            // Also update the 64-bit register array to keep them in sync
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "Updating 64-bit register R{} with value {}", reg, static_cast<uint64_t>(imm));
+            if (reg < cpu.get_registers_64().size()) {
+                cpu.get_registers_64()[reg] = static_cast<uint64_t>(imm);
+                DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "Set 64-bit R{} = {}", reg, static_cast<uint64_t>(imm));
+            } else {
+                DEBUG_CRITICAL(Logging::DebugCategory::CPU_REGISTERS, "Register {} out of 64-bit range (size={})", reg, cpu.get_registers_64().size());
+            }
             // Note: Don't call sync_from_legacy_registers() here as it would overwrite
             // any values set via set_sp() or other non-legacy operations
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM] Set R{} = 0x{:02X}", cpu.get_pc(), reg, imm) << std::endl;
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "Set R{} = 0x{:02X}", reg, imm);
         }
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
@@ -806,7 +816,7 @@ void handle_mul(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MUL] PC={} R{} *= R{}", cpu.get_pc(), cpu.get_pc(), reg1, reg2) << std::endl;
+        DEBUG_INSTRUCTION("MUL", cpu.get_pc(), fmt::format("R{} *= R{}", reg1, reg2), "");
         if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
             uint32_t before = cpu.get_registers()[reg1];
             uint32_t operand = cpu.get_registers()[reg2];
@@ -1056,12 +1066,11 @@ void handle_pop_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& progr
         // Standalone context: pop from stack like regular POP
         // Check for stack underflow
         if (cpu.get_sp() >= cpu.get_memory().size()) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [POP_ARG] Stack underflow: SP={}, Memory size={}", 
-                pc, cpu.get_sp(), cpu.get_memory().size());
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Stack pointer: 0x{:X}, memory size: 0x{:X}", cpu.get_sp(), cpu.get_memory().size());
+            std::string message = "Stack underflow in POP_ARG instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_UNDERFLOW, message, pc, context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         
         cpu.get_registers()[reg] = cpu.read_mem32(cpu.get_sp());
@@ -1085,12 +1094,11 @@ void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         // Check for stack underflow (SP at or beyond initial position)
         // Stack starts at memory.size() - 4, so if SP >= memory.size(), stack is empty
         if (cpu.get_sp() >= cpu.get_memory().size()) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [POP] Stack underflow: SP={}, Memory size={}", 
-                cpu.get_pc(), cpu.get_sp(), cpu.get_memory().size());
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Stack pointer: 0x{:X}, memory size: 0x{:X}", cpu.get_sp(), cpu.get_memory().size());
+            std::string message = "Stack underflow: not enough data to POP";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_UNDERFLOW, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         
         uint32_t value = cpu.read_mem32(cpu.get_sp());
@@ -1108,12 +1116,11 @@ void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 void handle_pop_flag(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     // Check for stack underflow
     if (cpu.get_sp() >= cpu.get_memory().size()) {
-        std::string error_msg = fmt::format("[PC=0x{:04X}] [POPF] Stack underflow: SP={}, Memory size={}", 
-            cpu.get_pc(), cpu.get_sp(), cpu.get_memory().size());
-        Logger::instance().error() << error_msg << std::endl;
-        Config::error_count++;
+        std::string context = fmt::format("Stack pointer: 0x{:X}, memory size: 0x{:X}", cpu.get_sp(), cpu.get_memory().size());
+        std::string message = "Stack underflow: cannot pop flags";
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_UNDERFLOW, message, cpu.get_pc(), context);
         running = false;
-        throw CPUException(error_msg);
+        throw CPUException(message);
     }
     
     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [POPF] PC={} Popping FLAGS={:08X}", cpu.get_pc(), cpu.get_pc(), cpu.get_flags()) << std::endl;
@@ -1149,11 +1156,11 @@ void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         
         // Check for stack overflow (SP going below reasonable minimum)
         if (cpu.get_sp() < 8) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [PUSH] Stack overflow: SP={}", cpu.get_pc(), cpu.get_sp());
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Stack pointer: 0x{:X}, minimum safe SP: 0x0008", cpu.get_sp());
+            std::string message = "Stack overflow during PUSH: insufficient space";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_OVERFLOW, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         
         cpu.set_sp(cpu.get_sp() - 4);
@@ -1187,14 +1194,11 @@ void handle_ret(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, 
     // Check if RET is being called without a matching CALL
     // SP should be well below memory size if there's a valid call frame
     if (sp + 8 > cpu.get_memory().size()) {
-        std::string error_msg = fmt::format(
-            "[PC=0x{:04X}] [RET] Invalid RET without matching CALL (SP={}, memory_size={})",
-            pc, sp, cpu.get_memory().size()
-        );
-        Logger::instance().error() << error_msg << std::endl;
-        Config::error_count++;
+        std::string context = fmt::format("Stack pointer: 0x{:X}, memory size: 0x{:X}", sp, cpu.get_memory().size());
+        std::string message = "Invalid RET: stack underflow or no matching CALL";
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_UNDERFLOW, message, pc, context);
         running = false;
-        throw CPUException(error_msg);
+        throw CPUException(message);
     }
 
     // Stack layout from CALL:
@@ -1269,18 +1273,18 @@ void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         
         // Check bounds
         if (reg >= cpu.get_registers().size()) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [STORE] Invalid register R{}", cpu.get_pc(), reg);
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
+            std::string message = "Invalid register in STORE instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         if (addr >= cpu.get_memory().size()) {
-            std::string error_msg = fmt::format("[PC=0x{:04X}] [STORE] Memory out of bounds: address 0x{:X} >= size 0x{:X}", cpu.get_pc(), addr, cpu.get_memory().size());
-            Logger::instance().error() << error_msg << std::endl;
-            Config::error_count++;
+            std::string context = fmt::format("Attempted write at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
+            std::string message = "Memory write out of bounds in STORE instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(error_msg);
+            throw CPUException(message);
         }
         
         cpu.get_memory()[addr] = cpu.get_registers()[reg];
@@ -1556,12 +1560,16 @@ void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Dispatcher function (copied from opcode_dispatcher.cpp)
 void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    Logger::instance().debug() << fmt::format("[DISPATCH_OPCODE] ENTRY: PC=0x{:04X}", cpu.get_pc()) << std::endl;
+    
     if (cpu.get_pc() >= program.size()) {
+        Logger::instance().debug() << fmt::format("[DISPATCH_OPCODE] PC out of bounds, stopping") << std::endl;
         running = false;
         return;
     }
 
     Opcode opcode = static_cast<Opcode>(program[cpu.get_pc()]);
+    Logger::instance().debug() << fmt::format("[DISPATCH_OPCODE] Processing opcode 0x{:02X}", static_cast<uint8_t>(opcode)) << std::endl;
 
     switch (opcode) {
         case Opcode::NOP:
@@ -1743,6 +1751,18 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
         case Opcode::LOAD_IMM64:
             handle_load_imm64(cpu, program, running);
             break;
+        case Opcode::MUL64:
+            handle_mul64(cpu, program, running);
+            break;
+        case Opcode::DIV64:
+            handle_div64(cpu, program, running);
+            break;
+        case Opcode::AND64:
+            handle_and64(cpu, program, running);
+            break;
+        case Opcode::CMP64:
+            handle_cmp64(cpu, program, running);
+            break;
         case Opcode::MOVEX:
             handle_movex(cpu, program, running);
             break;
@@ -1751,6 +1771,12 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
         case Opcode::SUBEX:
             handle_subex(cpu, program, running);
+            break;
+        case Opcode::LOADEX:
+            handle_loadex(cpu, program, running);
+            break;
+        case Opcode::STOREX:
+            handle_storex(cpu, program, running);
             break;
 
         // CPU Mode Control Operations
@@ -1862,19 +1888,17 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
 
         default:
-            Logger::instance().error()
-                << "Invalid opcode  Unknown opcode 0x"
-                << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(opcode)
-                << " ('" << (static_cast<int>(opcode) >= 32 && static_cast<int>(opcode) <= 126 ?
-                            static_cast<char>(opcode) : '.') << "')"
-                << " at PC=" << std::dec << cpu.get_pc() << std::endl;
-            running = false;
-            Config::error_count++;
-            throw CPUException("Invalid opcode: 0x" + 
-                             fmt::format("{:02X}", static_cast<int>(opcode)) +
-                             " at PC=" + std::to_string(cpu.get_pc()));
+            {
+                std::string opcode_hex = fmt::format("{:02X}", static_cast<int>(opcode));
+                std::string context = fmt::format("Invalid opcode: 0x{}", opcode_hex);
+                std::string message = "Invalid or unrecognized opcode encountered";
+                ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_OPCODE, message, cpu.get_pc(), context);
+                running = false;
+                throw CPUException("Invalid opcode: 0x" + opcode_hex);
+            }
             break;
     }
+    Logger::instance().debug() << fmt::format("[DISPATCH_OPCODE] EXIT: PC=0x{:04X}", cpu.get_pc()) << std::endl;
 }
 
 // 64-bit and Extended Register Operations Implementation

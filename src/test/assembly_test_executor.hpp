@@ -204,6 +204,7 @@ private:
     OutputCapture output_capture;
     std::string current_source;     // Store current source for extraction
     std::string current_file_path;  // Store current file path for include resolution
+    std::string current_test_name;  // Store current test name for brace tracking
     
     /**
      * Evaluate a single assertion against CPU state

@@ -144,8 +144,12 @@ public:
 
         cpu.reset();
 
-        // Copy program into memory
-        std::copy(program.begin(), program.end(), cpu.get_memory().begin());
+        // Copy program into memory safely with bounds checking
+        if (program.size() > cpu.get_memory().size()) {
+            throw std::runtime_error(fmt::format("Program too large: {} bytes, memory size: {}", program.size(), cpu.get_memory().size()));
+        }
+        auto& memory = cpu.get_memory();
+        std::copy_n(program.begin(), std::min(program.size(), memory.size()), memory.begin());
         cpu.set_pc(0);
         cpu.set_sp(cpu.get_memory().size() - 4);
         cpu.set_fp(cpu.get_memory().size() - 4);  // Match main program behavior

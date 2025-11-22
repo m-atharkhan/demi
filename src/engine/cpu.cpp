@@ -9,11 +9,16 @@
 #include "cpu.hpp"
 #include "cpu_flags.hpp"
 #include "cpu_registers.hpp"  // Include the new register system
+#include "branch_prediction.hpp"  // Include branch prediction
+// #include "speculative_execution.hpp"  // Include speculative execution (temporarily disabled)
 #include "../config.hpp"  // Include config for quiet mode check
 #include "opcodes/opcode_dispatcher.hpp"
 #include "opcodes/opcode_dispatcher_threaded.hpp"
 #include "opcodes/opcode_dispatcher_unified.hpp"  // Add unified dispatcher
+#include "opcodes/opcode_dispatcher_inlined.hpp"  // Add optimized inlined dispatcher
+#include "opcodes/opcode_dispatcher_predictive.hpp"  // Add branch predictive dispatcher
 #include "opcodes/instruction_fusion.hpp"  // Instruction fusion optimizer
+#include "../debug/debug_handler.hpp"  // New structured debug system
 
 using namespace DemiEngine_Registers;
 
@@ -170,8 +175,8 @@ CPU::CPU(size_t memory_size)
     // Sync legacy registers for backward compatibility
     sync_legacy_registers();
 
-    // Only log CPU initialization if not in quiet assembly test mode
-    if (!Config::quiet_assembly_test) {
+    // Only log CPU initialization if not in test mode
+    if (!Config::test_mode) {
         Logger::instance().info() << fmt::format(
             "Virtual CPU initialized with {} bytes ({:.1f}MB) of memory and {} total registers",
             memory.size(), memory.size() / (1024.0 * 1024.0), TOTAL_REGISTERS) << std::endl;
@@ -312,35 +317,39 @@ void CPU::print_state(const std::string& info) const {
     oss << "SP=0x" << std::setw(3) << std::setfill('0') << std::hex << std::uppercase << get_sp() << " ";
     oss << "FLAGS=0x" << std::setw(8) << std::setfill('0') << std::hex << std::uppercase << get_flags();
 
-    Logger::instance().debug() << oss.str() << std::endl;
+    // FIXED: Remove Logger call to prevent deadlock
+    // Logger::instance().debug() << oss.str() << std::endl;
 }
 
 void CPU::print_stack_frame(const std::string& label) const {
     // If debug is not enabled, do not print the state
     if (!Config::debug) return;
 
-    Logger::instance().debug() << fmt::format(
-        "[{}] FP=0x{:X} SP=0x{:X} arg_offset={}",
-        label, get_fp(), get_sp(), arg_offset
-    ) << std::endl;
+    // FIXED: Remove Logger call to prevent deadlock
+    // Logger::instance().debug() << fmt::format(
+    //     "[{}] FP=0x{:X} SP=0x{:X} arg_offset={}",
+    //     label, get_fp(), get_sp(), arg_offset
+    // ) << std::endl;
 }
 
 // Fetches the next byte as an operand and advances PC
 uint8_t CPU::fetch_operand() {
+    DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "Fetching operand at PC=0x{:04X}", get_pc());
     if (get_pc() + 1 >= memory.size()) {
-        Logger::instance().debug() << "[FETCH_OPERAND] Out of bounds access at PC=" << get_pc() << std::endl;
+        DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "Operand fetch out of bounds at PC=0x{:04X}, memory size={}", get_pc(), memory.size());
         return 0;
     }
     uint8_t operand = memory[get_pc() + 1];
-    Logger::instance().debug() << fmt::format("[FETCH_OPERAND] PC={} operand={}", get_pc(), static_cast<int>(operand)) << std::endl;
+    DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "Fetched operand=0x{:02X}, advancing PC from 0x{:04X}", operand, get_pc());
     set_pc(get_pc() + 1);
+    DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "PC advanced to 0x{:04X}", get_pc());
     return operand;
 }
 
 // Reads a 32-bit value from memory at the given address (little-endian)
 uint32_t CPU::read_mem32(uint32_t addr) const {
     if (addr + 3 >= memory.size()) {
-        Logger::instance().debug() << "[READ_MEM32] Out of bounds access at addr=" << addr << std::endl;
+        DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "Memory read out of bounds at address=0x{:08X}, memory size={}", addr, memory.size());
         return 0;
     }
     last_accessed_addr = addr;
@@ -353,7 +362,7 @@ uint32_t CPU::read_mem32(uint32_t addr) const {
 // Writes a 32-bit value to memory at the given address (little-endian)
 void CPU::write_mem32(uint32_t addr, uint32_t value) {
     if (addr + 3 >= memory.size()) {
-        Logger::instance().debug() << "[WRITE_MEM32] Out of bounds access at addr=" << addr << std::endl;
+        DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "Memory write out of bounds at address=0x{:08X}, memory size={}", addr, memory.size());
         return;
     }
     last_modified_addr = addr;
@@ -373,27 +382,28 @@ void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address, s
     // Copy program into memory
     std::copy(program.begin(), program.end(), memory.begin());
     // Debug: Print entry address and PC before setting
-    Logger::instance().debug() << "CPU::execute entry_address: 0x" << std::hex << entry_address << ", PC before: 0x" << get_pc() << std::dec << std::endl;
+    DEBUG_CPU("Starting execution at entry address 0x{:04X}, initial PC was 0x{:04X}", entry_address, get_pc());
     // Use entry address if provided, otherwise default to 0
     set_pc(entry_address);
-    Logger::instance().debug() << "PC after set_pc: 0x" << std::hex << get_pc() << std::dec << std::endl;
+    DEBUG_CPU("PC set to entry address: 0x{:04X}", get_pc());
     registers[static_cast<size_t>(Register::RSP)] = memory.size() - 4; // Stack pointer starts at the end of memory
     registers[static_cast<size_t>(Register::RBP)] = get_sp();
     bool running = true;
     size_t step_count = 0;
 
     while (get_pc() < program.size() && running) {
+        DEBUG_DETAIL(Logging::DebugCategory::CPU_EXECUTION, "Execution loop iteration: running={}, step_count={}", running, step_count);
+        
         // Check step limit if provided (0 means unlimited)
         if (max_steps > 0 && step_count >= max_steps) {
             throw std::runtime_error("Test exceeded maximum execution steps (possible infinite loop)");
         }
         
         // Try instruction fusion first for performance
-        // If fusion doesn't apply, fall back to unified dispatch
+        // If fusion doesn't apply, use branch-predictive dispatcher
         if (!InstructionFusion::try_instruction_fusion(*this, program, running)) {
-            // Use unified dispatcher (switch-based) - has all opcodes implemented
-            // TODO: Enable threaded dispatcher once all opcodes are ported
-            dispatch_opcode(*this, program, running);
+            // Use branch-predictive dispatcher with speculative execution
+            dispatch_opcode_with_prediction(*this, program, running);
         }
         
         step_count++;
@@ -505,9 +515,9 @@ bool CPU::step(const std::vector<uint8_t>& program) {
 
     bool running = true;
     
-    // Try instruction fusion first, fall back to normal dispatch
+    // Try instruction fusion first, fall back to optimized dispatch
     if (!InstructionFusion::try_instruction_fusion(*this, program, running)) {
-        dispatch_opcode(*this, program, running);
+        dispatch_opcode_inlined_optimized(*this, program, running);
     }
 
     return running;
