@@ -6,6 +6,7 @@
 # Define platform-specific features
 .define PLATFORM_DEMI
 .define ENABLE_DEBUG_MODE
+.define ENABLE_ADVANCED_ARITHMETIC
 
 .test "preprocessor_platform_specific" {
     .description "Tests platform-specific conditional compilation"
@@ -20,7 +21,7 @@
     .ifdef PLATFORM_DEMI
         LOAD_IMM STATUS, 1
         .ifdef ENABLE_DEBUG_MODE
-            LOAD_IMM ACCUMULATOR, 999  # Debug marker
+            LOAD_IMM ACCUMULATOR, 255  # Debug marker (max value for LOAD_IMM)
         .endif
     .endif
     
@@ -35,7 +36,7 @@
     HALT
     
     .assert_reg R3, 1     # STATUS should be 1 (PLATFORM_DEMI)
-    .assert_reg R1, 999   # ACCUMULATOR should be debug marker
+    .assert_reg R1, 255   # ACCUMULATOR should be debug marker
 }
 
 .test "preprocessor_version_check" {
@@ -54,7 +55,7 @@
     
     HALT
     
-    .assert_reg R2, 10  # VERSION_REG should be 10 (1.0 encoded)
+    .assert_reg R4, 10  # VERSION_REG should be 10 (1.0 encoded)
 }
 
 .test "preprocessor_complex_macros" {
@@ -104,6 +105,8 @@
 
 # Test the mathematical macros if available
 .ifdef ENABLE_ADVANCED_ARITHMETIC
+    .include "includes/math.inc"
+    
     .test "preprocessor_math_operations" {
         .description "Tests mathematical operation macros"
         .author "Math Team"

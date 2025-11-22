@@ -7,6 +7,7 @@
 .define SUB_IMMEDIATE(reg, value) LOAD_IMM R7, value\nSUB reg, R7
 .define MUL_BY_2(reg) SHL reg, 1
 .define DIV_BY_2(reg) SHR reg, 1
+.define MUL_BY_10(reg) LOAD_IMM R7, 10\nMUL reg, R7
 
 # Advanced math (only if enabled)
 .ifdef ENABLE_ADVANCED_ARITHMETIC
