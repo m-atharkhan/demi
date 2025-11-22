@@ -34,6 +34,7 @@ CONFIG_FILE := .build_config
 ifeq ($(BUILD_TYPE),debug)
 CXXFLAGS := -Wall -Wextra -Wpedantic -std=c++17 -g3 -O0 -MMD -MP
 CXXFLAGS += -DDEMI_DEBUG_BUILD -D_GLIBCXX_DEBUG -DDEMI_DEBUG_MODE
+CXXFLAGS += -DVM_DEBUG_BOUNDS -DVM_DEBUG_LOGGING -DVM_FULL_VALIDATION
 LDFLAGS := -g
 BUILD_SUFFIX := -debug
 endif
@@ -42,6 +43,8 @@ endif
 ifeq ($(BUILD_TYPE),release)
 CXXFLAGS := -Wall -Wextra -std=c++17 -O3 -DNDEBUG -MMD -MP -flto
 CXXFLAGS += -march=native -mtune=native -fomit-frame-pointer
+CXXFLAGS += -DVM_RELEASE -DVM_NO_BOUNDS_CHECK -DVM_NO_DEBUG_LOG
+CXXFLAGS += -DDEMI_RELEASE_BUILD
 LDFLAGS := -O3 -flto -s
 BUILD_SUFFIX := -release
 endif
@@ -50,6 +53,7 @@ endif
 ifeq ($(BUILD_TYPE),profile)
 CXXFLAGS := -Wall -Wextra -std=c++17 -O2 -g -MMD -MP
 CXXFLAGS += -DNDEBUG -fno-omit-frame-pointer -DDEMI_PROFILE_MODE
+CXXFLAGS += -DVM_PROFILE -DVM_LIMITED_BOUNDS_CHECK
 LDFLAGS := -O2 -g
 BUILD_SUFFIX := -profile
 endif
