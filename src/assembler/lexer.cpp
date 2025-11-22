@@ -1,4 +1,5 @@
 #include "lexer.hpp"
+#include "../debug/error_handler.hpp"
 #include <algorithm>
 
 namespace Assembler {
@@ -29,6 +30,7 @@ void Lexer::init_tables() {
     keywords[".align"] = TokenType::DIRECTIVE;
     keywords[".bss"] = TokenType::DIRECTIVE;
     keywords[".end"] = TokenType::DIRECTIVE;
+    keywords[".memory"] = TokenType::DIRECTIVE;
     
     // Test directives (using dot syntax for consistency)
     keywords[".test"] = TokenType::TEST_DIRECTIVE;
@@ -40,6 +42,25 @@ void Lexer::init_tables() {
     keywords[".author"] = TokenType::AUTHOR;
     keywords[".category"] = TokenType::CATEGORY;
     keywords[".tag"] = TokenType::TAG;
+    keywords[".maxsteps"] = TokenType::MAXSTEPS;
+    keywords[".maxcalldepth"] = TokenType::MAXCALLDEPTH;
+    keywords[".timeout"] = TokenType::TIMEOUT;
+    keywords[".skip"] = TokenType::SKIP;
+    
+    // Benchmark directives
+    keywords[".benchmark"] = TokenType::BENCHMARK;
+    keywords[".warmup"] = TokenType::WARMUP;
+    keywords[".iterations"] = TokenType::ITERATIONS;
+    keywords[".measure"] = TokenType::MEASURE;
+    
+    // Preprocessor directives
+    keywords[".define"] = TokenType::DEFINE;
+    keywords[".ifdef"] = TokenType::IFDEF;
+    keywords[".ifndef"] = TokenType::IFNDEF;
+    keywords[".elif"] = TokenType::ELIF;
+    keywords[".else"] = TokenType::ELSE;
+    keywords[".endif"] = TokenType::ENDIF;
+    keywords[".undef"] = TokenType::UNDEF;
     
     // DemiEngine instruction mnemonics (matching the CPU opcodes)
     mnemonics["NOP"] = TokenType::MNEMONIC;
@@ -105,6 +126,8 @@ void Lexer::init_tables() {
     mnemonics["LOAD_IMM64"] = TokenType::MNEMONIC;
     mnemonics["MUL64"] = TokenType::MNEMONIC;
     mnemonics["DIV64"] = TokenType::MNEMONIC;
+    mnemonics["AND64"] = TokenType::MNEMONIC;
+    mnemonics["CMP64"] = TokenType::MNEMONIC;
     mnemonics["MOD64"] = TokenType::MNEMONIC;
     mnemonics["INC64"] = TokenType::MNEMONIC;
     mnemonics["DEC64"] = TokenType::MNEMONIC;
@@ -255,6 +278,8 @@ std::vector<Token> Lexer::tokenize() {
             case '+': tokens.emplace_back(TokenType::PLUS, "+", line, column); break;
             case '-': tokens.emplace_back(TokenType::MINUS, "-", line, column); break;
             case '*': tokens.emplace_back(TokenType::ASTERISK, "*", line, column); break;
+            case '(': tokens.emplace_back(TokenType::LPAREN, "(", line, column); break;
+            case ')': tokens.emplace_back(TokenType::RPAREN, ")", line, column); break;
             case '{': tokens.emplace_back(TokenType::LBRACE, "{", line, column); break;
             case '}': tokens.emplace_back(TokenType::RBRACE, "}", line, column); break;
             default:
@@ -483,6 +508,7 @@ bool Lexer::is_binary_digit(char c) const {
 
 void Lexer::add_error(const std::string& message) {
     errors.push_back("Line " + std::to_string(line) + ", Column " + std::to_string(column) + ": " + message);
+    Logging::ErrorHandler::instance().report_parse(Logging::ErrorCode::PARSE_GENERIC, message, "", line, column);
 }
 
 } // namespace Assembler

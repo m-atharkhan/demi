@@ -239,6 +239,10 @@ public:
         skip = should_skip;
     }
     
+    bool get_skip() const {
+        return skip;
+    }
+    
     void set_benchmark(bool is_bench) {
         is_benchmark = is_bench;
     }

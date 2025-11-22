@@ -24,6 +24,7 @@ namespace fs = std::experimental::filesystem;
 
 // Include the debug framework
 #include "debug/logger.hpp"
+#include "debug/debug_handler.hpp"
 
 // Include the test framework
 #include "test/test.hpp"
@@ -263,6 +264,10 @@ void run_in_assembly_tests() {
     // Create test executor
     Testing::TestExecutor executor;
     std::vector<Testing::TestResult> all_results;
+    int total_files = 0;
+    int total_tests = 0;
+    int total_passed = 0;
+    int total_failed = 0;
     
     for (const auto& file : test_files) {
         // Check if file exists
@@ -271,8 +276,36 @@ void run_in_assembly_tests() {
             continue; // Skip if file doesn't exist
         }
         
+        // Print file header
+        if (!Config::quiet_assembly_test) {
+            fmt::print("\n\033[1;34m📁 Testing file: {}\033[0m\n", file);
+        }
+        
         // Execute tests from this file
         auto results = executor.execute_tests_from_file(file);
+        
+        if (!results.empty()) {
+            total_files++;
+            int file_tests = results.size();
+            int file_passed = 0;
+            int file_failed = 0;
+            
+            for (const auto& result : results) {
+                if (!result.skipped) {
+                    if (result.passed) file_passed++;
+                    else file_failed++;
+                }
+            }
+            
+            total_tests += file_tests;
+            total_passed += file_passed;
+            total_failed += file_failed;
+            
+            if (!Config::quiet_assembly_test) {
+                fmt::print("   {} tests: {} passed, {} failed\n", file_tests, file_passed, file_failed);
+            }
+        }
+        
         all_results.insert(all_results.end(), results.begin(), results.end());
     }
     
@@ -280,6 +313,25 @@ void run_in_assembly_tests() {
     if (all_results.empty()) {
         fmt::print("\nNo in-assembly tests found in tests/.\n");
     } else {
+        // Print summary if not in quiet mode
+        if (!Config::quiet_assembly_test) {
+            fmt::print("\n\033[1;36m📊 Overall Summary\033[0m\n");
+            fmt::print("Files tested: {}\n", total_files);
+            fmt::print("Total tests: {}\n", total_tests);
+            fmt::print("Passed: \033[32m{}\033[0m\n", total_passed);
+            if (total_failed > 0) {
+                fmt::print("Failed: \033[31m{}\033[0m\n", total_failed);
+            } else {
+                fmt::print("Failed: {}\n", total_failed);
+            }
+            
+            if (total_failed == 0) {
+                fmt::print("\n\033[1;32m🎉 All tests passed!\033[0m\n");
+            } else {
+                fmt::print("\n\033[1;31m❌ {} test(s) failed\033[0m\n", total_failed);
+            }
+        }
+        
         executor.print_results(all_results);
     }
 }
@@ -307,25 +359,92 @@ void run_assembly_tests_only() {
     _exit(0); // Use _exit to completely bypass all destructors
 }
 
+// Helper function to recursively scan directory for test files
+std::vector<std::string> scan_directory_for_tests(const std::string& directory_path) {
+    std::vector<std::string> test_files;
+    
+    if (!fs::exists(directory_path) || !fs::is_directory(directory_path)) {
+        return test_files;
+    }
+    
+    try {
+        for (const auto& entry : fs::recursive_directory_iterator(directory_path)) {
+            if (entry.is_regular_file()) {
+                std::string filename = entry.path().filename().string();
+                std::string extension = entry.path().extension().string();
+                
+                // Check for .test.asm, .test.dasm, or just .asm files
+                bool is_test_file = false;
+                
+                // Check for .test.asm suffix
+                if (filename.length() >= 9 && filename.substr(filename.length() - 9) == ".test.asm") {
+                    is_test_file = true;
+                }
+                // Check for .test.dasm suffix  
+                else if (filename.length() >= 10 && filename.substr(filename.length() - 10) == ".test.dasm") {
+                    is_test_file = true;
+                }
+                // Check for general .asm extension
+                else if (extension == ".asm") {
+                    is_test_file = true;
+                }
+                
+                if (is_test_file) {
+                    test_files.push_back(entry.path().string());
+                }
+            }
+        }
+    } catch (const fs::filesystem_error& e) {
+        Logger::instance().error() << fmt::format("Error scanning directory {}: {}", directory_path, e.what()) << std::endl;
+    }
+    
+    // Sort files for consistent ordering
+    std::sort(test_files.begin(), test_files.end());
+    return test_files;
+}
+
 void run_single_file_tests(const std::string& filepath) {
     Config::verbose = true;  // Enable INFO logs for test output
     
-    // Check if file exists
-    std::ifstream check(filepath);
-    if (!check.good()) {
-        Logger::instance().error() << fmt::format("Test file not found: {}", filepath) << std::endl;
+    // Check if path exists
+    if (!fs::exists(filepath)) {
+        Logger::instance().error() << fmt::format("Test path not found: {}", filepath) << std::endl;
         exit(1);
     }
-    check.close();
     
-    // Create test executor and run tests from the specified file
-    Testing::TestExecutor executor;
-    auto results = executor.execute_tests_from_file(filepath);
+    std::vector<std::string> test_files;
     
-    if (results.empty()) {
-        fmt::print("\nNo tests found in file: {}\n", filepath);
+    if (fs::is_directory(filepath)) {
+        // If it's a directory, scan for test files
+        test_files = scan_directory_for_tests(filepath);
+        if (test_files.empty()) {
+            fmt::print("\nNo test files found in directory: {}\n", filepath);
+            exit(1);
+        }
+        fmt::print("Found {} test files in directory: {}\n", test_files.size(), filepath);
+    } else if (fs::is_regular_file(filepath)) {
+        // If it's a file, add it to the list
+        test_files.push_back(filepath);
     } else {
-        executor.print_results(results);
+        Logger::instance().error() << fmt::format("Path is neither a file nor a directory: {}", filepath) << std::endl;
+        exit(1);
+    }
+    
+    // Create test executor
+    Testing::TestExecutor executor;
+    std::vector<Testing::TestResult> all_results;
+    
+    // Process all test files
+    for (const auto& file : test_files) {
+        // Execute tests from this file
+        auto results = executor.execute_tests_from_file(file);
+        all_results.insert(all_results.end(), results.begin(), results.end());
+    }
+    
+    if (all_results.empty()) {
+        fmt::print("\nNo tests found in: {}\n", filepath);
+    } else {
+        executor.print_results(all_results);
     }
     
     exit(0);
@@ -385,6 +504,44 @@ public:
         // Debug argument
         parser.add_bool_arg("debug", "--debug", "-d", "Enable debug mode",
             [this](bool value) { Config::debug = value; Config::verbose = value; });
+        
+        // Debug level argument
+        parser.add_value_arg("debug_level", "--debug-level", "-dl", "Set debug level (trace, detail, info, important, critical)",
+            [this](const std::string& value) {
+                Config::debug = true;  // Auto-enable debug mode when level is set
+                if (value == "trace") {
+                    Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::TRACE);
+                    // Enable verbose categories for trace level
+                    Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_DISPATCHER, true);
+                    Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_PREDICTION, true);
+                } else if (value == "detail") {
+                    Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::DETAIL);
+                } else if (value == "info") {
+                    Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::INFO);
+                } else if (value == "important") {
+                    Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::IMPORTANT);
+                } else if (value == "critical") {
+                    Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::CRITICAL);
+                } else {
+                    std::cerr << "Invalid debug level: " << value << ". Valid levels: trace, detail, info, important, critical" << std::endl;
+                }
+            });
+        
+        // Verbose debug shortcuts
+        parser.add_action_arg("debug_verbose", "--debug-verbose", "-dv", "Enable debug with verbose output (TRACE level)",
+            [this]() { 
+                Config::debug = true; 
+                Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::TRACE);
+                // Enable all verbose categories for maximum visibility
+                Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_DISPATCHER, true);
+                Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_PREDICTION, true);
+                Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::MEM_BOUNDS, true);
+            });
+        parser.add_action_arg("debug_quiet", "--debug-quiet", "-dq", "Enable debug with minimal output (IMPORTANT level)",
+            [this]() { 
+                Config::debug = true; 
+                Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::IMPORTANT); 
+            });
         // Verbose argument
         parser.add_bool_arg("verbose", "--verbose", "-v", "Show informational messages (use --verbose=false to disable)",
             [this](bool value) { Config::verbose = value; });
@@ -423,9 +580,10 @@ public:
                 }
             });
         
-        // Run assembly tests only (or specific file)
-        parser.add_action_arg("assembly_test", "--assembly-test", "-at", "Run in-assembly tests only",
+        // Run assembly tests only (or specific file/folder)
+        parser.add_action_arg("assembly_test", "--assembly-test", "-at", "Run in-assembly tests only (supports files and folders)",
             [this]() {
+                Config::test_mode = true;  // Enable test mode to suppress verbose logs
                 auto positional = parser.get_positional_args();
                 if (positional.empty()) {
                     run_assembly_tests_only();
@@ -438,8 +596,9 @@ public:
             });
         
         // Run assembly tests in quiet mode (only show title and description)
-        parser.add_action_arg("assembly_test_quiet", "--assembly-test-quiet", "-atq", "Run in-assembly tests in quiet mode (title and description only)",
+        parser.add_action_arg("assembly_test_quiet", "--assembly-test-quiet", "-atq", "Run in-assembly tests in quiet mode (supports files and folders)",
             [this]() {
+                Config::test_mode = true;  // Enable test mode to suppress verbose logs
                 Config::quiet_assembly_test = true;
                 auto positional = parser.get_positional_args();
                 if (positional.empty()) {
@@ -469,8 +628,8 @@ public:
         // Memory dump argument
         parser.add_bool_arg("memdump", "--memdump", "-m", "Print memory dump after execution", [this](bool value) { Config::memdump = value; });
 
-        // Show filter argument for tests
-        parser.add_value_arg("show", "--show", "", "Filter test output (all|fails|success)", 
+        // Test filter argument for tests
+        parser.add_value_arg("test_filter", "--test-filter", "", "Filter test output (all|fails|success)", 
             [this](const std::string& value) {
                 if (value == "fails" || value == "fail") {
                     Config::test_show_mode = TestShowMode::FAILS;
@@ -479,7 +638,7 @@ public:
                 } else if (value == "all" || value.empty()) {
                     Config::test_show_mode = TestShowMode::ALL;
                 } else {
-                    std::cerr << "Error: Invalid --show value '" << value << "'. Use 'all', 'fails', or 'success'." << std::endl;
+                    std::cerr << "Error: Invalid --test-filter value '" << value << "'. Use 'all', 'fails', or 'success'." << std::endl;
                     exit(1);
                 }
             });
@@ -879,48 +1038,13 @@ private:
             return;
         }
 
-        // Load assembly source
-        std::ifstream file(Config::assembly_file);
-        if (!file.is_open()) {
-            std::cerr << "Error: Could not open assembly file: " << Config::assembly_file << std::endl;
-            return;
-        }
-
-        std::ostringstream oss;
-        oss << file.rdbuf();
-        std::string assembly_source = oss.str();
-
         if (Config::verbose) {
             std::cout << "Assembling: " << Config::assembly_file << std::endl;
         }
 
-        // Step 1: Lexical analysis
-        Assembler::Lexer lexer(assembly_source);
-        auto tokens = lexer.tokenize();
-
-        if (lexer.has_errors()) {
-            std::cerr << "Lexer errors:" << std::endl;
-            for (const auto& error : lexer.get_errors()) {
-                std::cerr << "  " << error << std::endl;
-            }
-            return;
-        }
-
-        // Step 2: Parsing
-        Assembler::Parser parser(tokens);
-        auto ast = parser.parse();
-
-        if (parser.has_errors()) {
-            std::cerr << "Parser errors:" << std::endl;
-            for (const auto& error : parser.get_errors()) {
-                std::cerr << "  " << error << std::endl;
-            }
-            return;
-        }
-
-        // Step 3: Code generation
-        Assembler::AssemblerEngine assembler;
-        auto bytecode = assembler.assemble(*ast);
+        // Use DemiAssembler which includes preprocessing
+        Assembler::DemiAssembler assembler;
+        auto bytecode = assembler.assemble_file(Config::assembly_file);
 
         if (assembler.has_errors()) {
             std::cerr << "Assembly errors:" << std::endl;
@@ -959,7 +1083,7 @@ private:
         }
 
         // Print hex dump of assembled bytecode
-        Logger::instance().debug() << "Assembled bytecode hex dump:" << std::endl;
+        DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "Assembled bytecode hex dump:");
         std::string line;
         for (size_t i = 0; i < bytecode.size(); ++i) {
             if (i % 16 == 0) {
@@ -987,8 +1111,15 @@ private:
         try {
             // Debug: Print entry address before execution
             Logger::instance().debug() << "Entry address: 0x" << std::hex << entry_addr << std::dec << std::endl;
+            if (Config::debug) {
+                std::cout << "DEBUG: About to call cpu.execute() with bytecode size: " << bytecode.size() << std::endl;
+            }
+            std::cout.flush();
             // Execute the assembled bytecode, starting at entry address
             cpu.execute(bytecode, entry_addr);
+            if (Config::debug) {
+                std::cout << "DEBUG: cpu.execute() completed successfully" << std::endl;
+            }
 
             // Print CPU state and registers (same as regular program mode)
             Logger::instance().debug() << "Post-execution: printing CPU state..." << std::endl;

@@ -57,6 +57,11 @@ public:
     uint32_t get_entry_address() const { return entry_address; }
     
     /**
+     * Get memory size set by .memory directive (0 if not set)
+     */
+    size_t get_memory_size() const { return memory_size; }
+    
+    /**
      * Clear all errors and reset state
      */
     void clear_errors();
@@ -72,6 +77,7 @@ private:
     std::vector<std::string> all_errors;
     std::unordered_map<std::string, Symbol> symbols;
     uint32_t entry_address = 0;
+    size_t memory_size = 0; // Memory size set by .memory directive
     
     void collect_errors(const std::vector<std::string>& errors);
     std::string read_file(const std::string& filename);

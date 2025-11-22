@@ -9,6 +9,10 @@
 #include "assembler.hpp"
 #include "opcodes.hpp"
 #include "../debug/logger.hpp"
+#include "../debug/error_handler.hpp"
+#include "../debug/debug_handler.hpp"
+#include "../config.hpp"
+#include "../../extern/fmt/include/fmt/format.h"
 
 using Logging::Logger;
 
@@ -21,7 +25,7 @@ AssemblerEngine::AssemblerEngine() : current_address(0) {
 }
 
 AssemblerEngine::~AssemblerEngine() {
-    Logging::Logger::instance().debug() << "AssemblerEngine destructor called, clearing forward_refs..." << std::endl;
+    DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "AssemblerEngine destructor called, clearing forward_refs with {} entries", forward_refs.size());
     forward_refs.clear();
 }
 
@@ -88,8 +92,28 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["SUB64"] = static_cast<uint8_t>(Opcode::SUB64);
     mnemonic_to_opcode["MOV64"] = static_cast<uint8_t>(Opcode::MOV64);
     mnemonic_to_opcode["LOAD_IMM64"] = static_cast<uint8_t>(Opcode::LOAD_IMM64);
+    mnemonic_to_opcode["MUL64"] = static_cast<uint8_t>(Opcode::MUL64);
+    mnemonic_to_opcode["DIV64"] = static_cast<uint8_t>(Opcode::DIV64);
+    mnemonic_to_opcode["AND64"] = static_cast<uint8_t>(Opcode::AND64);
+    mnemonic_to_opcode["OR64"] = static_cast<uint8_t>(Opcode::OR64);
+    mnemonic_to_opcode["XOR64"] = static_cast<uint8_t>(Opcode::XOR64);
+    mnemonic_to_opcode["SHL64"] = static_cast<uint8_t>(Opcode::SHL64);
+    mnemonic_to_opcode["SHR64"] = static_cast<uint8_t>(Opcode::SHR64);
+    mnemonic_to_opcode["CMP64"] = static_cast<uint8_t>(Opcode::CMP64);
+    mnemonic_to_opcode["NOT64"] = static_cast<uint8_t>(Opcode::NOT64);
+    mnemonic_to_opcode["INC64"] = static_cast<uint8_t>(Opcode::INC64);
+    mnemonic_to_opcode["DEC64"] = static_cast<uint8_t>(Opcode::DEC64);
+    mnemonic_to_opcode["MOD64"] = static_cast<uint8_t>(Opcode::MOD64);
     mnemonic_to_opcode["MOVEX"] = static_cast<uint8_t>(Opcode::MOVEX);
     mnemonic_to_opcode["ADDEX"] = static_cast<uint8_t>(Opcode::ADDEX);
+    mnemonic_to_opcode["SUBEX"] = static_cast<uint8_t>(Opcode::SUBEX);
+    mnemonic_to_opcode["MULEX"] = static_cast<uint8_t>(Opcode::MULEX);
+    mnemonic_to_opcode["DIVEX"] = static_cast<uint8_t>(Opcode::DIVEX);
+    mnemonic_to_opcode["CMPEX"] = static_cast<uint8_t>(Opcode::CMPEX);
+    mnemonic_to_opcode["LOADEX"] = static_cast<uint8_t>(Opcode::LOADEX);
+    mnemonic_to_opcode["STOREX"] = static_cast<uint8_t>(Opcode::STOREX);
+    mnemonic_to_opcode["PUSHEX"] = static_cast<uint8_t>(Opcode::PUSHEX);
+    mnemonic_to_opcode["POPEX"] = static_cast<uint8_t>(Opcode::POPEX);
     mnemonic_to_opcode["MODE32"] = static_cast<uint8_t>(Opcode::MODE32);
     mnemonic_to_opcode["MODE64"] = static_cast<uint8_t>(Opcode::MODE64);
     mnemonic_to_opcode["MODECMP"] = static_cast<uint8_t>(Opcode::MODECMP);
@@ -310,7 +334,9 @@ void Assembler::AssemblerEngine::process_label(const Assembler::Label& label) {
 }
 
 void Assembler::AssemblerEngine::process_directive(const Assembler::Directive& directive) {
-    if (directive.name == ".db") {
+    if (directive.name == ".memory") {
+        handle_memory_directive(directive.arguments);
+    } else if (directive.name == ".db") {
         handle_db_directive(directive.arguments);
     } else if (directive.name == ".dw") {
         handle_dw_directive(directive.arguments);
@@ -328,7 +354,7 @@ void Assembler::AssemblerEngine::process_directive(const Assembler::Directive& d
             // Print argument type/value
         }
         handle_org_directive(directive.arguments);
-    Logging::Logger::instance().debug() << "After .org, current_address: 0x" << std::hex << current_address << std::dec << std::endl;
+    DEBUG_INFO(Logging::DebugCategory::ASM_DIRECTIVE, "After .org directive, current_address: 0x{:04X}", current_address);
     } else {
         add_error("Unknown directive: " + directive.name, directive.line, directive.column);
     }
@@ -531,7 +557,9 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                instruction.mnemonic == "MOD" || instruction.mnemonic == "AND" ||
                instruction.mnemonic == "OR" || instruction.mnemonic == "XOR" ||
                instruction.mnemonic == "ADD64" || instruction.mnemonic == "SUB64" ||
-               instruction.mnemonic == "MOV64" || instruction.mnemonic == "MODECMP") {
+               instruction.mnemonic == "MOV64" || instruction.mnemonic == "CMP64" || instruction.mnemonic == "MODECMP" ||
+               instruction.mnemonic == "MOVEX" || instruction.mnemonic == "ADDEX" ||
+               instruction.mnemonic == "SUBEX" || instruction.mnemonic == "CMPEX") {
         // Format: INSTRUCTION reg1, reg2
         if (instruction.operands.size() != 2) {
             add_error(instruction.mnemonic + " requires 2 operands", instruction.line, instruction.column);
@@ -646,6 +674,34 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         } else {
             emit_byte(static_cast<uint8_t>(addr_value));
         }
+    } else if (instruction.mnemonic == "LOADEX" || instruction.mnemonic == "STOREX") {
+        // Format: LOADEX/STOREX reg, 64-bit_address
+        if (instruction.operands.size() != 2) {
+            add_error(instruction.mnemonic + " requires 2 operands", instruction.line, instruction.column);
+            return;
+        }
+
+        // Register operand
+        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
+            emit_byte(get_register_number(reg_expr->name));
+        } else {
+            add_error("First operand must be a register", instruction.line, instruction.column);
+            return;
+        }
+
+        // Address operand (8 bytes)
+        bool is_symbol;
+        std::string symbol_name;
+        int64_t addr_value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
+
+        if (is_symbol) {
+            emit_forward_ref(symbol_name, 8); // 8-byte address for extended operations
+        } else {
+            // Emit 8-byte address in little-endian format
+            for (int i = 0; i < 8; i++) {
+                emit_byte(static_cast<uint8_t>((addr_value >> (i * 8)) & 0xFF));
+            }
+        }
     } else if (instruction.mnemonic == "SHL" || instruction.mnemonic == "SHR") {
         // Format: SHL reg, immediate
         if (instruction.operands.size() != 2) {
@@ -671,6 +727,40 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             return;
         } else {
             emit_byte(static_cast<uint8_t>(value));
+        }
+    } else if (instruction.mnemonic == "MUL64" || instruction.mnemonic == "DIV64" ||
+               instruction.mnemonic == "AND64" || instruction.mnemonic == "OR64" ||
+               instruction.mnemonic == "XOR64" || 
+               instruction.mnemonic == "MOD64" || instruction.mnemonic == "MULEX" ||
+               instruction.mnemonic == "DIVEX") {
+        // Format: INSTRUCTION dest_reg, src_reg1, src_reg2 (3 operands)
+        if (instruction.operands.size() != 3) {
+            add_error(instruction.mnemonic + " requires 3 operands", instruction.line, instruction.column);
+            return;
+        }
+
+        // Destination register (first operand)
+        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
+            emit_byte(get_register_number(reg_expr->name));
+        } else {
+            add_error("First operand must be a destination register", instruction.line, instruction.column);
+            return;
+        }
+
+        // Source register 1 (second operand)
+        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get())) {
+            emit_byte(get_register_number(reg_expr->name));
+        } else {
+            add_error("Second operand must be a source register", instruction.line, instruction.column);
+            return;
+        }
+
+        // Source register 2 (third operand)
+        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[2].get())) {
+            emit_byte(get_register_number(reg_expr->name));
+        } else {
+            add_error("Third operand must be a source register", instruction.line, instruction.column);
+            return;
         }
     } else if (instruction.mnemonic == "FLD" || instruction.mnemonic == "FST" || 
                instruction.mnemonic == "FSTP") {
@@ -962,7 +1052,7 @@ void Assembler::AssemblerEngine::emit_dword(uint32_t dword) {
 
 void Assembler::AssemblerEngine::emit_forward_ref(const std::string& symbol, size_t size, bool relative) {
     forward_refs.push_back({current_address, symbol, size, relative});
-        Logging::Logger::instance().debug() << "emit_forward_ref: symbol='" << symbol << "', address=" << current_address << ", size=" << size << ", relative=" << relative << std::endl;
+        DEBUG_DETAIL(Logging::DebugCategory::ASM_FORWARD_REF, "emit_forward_ref: symbol='{}', address=0x{:04X}, size={}, relative={}", symbol, current_address, size, relative);
 
     // Emit placeholder bytes
     for (size_t i = 0; i < size; ++i) {
@@ -986,8 +1076,13 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
     } else if (mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "MOV" ||
                mnemonic == "CMP" || mnemonic == "MUL" || mnemonic == "DIV" ||
                mnemonic == "MOD" || mnemonic == "AND" || mnemonic == "OR" ||
-               mnemonic == "XOR" || mnemonic == "ADD64") {
-        return 3; // opcode + reg1 + reg2
+               mnemonic == "XOR" || mnemonic == "ADD64" || mnemonic == "SUB64" ||
+               mnemonic == "MOV64" || mnemonic == "CMP64") {
+        return 3; // opcode + reg1 + reg2 (2-operand instructions)
+    } else if (mnemonic == "MUL64" || mnemonic == "DIV64" || mnemonic == "AND64" ||
+               mnemonic == "OR64" || mnemonic == "XOR64" ||
+               mnemonic == "MOD64" || mnemonic == "MULEX" || mnemonic == "DIVEX") {
+        return 4; // opcode + dest_reg + src_reg1 + src_reg2 (3-operand instructions)
     } else if (mnemonic == "JMP" || mnemonic == "JZ" || mnemonic == "JNZ" ||
                mnemonic == "JS" || mnemonic == "JNS" || mnemonic == "JC" ||
                mnemonic == "JNC" || mnemonic == "JO" || mnemonic == "JNO" ||
@@ -1004,6 +1099,8 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
                mnemonic == "LEA" || mnemonic == "SWAP" || mnemonic == "SHL" ||
                mnemonic == "SHR") {
         return 3; // opcode + register + address/port/immediate
+    } else if (mnemonic == "LOADEX" || mnemonic == "STOREX") {
+        return 10; // opcode + register + 8-byte address
     }
 
     return 1; // Default size
@@ -1256,9 +1353,42 @@ void Assembler::AssemblerEngine::handle_bss_directive(const std::vector<std::uni
     }
 }
 
+void Assembler::AssemblerEngine::handle_memory_directive(const std::vector<std::unique_ptr<Assembler::Expression>>& args) {
+    if (args.size() != 1) {
+        add_error(".memory directive requires exactly one argument (memory size in bytes)");
+        return;
+    }
+
+    bool is_symbol;
+    std::string symbol_name;
+    int64_t size = evaluate_expression(*args[0], is_symbol, symbol_name);
+
+    if (is_symbol) {
+        add_error(".memory directive cannot use forward references");
+        return;
+    }
+
+    if (size < 256) {
+        add_error(".memory directive requires at least 256 bytes");
+        return;
+    }
+
+    if (size > 64 * 1024 * 1024) { // 64MB max
+        add_error(".memory directive cannot exceed 64MB (67108864 bytes)");
+        return;
+    }
+
+    memory_size = static_cast<size_t>(size);
+    
+    if (!Config::test_mode) {
+        Logger::instance().info() << fmt::format("Memory size set to {} bytes ({:.1f} KB)", 
+                                                 memory_size, memory_size / 1024.0) << std::endl;
+    }
+}
+
 void Assembler::AssemblerEngine::resolve_forward_references() {
     for (const auto& ref : forward_refs) {
-            Logging::Logger::instance().debug() << "resolve_forward_references: symbol='" << ref.symbol << "', address=" << ref.address << ", size=" << ref.size << ", relative=" << ref.relative << std::endl;
+            DEBUG_DETAIL(Logging::DebugCategory::ASM_FORWARD_REF, "resolve_forward_references: symbol='{}', address=0x{:04X}, size={}, relative={}", ref.symbol, ref.address, ref.size, ref.relative);
         auto it = symbol_table.find(ref.symbol);
         if (it == symbol_table.end() || !it->second.defined) {
             add_error("Undefined symbol: " + ref.symbol);
@@ -1284,10 +1414,12 @@ void Assembler::AssemblerEngine::resolve_forward_references() {
 
 void Assembler::AssemblerEngine::add_error(const std::string& message) {
     errors.push_back("Assembly error: " + message);
+    Logging::ErrorHandler::instance().report_parse(Logging::ErrorCode::ASM_GENERIC, message);
 }
 
 void Assembler::AssemblerEngine::add_error(const std::string& message, size_t line, size_t column) {
     errors.push_back("Line " + std::to_string(line) + ", Column " + std::to_string(column) + ": " + message);
+    Logging::ErrorHandler::instance().report_parse(Logging::ErrorCode::ASM_DIRECTIVE_ERROR, message, "", line, column);
 }
 
 } // namespace Assembler

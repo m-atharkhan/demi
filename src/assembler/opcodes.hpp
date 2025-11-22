@@ -76,10 +76,10 @@ enum class Opcode : uint8_t {
     AND64 = 0x56,       // 64-bit Bitwise AND reg1, reg2
     OR64 = 0x57,        // 64-bit Bitwise OR reg1, reg2
     XOR64 = 0x58,       // 64-bit Bitwise XOR reg1, reg2
-    SHL64 = 0x59,       // 64-bit Shift Left reg, imm
-    SHR64 = 0x5A,       // 64-bit Shift Right reg, imm
-    CMP64 = 0x5B,       // 64-bit Compare reg1, reg2
-    NOT64 = 0x5C,       // 64-bit Bitwise NOT reg
+    NOT64 = 0x59,       // 64-bit Bitwise NOT reg
+    SHL64 = 0x5A,       // 64-bit Shift Left reg, imm
+    SHR64 = 0x5B,       // 64-bit Shift Right reg, imm
+    CMP64 = 0x5C,       // 64-bit Compare reg1, reg2
     INC64 = 0x5D,       // 64-bit Increment reg
     DEC64 = 0x5E,       // 64-bit Decrement reg
     MOD64 = 0x5F,       // 64-bit Modulo (remainder) reg1, reg2
