@@ -174,17 +174,15 @@ Low Memory  │  Code   │ ← PC starts here
 
 ### Run Tests
 ```bash
-./bin/demi-engine -t                          # All unit tests (78)
-./bin/demi-engine -ut                         # Unit tests only
-./bin/demi-engine -it                         # Integration tests (42)
-./bin/demi-engine -at                         # Assembly tests (68)
-./bin/demi-engine -atq                        # Assembly tests (quiet mode)
+./bin/demi-engine -ut                         # Unit tests (101)
+./bin/demi-engine -at                         # Assembly tests (118)
+# Total: 219 tests
 ```
 
 ### Test Specific Files
 ```bash
-./bin/demi-engine -at tests/asm/test_arithmetic.asm   # Test single file
-./bin/demi-engine -atq tests/asm/test_stack.asm       # Quiet mode
+./bin/demi-engine -at tests/arithmetic.test.asm   # Test single file
+./bin/demi-engine -at tests/stack.test.asm        # Another example
 ```
 
 ### In-Assembly Test Format
