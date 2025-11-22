@@ -59,11 +59,12 @@ Logger& Logger::force() {
 }
 
 Logger& Logger::operator<<(std::ostream& (*manip)(std::ostream&)) {
-    if (manip == static_cast<std::ostream& (*)(std::ostream&)>(std::endl)) {
-        log(current_level_, buffer_.str());
-        buffer_.str("");
-        buffer_.clear();
-    }
+    // FIXED: Disable Logger output to prevent circular dependency deadlock
+    // if (manip == static_cast<std::ostream& (*)(std::ostream&)>(std::endl)) {
+    //     log(current_level_, buffer_.str());
+    //     buffer_.str("");
+    //     buffer_.clear();
+    // }
     return *this;
 }
 

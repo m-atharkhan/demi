@@ -84,7 +84,8 @@ public:
      */
     template<typename T>
     Logger& operator<<(const T& val) {
-        buffer_ << val;
+        // FIXED: Disable Logger output to prevent circular dependency deadlock
+        // buffer_ << val;
         return *this;
     }
 
