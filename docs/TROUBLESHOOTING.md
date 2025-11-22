@@ -1,9 +1,10 @@
 # DemiEngine Troubleshooting Guide
 
-This guide helps you diagnose and fix common issues when using DemiEngine.
+This guide helps you diagnose and fix common issues when using DemiEngine. For detailed error code references, see [Error Handling Implementation](ERROR_HANDLING_IMPLEMENTATION.md).
 
 ## Table of Contents
 
+- [Error Messages & Codes](#error-messages--codes)
 - [Program Errors](#program-errors)
 - [Build Issues](#build-issues)
 - [Runtime Problems](#runtime-problems)
@@ -11,11 +12,36 @@ This guide helps you diagnose and fix common issues when using DemiEngine.
 - [Performance Issues](#performance-issues)
 - [Common Mistakes](#common-mistakes)
 
+## Error Messages & Codes
+
+DemiEngine uses structured error codes for precise error identification:
+
+### Error Code Format
+```
+[ERROR:0x200] [CPU] [CRITICAL] Division by zero at PC=0x1234
+Context: R0=5, R1=0, SP=0x7FF8, FLAGS=0x0002
+```
+
+### Common Error Codes
+- **0x200-0x299**: Runtime/CPU errors
+- **0x100-0x199**: Assembly errors  
+- **0x001-0x099**: Parse errors
+- **0x400-0x499**: I/O errors
+- **0x500-0x599**: Test framework errors
+
+See [Error Code Reference](ERROR_HANDLING_IMPLEMENTATION.md#6-error-code-reference) for complete list.
+
 ## Program Errors
 
-### Invalid Instruction Error
+### Invalid Instruction Error (0x208)
 
-**Symptom**: Program halts with "Invalid instruction" error
+**Symptom**: Program halts with "Invalid opcode" error
+
+**Error Message**:
+```
+[ERROR:0x208] [CPU] [CRITICAL] Invalid opcode 0xFE at PC=0x0012
+Context: R0=0x05, R1=0x03, SP=0x7FF8, FLAGS=0x0000
+```
 
 **Causes**:
 1. Incorrect opcode in hex program
@@ -27,22 +53,24 @@ This guide helps you diagnose and fix common issues when using DemiEngine.
 # Bad: Invalid opcode
 FE                  # Invalid opcode (not defined)
 
-# Good: Valid opcode
+# Good: Valid opcode  
 FF                  # HALT (valid)
 ```
 
-**Debug Steps**:
-1. Check the address where error occurred
-2. Verify opcodes against instruction set reference
-3. Ensure program counter isn't jumping to data
+### Memory Access Violation (0x202)
 
-### Memory Access Violation
+**Symptom**: "Memory access violation" error
 
-**Symptom**: "Memory access violation" or segmentation fault
+**Error Message**:
+```
+[ERROR:0x202] [CPU] [ERROR] Memory access violation
+Context: Attempted read at 0x8000 (available: 0x0000-0x7FFF)
+PC=0x0456, instruction: LOAD R0, [R1]
+```
 
 **Causes**:
 1. Accessing memory outside allocated range
-2. Uninitialized address registers
+2. Uninitialized address registers  
 3. Stack overflow
 
 **Solutions**:
@@ -84,11 +112,15 @@ base_case:
 0D                  # RET
 ```
 
-### Division by Zero
+### Division by Zero (0x200)
 
 **Symptom**: Program halts on DIV instruction
 
-**Cause**: Attempting to divide by zero
+**Error Message**:
+```
+[ERROR:0x200] [CPU] [CRITICAL] Division by zero at PC=0x0042
+Context: R0=10, R1=0 (divisor), SP=0x7FF6, FLAGS=0x0000
+```
 
 **Solution**:
 ```hex
@@ -208,6 +240,27 @@ sudo apt install mesa-utils
 
 ## Debug Tips
 
+### Using Debug Categories
+
+DemiEngine provides structured debug output with categories (see [Debug Categories](ERROR_HANDLING_IMPLEMENTATION.md#debug-categories)):
+
+**Enable Debug Output**:
+```bash
+# Enable all debug output
+./bin/demi-engine --debug tests/your_program.hex
+
+# Enable specific categories
+export DEBUG_CATEGORY=CPU,MEMORY
+./bin/demi-engine tests/your_program.hex
+```
+
+**Debug Output Format**:
+```
+[DEBUG:0x100] [CPU] Executing LOAD R0, #42 at PC=0x0008
+[DEBUG:0x201] [MEMORY] Memory write: 0x1000 = 0x42
+[DEBUG:0x301] [ASSEMBLER] Symbol resolved: main = 0x0000
+```
+
 ### Using the Debug GUI
 
 **Enable Step-by-Step Execution**:
@@ -216,9 +269,10 @@ sudo apt install mesa-utils
 ```
 
 **Key Debug Windows**:
-- **CPU State**: Monitor registers and flags
+- **CPU State**: Monitor registers and flags  
 - **Memory View**: Examine memory contents
 - **Device Status**: Check device states
+- **Debug Log**: View categorized debug messages
 
 ### Manual Debugging
 
@@ -386,9 +440,19 @@ make debug
 
 ### Community Resources
 
-- Check example programs in `tests/` directory
-- Review documentation in `docs/` folder
-- Use debug GUI for visual inspection
+- Check example programs in `tests/` directory (219 test files total)
+- Review documentation in `docs/` folder, especially [Error Handling Implementation](ERROR_HANDLING_IMPLEMENTATION.md)
+- Use debug GUI for visual inspection with structured debug categories
 - Start with simple programs and build complexity gradually
+- Reference [Quick Reference](QUICK_REFERENCE.md) for common commands and error codes
 
-Remember: Most issues stem from incorrect hex formatting, uninitialized registers, or logic errors in program flow. The debug GUI is your best tool for understanding what's happening during execution.
+### Error Code Quick Reference
+
+Common error codes to remember:
+- **0x200**: Division by zero
+- **0x202**: Memory access violation  
+- **0x208**: Invalid opcode
+- **0x100-0x199**: Assembly/parse errors
+- **0x400-0x499**: I/O device errors
+
+Remember: Most issues stem from incorrect hex formatting, uninitialized registers, or logic errors in program flow. The debug GUI with structured error messages is your best tool for understanding what's happening during execution.

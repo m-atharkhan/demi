@@ -4,10 +4,9 @@
 
 | Command | Tests Run | Time | Use Case |
 |---------|-----------|------|----------|
-| `make test` | All (182) | ~5-7s | **Pre-commit check** |
-| `./bin/demi-engine -ut` | Unit (79) | ~1-2s | **Rapid iteration** |
-| `./bin/demi-engine -it` | Integration (42) | ~2-3s | **CPU/device changes** |
-| `./bin/demi-engine -at` | Assembly (61) | ~1s | **Test file validation** |
+| `make test` | All (219) | ~5-7s | **Pre-commit check** |
+| `./bin/demi-engine -ut` | Unit (101) | ~1-2s | **Rapid iteration** |
+| `./bin/demi-engine -at` | Assembly (118) | ~2s | **Test file validation** |
 
 ## 📋 Full Commands
 
@@ -25,10 +24,10 @@ make test
 ```
 **What it tests:** Assembler, parser, CPU validation, error handling, negative cases
 
-### Integration Tests Only
+### Assembly Tests Only
 ```bash
-./bin/demi-engine --integration-test
-./bin/demi-engine -it
+./bin/demi-engine --assembly-test
+./bin/demi-engine -at
 ```
 **What it tests:** Complete programs (.hex files), CPU instructions, device I/O
 

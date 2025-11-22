@@ -251,25 +251,35 @@ VMUL XMM0, XMM1
 ## Testing Framework
 
 ### Overview
-DemiEngine includes a comprehensive testing framework supporting unit tests, integration tests, and in-assembly tests.
+DemiEngine includes a comprehensive testing framework with **219 total tests** supporting unit tests, integration tests, and in-assembly tests.
 
 ### Test Types
 
-#### 1. Unit Tests (78 tests)
+#### 1. Unit Tests (101 tests)
 - C++ unit tests using custom test framework
 - Tests for individual components (assembler, CPU, devices)
 - Located in `src/test/`
 
-#### 2. Integration Tests (42 tests)
-- End-to-end assembly program tests
-- Hex file execution validation
-- Located in `tests/hex/`
-
-#### 3. Assembly Tests (68 tests)
-- In-assembly test definitions
-- Self-documenting test syntax
-- Category and tag organization
+#### 2. Assembly Tests (118 tests) 
+- In-assembly test definitions with self-documenting syntax
+- Category and tag organization for easy filtering
 - Located in `tests/*.test.asm`
+- Comprehensive coverage of all instruction sets
+
+### Test Execution
+```bash
+# Run all tests (219 total)
+make test
+
+# Run only unit tests
+make test-unit
+
+# Run only assembly tests  
+make test-asm
+
+# Run with verbose output
+make test-verbose
+```
 
 ### In-Assembly Test Format
 ```assembly
@@ -518,44 +528,56 @@ end:
 ## Debugging Tools
 
 ### GUI Debugger
-DemiEngine includes an ImGui-based visual debugger.
+DemiEngine includes an ImGui-based visual debugger with structured error reporting.
 
 #### Features
 - **CPU State Viewer**: Real-time register values
 - **Memory Inspector**: View and edit memory
-- **Stack Viewer**: Monitor stack operations
+- **Stack Viewer**: Monitor stack operations  
 - **Disassembly**: View program instructions
 - **Breakpoints**: Set execution breakpoints
 - **Step Execution**: Single-step through code
 - **Device Monitor**: View I/O operations
+- **Debug Log**: Categorized debug messages with error codes
 
 #### Usage
 ```bash
 # Start with GUI debugger
 ./bin/demi-engine -g program.hex
+
+# Enable structured debug output
+./bin/demi-engine --debug program.hex
 ```
 
-### Command-Line Debugging
+### Structured Error Handling
+DemiEngine provides comprehensive error handling with categorized error codes:
+
+- **Error Codes**: Structured system (0x001-0x5FF) for precise error identification
+- **Debug Categories**: CPU, Memory, Assembler, I/O, Tests, and Device debugging
+- **Context Information**: Register states, memory contents, program counter values
+- **Error Recovery**: Graceful error handling with detailed diagnostics
+
+**Documentation**: See [Error Handling Implementation](ERROR_HANDLING_IMPLEMENTATION.md) for complete reference
+
+### Command-Line Debugging  
 ```bash
-# Verbose execution (shows each instruction)
+# Verbose execution with structured output
 ./bin/demi-engine -v program.hex
 
-# Trace mode (detailed execution trace)
+# Enable specific debug categories
+export DEBUG_CATEGORY=CPU,MEMORY
+./bin/demi-engine program.hex
+
+# Trace mode with full debug context
 ./bin/demi-engine -vv program.hex
 ```
 
 ### Logging System
-- **Levels**: ERROR, WARNING, INFO, DEBUG
-- **Colored Output**: Terminal colors for log levels
+- **Structured Levels**: ERROR, WARNING, INFO, DEBUG with error codes
+- **Colored Output**: Terminal colors for log levels and categories
 - **Timestamps**: Optional timestamp prefixes
-- **Module Tags**: Tag logs by component
-
-### Error Messages
-DemiEngine provides detailed error messages:
-- **Assembly Errors**: Line numbers, error context
-- **Runtime Errors**: Instruction address, register state
-- **Device Errors**: Port information, error codes
-- **Memory Errors**: Address, access type
+- **Module Tags**: Tag logs by component (CPU, Memory, etc.)
+- **Context Preservation**: Register dumps and memory states in error messages
 
 **Documentation**: See `docs/codebase/modules/` for component-specific debugging
 

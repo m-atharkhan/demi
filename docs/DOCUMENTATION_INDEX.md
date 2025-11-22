@@ -38,6 +38,7 @@ Refer to the sections below for detailed navigation and descriptions of each doc
 | | [Test Status](testing/TEST_FRAMEWORK_STATUS.md) | Current test coverage (188/188) |
 | **Codebase** | [Architecture](codebase/README.md) | Core system design |
 | | [API Reference](codebase/API_REFERENCE.md) | Complete API documentation |
+| | [Error Handling](ERROR_HANDLING_IMPLEMENTATION.md) | Error & debug system implementation |
 | | [CPU Module](codebase/modules/cpu.md) | CPU implementation details |
 | | [Assembler Module](codebase/modules/assembler.md) | Assembler architecture |
 | | [Device Manager](codebase/modules/device_manager.md) | Device I/O system |
