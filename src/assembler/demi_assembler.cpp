@@ -54,6 +54,9 @@ std::vector<uint8_t> DemiAssembler::assemble_string(const std::string& source) {
     
     // Store entry address
     entry_address = assembler.get_entry_address();
+    
+    // Store memory size from .memory directive
+    memory_size = assembler.get_memory_size();
 
     return bytecode;
 }
@@ -100,6 +103,9 @@ std::vector<uint8_t> DemiAssembler::assemble_string(const std::string& source, c
     // Store symbols and entry address
     symbols = assembler.get_symbols();
     entry_address = assembler.get_entry_address();
+    
+    // Store memory size from .memory directive
+    memory_size = assembler.get_memory_size();
 
     return bytecode;
 }
@@ -160,6 +166,9 @@ std::vector<uint8_t> DemiAssembler::assemble_file(const std::string& filename) {
     
     // Store entry address
     entry_address = assembler.get_entry_address();
+    
+    // Store memory size from .memory directive
+    memory_size = assembler.get_memory_size();
 
     return bytecode;
 }
@@ -167,6 +176,7 @@ std::vector<uint8_t> DemiAssembler::assemble_file(const std::string& filename) {
 void DemiAssembler::clear_errors() {
     all_errors.clear();
     symbols.clear();
+    memory_size = 0;
 }
 
 void DemiAssembler::collect_errors(const std::vector<std::string>& errors) {

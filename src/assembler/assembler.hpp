@@ -33,6 +33,7 @@ public:
     // Get symbol table for debugging
     const std::unordered_map<std::string, Symbol>& get_symbols() const { return symbol_table; }
     uint32_t get_entry_address() const { return entry_address; }
+    size_t get_memory_size() const { return memory_size; } // Get memory size set by .memory directive
 
 private:
     std::vector<std::string> errors;
@@ -45,6 +46,7 @@ private:
     std::vector<uint8_t> bytecode;
     uint32_t entry_address = 0; // Entry point for execution
     std::string last_label_name; // Track most recent label for DB assignment
+    size_t memory_size = 0; // Memory size set by .memory directive (0 = use default)
     
     // DB format detection
     bool use_simple_db_format = false; // True for multiple DBs or with .org
@@ -92,6 +94,7 @@ private:
     void handle_align_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_bss_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_org_directive(const std::vector<std::unique_ptr<Expression>>& args);
+    void handle_memory_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_data_section();
     void handle_text_section();
     

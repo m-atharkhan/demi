@@ -1,4 +1,6 @@
 #include "parser.hpp"
+#include "../debug/error_handler.hpp"
+#include <iostream>
 
 namespace Assembler {
 
@@ -140,6 +142,39 @@ std::unique_ptr<Statement> Parser::parse_statement() {
             return parse_test_assertion(TestAssertionType::EXPECT_ERROR, line, col);
         }
         
+        // Handle metadata and preprocessor directives
+        case TokenType::DESCRIPTION:
+        case TokenType::AUTHOR:
+        case TokenType::CATEGORY:
+        case TokenType::TAG:
+        case TokenType::MAXSTEPS:
+        case TokenType::MAXCALLDEPTH:
+        case TokenType::TIMEOUT:
+        case TokenType::SKIP:
+        case TokenType::BENCHMARK:
+        case TokenType::WARMUP:
+        case TokenType::ITERATIONS:
+        case TokenType::MEASURE:
+        case TokenType::INCLUDE:
+        case TokenType::IFDEF:
+        case TokenType::IFNDEF:
+        case TokenType::ENDIF:
+        case TokenType::ELSE: {
+            std::string directive = token.text;
+            size_t line = token.line;
+            size_t col = token.column;
+            advance();
+            return parse_directive(directive, line, col);
+        }
+        
+        case TokenType::DEFINE: {
+            std::string directive = token.text;
+            size_t line = token.line;
+            size_t col = token.column;
+            advance();
+            return parse_define_directive(directive, line, col);
+        }
+        
         case TokenType::IDENTIFIER: {
             // Could be a label if followed by colon
             if (peek_token().type == TokenType::COLON) {
@@ -201,6 +236,45 @@ std::unique_ptr<Directive> Parser::parse_directive(const std::string& directive_
                 directive->add_argument(std::move(arg));
             }
         } while (match(TokenType::COMMA));
+    }
+    
+    return directive;
+}
+
+std::unique_ptr<Directive> Parser::parse_define_directive(const std::string& directive_name, size_t line, size_t col) {
+    auto directive = std::make_unique<Directive>(directive_name, line, col);
+    
+    // Parse .define IDENTIFIER VALUE
+    // First argument should be an identifier
+    if (current_token().type == TokenType::IDENTIFIER) {
+        std::string name = current_token().text;
+        advance();
+        auto name_expr = std::make_unique<IdentifierExpression>(name, current_token().line, current_token().column);
+        directive->add_argument(std::move(name_expr));
+        
+        // Second argument should be a value (number or string)
+        if (current_token().type == TokenType::NUMBER) {
+            if (current_token().is_float()) {
+                double value = current_token().as_float();
+                advance();
+                auto value_expr = std::make_unique<FloatExpression>(value, current_token().line, current_token().column);
+                directive->add_argument(std::move(value_expr));
+            } else {
+                int64_t value = current_token().as_int();
+                advance();
+                auto value_expr = std::make_unique<ImmediateExpression>(value, current_token().line, current_token().column);
+                directive->add_argument(std::move(value_expr));
+            }
+        } else if (current_token().type == TokenType::STRING) {
+            std::string value = current_token().as_string();
+            advance();
+            auto value_expr = std::make_unique<StringLiteralExpression>(value, current_token().line, current_token().column);
+            directive->add_argument(std::move(value_expr));
+        } else {
+            add_error("Expected value after identifier in .define directive", current_token());
+        }
+    } else {
+        add_error("Expected identifier after .define", current_token());
     }
     
     return directive;
@@ -541,11 +615,14 @@ std::unique_ptr<TestAssertion> Parser::parse_test_assertion(TestAssertionType ty
 
 void Parser::add_error(const std::string& message) {
     errors.push_back("Parse error: " + message);
+    Logging::ErrorHandler::instance().report_parse(Logging::ErrorCode::PARSE_GENERIC, message);
 }
 
 void Parser::add_error(const std::string& message, const Token& token) {
-    errors.push_back("Line " + std::to_string(token.line) + ", Column " + std::to_string(token.column) + 
-                    ": " + message + " (got '" + token.text + "')");
+    std::string error_str = "Line " + std::to_string(token.line) + ", Column " + std::to_string(token.column) + 
+                    ": " + message + " (got '" + token.text + "')";
+    errors.push_back(error_str);
+    Logging::ErrorHandler::instance().report_parse(Logging::ErrorCode::PARSE_UNEXPECTED_TOKEN, message, "", token.line, token.column);
 }
 
 } // namespace Assembler
