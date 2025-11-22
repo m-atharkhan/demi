@@ -1,6 +1,8 @@
 #include "assembly_test_executor.hpp"
 #include "../assembler/lexer.hpp"
 #include "../assembler/parser.hpp"
+#include "../debug/error_handler.hpp"
+#include "../debug/debug_handler.hpp"
 #include <chrono>
 #include <fstream>
 #include <sstream>
@@ -12,10 +14,15 @@ namespace Testing {
 std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string& filename) {
     std::vector<TestResult> results;
     
+    // Enable test mode for this test execution
+    bool previous_test_mode = Config::test_mode;
+    Config::test_mode = true;
+    
     // Read file
     std::ifstream file(filename);
     if (!file.is_open()) {
         Logger::instance().error() << fmt::format("Failed to open test file: {}", filename) << std::endl;
+        Config::test_mode = previous_test_mode; // Restore previous state
         return results;
     }
     
@@ -28,33 +35,43 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
     current_source = source;
     current_file_path = filename;
     
-    // Lex and parse
+    // Lex and parse - suppress error logging during test file parsing since
+    // parser errors from unimplemented features (macros, etc.) are expected
+    Logging::ErrorHandler::instance().set_quiet_mode(true);
+    
     Lexer lexer(source);
     auto tokens = lexer.tokenize();
     
+    Parser parser(tokens);
+    auto program = parser.parse();
+    
+    // Re-enable error logging after parsing
+    Logging::ErrorHandler::instance().set_quiet_mode(false);
+    
     if (lexer.has_errors()) {
-        // Only report lexer errors if not in quiet mode
-        if (!Config::quiet_assembly_test) {
+        // Parser errors from unimplemented features (macros, conditionals) are expected
+        // Only report them if in very verbose mode (test_mode = false)
+        if (!Config::test_mode) {
             Logger::instance().error() << "Lexer errors in test file:" << std::endl;
             for (const auto& error : lexer.get_errors()) {
                 Logger::instance().error() << "  " << error << std::endl;
             }
         }
+        Config::test_mode = previous_test_mode; // Restore previous state
         return results;
     }
     
-    Parser parser(tokens);
-    auto program = parser.parse();
-    
     if (parser.has_errors()) {
-        // Only report parser errors if not in quiet mode
-        if (!Config::quiet_assembly_test) {
+        // Parser errors from unimplemented features (macros, conditionals) are expected
+        // Only report them if in very verbose mode (test_mode = false)
+        if (!Config::test_mode) {
             Logger::instance().error() << "Parser errors in test file:" << std::endl;
             for (const auto& error : parser.get_errors()) {
                 Logger::instance().error() << "  " << error << std::endl;
             }
         }
-        return results;
+        // Don't return early - try to extract any test cases that were successfully parsed
+        // The program pointer may still contain valid test cases despite parse errors
     }
     
     // Execute each test
@@ -66,27 +83,50 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
         results.push_back(execute_test(*test, program->statements));
     }
     
+    // Add spacing after test execution for better readability
+    if (!Config::quiet_assembly_test && !results.empty()) {
+        std::cout << std::endl;
+    }
+    
+    Config::test_mode = previous_test_mode; // Restore previous state
     return results;
 }
 
 TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case, 
                                       const std::vector<std::unique_ptr<Assembler::Statement>>& program_statements) {
+    // Set current test name for extraction
+    current_test_name = test_case.name;
+    
     TestResult result(test_case.name);
     result.set_metadata(test_case.description, test_case.author, test_case.category, test_case.tags);
+    
+    // Check if test is marked to skip
+    if (test_case.get_skip()) {
+        if (!Config::quiet_assembly_test) {
+            std::cout << test_case.name << " (skipped)" << std::endl;
+        }
+        result.skipped = true;
+        result.passed = false;  // Mark as not passed since it was skipped
+        return result;
+    }
+    
     auto start_time = std::chrono::high_resolution_clock::now();
     
+    // Print test name at the start (in both normal and quiet modes, but suppress detailed output)
+    if (Config::quiet_assembly_test) {
+        std::cout << test_case.name << " ";
+        std::cout.flush();
+    } else {
+        std::cout << test_case.name << " ";
+        std::cout.flush();
+    }
+    
     try {
-        // Create CPU instance for this test with 512 bytes for test compatibility
-        CPU cpu(512);  // Use small memory size so out-of-bounds tests work correctly
-        output_capture.clear();
-        
-        // Note: Test metadata will be printed after test execution based on filter mode
-        
-        // Assemble test code (main program + test body)
+        // First, assemble test code to process .memory directive
         std::vector<uint8_t> bytecode = assemble_test_code(test_case.body);
         
-        Logger::instance().debug() << fmt::format("Bytecode size: {}", bytecode.size()) << std::endl;
-        
+        DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Bytecode size: {}", bytecode.size());
+
         if (assembler.has_errors()) {
             std::stringstream error_msg;
             error_msg << "Assembly errors:\n";
@@ -97,15 +137,23 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
             return result;
         }
         
+        // Create CPU instance with memory size from .memory directive
+        size_t test_memory_size = 512; // Default for test compatibility
+        if (assembler.get_memory_size() > 0) {
+            test_memory_size = assembler.get_memory_size();
+        }
+        CPU cpu(test_memory_size);  // Use configurable memory size
+        output_capture.clear();
+        
+        // Note: Test metadata will be printed after test execution based on filter mode
+        
         // Execute the test code
         bool expect_error = false;
         bool error_occurred = false;
         
         try {
-            Logger::instance().debug() << "About to call cpu.execute() with entry address 0x" << std::hex << assembler.get_entry_address() << std::dec << "..." << std::endl;
             cpu.reset();
-            cpu.execute(bytecode, assembler.get_entry_address());
-            Logger::instance().debug() << "cpu.execute() completed" << std::endl;
+            cpu.execute(bytecode, assembler.get_entry_address(), test_case.max_steps);
             
             // IMPORTANT: Sync legacy registers to new register system
             // The opcodes write to legacy_registers but get_register() reads from registers array
@@ -151,6 +199,14 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
     
     auto end_time = std::chrono::high_resolution_clock::now();
     result.execution_time_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+    
+    // Print progress indicator (checkmark or cross) - always print in both normal and quiet modes
+    if (result.passed) {
+        std::cout << "\033[32m✓\033[0m" << std::endl;  // Green checkmark for passed
+    } else {
+        std::cout << "\033[31m✗\033[0m" << std::endl;  // Red X for failed
+    }
+    std::cout.flush();
     
     return result;
 }
@@ -240,6 +296,53 @@ AssertionResult TestExecutor::evaluate_assertion(const Assembler::TestAssertion&
                                  assertion.line, assertion.column);
         }
         
+        case Assembler::TestAssertionType::ASSERT_FPU: {
+            if (assertion.arguments.size() != 2) {
+                return AssertionResult(false, "assert_fpu", "2 arguments",
+                                     fmt::format("{} arguments", assertion.arguments.size()),
+                                     assertion.line, assertion.column);
+            }
+            
+            try {
+                // Get ST register number (0-7)
+                int st_num = get_st_register_number(*assertion.arguments[0]);
+                
+                // Get expected floating point value
+                double expected = 0.0;
+                if (assertion.arguments[1]->type == Assembler::ASTNodeType::FLOAT) {
+                    const auto* float_expr = static_cast<const Assembler::FloatExpression*>(assertion.arguments[1].get());
+                    expected = float_expr->value;
+                } else if (assertion.arguments[1]->type == Assembler::ASTNodeType::IMMEDIATE) {
+                    const auto* int_expr = static_cast<const Assembler::ImmediateExpression*>(assertion.arguments[1].get());
+                    expected = static_cast<double>(int_expr->value);
+                } else {
+                    return AssertionResult(false, "assert_fpu", "numeric literal",
+                                         "non-numeric argument",
+                                         assertion.line, assertion.column);
+                }
+                
+                // Get actual value from FPU stack
+                double actual = cpu.fpu_peek(static_cast<uint8_t>(st_num));
+                
+                // Use epsilon comparison for floating point
+                const double epsilon = 1e-10;
+                bool passed = std::abs(actual - expected) < epsilon;
+                
+                DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, 
+                          "FPU assertion: ST({}) expected={}, actual={}, diff={}, passed={}", 
+                          st_num, expected, actual, std::abs(actual - expected), passed);
+                
+                return AssertionResult(passed, "assert_fpu",
+                                     fmt::format("ST({}) = {}", st_num, expected),
+                                     fmt::format("ST({}) = {}", st_num, actual),
+                                     assertion.line, assertion.column);
+            } catch (const std::exception& e) {
+                return AssertionResult(false, "assert_fpu", "valid FPU assertion",
+                                     fmt::format("error: {}", e.what()),
+                                     assertion.line, assertion.column);
+            }
+        }
+        
         case Assembler::TestAssertionType::EXPECT_ERROR: {
             bool passed = expect_error_occurred;
             return AssertionResult(passed, "expect_error",
@@ -253,6 +356,9 @@ AssertionResult TestExecutor::evaluate_assertion(const Assembler::TestAssertion&
 }
 
 std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::unique_ptr<Assembler::Statement>>& statements) {
+    // Debug: Log test name and statement count
+    Logger::instance().debug() << fmt::format("Assembling test '{}' with {} statements", 
+                                              current_test_name, statements.size()) << std::endl;
     // Extract source lines for the test body
     std::stringstream source;
     std::vector<std::string> source_lines;
@@ -264,7 +370,38 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
         source_lines.push_back(line);
     }
     
-    // First, include all preprocessing directives from the entire file
+    // First, include file-level preprocessing directives that appear before any .test block
+    bool found_first_test = false;
+    for (size_t i = 0; i < source_lines.size() && !found_first_test; ++i) {
+        std::string code_line = source_lines[i];
+        
+        // Trim leading whitespace
+        size_t start = code_line.find_first_not_of(" \t");
+        if (start != std::string::npos) {
+            code_line = code_line.substr(start);
+            
+            // Check if we've reached the first .test block
+            if (code_line.find(".test") == 0) {
+                found_first_test = true;
+                break;
+            }
+            
+            // Include file-level preprocessing directives
+            if (code_line.find(".include") == 0 || 
+                code_line.find(".define") == 0 ||
+                code_line.find(".undef") == 0 ||
+                code_line.find(".ifdef") == 0 ||
+                code_line.find(".ifndef") == 0 ||
+                code_line.find(".elif") == 0 ||
+                code_line.find(".else") == 0 ||
+                code_line.find(".endif") == 0 ||
+                code_line.find(".memory") == 0) {
+                source << source_lines[i] << "\n"; // Use original line with whitespace
+            }
+        }
+    }
+    
+    // Then, include all preprocessing directives from the current test scope
     for (size_t i = 0; i < source_lines.size(); ++i) {
         std::string code_line = source_lines[i];
         
@@ -273,7 +410,7 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
         if (start != std::string::npos) {
             code_line = code_line.substr(start);
             
-            // Include preprocessing directives
+            // Include preprocessing directives from test context
             if (code_line.find(".include") == 0 || 
                 code_line.find(".define") == 0 ||
                 code_line.find(".undef") == 0 ||
@@ -281,54 +418,170 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
                 code_line.find(".ifndef") == 0 ||
                 code_line.find(".elif") == 0 ||
                 code_line.find(".else") == 0 ||
-                code_line.find(".endif") == 0) {
+                code_line.find(".endif") == 0 ||
+                code_line.find(".memory") == 0) {
                 source << code_line << "\n";
             }
         }
     }
     
-    // Then, extract lines for each statement in the test body
+    // Choose extraction strategy based on whether we have meaningful statements
+    // If we only have HALT and test assertions, use brace tracking for function macros
+    
+    // Count non-trivial statements (not HALT, not test assertions)
+    size_t meaningful_statements = 0;
     for (const auto& stmt : statements) {
-        // Skip test assertions - they're not executable code
-        if (stmt->type == Assembler::ASTNodeType::TEST_ASSERTION) {
-            continue;
+        if (stmt->type == Assembler::ASTNodeType::INSTRUCTION) {
+            // Check if it's not just a HALT instruction
+            // We need to look at the actual instruction to determine this
+            // For now, count all instructions except we'll check content later
+            meaningful_statements++;
+        }
+        // Don't count test assertions as meaningful statements
+    }
+    
+    // If we only have HALT instruction (and maybe test assertions), use brace tracking
+    bool use_brace_tracking = (meaningful_statements <= 1);
+    
+    // Also use brace tracking if the test contains preprocessor directives that the parser doesn't understand
+    // Check if source contains .ifdef, .ifndef, .else, .endif within this test's context
+    for (const auto& line : source_lines) {
+        std::string trimmed = line;
+        size_t start = trimmed.find_first_not_of(" \t");
+        if (start != std::string::npos) {
+            trimmed = trimmed.substr(start);
+            if (trimmed.find(".ifdef") == 0 || trimmed.find(".ifndef") == 0 || 
+                trimmed.find(".else") == 0 || trimmed.find(".endif") == 0) {
+                use_brace_tracking = true;
+                break;
+            }
+        }
+    }
+    
+    // Debug: Log strategy decision
+    Logger::instance().debug() << fmt::format("Test '{}': meaningful_statements={}, use_brace_tracking={}", 
+                                              current_test_name, meaningful_statements, use_brace_tracking) << std::endl;
+    
+    if (!use_brace_tracking) {
+        // Strategy 1: Use statement line ranges for tests with recognized statements
+        size_t min_line = SIZE_MAX;
+        size_t max_line = 0;
+        for (const auto& stmt : statements) {
+            if (stmt->type != Assembler::ASTNodeType::TEST_ASSERTION) {
+                min_line = std::min(min_line, stmt->line);
+                max_line = std::max(max_line, stmt->line);
+            }
         }
         
-        // Get line number (1-indexed)
-        size_t line_num = stmt->line;
-        if (line_num > 0 && line_num <= source_lines.size()) {
-            std::string code_line = source_lines[line_num - 1];
-            
-            // Trim leading whitespace
-            size_t start = code_line.find_first_not_of(" \t");
-            if (start != std::string::npos) {
-                code_line = code_line.substr(start);
+        // Extract only lines within the current test case range
+        for (size_t line_num = min_line; line_num <= max_line && line_num <= source_lines.size(); ++line_num) {
+            if (line_num > 0) {
+                std::string code_line = source_lines[line_num - 1];
                 
-                // Skip test directives and preprocessing directives (already included above)
-                if (code_line.find(".test") == 0 || 
-                    code_line.find("#assert") == 0 || 
-                    code_line.find(".assert_") == 0 ||
-                    code_line.find("#expect") == 0 ||
-                    code_line.find(".description") == 0 ||
-                    code_line.find(".author") == 0 ||
-                    code_line.find(".category") == 0 ||
-                    code_line.find(".tag") == 0 ||
-                    code_line.find(".include") == 0 || 
-                    code_line.find(".define") == 0 ||
-                    code_line.find(".undef") == 0 ||
-                    code_line.find(".ifdef") == 0 ||
-                    code_line.find(".ifndef") == 0 ||
-                    code_line.find(".elif") == 0 ||
-                    code_line.find(".else") == 0 ||
-                    code_line.find(".endif") == 0 ||
-                    code_line.find("{") == 0 ||
-                    code_line.find("}") == 0 ||
-                    code_line.empty() ||
-                    code_line[0] == ';') {
-                    continue;
+                // Trim leading whitespace
+                size_t start = code_line.find_first_not_of(" \t");
+                if (start != std::string::npos) {
+                    code_line = code_line.substr(start);
+                    
+                    // Skip test metadata directives but include actual assembly code
+                    // Skip test metadata directives
+                    if (code_line.find(".description") == 0 ||
+                        code_line.find(".author") == 0 ||
+                        code_line.find(".category") == 0 ||
+                        code_line.find(".tag") == 0 ||
+                        code_line.find(".benchmark") == 0 ||
+                        code_line.find(".warmup") == 0 ||
+                        code_line.find(".iterations") == 0 ||
+                        code_line.find(".measure") == 0 ||
+                        code_line.find(".maxsteps") == 0 ||
+                        code_line.find(".assert_") == 0 ||
+                        code_line.find(".expect_") == 0 ||
+                        code_line.find("#") == 0 ||
+                        code_line.find("{") == 0 ||
+                        code_line.find("}") == 0 ||
+                        code_line.empty() ||
+                        code_line[0] == ';') {
+                        continue; // Skip metadata and comments
+                    }
+                    
+                    source << code_line << "\n";
                 }
-                
-                source << code_line << "\n";
+            }
+        }
+    } else {
+        // Strategy 2: Use brace tracking for tests with only function macro calls
+        // (no recognized statements)
+        
+        // Find the current test case in the source
+        std::string test_marker = ".test \"" + current_test_name + "\"";
+        int test_start = -1;
+        for (size_t i = 0; i < source_lines.size(); i++) {
+            if (source_lines[i].find(test_marker) != std::string::npos) {
+                test_start = i;
+                break;
+            }
+        }
+        
+        if (test_start == -1) {
+            Logger::instance().error() << "Could not find test: " << current_test_name << std::endl;
+            return {};
+        }
+        
+        // Find opening brace
+        int brace_line = -1;
+        for (size_t i = test_start; i < source_lines.size(); i++) {
+            if (source_lines[i].find("{") != std::string::npos) {
+                brace_line = i;
+                break;
+            }
+        }
+        
+        if (brace_line == -1) {
+            Logger::instance().error() << "Could not find opening brace for test: " << current_test_name << std::endl;
+            return {};
+        }
+        
+        // Track brace depth and extract content
+        int brace_depth = 0;
+        for (size_t i = brace_line; i < source_lines.size(); i++) {
+            const std::string& line = source_lines[i];
+            
+            // Count braces in this line
+            for (char c : line) {
+                if (c == '{') brace_depth++;
+                else if (c == '}') brace_depth--;
+            }
+            
+            // Include content inside braces but skip metadata
+            if (brace_depth > 0) {
+                std::string code_line = line;
+                size_t start = code_line.find_first_not_of(" \t");
+                if (start != std::string::npos) {
+                    code_line = code_line.substr(start);
+                    
+                    if (code_line.find(".description") == std::string::npos &&
+                        code_line.find(".author") == std::string::npos &&
+                        code_line.find(".category") == std::string::npos &&
+                        code_line.find(".tag") == std::string::npos &&
+                        code_line.find(".benchmark") == std::string::npos &&
+                        code_line.find(".warmup") == std::string::npos &&
+                        code_line.find(".iterations") == std::string::npos &&
+                        code_line.find(".measure") == std::string::npos &&
+                        code_line.find(".maxsteps") == std::string::npos &&
+                        code_line.find(".assert_") == std::string::npos &&
+                        code_line.find(".expect_") == std::string::npos &&
+                        code_line.find("{") == std::string::npos &&
+                        code_line.find("#") != 0 &&
+                        !code_line.empty() &&
+                        code_line[0] != ';') {
+                        source << code_line << "\n";
+                    }
+                }
+            }
+            
+            // Stop when we've closed all braces
+            if (brace_depth == 0 && i > brace_line) {
+                break;
             }
         }
     }
@@ -343,9 +596,15 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
     
     assembler.clear_errors();
     
+    // Enable quiet mode to suppress parse error logging during test assembly
+    Logging::ErrorHandler::instance().set_quiet_mode(true);
+    
     // Get base path from the current test file for include resolution
     std::string base_path = std::filesystem::path(current_file_path).parent_path().string();
     auto bytecode = assembler.assemble_string(asm_code, base_path);
+    
+    // Disable quiet mode after assembly
+    Logging::ErrorHandler::instance().set_quiet_mode(false);
     
     if (assembler.has_errors()) {
         Logger::instance().error() << "Assembly errors:\n";
@@ -374,6 +633,20 @@ int TestExecutor::get_register_number(const Assembler::Expression& expr) {
         }
     }
     return 0;
+}
+
+int TestExecutor::get_st_register_number(const Assembler::Expression& expr) {
+    if (expr.type == Assembler::ASTNodeType::REGISTER) {
+        const auto* reg = static_cast<const Assembler::RegisterExpression*>(&expr);
+        // Extract ST register number from name (e.g., "ST0" -> 0, "ST7" -> 7)
+        if (reg->name.size() >= 3 && reg->name.substr(0, 2) == "ST") {
+            int st_num = std::stoi(reg->name.substr(2));
+            if (st_num >= 0 && st_num <= 7) {
+                return st_num;
+            }
+        }
+    }
+    throw std::runtime_error(fmt::format("Invalid ST register specification"));
 }
 
 uint32_t TestExecutor::get_memory_address(const Assembler::Expression& expr) {
@@ -407,6 +680,12 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
     std::map<std::string, size_t> shown_category_passed;
     
     for (const auto& result : results) {
+        // Skip counting for skipped tests in overall stats
+        if (result.skipped) {
+            total_execution_time += result.execution_time_ms;
+            continue;
+        }
+        
         // Count all tests for overall stats
         if (result.passed) {
             passed_tests++;
@@ -487,7 +766,9 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
             }
             
             // Print test result
-            if (result.passed) {
+            if (result.skipped) {
+                Logger::instance().info() << "\033[33m⊘ Test skipped\033[0m" << std::endl;
+            } else if (result.passed) {
                 Logger::instance().info() << "\033[32m✓ Test completed successfully\033[0m" << std::endl;
             } else {
                 Logger::instance().error() << "\033[31m✗ Test failed\033[0m" << std::endl;

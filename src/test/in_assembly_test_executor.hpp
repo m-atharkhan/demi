@@ -234,13 +234,15 @@ private:
             return result;
         }
         
-        // Load bytecode into CPU memory
-        if (bytecode.size() > cpu.memory.size()) {
-            result.set_error(fmt::format("Bytecode too large: {} bytes", bytecode.size()));
+        // Load bytecode into CPU memory safely
+        if (bytecode.size() > cpu.get_memory_size()) {
+            result.set_error(fmt::format("Bytecode too large: {} bytes, memory size: {}", bytecode.size(), cpu.get_memory_size()));
             return result;
         }
         
-        std::copy(bytecode.begin(), bytecode.end(), cpu.memory.begin());
+        // Use safe memory copy with bounds checking
+        auto& memory = cpu.get_memory();
+        std::copy_n(bytecode.begin(), std::min(bytecode.size(), memory.size()), memory.begin());
         
         // Execute the test
         cpu.reset();

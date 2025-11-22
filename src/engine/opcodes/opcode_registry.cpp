@@ -61,11 +61,17 @@ extern void handle_outstr(CPU& cpu, const std::vector<uint8_t>& program, bool& r
 extern void handle_db(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_add64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_sub64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_mul64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_cmp64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_load_imm64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_movex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_addex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_subex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_loadex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_storex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 
 // FPU Operations - Forward declarations (existing implementations)
 extern void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
@@ -189,7 +195,7 @@ void OpcodeRegistry::initialize_handlers() {
     REGISTER_OPCODE(0x32, handle_outstr);     // OUTSTR
     REGISTER_OPCODE(0x33, handle_db);         // DB
     
-    // Extended 64-bit operations
+    // Extended 64-bit operations (temporary range until proper 0x50+ range implemented)
     REGISTER_OPCODE(0x34, handle_add64);      // ADD64
     REGISTER_OPCODE(0x35, handle_sub64);      // SUB64
     REGISTER_OPCODE(0x36, handle_mov64);      // MOV64
@@ -197,6 +203,23 @@ void OpcodeRegistry::initialize_handlers() {
     REGISTER_OPCODE(0x38, handle_movex);      // MOVEX
     REGISTER_OPCODE(0x39, handle_addex);      // ADDEX
     REGISTER_OPCODE(0x3A, handle_subex);      // SUBEX
+    
+    // Proper 64-bit operations (0x50-0x5F range per opcodes.hpp)
+    REGISTER_OPCODE(0x50, handle_add64);      // ADD64
+    REGISTER_OPCODE(0x51, handle_sub64);      // SUB64
+    REGISTER_OPCODE(0x52, handle_mov64);      // MOV64
+    REGISTER_OPCODE(0x53, handle_load_imm64); // LOAD_IMM64
+    REGISTER_OPCODE(0x54, handle_mul64);      // MUL64
+    REGISTER_OPCODE(0x55, handle_div64);      // DIV64
+    REGISTER_OPCODE(0x56, handle_and64);      // AND64
+    REGISTER_OPCODE(0x5C, handle_cmp64);      // CMP64
+    
+    // Extended register operations (0x60-0x6F range per opcodes.hpp)
+    REGISTER_OPCODE(0x60, handle_movex);      // MOVEX
+    REGISTER_OPCODE(0x61, handle_addex);      // ADDEX
+    REGISTER_OPCODE(0x62, handle_subex);      // SUBEX
+    REGISTER_OPCODE(0x66, handle_loadex);     // LOADEX
+    REGISTER_OPCODE(0x67, handle_storex);     // STOREX
     
     // FPU Operations (0xA0-0xBF range - using existing implementations)
     REGISTER_OPCODE(0xA0, handle_FLD);       // FLD - Load floating-point value

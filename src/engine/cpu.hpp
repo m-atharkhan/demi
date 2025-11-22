@@ -8,6 +8,8 @@
 #include "../debug/logger.hpp"
 #include "cpu_registers.hpp"  // New extended register architecture
 #include "device_manager.hpp"
+#include "branch_prediction.hpp"  // Branch prediction support
+// #include "speculative_execution.hpp"  // Speculative execution support (temporarily disabled)
 
 using Logging::Logger;
 using DemiEngine_Registers::Register;
@@ -427,6 +429,10 @@ public:
     const std::vector<uint32_t>& get_registers() const { return legacy_registers; }
     std::vector<uint32_t>& get_registers() { return legacy_registers; } // Non-const version for opcodes
 
+    // 64-bit register access (for extended operations like LOADEX, STOREX, DIV64, MUL64, etc.)
+    const std::vector<uint64_t>& get_registers_64() const { return registers; }
+    std::vector<uint64_t>& get_registers_64() { return registers; } // Non-const version for opcodes
+
     std::vector<uint8_t>& get_memory() { return memory; }
     uint32_t get_flags() const { return static_cast<uint32_t>(registers[static_cast<size_t>(Register::RFLAGS)]); }
     void set_flags(uint32_t value) { registers[static_cast<size_t>(Register::RFLAGS)] = value; }
@@ -473,7 +479,7 @@ public:
     uint32_t read_port_dword(uint8_t port) { return vhw::DeviceManager::instance().readPortDWord(port); }
     void write_port_dword(uint8_t port, uint32_t value) { vhw::DeviceManager::instance().writePortDWord(port, value); }
 
-    // FPU Stack Management Methods
+    // FPU Stack Management
     void fpu_push(double value);
     double fpu_pop();
     double fpu_peek(uint8_t offset = 0) const;
@@ -485,6 +491,14 @@ public:
     uint16_t get_fpu_status_word() const { return fpu_status_word; }
     void set_fpu_status_word(uint16_t sw) { fpu_status_word = sw; }
     void fpu_init(); // Initialize FPU state
+
+    // Branch Prediction Support
+    BranchPrediction::BranchPredictor& get_branch_predictor() { return branch_predictor; }
+    const BranchPrediction::BranchPredictor& get_branch_predictor() const { return branch_predictor; }
+
+    // Speculative Execution Support (temporarily disabled)
+    // SpeculativeExecution::SpeculativeExecutor& get_speculative_executor() { return speculative_executor; }
+    // const SpeculativeExecution::SpeculativeExecutor& get_speculative_executor() const { return speculative_executor; }
 
     // Register synchronization (public for opcode handlers)
     void sync_legacy_registers();
@@ -511,6 +525,12 @@ private:
     uint16_t fpu_control_word = 0x037F; // Default FPU control word
     uint16_t fpu_status_word = 0x0000;  // FPU status word
     uint16_t fpu_tag_word = 0xFFFF;     // Tag word (all empty initially)
+
+    // Branch Prediction Unit
+    BranchPrediction::BranchPredictor branch_predictor;
+
+    // Speculative Execution Engine (temporarily disabled)
+    // SpeculativeExecution::SpeculativeExecutor speculative_executor;
 
     uint8_t readPort(uint8_t port);
     void writePort(uint8_t port, uint8_t value);
