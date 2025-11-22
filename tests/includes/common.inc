@@ -3,6 +3,8 @@
 
 # Version information
 .define DEMI_VERSION 1.0
+.define DEMI_VERSION_MAJOR 1
+.define DEMI_VERSION_MINOR 0
 .define DEMI_BUILD_DATE "November 7, 2025"
 
 # Common register aliases
@@ -41,6 +43,9 @@
 
 # Complex multi-line macro
 .define COMPLEX_OPERATION(reg1, reg2) LOAD_IMM reg1, 42\nLOAD_IMM reg2, 21
+
+# Math utility macros
+.define MUL_BY_10(reg) LOAD_IMM R7, 10\nMUL reg, R7
 
 # Conditional compilation examples
 .ifdef DEBUG

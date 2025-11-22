@@ -32,6 +32,7 @@
     .category "Error Handling"
     .tag "error"
     .tag "stack"
+    .memory 256
     .maxsteps 500
     .expect_error true
     
@@ -40,23 +41,71 @@
     ; Need to push until SP < 8, so (256-8)/4 = 62 pushes minimum
     LOAD_IMM R0, 1
     
-    ; Push 65 times to ensure overflow (15 groups of 4 + 5 extra = 65 total)
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
-    PUSH R0  PUSH R0  PUSH R0  PUSH R0
+    ; Push 65 times to ensure overflow (one per line for clarity)
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
+    PUSH R0
     PUSH R0  ; This 65th push should trigger stack overflow
 }
 
