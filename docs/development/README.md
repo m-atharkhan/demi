@@ -40,7 +40,7 @@ This directory contains development plans, roadmaps, and future feature specific
 ## Related Documentation
 
 - **Main Roadmap**: `/roadmap.md` (project root)
-- **Quick Reference**: `/docs/QUICK_REFERENCE.md`
+- **Quick Reference**: `/docs/reference/QUICK_REFERENCE.md`
 - **Codebase Documentation**: `/docs/codebase/`
 - **Testing Documentation**: `/docs/testing/`
 

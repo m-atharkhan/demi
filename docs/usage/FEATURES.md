@@ -40,7 +40,7 @@ DemiEngine implements a complete set of core CPU instructions modeled after x86 
 #### Stack Operations
 - **Basic**: PUSH, POP
 - **Function Support**: PUSH_ARG, POP_ARG, CALL, RET
-- **Flags**: PUSHF, POPF (save/restore flags)
+- **Flags**: PUSH_FLAG, POP_FLAG (save/restore flags)
 
 #### Bitwise Operations
 - **Logical**: AND, OR, XOR, NOT

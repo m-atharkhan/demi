@@ -11,7 +11,7 @@
 
 DemiEngine currently has **63 core opcodes** fully implemented and tested. These provide solid arithmetic, logic, memory, control flow, I/O, and stack operations. To enable seamless translation to native x86-64 code and support advanced computing applications, we're implementing **88 additional opcodes** across five categories.
 
-### Current Status (86 Opcodes - 100% Complete)
+### Current Status (94 Opcodes - 100% Complete)
 
 ✅ **Core Arithmetic**: ADD, SUB, MUL, DIV, INC, DEC (+ 64-bit variants)  
 ✅ **Logic Operations**: AND, OR, XOR, NOT, SHL, SHR  
@@ -22,11 +22,12 @@ DemiEngine currently has **63 core opcodes** fully implemented and tested. These
 ✅ **Comparison**: CMP, MODECMP  
 ✅ **System**: NOP, HALT, DB, MODE32, MODE64  
 ✅ **FPU Operations**: ALL 23 floating-point opcodes implemented and tested (FLD, FST, FSTP, FADD, FSUB, FMUL, FDIV, etc.)
+✅ **SIMD Operations**: 8 basic vector opcodes implemented (VADD, VMUL, VDOT, VMAX, VBROADCAST, VCMPGT, PACKB, UNPACKB)
 
 ### ⚠️ CRITICAL: Performance Optimization Required
 
 **Current Status**: VM interpretation overhead causing 5-20x performance penalty
-- **87-case switch dispatcher** with branch prediction misses
+- **95-case switch dispatcher** with branch prediction misses
 - **Per-instruction overhead** from bounds checking, logging, flag calculations
 - **Function call overhead** for each opcode handler
 
@@ -35,9 +36,9 @@ DemiEngine currently has **63 core opcodes** fully implemented and tested. These
 - **Timeline**: 2-4 weeks
 - **See**: `docs/development/VM_PERFORMANCE_ANALYSIS.md` for detailed analysis
 
-### Remaining Planned Additions (65 Opcodes)
+### Remaining Planned Additions (57 Opcodes)
 
-🔄 **SIMD/SSE** (26 opcodes) - Vector operations [NEXT PRIORITY]  
+🔄 **SIMD/SSE** (18 opcodes) - Advanced vector operations [NEXT PRIORITY]  
 🔄 **Extended 64-bit** (18 opcodes) - Complete addressing modes  
 🔄 **AVX** (20 opcodes) - Advanced vector processing  
 🔄 **MMX** (11 opcodes) - Legacy multimedia extensions  
@@ -69,21 +70,21 @@ DemiEngine currently has **63 core opcodes** fully implemented and tested. These
 - **FDIV** (0xA9) - Floating-point division
 
 #### Mathematical Functions ✅
-- **FABS** (0xAD) - Absolute value
-- **FCHS** (0xAE) - Change sign
-- **FSQRT** (0xAF) - Square root
-- **FSIN** (0xB0) - Sine function
-- **FCOS** (0xB1) - Cosine function  
-- **FTAN** (0xB2) - Tangent function
+- **FSIN** (0xAA) - Sine function
+- **FCOS** (0xAB) - Cosine function  
+- **FTAN** (0xAC) - Tangent function
+- **FSQRT** (0xAD) - Square root
+- **FABS** (0xAE) - Absolute value
+- **FCHS** (0xAF) - Change sign
 
 #### Comparison & Control ✅
-- **FCOMPP** (0xB3) - Compare and pop twice
-- **FUCOMPP** (0xB4) - Unordered compare and pop twice
-- **FCLEX** (0xB5) - Clear exception flags
-- **FSTCW** (0xB6) - Store control word
-- **FLDCW** (0xB7) - Load control word
-- **FSTSW** (0xB8) - Store status word
-- **FINIT** (0xAC) - Initialize FPU
+- **FINIT** (0xB0) - Initialize FPU
+- **FCLEX** (0xB1) - Clear exception flags
+- **FSTCW** (0xB2) - Store control word
+- **FLDCW** (0xB3) - Load control word
+- **FSTSW** (0xB4) - Store status word
+- **FCOMPP** (0xB5) - Compare and pop twice
+- **FUCOMPP** (0xB6) - Unordered compare and pop twice
 
 **Achievement**: Complete floating-point support enables scientific computing, graphics, physics simulations, and financial applications.
 

@@ -18,18 +18,19 @@ DemiEngine provides foundational SIMD capabilities for parallel data processing.
 
 ### Register Naming
 ```
-Register Ranges:
-  R0-R7     : Legacy 8-bit general purpose registers
-  R8-R31    : Extended general purpose registers
-  R32-R63   : General purpose registers (continued)
-  R64-R95   : Reserved for system use
-  R96-R111  : XMM registers (XMM0-XMM15)
-              XMM0  = R96-R99   (4 x 32-bit components)
-              XMM1  = R100-R103
+Register Ranges (Internal Enumeration):
+  0-15      : General Purpose Registers (RAX, RCX, ..., R15)
+  16-21     : Segment Registers (CS, DS, ...)
+  22-30     : Control Registers (CR0-CR8)
+  31-46     : Debug Registers (DR0-DR15)
+  47-49     : Special (RIP, RFLAGS, MSW)
+  50-81     : XMM Registers (XMM0-XMM15)
+              Stored as pairs of 64-bit values (Low, High)
+              XMM0 = 50 (Low), 51 (High)
               ...
-              XMM15 = R156-R159
-  R112-R127 : Control and status registers
-  R128-R133 : FPU stack registers ST(0)-ST(7) mapped here
+              XMM15 = 80 (Low), 81 (High)
+  82-97     : FPU Stack Registers (ST0-ST7)
+              Stored as pairs (Value, Metadata)
 ```
 
 ## SIMD Instruction Set

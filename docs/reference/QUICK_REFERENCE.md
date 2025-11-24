@@ -31,6 +31,7 @@ FF                    # HALT - Stop execution
 03 <dst> <src>        # SUB - Subtract registers
 10 <dst> <src>        # MUL - Multiply registers
 11 <dst> <src>        # DIV - Divide registers
+29 <dst> <src>        # MOD - Modulo
 12 <reg>              # INC - Increment register
 13 <reg>              # DEC - Decrement register
 ```
@@ -41,6 +42,7 @@ FF                    # HALT - Stop execution
 07 <addr> <src>       # STORE - Store to memory
 20 <reg> <addr>       # LEA - Load Effective Address
 21 <reg> <addr>       # SWAP - Swap register with memory
+41 <reg>              # LOADR - Load indirect (address in register)
 ```
 
 ### Control Flow
@@ -49,6 +51,10 @@ FF                    # HALT - Stop execution
 0A <reg1> <reg2>      # CMP - Compare registers
 0B <addr>             # JZ - Jump if zero
 0C <addr>             # JNZ - Jump if not zero
+26 <addr>             # JL - Jump if less
+25 <addr>             # JG - Jump if greater
+28 <addr>             # JLE - Jump if less or equal
+27 <addr>             # JGE - Jump if greater or equal
 0D <addr>             # JS - Jump if sign
 0E <addr>             # JNS - Jump if not sign
 0F <addr>             # JC - Jump if carry

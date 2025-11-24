@@ -16,7 +16,7 @@ This document provides detailed API documentation for all classes, functions, an
 
 ### `class CPU`
 
-**File**: `src/vhardware/cpu.hpp`, `src/vhardware/cpu.cpp`
+**File**: `src/engine/cpu.hpp`, `src/engine/cpu.cpp`
 
 The core CPU emulation class implementing the DemiEngine 32-bit architecture.
 
@@ -25,9 +25,9 @@ The core CPU emulation class implementing the DemiEngine 32-bit architecture.
 ```cpp
 /**
  * @brief Construct a new CPU with specified memory size
- * @param memory_size Size of memory in bytes (default: 64KB)
+ * @param memory_size Size of memory in bytes (0 = default)
  */
-CPU(size_t memory_size = 64 * 1024);
+CPU(size_t memory_size = 0);
 ```
 
 #### Core Execution Methods
@@ -42,15 +42,25 @@ void reset();
 /**
  * @brief Execute a single instruction
  * Fetches instruction at PC, decodes and executes it, updates PC
- * @throws std::runtime_error on invalid instruction or memory access
+ * @param program The program bytecode
+ * @return true if execution should continue, false if halted or error
  */
-void step();
+bool step(const std::vector<uint8_t>& program);
 
 /**
  * @brief Run CPU until HALT instruction or error
  * Continuously calls step() until halted flag is set
+ * @param program The program bytecode
  */
-void run();
+void run(const std::vector<uint8_t>& program);
+
+/**
+ * @brief Execute program with options
+ * @param program The program bytecode
+ * @param entry_address Starting address (default 0)
+ * @param max_steps Maximum instructions to execute (0 = infinite)
+ */
+void execute(const std::vector<uint8_t>& program, uint32_t entry_address = 0, size_t max_steps = 0);
 ```
 
 #### Register Access
@@ -58,17 +68,17 @@ void run();
 ```cpp
 /**
  * @brief Get value of specified register
- * @param reg Register identifier (R0-R7)
- * @return 32-bit register value
+ * @param reg Register identifier
+ * @return 64-bit register value
  */
-uint32_t get_register(Register reg) const;
+uint64_t get_register(Register reg) const;
 
 /**
  * @brief Set value of specified register  
- * @param reg Register identifier (R0-R7)
- * @param value 32-bit value to store
+ * @param reg Register identifier
+ * @param value 64-bit value to store
  */
-void set_register(Register reg, uint32_t value);
+void set_register(Register reg, uint64_t value);
 
 /**
  * @brief Get current program counter value
@@ -105,79 +115,69 @@ uint32_t get_flags() const { return flags; }
 
 ```cpp
 /**
- * @brief Read single byte from memory
- * @param address 32-bit memory address
- * @return 8-bit value at address
- * @throws std::out_of_range if address is invalid
- */
-uint8_t read_memory(uint32_t address) const;
-
-/**
- * @brief Write single byte to memory
- * @param address 32-bit memory address
- * @param value 8-bit value to write
- * @throws std::out_of_range if address is invalid
- */
-void write_memory(uint32_t address, uint8_t value);
-
-/**
- * @brief Read 32-bit word from memory (little-endian)
- * @param address 32-bit memory address
+ * @brief Read 32-bit value from memory
+ * @param addr 32-bit memory address
  * @return 32-bit value at address
  */
-uint32_t read_memory_word(uint32_t address) const;
+uint32_t read_mem32(uint32_t addr) const;
 
 /**
- * @brief Write 32-bit word to memory (little-endian)
- * @param address 32-bit memory address
+ * @brief Write 32-bit value to memory
+ * @param addr 32-bit memory address
  * @param value 32-bit value to write
  */
-void write_memory_word(uint32_t address, uint32_t value);
+void write_mem32(uint32_t addr, uint32_t value);
+
+/**
+ * @brief Get raw memory buffer
+ * @return Reference to memory vector
+ */
+std::vector<uint8_t>& get_memory();
 ```
 
-#### Device Integration
+#### I/O Operations
 
 ```cpp
 /**
- * @brief Set device manager for I/O operations
- * @param dm Pointer to DeviceManager instance
+ * @brief Read byte from port
+ * @param port Port number
+ * @return Byte value
  */
-void set_device_manager(DeviceManager* dm) { device_manager = dm; }
-```
-
-#### Program Loading
-
-```cpp
-/**
- * @brief Load hex program from file
- * @param filename Path to hex program file
- * @return true if successful, false on error
- */
-bool load_hex_program(const std::string& filename);
-```
-
-#### Status and Debug
-
-```cpp
-/**
- * @brief Check if CPU is halted
- * @return true if HALT instruction executed or error occurred
- */
-bool is_halted() const { return halted; }
+uint8_t read_port(uint8_t port);
 
 /**
- * @brief Get last error message
- * @return String describing last error, empty if no error
+ * @brief Write byte to port
+ * @param port Port number
+ * @param value Byte value
  */
-const std::string& get_last_error() const { return last_error; }
+void write_port(uint8_t port, uint8_t value);
+
+/**
+ * @brief Read string from port
+ * @param port Port number
+ * @param maxLength Maximum length to read
+ * @return String value
+ */
+std::string read_port_string(uint8_t port, uint8_t maxLength = 255);
+
+/**
+ * @brief Write string to port
+ * @param port Port number
+ * @param str String to write
+ */
+void write_port_string(uint8_t port, const std::string& str);
 ```
 
 #### Register Enumeration
 
 ```cpp
-enum class Register {
-    R0 = 0, R1 = 1, R2 = 2, R3 = 3,
-    R4 = 4, R5 = 5, R6 = 6, R7 = 7
+// See src/engine/cpu_registers.hpp for full list
+enum class Register : uint8_t {
+    RAX = 0, RCX = 1, RDX = 2, RBX = 3,
+    RSP = 4, RBP = 5, RSI = 6, RDI = 7,
+    // ... Extended registers R8-R15 ...
+    // ... Segment, Control, Debug registers ...
+    // ... XMM, FPU registers ...
 };
 ```
 
@@ -185,7 +185,7 @@ enum class Register {
 
 ### `class Device`
 
-**File**: `src/vhardware/device.hpp`
+**File**: `src/engine/device.hpp`
 
 Abstract base class for all devices in the DemiEngine system.
 

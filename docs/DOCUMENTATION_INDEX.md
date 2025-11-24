@@ -26,7 +26,7 @@ Refer to the sections below for detailed navigation and descriptions of each doc
 | Category | Document | Description |
 |----------|----------|-------------|
 | **Getting Started** | [Main README](../README.md) | Project overview and quick start |
-| | [Quick Reference](QUICK_REFERENCE.md) | Fast command and instruction lookup |
+| | [Quick Reference](reference/QUICK_REFERENCE.md) | Fast command and instruction lookup |
 | | [Usage Guide](usage/README.md) | Programming guide and tutorials |
 | **Development** | [Roadmap](../roadmap.md) | Complete development roadmap |
 | | [Future Opcodes](development/FUTURE_OPCODES.md) | 88 planned opcodes implementation plan |
@@ -38,11 +38,11 @@ Refer to the sections below for detailed navigation and descriptions of each doc
 | | [Test Status](testing/TEST_FRAMEWORK_STATUS.md) | Current test coverage (188/188) |
 | **Codebase** | [Architecture](codebase/README.md) | Core system design |
 | | [API Reference](codebase/API_REFERENCE.md) | Complete API documentation |
-| | [Error Handling](ERROR_HANDLING_IMPLEMENTATION.md) | Error & debug system implementation |
+| | [Error Handling](development/ERROR_HANDLING_IMPLEMENTATION.md) | Error & debug system implementation |
 | | [CPU Module](codebase/modules/cpu.md) | CPU implementation details |
 | | [Assembler Module](codebase/modules/assembler.md) | Assembler architecture |
 | | [Device Manager](codebase/modules/device_manager.md) | Device I/O system |
-| **Support** | [Troubleshooting](TROUBLESHOOTING.md) | Common issues and solutions |
+| **Support** | [Troubleshooting](usage/TROUBLESHOOTING.md) | Common issues and solutions |
 | | [Contributing](../CONTRIBUTING.md) | Development guidelines |
 
 ---
@@ -52,8 +52,12 @@ Refer to the sections below for detailed navigation and descriptions of each doc
 ```
 docs/
 ├── README.md                    # Main documentation index (YOU ARE HERE)
-├── QUICK_REFERENCE.md           # Fast lookup reference
-├── TROUBLESHOOTING.md           # Problem solving guide
+│
+├── reference/                   # Reference documentation
+│   ├── QUICK_REFERENCE.md       # Fast lookup reference
+│   ├── FPU_REFERENCE.md         # FPU instruction reference
+│   ├── SIMD_REFERENCE.md        # SIMD instruction reference
+│   └── SIMD_COMPARISON.md       # SIMD comparison guide
 │
 ├── development/                 # Development plans and specifications
 │   ├── README.md
@@ -61,6 +65,7 @@ docs/
 │   ├── DEMI_LANGUAGE_PLAN.md   # Demi language specification
 │   ├── NATIVE_COMPILER_PLAN.md # Native codegen design
 │   ├── REGISTER_IMPLEMENTATION_NOTES.md # Register architecture notes
+│   ├── ERROR_HANDLING_IMPLEMENTATION.md # Error handling implementation
 │   └── DEVELOPMENT_PLAN_UPDATE.md
 │
 ├── testing/                     # Testing documentation
@@ -89,7 +94,9 @@ docs/
 │       └── testing.md
 │
 ├── usage/                       # User programming guides
-│   └── README.md
+│   ├── README.md
+│   ├── FEATURES.md              # Features guide
+│   └── TROUBLESHOOTING.md       # Problem solving guide
 │
 └── archive/                     # Historical/deprecated docs
     ├── README.md
@@ -105,13 +112,13 @@ docs/
 
 #### Learn DemiEngine
 1. Start with [Main README](../README.md)
-2. Read [Quick Reference](QUICK_REFERENCE.md)
+2. Read [Quick Reference](reference/QUICK_REFERENCE.md)
 3. Follow [Usage Guide](usage/README.md)
 4. Try [Example Programs](../examples/README.md)
 
 #### Write Assembly Programs
 1. Read [Usage Guide](usage/README.md)
-2. Check [Quick Reference](QUICK_REFERENCE.md) for instructions
+2. Check [Quick Reference](reference/QUICK_REFERENCE.md) for instructions
 3. Browse [Example Programs](../examples/README.md)
 4. See [Test Programs](../tests/asm/README.md) for more examples
 
@@ -134,7 +141,7 @@ docs/
 4. See [Native Compiler Plan](development/NATIVE_COMPILER_PLAN.md)
 
 #### Troubleshoot Issues
-1. Check [Troubleshooting Guide](TROUBLESHOOTING.md)
+1. Check [Troubleshooting Guide](usage/TROUBLESHOOTING.md)
 2. Review [Test Status](testing/TEST_FRAMEWORK_STATUS.md)
 3. Search [Issue Tracker](https://github.com/bobrossrtx/demi/issues)
 4. Ask in discussions
@@ -182,7 +189,7 @@ docs/
 | Document | Status | Last Updated |
 |----------|--------|--------------|
 | README.md | ✅ Current | 2025-10-03 |
-| QUICK_REFERENCE.md | ✅ Current | 2025-10-03 |
+| reference/QUICK_REFERENCE.md | ✅ Current | 2025-10-03 |
 | development/FUTURE_OPCODES.md | ✅ Current | 2025-10-03 |
 | testing/* | ✅ Current | 2025-10-03 |
 | codebase/* | ✅ Current | 2025-10-03 |
