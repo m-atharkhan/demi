@@ -23,51 +23,54 @@ The FPU uses a stack-based register architecture:
 
 #### FADD - Floating Point Addition
 ```assembly
-FADD [source]       ; ST(0) = ST(0) + source
+FADD <source>       ; ST(0) = ST(0) + source
 ```
 
 **Operand Types**:
-- Memory (32-bit): `FADD 0x01 <address>`
-- Memory (64-bit): `FADD 0x02 <address>`
-- Immediate (64-bit): `FADD 0x03 <8-byte-value>`
+- **Memory Address**: Adds value at address to ST(0).
+- **Immediate Value**: Adds immediate value to ST(0).
 
 **Example**:
 ```assembly
 FLD 0x100           ; Load float from memory
-FADD 0x03, 3.14     ; Add immediate 3.14
+FADD 3.14           ; Add immediate 3.14
+FADD 0x200          ; Add value at memory address 0x200
 ```
 
 #### FSUB - Floating Point Subtraction
 ```assembly
-FSUB [source]       ; ST(0) = ST(0) - source
+FSUB <source>       ; ST(0) = ST(0) - source
 ```
 
 **Example**:
 ```assembly
 FLD 0x200
-FSUB 0x01 0x204     ; Subtract 32-bit float from memory
+FSUB 0x204          ; Subtract float at memory address 0x204
+FSUB 1.5            ; Subtract immediate 1.5
 ```
 
 #### FMUL - Floating Point Multiplication
 ```assembly
-FMUL [source]       ; ST(0) = ST(0) * source
+FMUL <source>       ; ST(0) = ST(0) * source
 ```
 
 **Example**:
 ```assembly
 FLD 0x300
-FMUL 0x02 0x308     ; Multiply by 64-bit double from memory
+FMUL 0x308          ; Multiply by value at memory address 0x308
+FMUL 2.0            ; Multiply by immediate 2.0
 ```
 
 #### FDIV - Floating Point Division
 ```assembly
-FDIV [source]       ; ST(0) = ST(0) / source
+FDIV <source>       ; ST(0) = ST(0) / source
 ```
 
 **Example**:
 ```assembly
 FLD 0x400
-FDIV 0x03, 2.0      ; Divide by immediate 2.0
+FDIV 2.0            ; Divide by immediate 2.0
+FDIV 0x404          ; Divide by value at memory address 0x404
 ```
 
 ### Transcendental Functions

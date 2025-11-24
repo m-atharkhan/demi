@@ -155,14 +155,14 @@ demi-engine Usage: demi-engine [options]
 ### 🎓 **Learning Resources**
 - **[📝 Examples](tests/hex/)** – Sample programs demonstrating features
 - **[🧪 Test Cases](tests/)** – Real-world usage patterns
-- **[⚠️ Troubleshooting](docs/TROUBLESHOOTING.md)** – Common issues and solutions
+- **[⚠️ Troubleshooting](docs/usage/TROUBLESHOOTING.md)** – Common issues and solutions
 - **[🤝 Contributing](CONTRIBUTING.md)** – How to contribute to the project
 
 ### 🚀 **Feature Documentation**
-- **[🌟 Features Overview](docs/FEATURES.md)** – Complete feature documentation
-- **[⚡ Quick Reference](docs/QUICK_REFERENCE.md)** – Instruction set quick reference
-- **[🔢 FPU Reference](docs/FPU_REFERENCE.md)** – Complete floating-point unit guide
-- **[📊 SIMD Reference](docs/SIMD_REFERENCE.md)** – Complete vector operations guide
+- **[🌟 Features Overview](docs/usage/FEATURES.md)** – Complete feature documentation
+- **[⚡ Quick Reference](docs/reference/QUICK_REFERENCE.md)** – Instruction set quick reference
+- **[🔢 FPU Reference](docs/reference/FPU_REFERENCE.md)** – Complete floating-point unit guide
+- **[📊 SIMD Reference](docs/reference/SIMD_REFERENCE.md)** – Complete vector operations guide
 - **[🧪 Test Framework](docs/TEST_FRAMEWORK_DESIGN.md)** – Testing system documentation
 
 ---
@@ -252,7 +252,7 @@ TOTAL: 180 tests passing (100% coverage)
 
 **All test flags support optional file arguments** - provide a file path to test only that file.
 
-**See [docs/CLI_IMPROVEMENTS.md](docs/CLI_IMPROVEMENTS.md) for detailed usage examples and new features**
+**See [docs/development/CLI_IMPROVEMENTS.md](docs/development/CLI_IMPROVEMENTS.md) for detailed usage examples and new features**
 
 ### Test Categories
 - **✅ Unit Tests**: 101/101 passing - Core functionality validation
