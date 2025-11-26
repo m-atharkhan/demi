@@ -31,6 +31,7 @@ private:
     // Parsing methods
     std::unique_ptr<Statement> parse_statement();
     std::unique_ptr<Instruction> parse_instruction(const std::string& mnemonic, size_t line, size_t col);
+    std::unique_ptr<Instruction> parse_debug_directive();
     std::unique_ptr<Directive> parse_directive(const std::string& directive_name, size_t line, size_t col);
     std::unique_ptr<Directive> parse_define_directive(const std::string& directive_name, size_t line, size_t col);
     std::unique_ptr<Label> parse_label(const std::string& label_name, size_t line, size_t col);

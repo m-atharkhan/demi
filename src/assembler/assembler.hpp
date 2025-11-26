@@ -11,6 +11,8 @@ struct Symbol {
     std::string name;
     uint32_t address;
     bool defined;
+    bool is_global = false;
+    std::string section = ".text";
     
     Symbol() : name(""), address(0), defined(false) {}  // Default constructor
     Symbol(const std::string& n, uint32_t addr = 0, bool def = false)
@@ -34,19 +36,25 @@ public:
     const std::unordered_map<std::string, Symbol>& get_symbols() const { return symbol_table; }
     uint32_t get_entry_address() const { return entry_address; }
     size_t get_memory_size() const { return memory_size; } // Get memory size set by .memory directive
+    
+    // Set entry point symbol (default: "_start")
+    void set_entry_point_symbol(const std::string& symbol) { entry_point_symbol = symbol; }
 
 private:
     std::vector<std::string> errors;
     std::unordered_map<std::string, Symbol> symbol_table;
     std::unordered_map<std::string, uint8_t> mnemonic_to_opcode;
     std::unordered_map<std::string, uint8_t> register_to_number;
+    std::unordered_map<std::string, uint8_t> register_sizes; // Map register name to size in bits (32 or 64)
     
     // Current assembly state
     uint32_t current_address;
     std::vector<uint8_t> bytecode;
     uint32_t entry_address = 0; // Entry point for execution
+    std::string entry_point_symbol = "_start"; // Entry point symbol name
     std::string last_label_name; // Track most recent label for DB assignment
     size_t memory_size = 0; // Memory size set by .memory directive (0 = use default)
+    std::string current_section = ".text"; // Current section name
     
     // DB format detection
     bool use_simple_db_format = false; // True for multiple DBs or with .org
@@ -79,6 +87,7 @@ private:
     void emit_byte(uint8_t byte);
     void emit_word(uint16_t word);
     void emit_dword(uint32_t dword);
+    void emit_qword(uint64_t qword);
     void emit_address(uint32_t address, size_t size = 4);
     void emit_forward_ref(const std::string& symbol, size_t size = 4, bool relative = false);
     
@@ -94,7 +103,14 @@ private:
     void handle_align_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_bss_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_org_directive(const std::vector<std::unique_ptr<Expression>>& args);
+    void handle_equ_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_memory_directive(const std::vector<std::unique_ptr<Expression>>& args);
+    
+    // Structure directive handling
+    void handle_section_directive(const std::vector<std::unique_ptr<Expression>>& args);
+    void handle_global_directive(const std::vector<std::unique_ptr<Expression>>& args);
+    void handle_extern_directive(const std::vector<std::unique_ptr<Expression>>& args);
+
     void handle_data_section();
     void handle_text_section();
     

@@ -38,6 +38,9 @@ enum class TokenType {
     
     // Directives
     DIRECTIVE,       // .data, .text, .org, etc.
+    SECTION,         // section
+    GLOBAL,          // global
+    EXTERN,          // extern
     
     // Test directives
     TEST_DIRECTIVE,  // .test
@@ -46,6 +49,7 @@ enum class TokenType {
     ASSERT_FPU,      // .assert_fpu
     ASSERT_OUTPUT,   // .assert_output
     EXPECT_ERROR,    // .expect_error
+    ENTRY_POINT,     // .entry_point (test-specific)
     
     // Test metadata directives
     DESCRIPTION,     // .description
@@ -72,6 +76,22 @@ enum class TokenType {
     ELSE,            // .else
     ENDIF,           // .endif
     UNDEF,           // .undef
+
+    // Debug directives
+    PRINT,           // .print
+    BREAK,           // .break
+    DUMP,            // .dump
+    MEMDUMP,         // .memdump
+    TRACE,           // .trace
+    ASSERT,          // .assert
+    DUMPSTACK,       // .dumpstack
+    WATCH,           // .watch
+    UNWATCH,         // .unwatch
+    CHECKPOINT,      // .checkpoint
+    LOG,             // .log
+    DUMPREG,         // .dumpreg
+    MEMSET,          // .memset
+    STEP,            // .step
 
     // Special
     NEWLINE,         // \n

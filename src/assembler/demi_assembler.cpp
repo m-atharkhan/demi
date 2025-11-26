@@ -3,6 +3,7 @@
 #include "parser.hpp"
 #include "preprocessor.hpp"
 #include "../test/in_assembly_test_validator.hpp"
+#include "../debug/debug_handler.hpp"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -40,8 +41,11 @@ std::vector<uint8_t> DemiAssembler::assemble_string(const std::string& source) {
         return {};
     }
 
+    DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Parsed {} statements", program->statements.size());
+
     // Code generation
     AssemblerEngine assembler;
+    assembler.set_entry_point_symbol(entry_point_symbol);
     auto bytecode = assembler.assemble(*program);
 
     if (assembler.has_errors()) {
@@ -49,10 +53,11 @@ std::vector<uint8_t> DemiAssembler::assemble_string(const std::string& source) {
         return {};
     }
 
-    // Store symbols for debugging
+    // Store symbols
     symbols = assembler.get_symbols();
     
     // Store entry address
+    entry_address = assembler.get_entry_address();
     entry_address = assembler.get_entry_address();
     
     // Store memory size from .memory directive
@@ -99,7 +104,7 @@ std::vector<uint8_t> DemiAssembler::assemble_string(const std::string& source, c
         collect_errors(assembler.get_errors());
         return {};
     }
-
+    
     // Store symbols and entry address
     symbols = assembler.get_symbols();
     entry_address = assembler.get_entry_address();
@@ -154,6 +159,7 @@ std::vector<uint8_t> DemiAssembler::assemble_file(const std::string& filename) {
 
     // Assembly
     AssemblerEngine assembler;
+    assembler.set_entry_point_symbol(entry_point_symbol);
     auto bytecode = assembler.assemble(*program);
 
     if (assembler.has_errors()) {

@@ -90,6 +90,7 @@ enum class Opcode : uint8_t {
 
     DB = 0x40,          // Define byte
     LOADR = 0x41,       // Load value from memory to reg (indirect addressing - addr in register)
+    DEBUG = 0x42,       // Debug directive (print, break, dump, etc.)
 
     // Extended 64-bit Register Operations (0x50-0x6F range)
     ADD64 = 0x50,       // 64-bit Add reg1, reg2

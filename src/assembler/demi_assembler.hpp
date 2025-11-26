@@ -62,6 +62,12 @@ public:
     size_t get_memory_size() const { return memory_size; }
     
     /**
+     * Set entry point symbol (default: "_start")
+     * @param symbol Entry point symbol name
+     */
+    void set_entry_point_symbol(const std::string& symbol) { entry_point_symbol = symbol; }
+    
+    /**
      * Clear all errors and reset state
      */
     void clear_errors();
@@ -78,6 +84,7 @@ private:
     std::unordered_map<std::string, Symbol> symbols;
     uint32_t entry_address = 0;
     size_t memory_size = 0; // Memory size set by .memory directive
+    std::string entry_point_symbol = "_start"; // Entry point symbol name
     
     void collect_errors(const std::vector<std::string>& errors);
     std::string read_file(const std::string& filename);

@@ -1,6 +1,8 @@
 #include "parser.hpp"
 #include "../debug/error_handler.hpp"
 #include <iostream>
+#include <algorithm>
+#include <cctype>
 
 namespace Assembler {
 
@@ -99,6 +101,33 @@ std::unique_ptr<Statement> Parser::parse_statement() {
             advance();
             return parse_directive(directive, line, col);
         }
+
+        case TokenType::PRINT:
+        case TokenType::BREAK:
+        case TokenType::DUMP:
+        case TokenType::MEMDUMP:
+        case TokenType::TRACE:
+        case TokenType::ASSERT:
+        case TokenType::DUMPSTACK:
+        case TokenType::WATCH:
+        case TokenType::UNWATCH:
+        case TokenType::CHECKPOINT:
+        case TokenType::LOG:
+        case TokenType::DUMPREG:
+        case TokenType::MEMSET:
+        case TokenType::STEP: {
+            return parse_debug_directive();
+        }
+
+        case TokenType::SECTION:
+        case TokenType::GLOBAL:
+        case TokenType::EXTERN: {
+            std::string directive = token.text;
+            size_t line = token.line;
+            size_t col = token.column;
+            advance();
+            return parse_directive(directive, line, col);
+        }
         
         case TokenType::TEST_DIRECTIVE: {
             size_t line = token.line;
@@ -184,6 +213,40 @@ std::unique_ptr<Statement> Parser::parse_statement() {
                 advance(); // identifier
                 advance(); // colon
                 return parse_label(label_name, line, col);
+            } else if (peek_token().type == TokenType::MNEMONIC) {
+                // Check if next token is "equ" (case insensitive)
+                std::string next_text = peek_token().text;
+                std::transform(next_text.begin(), next_text.end(), next_text.begin(), ::toupper);
+                
+                if (next_text == "EQU" || next_text == ".EQU") {
+                    // Handle: identifier EQU value
+                    std::string const_name = token.text;
+                    size_t line = token.line;
+                    size_t col = token.column;
+                    advance(); // identifier
+                    advance(); // equ
+                    
+                    // Parse the value expression
+                    auto value_expr = parse_expression();
+                    if (!value_expr) {
+                        add_error("Expected value expression after EQU", current_token());
+                        return nullptr;
+                    }
+                    
+                    // Create a directive node for .equ
+                    auto directive = std::make_unique<Directive>(".equ", line, col);
+                    
+                    // First argument is the constant name
+                    directive->arguments.push_back(std::make_unique<IdentifierExpression>(const_name));
+                    // Second argument is the value
+                    directive->arguments.push_back(std::move(value_expr));
+                    
+                    return directive;
+                } else {
+                    add_error("Unexpected identifier", token);
+                    advance();
+                    return nullptr;
+                }
             } else {
                 add_error("Unexpected identifier", token);
                 advance();
@@ -362,6 +425,16 @@ std::unique_ptr<Expression> Parser::parse_primary_expression() {
             advance();
             return std::make_unique<StringLiteralExpression>(value, token.line, token.column);
         }
+
+        case TokenType::DIRECTIVE:
+        case TokenType::SECTION:
+        case TokenType::GLOBAL:
+        case TokenType::EXTERN: {
+            // Allow directives to be used as identifiers (e.g. section names like .text)
+            std::string name = token.text;
+            advance();
+            return std::make_unique<IdentifierExpression>(name, token.line, token.column);
+        }
         
         default:
             add_error("Expected expression", token);
@@ -433,6 +506,7 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
             if (current_token().type == TokenType::STRING) {
                 test_case->set_description(current_token().as_string());
                 advance();
+                skip_newlines();
             } else {
                 add_error("Expected string after .description", current_token());
             }
@@ -442,6 +516,7 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
             if (current_token().type == TokenType::STRING) {
                 test_case->set_author(current_token().as_string());
                 advance();
+                skip_newlines();
             } else {
                 add_error("Expected string after .author", current_token());
             }
@@ -451,6 +526,7 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
             if (current_token().type == TokenType::STRING) {
                 test_case->set_category(current_token().as_string());
                 advance();
+                skip_newlines();
             } else {
                 add_error("Expected string after .category", current_token());
             }
@@ -460,8 +536,22 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
             if (current_token().type == TokenType::STRING) {
                 test_case->add_tag(current_token().as_string());
                 advance();
+                skip_newlines();
             } else {
                 add_error("Expected string after .tag", current_token());
+            }
+            continue;
+        } else if (current_token().type == TokenType::ENTRY_POINT) {
+            advance();
+            if (current_token().type == TokenType::STRING || current_token().type == TokenType::MNEMONIC || current_token().type == TokenType::NUMBER || current_token().type == TokenType::IDENTIFIER) {
+                if (current_token().type == TokenType::NUMBER) {
+                    test_case->set_entry_point(std::to_string(current_token().as_uint()));
+                } else {
+                    test_case->set_entry_point(current_token().as_string());
+                }
+                advance();
+            } else {
+                add_error("Expected label or address after .entry_point", current_token());
             }
             continue;
         } else if (current_token().type == TokenType::MAXSTEPS) {
@@ -469,6 +559,7 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
             if (current_token().type == TokenType::NUMBER) {
                 test_case->set_max_steps(static_cast<size_t>(current_token().as_uint()));
                 advance();
+                skip_newlines();
             } else {
                 add_error("Expected number after .maxsteps", current_token());
             }
@@ -478,6 +569,7 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
             if (current_token().type == TokenType::NUMBER) {
                 test_case->set_max_call_depth(static_cast<size_t>(current_token().as_uint()));
                 advance();
+                skip_newlines();  // Skip any newlines after the number
             } else {
                 add_error("Expected number after .maxcalldepth", current_token());
             }
@@ -487,6 +579,7 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
             if (current_token().type == TokenType::NUMBER) {
                 test_case->set_timeout(static_cast<size_t>(current_token().as_uint()));
                 advance();
+                skip_newlines();  // Skip any newlines after the number
             } else {
                 add_error("Expected number after .timeout", current_token());
             }
@@ -611,6 +704,211 @@ std::unique_ptr<TestAssertion> Parser::parse_test_assertion(TestAssertionType ty
     }
     
     return std::make_unique<TestAssertion>(type, std::move(args), line, col);
+}
+
+std::unique_ptr<Instruction> Parser::parse_debug_directive() {
+    const Token& token = current_token();
+    size_t line = token.line;
+    size_t col = token.column;
+    TokenType type = token.type;
+    advance(); // Consume the directive token
+
+    auto instruction = std::make_unique<Instruction>("DEBUG", line, col);
+    
+    // Add sub-opcode based on directive type
+    uint8_t sub_opcode = 0;
+    switch (type) {
+        case TokenType::PRINT:      sub_opcode = 0; break;
+        case TokenType::BREAK:      sub_opcode = 1; break;
+        case TokenType::DUMP:       sub_opcode = 2; break;
+        case TokenType::MEMDUMP:    sub_opcode = 3; break;
+        case TokenType::TRACE:      sub_opcode = 4; break;
+        case TokenType::ASSERT:     sub_opcode = 5; break;
+        case TokenType::DUMPSTACK:  sub_opcode = 6; break;
+        case TokenType::WATCH:      sub_opcode = 7; break;
+        case TokenType::UNWATCH:    sub_opcode = 8; break;
+        case TokenType::CHECKPOINT: sub_opcode = 9; break;
+        case TokenType::LOG:        sub_opcode = 10; break;
+        case TokenType::DUMPREG:    sub_opcode = 11; break;
+        case TokenType::MEMSET:     sub_opcode = 12; break;
+        case TokenType::STEP:       sub_opcode = 13; break;
+        default: break;
+    }
+    
+    instruction->add_operand(std::make_unique<ImmediateExpression>(sub_opcode, line, col));
+    
+    // Parse additional operands
+    if (type == TokenType::PRINT) {
+        // .print "string" or .print reg
+        auto expr = parse_expression();
+        if (!expr) {
+            add_error("Expected string or register for .print", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(expr));
+    } else if (type == TokenType::MEMDUMP) {
+        // .memdump start, length
+        auto start = parse_expression();
+        if (!start) {
+            add_error("Expected start address for .memdump", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(start));
+        
+        if (match(TokenType::COMMA)) {
+            auto len = parse_expression();
+            if (!len) {
+                add_error("Expected length for .memdump", token);
+                return nullptr;
+            }
+            instruction->add_operand(std::move(len));
+        } else {
+            add_error("Expected length for .memdump", token);
+            return nullptr;
+        }
+    } else if (type == TokenType::TRACE) {
+        // .trace [on/off/1/0] - optional
+        if (current_token().type != TokenType::NEWLINE && current_token().type != TokenType::END_OF_FILE) {
+             auto expr = parse_expression();
+             if (expr) {
+                 instruction->add_operand(std::move(expr));
+             }
+        }
+    } else if (type == TokenType::ASSERT) {
+        // .assert reg, value  or  .assert [addr], value
+        auto first = parse_expression();
+        if (!first) {
+            add_error("Expected register or memory address for .assert", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(first));
+        
+        if (match(TokenType::COMMA)) {
+            auto value = parse_expression();
+            if (!value) {
+                add_error("Expected value for .assert", token);
+                return nullptr;
+            }
+            instruction->add_operand(std::move(value));
+        } else {
+            add_error("Expected value for .assert", token);
+            return nullptr;
+        }
+    } else if (type == TokenType::DUMPSTACK) {
+        // .dumpstack [depth] - optional
+        if (current_token().type != TokenType::NEWLINE && current_token().type != TokenType::END_OF_FILE) {
+            auto depth = parse_expression();
+            if (depth) {
+                instruction->add_operand(std::move(depth));
+            }
+        }
+    } else if (type == TokenType::WATCH) {
+        // .watch addr, length
+        auto addr = parse_expression();
+        if (!addr) {
+            add_error("Expected address for .watch", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(addr));
+        
+        if (match(TokenType::COMMA)) {
+            auto len = parse_expression();
+            if (!len) {
+                add_error("Expected length for .watch", token);
+                return nullptr;
+            }
+            instruction->add_operand(std::move(len));
+        } else {
+            add_error("Expected length for .watch", token);
+            return nullptr;
+        }
+    } else if (type == TokenType::UNWATCH) {
+        // .unwatch addr
+        auto addr = parse_expression();
+        if (!addr) {
+            add_error("Expected address for .unwatch", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(addr));
+    } else if (type == TokenType::CHECKPOINT) {
+        // .checkpoint "label"
+        auto label = parse_expression();
+        if (!label) {
+            add_error("Expected label for .checkpoint", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(label));
+    } else if (type == TokenType::LOG) {
+        // .log level, "message"
+        auto level = parse_expression();
+        if (!level) {
+            add_error("Expected level for .log", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(level));
+        
+        if (match(TokenType::COMMA)) {
+            auto msg = parse_expression();
+            if (!msg) {
+                add_error("Expected message for .log", token);
+                return nullptr;
+            }
+            instruction->add_operand(std::move(msg));
+        } else {
+            add_error("Expected message for .log", token);
+            return nullptr;
+        }
+    } else if (type == TokenType::DUMPREG) {
+        // .dumpreg register
+        auto reg = parse_expression();
+        if (!reg) {
+            add_error("Expected register for .dumpreg", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(reg));
+    } else if (type == TokenType::MEMSET) {
+        // .memset addr, length, value
+        auto addr = parse_expression();
+        if (!addr) {
+            add_error("Expected address for .memset", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(addr));
+        
+        if (!match(TokenType::COMMA)) {
+            add_error("Expected comma after address in .memset", token);
+            return nullptr;
+        }
+        
+        auto len = parse_expression();
+        if (!len) {
+            add_error("Expected length for .memset", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(len));
+        
+        if (!match(TokenType::COMMA)) {
+            add_error("Expected comma after length in .memset", token);
+            return nullptr;
+        }
+        
+        auto value = parse_expression();
+        if (!value) {
+            add_error("Expected value for .memset", token);
+            return nullptr;
+        }
+        instruction->add_operand(std::move(value));
+    } else if (type == TokenType::STEP) {
+        // .step [count] - optional
+        if (current_token().type != TokenType::NEWLINE && current_token().type != TokenType::END_OF_FILE) {
+            auto count = parse_expression();
+            if (count) {
+                instruction->add_operand(std::move(count));
+            }
+        }
+    }
+    
+    return instruction;
 }
 
 void Parser::add_error(const std::string& message) {

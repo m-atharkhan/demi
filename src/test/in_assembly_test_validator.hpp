@@ -82,7 +82,7 @@ public:
             }
         }
         
-        const char* summary_color = (valid_count == results.size()) ? "\033[32m" : "\033[33m";
+        const char* summary_color = (valid_count == static_cast<int>(results.size())) ? "\033[32m" : "\033[33m";
         fmt::print("{}\nTests validated: {} / {}\033[0m\n", 
                   summary_color, valid_count, results.size());
         fmt::print("\033[33mNote: Full test execution not yet implemented - only validation performed\033[0m\n");
