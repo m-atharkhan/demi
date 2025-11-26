@@ -32,6 +32,7 @@ Refer to the sections below for detailed navigation and descriptions of each doc
 | | [Future Opcodes](development/FUTURE_OPCODES.md) | 88 planned opcodes implementation plan |
 | | [Demi Language Plan](development/DEMI_LANGUAGE_PLAN.md) | High-level language specification |
 | | [Native Compiler Plan](development/NATIVE_COMPILER_PLAN.md) | x86-64 code generation plan |
+| | [Debug Directives](DEBUG_DIRECTIVES_IMPLEMENTATION.md) | 14 debug directives implementation |
 | **Testing** | [Test Framework Design](testing/TEST_FRAMEWORK_DESIGN.md) | Complete testing architecture |
 | | [Test Quick Reference](testing/TEST_QUICK_REFERENCE.md) | Running and writing tests |
 | | [Test Flags](testing/TEST_FLAGS.md) | CPU flags testing guide |
@@ -52,6 +53,7 @@ Refer to the sections below for detailed navigation and descriptions of each doc
 ```
 docs/
 ├── README.md                    # Main documentation index (YOU ARE HERE)
+├── DEBUG_DIRECTIVES_IMPLEMENTATION.md # Debug directives (14 total)
 │
 ├── reference/                   # Reference documentation
 │   ├── QUICK_REFERENCE.md       # Fast lookup reference
