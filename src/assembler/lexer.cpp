@@ -23,7 +23,7 @@ void Lexer::init_tables() {
     keywords[".org"] = TokenType::DIRECTIVE;
     keywords[".equ"] = TokenType::DIRECTIVE;
     keywords[".include"] = TokenType::DIRECTIVE;
-    keywords[".db"] = TokenType::DIRECTIVE;
+    // .db directive removed - use DB instruction instead
     keywords[".dw"] = TokenType::DIRECTIVE;
     keywords[".dd"] = TokenType::DIRECTIVE;
     keywords[".string"] = TokenType::DIRECTIVE;
@@ -32,12 +32,21 @@ void Lexer::init_tables() {
     keywords[".end"] = TokenType::DIRECTIVE;
     keywords[".memory"] = TokenType::DIRECTIVE;
     
+    // Structure keywords
+    keywords["section"] = TokenType::SECTION;
+    keywords[".section"] = TokenType::SECTION;
+    keywords["global"] = TokenType::GLOBAL;
+    keywords[".global"] = TokenType::GLOBAL;
+    keywords["extern"] = TokenType::EXTERN;
+    keywords[".extern"] = TokenType::EXTERN;
+    
     // Test directives (using dot syntax for consistency)
     keywords[".test"] = TokenType::TEST_DIRECTIVE;
     keywords[".assert_mem"] = TokenType::ASSERT_MEM;
     keywords[".assert_reg"] = TokenType::ASSERT_REG;
     keywords[".assert_output"] = TokenType::ASSERT_OUTPUT;
     keywords[".expect_error"] = TokenType::EXPECT_ERROR;
+    keywords[".entry_point"] = TokenType::ENTRY_POINT;
     keywords[".description"] = TokenType::DESCRIPTION;
     keywords[".author"] = TokenType::AUTHOR;
     keywords[".category"] = TokenType::CATEGORY;
@@ -61,6 +70,22 @@ void Lexer::init_tables() {
     keywords[".else"] = TokenType::ELSE;
     keywords[".endif"] = TokenType::ENDIF;
     keywords[".undef"] = TokenType::UNDEF;
+    
+    // Debug directives
+    keywords[".print"] = TokenType::PRINT;
+    keywords[".break"] = TokenType::BREAK;
+    keywords[".dump"] = TokenType::DUMP;
+    keywords[".memdump"] = TokenType::MEMDUMP;
+    keywords[".trace"] = TokenType::TRACE;
+    keywords[".assert"] = TokenType::ASSERT;
+    keywords[".dumpstack"] = TokenType::DUMPSTACK;
+    keywords[".watch"] = TokenType::WATCH;
+    keywords[".unwatch"] = TokenType::UNWATCH;
+    keywords[".checkpoint"] = TokenType::CHECKPOINT;
+    keywords[".log"] = TokenType::LOG;
+    keywords[".dumpreg"] = TokenType::DUMPREG;
+    keywords[".memset"] = TokenType::MEMSET;
+    keywords[".step"] = TokenType::STEP;
     
     // DemiEngine instruction mnemonics (matching the CPU opcodes)
     mnemonics["NOP"] = TokenType::MNEMONIC;
@@ -117,6 +142,7 @@ void Lexer::init_tables() {
     mnemonics["INSTR"] = TokenType::MNEMONIC;
     mnemonics["OUTSTR"] = TokenType::MNEMONIC;
     mnemonics["DB"] = TokenType::MNEMONIC;
+    mnemonics["EQU"] = TokenType::MNEMONIC;
     mnemonics["HALT"] = TokenType::MNEMONIC;
     
     // Extended 64-bit operations
@@ -194,23 +220,34 @@ void Lexer::init_tables() {
     
     // x64-style register names (based on the extended register system)
     registers["RAX"] = TokenType::REGISTER; // R0
-    registers["RBX"] = TokenType::REGISTER; // R1  
-    registers["RCX"] = TokenType::REGISTER; // R2
-    registers["RDX"] = TokenType::REGISTER; // R3
-    registers["RSI"] = TokenType::REGISTER; // R4
-    registers["RDI"] = TokenType::REGISTER; // R5
-    registers["RSP"] = TokenType::REGISTER; // Stack pointer
-    registers["RBP"] = TokenType::REGISTER; // Base pointer
+    registers["RCX"] = TokenType::REGISTER; // R1
+    registers["RDX"] = TokenType::REGISTER; // R2
+    registers["RBX"] = TokenType::REGISTER; // R3
+    registers["RSP"] = TokenType::REGISTER; // R4 (Stack Pointer)
+    registers["RBP"] = TokenType::REGISTER; // R5 (Base Pointer)
+    registers["RSI"] = TokenType::REGISTER; // R6
+    registers["RDI"] = TokenType::REGISTER; // R7
     
     // Extended registers R8-R15
     for (int i = 8; i < 16; ++i) {
         registers["R" + std::to_string(i)] = TokenType::REGISTER;
+        registers["R" + std::to_string(i) + "D"] = TokenType::REGISTER;
     }
     
     // Special registers
     registers["RIP"] = TokenType::REGISTER; // Instruction pointer (PC)
     registers["RFLAGS"] = TokenType::REGISTER; // Flags register
     
+    // 32-bit register aliases
+    registers["EAX"] = TokenType::REGISTER;
+    registers["EBX"] = TokenType::REGISTER;
+    registers["ECX"] = TokenType::REGISTER;
+    registers["EDX"] = TokenType::REGISTER;
+    registers["ESI"] = TokenType::REGISTER;
+    registers["EDI"] = TokenType::REGISTER;
+    registers["ESP"] = TokenType::REGISTER;
+    registers["EBP"] = TokenType::REGISTER;
+
     tables_initialized = true;
 }
 
@@ -338,6 +375,14 @@ Token Lexer::parse_identifier() {
     // Convert to uppercase for case-insensitive matching
     std::string upper_text = text;
     std::transform(upper_text.begin(), upper_text.end(), upper_text.begin(), ::toupper);
+    
+    // Check if it's a keyword (section, global, extern)
+    std::string lower_text = text;
+    std::transform(lower_text.begin(), lower_text.end(), lower_text.begin(), ::tolower);
+    auto keyword_it = keywords.find(lower_text);
+    if (keyword_it != keywords.end()) {
+        return Token(keyword_it->second, lower_text, start_line, start_column);
+    }
     
     // Check if it's a mnemonic
     if (mnemonics.find(upper_text) != mnemonics.end()) {

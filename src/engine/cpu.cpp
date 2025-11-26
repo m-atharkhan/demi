@@ -8,6 +8,11 @@
 
 #include "cpu.hpp"
 #include "cpu_flags.hpp"
+#include "../debug/logger.hpp"
+#include "../debug/debug_handler.hpp"
+#include <iostream>
+#include <iomanip>
+
 #include "cpu_registers.hpp"  // Include the new register system
 #include "branch_prediction.hpp"  // Include branch prediction
 // #include "speculative_execution.hpp"  // Include speculative execution (temporarily disabled)
@@ -18,7 +23,6 @@
 #include "opcodes/opcode_dispatcher_inlined.hpp"  // Add optimized inlined dispatcher
 #include "opcodes/opcode_dispatcher_predictive.hpp"  // Add branch predictive dispatcher
 #include "opcodes/instruction_fusion.hpp"  // Instruction fusion optimizer
-#include "../debug/debug_handler.hpp"  // New structured debug system
 
 using namespace DemiEngine_Registers;
 
@@ -317,19 +321,17 @@ void CPU::print_state(const std::string& info) const {
     oss << "SP=0x" << std::setw(3) << std::setfill('0') << std::hex << std::uppercase << get_sp() << " ";
     oss << "FLAGS=0x" << std::setw(8) << std::setfill('0') << std::hex << std::uppercase << get_flags();
 
-    // FIXED: Remove Logger call to prevent deadlock
-    // Logger::instance().debug() << oss.str() << std::endl;
+    // Use DebugHandler instead of Logger to avoid deadlock
+    DEBUG_INFO(Logging::DebugCategory::CPU_REGISTERS, "{}", oss.str());
 }
 
 void CPU::print_stack_frame(const std::string& label) const {
     // If debug is not enabled, do not print the state
     if (!Config::debug) return;
 
-    // FIXED: Remove Logger call to prevent deadlock
-    // Logger::instance().debug() << fmt::format(
-    //     "[{}] FP=0x{:X} SP=0x{:X} arg_offset={}",
-    //     label, get_fp(), get_sp(), arg_offset
-    // ) << std::endl;
+    // Use DebugHandler instead of Logger to avoid deadlock
+    DEBUG_INFO(Logging::DebugCategory::CPU_STACK, "[{}] FP=0x{:X} SP=0x{:X} arg_offset={}", 
+        label, get_fp(), get_sp(), arg_offset);
 }
 
 // Fetches the next byte as an operand and advances PC

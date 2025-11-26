@@ -62,11 +62,36 @@ private:
                 const auto& reg = static_cast<const RegisterExpression&>(expr);
                 // Get register index from name (R0 -> 0, R1 -> 1, etc.)
                 if (reg.register_name.size() >= 2 && reg.register_name[0] == 'R') {
-                    int reg_num = std::stoi(reg.register_name.substr(1));
-                    if (reg_num >= 0 && reg_num < 50) {
-                        return cpu.registers.get_register(reg_num);
+                    try {
+                        // Check if it's a number after R
+                        std::string num_part = reg.register_name.substr(1);
+                        
+                        // Handle R8D-R15D style
+                        if (num_part.back() == 'D' && num_part.size() > 1) {
+                            num_part.pop_back();
+                        }
+
+                        if (std::all_of(num_part.begin(), num_part.end(), ::isdigit)) {
+                            int reg_num = std::stoi(num_part);
+                            if (reg_num >= 0 && reg_num < 50) {
+                                return cpu.registers.get_register(reg_num);
+                            }
+                        }
+                    } catch (...) {
+                        // Ignore parsing errors
                     }
                 }
+                
+                // Handle 32-bit register aliases
+                if (reg.register_name == "EAX") return cpu.registers.get_register(0);
+                if (reg.register_name == "ECX") return cpu.registers.get_register(1);
+                if (reg.register_name == "EDX") return cpu.registers.get_register(2);
+                if (reg.register_name == "EBX") return cpu.registers.get_register(3);
+                if (reg.register_name == "ESP") return cpu.registers.get_register(4);
+                if (reg.register_name == "EBP") return cpu.registers.get_register(5);
+                if (reg.register_name == "ESI") return cpu.registers.get_register(6);
+                if (reg.register_name == "EDI") return cpu.registers.get_register(7);
+
                 // Handle special registers like SP, PC
                 if (reg.register_name == "SP") {
                     return cpu.registers.get_register(Register::SP);
@@ -74,6 +99,17 @@ private:
                 if (reg.register_name == "PC") {
                     return cpu.registers.get_register(Register::PC);
                 }
+                
+                // Handle x64 names if they appear
+                if (reg.register_name == "RAX") return cpu.registers.get_register(0);
+                if (reg.register_name == "RBX") return cpu.registers.get_register(1);
+                if (reg.register_name == "RCX") return cpu.registers.get_register(2);
+                if (reg.register_name == "RDX") return cpu.registers.get_register(3);
+                if (reg.register_name == "RSI") return cpu.registers.get_register(4);
+                if (reg.register_name == "RDI") return cpu.registers.get_register(5);
+                if (reg.register_name == "RSP") return cpu.registers.get_register(6);
+                if (reg.register_name == "RBP") return cpu.registers.get_register(7);
+                
                 return 0;
             }
             

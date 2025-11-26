@@ -36,6 +36,8 @@
 *.su
 *.gcno
 *.log
+debug.log
+debug*.log
 
 # Build directories
 build/
@@ -59,6 +61,8 @@ libexec/
 *.su
 *.gcno
 debug*.hex
+debug*.asm
+test_*.asm
 
 # Generated files
 src/program_data.hpp

@@ -185,6 +185,7 @@ public:
     std::string author;
     std::string category;
     std::vector<std::string> tags;
+    std::string entry_point;
     std::vector<std::unique_ptr<Statement>> body;
     size_t max_steps = 10000;  // Default to 10,000 steps
     size_t max_call_depth = 64;  // Default test mode call depth (vs 256 in production)
@@ -221,6 +222,10 @@ public:
     
     void add_tag(const std::string& tag) {
         tags.push_back(tag);
+    }
+
+    void set_entry_point(const std::string& ep) {
+        entry_point = ep;
     }
     
     void set_max_steps(size_t steps) {

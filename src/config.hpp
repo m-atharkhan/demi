@@ -25,7 +25,9 @@ enum class TestShowMode {
 };
 
 class Config {
-public:    inline static bool debug = false;
+public:    
+    inline static bool debug = false;
+    inline static bool trace = false;  // Runtime tracing enabled via .trace directive
     inline static bool verbose = false;  // Default to showing info messages
     inline static bool running_tests = false;
     inline static bool compile_only = false;  // Run without debug outputs
@@ -40,6 +42,7 @@ public:    inline static bool debug = false;
     inline static std::string program_file = "";
     inline static std::string assembly_file = "";  // Assembly source file
     inline static std::string output_name = "";  // Output name for compiled executable
+    inline static std::string entry_point_symbol = "_start";  // Entry point symbol name
     inline static int error_count = 0;
 };
 

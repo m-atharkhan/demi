@@ -14,6 +14,7 @@ enum class Opcode : uint8_t {
     LOAD = 0x06,        // Load value from memory to reg (direct addressing)
     STORE = 0x07,       // Store value from reg to memory
     LOADR = 0x41,       // Load value from memory to reg (indirect addressing - addr in register)
+    DEBUG = 0x42,       // Debug directive (print, break, dump, etc.)
 
     PUSH = 0x08,        // Push reg onto stack
     POP = 0x09,         // Pop value from stack to reg
