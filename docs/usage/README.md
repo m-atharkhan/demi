@@ -613,6 +613,160 @@ FF                  # HALT
 
 ## Debugging and Testing
 
+### Debug Directives
+
+DemiEngine provides 14 powerful debug directives for program development and troubleshooting. All directives only produce output when the `-d` (debug) flag is enabled.
+
+**Enable debug output**:
+```bash
+./bin/demi-engine-debug -d -A your_program.asm
+```
+
+#### Output Directives
+
+**1. `.print` - Print strings and register values**
+```asm
+.print "Hello, World!"      ; Print string literal
+.print rax                  ; Print register value
+```
+
+**2. `.dump` - Display all CPU registers**
+```asm
+.dump                       ; Shows all registers, flags, PC, SP
+```
+Output: `[PC=0x004A] MODE=x32 R0=0x64 R1=0x2A ... FLAGS=0x00000000`
+
+**3. `.memdump` - Hex dump with ASCII representation**
+```asm
+.memdump 0x100, 64         ; Dump 64 bytes starting at address 0x100
+.memdump rsp, 32           ; Dump 32 bytes from stack pointer
+```
+Output: 16-byte wide hex dump with ASCII column
+```
+  0x00000100: 48 65 6C 6C 6F 20 57 6F  72 6C 64 00 00 00 00 00  |Hello World.....|
+  0x00000110: AA BB CC DD EE FF 00 11  22 33 44 55 66 77 88 99  |........"3DUfw..|
+```
+
+#### Validation Directives
+
+**4. `.assert` - Verify expected values**
+```asm
+load_imm64 rax, 42
+.assert rax, 42             ; Passes if RAX = 42
+.assert rbx, 100            ; Fails if RBX ≠ 100
+```
+Output: `ASSERTION PASSED at 0x56` or `ASSERTION FAILED at 0x56: expected 0x64, got 0x2a`
+
+#### Memory Inspection
+
+**5. `.dumpstack` - Display stack contents**
+```asm
+.dumpstack 8                ; Show top 8 stack entries
+.dumpstack                  ; Show top 16 entries (default)
+```
+Output:
+```
+Stack dump (depth=8, SP=0x5678):
+  [SP+0] 0x5678: 0x1234567890abcdef
+  [SP+8] 0x5680: 0x0000000000000042
+```
+
+**6. `.watch` - Set memory watchpoint**
+```asm
+.watch 0x1000, 32          ; Watch 32 bytes at address 0x1000
+```
+Output: `WATCHPOINT set at 0x1000 (length 32)`
+
+**7. `.unwatch` - Remove memory watchpoint**
+```asm
+.unwatch 0x1000            ; Remove watchpoint
+```
+Output: `WATCHPOINT removed at 0x1000`
+
+**8. `.memset` - Fill memory with pattern**
+```asm
+.memset 0x500, 64, 0xAA    ; Fill 64 bytes at 0x500 with 0xAA
+```
+Output: `MEMSET: filled 64 bytes at 0x500 with 0xaa`
+
+#### Execution Control
+
+**9. `.checkpoint` - Mark execution points**
+```asm
+.checkpoint "Start of loop"
+; ... code ...
+.checkpoint "After computation"
+```
+Output: `CHECKPOINT: Start of loop at 0x120`
+
+**10. `.step` - Single-step execution marker**
+```asm
+.step 5                    ; Mark next 5 instructions for stepping
+```
+Output: `STEP: executing 5 instruction(s) starting at 0x164`
+
+**11. `.trace` - Instruction-level tracing**
+```asm
+.trace 1                   ; Enable instruction tracing
+load_imm64 rax, 10
+add64 rax, rbx
+.trace 0                   ; Disable tracing
+```
+Displays detailed execution information for each instruction.
+
+**12. `.break` - Execution breakpoint**
+```asm
+.break                     ; Pause execution (in debug mode)
+```
+Output: `BREAKPOINT at 0x100`
+
+#### Register Inspection
+
+**13. `.dumpreg` - Single register details**
+```asm
+.dumpreg rax               ; Show RAX in hex and decimal
+.dumpreg rdx
+```
+Output: `RAX = 0x2a (42)`
+
+#### Logging
+
+**14. `.log` - Leveled logging messages**
+```asm
+.log 0, "DEBUG: Detailed info"     ; DEBUG level
+.log 1, "INFO: Normal message"     ; INFO level
+.log 2, "WARN: Warning message"    ; WARN level
+.log 3, "ERROR: Error occurred"    ; ERROR level
+```
+Output:
+```
+[DEBUG] DEBUG: Detailed info
+[INFO] INFO: Normal message
+[WARN] WARN: Warning message
+[ERROR] ERROR occurred
+```
+
+#### Complete Example
+
+See `examples/debug_directives.asm` for a comprehensive demonstration of all debug directives.
+
+```asm
+.memory 1024
+
+load_imm64 rax, 100
+.print "Testing value:"
+.print rax
+
+.assert rax, 100            ; Validate
+.checkpoint "Before computation"
+
+add64 rax, rbx
+.dumpreg rax                ; Inspect result
+
+.log 1, "Computation complete"
+.dump                       ; Final state
+```
+
 ### Using the Debug GUI
 
 The debug GUI provides powerful tools for program development and troubleshooting.

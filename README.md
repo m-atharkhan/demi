@@ -130,6 +130,7 @@ demi-engine Usage: demi-engine [options]
 
 ### 🔧 **Development Tools**
 - **Assembly Language**: Complete lexer → parser → assembler → bytecode pipeline
+- **Debug Directives**: 14 powerful directives (.print, .dump, .assert, .memdump, .log, etc.) for program inspection
 - **Test Framework**: Comprehensive testing with 100% SIMD foundation + FPU coverage (19/19 tests, 38/38 assertions)
 - **Build System**: Automated compilation and testing with Make
 - **Error Handling**: Comprehensive error reporting and validation
