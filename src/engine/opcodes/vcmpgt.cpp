@@ -13,8 +13,8 @@ void handle_VCMPGT(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
         return;
     }
 
-    uint8_t dest_reg = program[cpu.get_pc() + 1];
-    uint8_t src_reg = program[cpu.get_pc() + 2];
+    // Note: VCMPGT operates on fixed registers R0-R3 and R4-R7
+    // dest_reg and src_reg bytes are present but not used
     
     // Compare R0-R3 > R4-R7 element-wise
     auto& regs = cpu.get_registers(); // Use legacy register system like LOAD_IMM

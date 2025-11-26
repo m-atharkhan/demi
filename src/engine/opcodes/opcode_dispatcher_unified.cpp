@@ -4,6 +4,12 @@
 #include "../../debug/logger.hpp"
 #include <fmt/format.h>
 
+// Suppress pedantic warnings about computed gotos - they are intentional for performance
+// Suppress pedantic warnings for performance-critical computed gotos
+// This is a widely-used GCC extension for threaded code interpretation
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+
 // Check for computed goto support at compile time
 #if USE_THREADED_CODE
 
@@ -111,3 +117,4 @@ void dispatch_opcode_unified_fallback(CPU& cpu, const std::vector<uint8_t>& prog
         running = false;
     }
 }
+#pragma GCC diagnostic pop

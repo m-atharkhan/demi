@@ -83,7 +83,7 @@ public:
      * @return Reference to this Logger for method chaining
      */
     template<typename T>
-    Logger& operator<<(const T& val) {
+    Logger& operator<<([[maybe_unused]] const T& val) {
         // FIXED: Disable Logger output to prevent circular dependency deadlock
         // buffer_ << val;
         return *this;

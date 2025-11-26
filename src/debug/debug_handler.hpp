@@ -215,6 +215,26 @@ public:
     bool is_category_enabled(DebugCategory category) const;
     
     /**
+     * @brief Enable/disable specific debug level
+     * @param level Level to control
+     * @param enabled Whether level should be enabled
+     */
+    void set_level_enabled(DebugLevel level, bool enabled);
+
+    /**
+     * @brief Enable/disable strict level filtering (only show enabled levels)
+     * @param enabled Whether to use strict level filtering
+     */
+    void set_level_filter_mode(bool enabled);
+
+    /**
+     * @brief Check if level is enabled
+     * @param level Level to check
+     * @return True if level is enabled
+     */
+    bool is_level_enabled(DebugLevel level) const;
+
+    /**
      * @brief Set minimum debug level for output
      * @param level Minimum level to show
      */
@@ -334,6 +354,8 @@ private:
     
     // State tracking
     std::unordered_map<DebugCategory, bool> enabled_categories_;
+    std::unordered_map<DebugLevel, bool> enabled_levels_;
+    bool level_filter_mode_;
     DebugLevel minimum_level_;
     bool frequency_throttling_enabled_;
     size_t max_frequency_per_second_;

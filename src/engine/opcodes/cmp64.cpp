@@ -34,9 +34,6 @@ void handle_cmp64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     int64_t signed_val1 = static_cast<int64_t>(value1);
     int64_t signed_val2 = static_cast<int64_t>(value2);
     
-    // Calculate the difference for flag setting
-    uint64_t result = value1 - value2;
-    
     // Set flags based on comparison
     bool zero = (value1 == value2);
     bool sign = (signed_val1 < signed_val2);

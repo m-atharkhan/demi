@@ -6,6 +6,13 @@
 #include "../../debug/logger.hpp"
 #include "../../debug/debug_handler.hpp"
 #include <fmt/format.h>
+#include <iomanip>
+
+// Suppress pedantic warnings about computed gotos - they are intentional for performance
+// Suppress pedantic warnings for performance-critical computed gotos
+// This is a widely-used GCC extension for threaded code interpretation
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 
 // External handler declarations
 extern void handle_sub(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
@@ -19,6 +26,7 @@ extern void handle_jz(CPU& cpu, const std::vector<uint8_t>& program, bool& runni
 extern void handle_jnz(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 
 // 64-bit operation handlers
+extern void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_mul64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
@@ -35,12 +43,12 @@ extern void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool&
 // This implements the most common operations directly in the dispatcher
 // to eliminate function call overhead
 void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    Logger::instance().debug() << fmt::format("[DISPATCH_INLINED] ENTRY: PC=0x{:04X}", cpu.get_pc()) << std::endl;
+    DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] ENTRY: PC=0x{:04X}", cpu.get_pc());
     
     // Declare dispatch table at function scope
     static void* dispatch_table[256] = {nullptr};
     
-    Logger::instance().debug() << fmt::format("[DISPATCH_INLINED] About to goto init_dispatch_table") << std::endl;
+    DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] About to goto init_dispatch_table%s", "");
     // Entry point - jump to dispatch table initialization
     goto init_dispatch_table;
 
@@ -49,8 +57,8 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         uint32_t pc = cpu.get_pc();
         
         #ifndef NDEBUG
-        if (Config::debug) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [NOP] PC={}", pc, pc) << std::endl;
+        if (Config::trace) {
+            DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [NOP] PC={}", pc, pc);
             cpu.print_state("NOP");
         }
         #endif
@@ -85,14 +93,14 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         #ifndef NDEBUG
         if (__builtin_expect(reg >= cpu.get_registers().size(), 0)) {
             #ifdef VM_DEBUG_BOUNDS
-            Logger::instance().error() << fmt::format("[LOAD_IMM] Invalid register R{}", reg) << std::endl;
+            DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "[LOAD_IMM] Invalid register R{}", reg);
             #endif
             running = false;
             return;
         }
         
-        if (Config::debug) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM] R{} = {}", pc, reg, value) << std::endl;
+        if (Config::trace) {
+            DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [LOAD_IMM] R{} = {}", pc, reg, value);
         }
         #endif
         
@@ -104,7 +112,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         cpu.set_pc(pc + 3);
         
         #ifndef NDEBUG
-        if (Config::debug) {
+        if (Config::trace) {
             cpu.print_state("LOAD_IMM");
         }
         #endif
@@ -137,14 +145,14 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         #ifndef NDEBUG
         if (__builtin_expect(reg1 >= cpu.get_registers().size() || reg2 >= cpu.get_registers().size(), 0)) {
             #ifdef VM_DEBUG_BOUNDS
-            Logger::instance().error() << fmt::format("[ADD] Invalid register R{} or R{}", reg1, reg2) << std::endl;
+            DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "[ADD] Invalid register R{} or R{}", reg1, reg2);
             #endif
             running = false;
             return;
         }
         
-        if (Config::debug) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [ADD] R{} += R{}", pc, reg1, reg2) << std::endl;
+        if (Config::trace) {
+            DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [ADD] R{} += R{}", pc, reg1, reg2);
         }
         #endif
         
@@ -163,7 +171,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         cpu.set_pc(pc + 3);
         
         #ifndef NDEBUG
-        if (Config::debug) {
+        if (Config::trace) {
             cpu.print_state("ADD");
         }
         #endif
@@ -196,14 +204,14 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         #ifndef NDEBUG
         if (__builtin_expect(reg_dst >= cpu.get_registers().size() || reg_src >= cpu.get_registers().size(), 0)) {
             #ifdef VM_DEBUG_BOUNDS
-            Logger::instance().error() << fmt::format("[MOV] Invalid register R{} or R{}", reg_dst, reg_src) << std::endl;
+            DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "[MOV] Invalid register R{} or R{}", reg_dst, reg_src);
             #endif
             running = false;
             return;
         }
         
-        if (Config::debug) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MOV] R{} = R{}", pc, reg_dst, reg_src) << std::endl;
+        if (Config::trace) {
+            DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [MOV] R{} = R{}", pc, reg_dst, reg_src);
         }
         #endif
         
@@ -211,7 +219,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         cpu.set_pc(pc + 3);
         
         #ifndef NDEBUG
-        if (Config::debug) {
+        if (Config::trace) {
             cpu.print_state("MOV");
         }
         #endif
@@ -227,8 +235,8 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
     // Inlined HALT operation - must stop execution
     op_halt: {
         #ifndef NDEBUG
-        if (Config::debug) {
-            Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [HALT]", cpu.get_pc()) << std::endl;
+        if (Config::trace) {
+            DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [HALT]", cpu.get_pc());
             cpu.print_state("HALT");
         }
         #endif
@@ -256,7 +264,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         #ifndef NDEBUG
         if (__builtin_expect(reg >= TOTAL_REGISTERS, 0)) {
             #ifdef VM_DEBUG_BOUNDS
-            Logger::instance().error() << fmt::format("[LOAD_IMM64] Invalid register R{}", reg) << std::endl;
+            DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "[LOAD_IMM64] Invalid register R{}", reg);
             #endif
             running = false;
             return;
@@ -275,9 +283,8 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         value |= static_cast<uint64_t>(program[pc + 9]) << 56;
         
         #ifndef NDEBUG
-        if (Config::debug) {
-            Logger::instance().debug() << fmt::format(
-                "[PC=0x{:04X}] [LOAD_IMM64] R{} = {}", pc, reg, static_cast<int64_t>(value)) << std::endl;
+        if (Config::trace) {
+            DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [LOAD_IMM64] R{} = {}", pc, reg, static_cast<int64_t>(value));
         }
         #endif
         
@@ -293,10 +300,278 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         goto *dispatch_table[program[cpu.get_pc()]];
     }
 
-    // Generic handler for non-inlined operations - calls registered function
+    // Inlined DEBUG operation
+    op_debug: {
+        uint32_t pc = cpu.get_pc();
+        
+        #ifndef NDEBUG
+        if (__builtin_expect(pc + 2 >= program.size(), 0)) {
+            running = false;
+            return;
+        }
+        #endif
+        
+        uint8_t sub_opcode = program[pc + 1];
+        uint32_t next_pc = pc + 2;
+        
+        if (sub_opcode == 0) { // PRINT
+            if (Config::debug) {
+                uint8_t type = program[pc + 2];
+                if (type == 1) { // String
+                    uint8_t len = program[pc + 3];
+                    std::string s;
+                    for (int i = 0; i < len; ++i) s += (char)program[pc + 4 + i];
+                    std::cout << s << std::endl;
+                    next_pc = pc + 4 + len;
+                } else if (type == 0) { // Register
+                    uint8_t reg = program[pc + 3];
+                    std::cout << cpu.get_registers()[reg] << std::endl;
+                    next_pc = pc + 4;
+                }
+            } else {
+                uint8_t type = program[pc + 2];
+                if (type == 1) { // String
+                    uint8_t len = program[pc + 3];
+                    next_pc = pc + 4 + len;
+                } else {
+                    next_pc = pc + 4;
+                }
+            }
+        } else if (sub_opcode == 1) { // BREAK
+            if (Config::debug) {
+                std::cout << "BREAKPOINT at 0x" << std::hex << pc << std::dec << std::endl;
+            }
+        } else if (sub_opcode == 2) { // DUMP
+            if (Config::debug) {
+                cpu.print_state("DUMP");
+            }
+        } else if (sub_opcode == 3) { // MEMDUMP
+            // Start (4 bytes), Length (4 bytes)
+            uint32_t start = 0;
+            start |= (uint32_t)program[pc + 2];
+            start |= (uint32_t)program[pc + 3] << 8;
+            start |= (uint32_t)program[pc + 4] << 16;
+            start |= (uint32_t)program[pc + 5] << 24;
+            
+            uint32_t len = 0;
+            len |= (uint32_t)program[pc + 6];
+            len |= (uint32_t)program[pc + 7] << 8;
+            len |= (uint32_t)program[pc + 8] << 16;
+            len |= (uint32_t)program[pc + 9] << 24;
+            
+            if (Config::debug) {
+                const auto& mem = cpu.get_memory();
+                std::cout << "Memory dump [0x" << std::hex << std::uppercase << start << " - 0x" << (start + len - 1) << "]:" << std::dec << std::endl;
+                
+                // 16-byte wide hex dump with ASCII
+                for (uint32_t i = 0; i < len; i += 16) {
+                    // Address
+                    std::cout << "  0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << (start + i) << ": ";
+                    
+                    // Hex bytes
+                    for (uint32_t j = 0; j < 16; ++j) {
+                        uint32_t addr = start + i + j;
+                        if (i + j < len && addr < mem.size()) {
+                            std::cout << std::setw(2) << std::setfill('0') << std::hex << (int)mem[addr];
+                        } else {
+                            std::cout << "  ";
+                        }
+                        std::cout << " ";
+                        if (j == 7) std::cout << " "; // Extra space in middle
+                    }
+                    
+                    // ASCII representation
+                    std::cout << " |";
+                    for (uint32_t j = 0; j < 16; ++j) {
+                        uint32_t addr = start + i + j;
+                        if (i + j < len && addr < mem.size()) {
+                            unsigned char c = mem[addr];
+                            std::cout << (char)((c >= 32 && c <= 126) ? c : '.');
+                        } else {
+                            std::cout << " ";
+                        }
+                    }
+                    std::cout << "|" << std::dec << std::endl;
+                }
+            }
+            
+            next_pc = pc + 10;
+        } else if (sub_opcode == 4) { // TRACE
+            uint8_t val = program[pc + 2];
+            if (val == 2) {
+                Config::trace = !Config::trace;
+            } else {
+                Config::trace = (val != 0);
+            }
+            next_pc = pc + 3;
+        } else if (sub_opcode == 5) { // ASSERT
+            uint8_t type = program[pc + 2];
+            uint64_t actual = 0;
+            if (type == 0) { // Register
+                uint8_t reg = program[pc + 3];
+                actual = cpu.get_registers()[reg];
+                next_pc = pc + 4;
+            } else { // Memory
+                uint32_t addr = 0;
+                addr |= (uint32_t)program[pc + 3];
+                addr |= (uint32_t)program[pc + 4] << 8;
+                addr |= (uint32_t)program[pc + 5] << 16;
+                addr |= (uint32_t)program[pc + 6] << 24;
+                const auto& mem = cpu.get_memory();
+                if (addr + 7 < mem.size()) {
+                    actual = *(uint64_t*)(&mem[addr]);
+                }
+                next_pc = pc + 7;
+            }
+            uint64_t expected = 0;
+            for (int i = 0; i < 8; ++i) {
+                expected |= ((uint64_t)program[next_pc + i]) << (i * 8);
+            }
+            next_pc += 8;
+            
+            if (Config::debug) {
+                if (actual != expected) {
+                    std::cout << "ASSERTION FAILED at 0x" << std::hex << pc << ": expected 0x" << expected 
+                              << ", got 0x" << actual << std::dec << std::endl;
+                } else {
+                    std::cout << "ASSERTION PASSED at 0x" << std::hex << pc << std::dec << std::endl;
+                }
+            }
+        } else if (sub_opcode == 6) { // DUMPSTACK
+            uint32_t depth = 0;
+            depth |= (uint32_t)program[pc + 2];
+            depth |= (uint32_t)program[pc + 3] << 8;
+            depth |= (uint32_t)program[pc + 4] << 16;
+            depth |= (uint32_t)program[pc + 5] << 24;
+            
+            if (Config::debug) {
+                const auto& regs = cpu.get_registers();
+                uint32_t sp = regs[6]; // RSP
+                const auto& mem = cpu.get_memory();
+                
+                std::cout << "Stack dump (depth=" << depth << ", SP=0x" << std::hex << sp << "):" << std::dec << std::endl;
+                for (uint32_t i = 0; i < depth && (sp + i * 8) < mem.size(); ++i) {
+                    uint64_t val = 0;
+                    uint32_t addr = sp + i * 8;
+                    if (addr + 7 < mem.size()) {
+                        val = *(uint64_t*)(&mem[addr]);
+                    }
+                    std::cout << "  [SP+" << (i * 8) << "] 0x" << std::hex << addr << ": 0x" << val << std::dec << std::endl;
+                }
+            }
+            next_pc = pc + 6;
+        } else if (sub_opcode == 7) { // WATCH
+            uint32_t addr = 0;
+            addr |= (uint32_t)program[pc + 2];
+            addr |= (uint32_t)program[pc + 3] << 8;
+            addr |= (uint32_t)program[pc + 4] << 16;
+            addr |= (uint32_t)program[pc + 5] << 24;
+            
+            uint32_t len = 0;
+            len |= (uint32_t)program[pc + 6];
+            len |= (uint32_t)program[pc + 7] << 8;
+            len |= (uint32_t)program[pc + 8] << 16;
+            len |= (uint32_t)program[pc + 9] << 24;
+            
+            if (Config::debug) {
+                std::cout << "WATCHPOINT set at 0x" << std::hex << addr << " (length " << std::dec << len << ")" << std::endl;
+                // Note: Full implementation would require tracking watchpoints
+            }
+            next_pc = pc + 10;
+        } else if (sub_opcode == 8) { // UNWATCH
+            uint32_t addr = 0;
+            addr |= (uint32_t)program[pc + 2];
+            addr |= (uint32_t)program[pc + 3] << 8;
+            addr |= (uint32_t)program[pc + 4] << 16;
+            addr |= (uint32_t)program[pc + 5] << 24;
+            
+            if (Config::debug) {
+                std::cout << "WATCHPOINT removed at 0x" << std::hex << addr << std::dec << std::endl;
+            }
+            next_pc = pc + 6;
+        } else if (sub_opcode == 9) { // CHECKPOINT
+            uint8_t len = program[pc + 2];
+            std::string label;
+            for (int i = 0; i < len; ++i) label += (char)program[pc + 3 + i];
+            
+            if (Config::debug) {
+                std::cout << "CHECKPOINT: " << label << " at 0x" << std::hex << pc << std::dec << std::endl;
+            }
+            next_pc = pc + 3 + len;
+        } else if (sub_opcode == 10) { // LOG
+            uint8_t level = program[pc + 2];
+            uint8_t len = program[pc + 3];
+            std::string message;
+            for (int i = 0; i < len; ++i) message += (char)program[pc + 4 + i];
+            
+            if (Config::debug) {
+                const char* level_names[] = {"DEBUG", "INFO", "WARN", "ERROR"};
+                const char* level_name = (level < 4) ? level_names[level] : "UNKNOWN";
+                std::cout << "[" << level_name << "] " << message << std::endl;
+            }
+            next_pc = pc + 4 + len;
+        } else if (sub_opcode == 11) { // DUMPREG
+            uint8_t reg = program[pc + 2];
+            
+            if (Config::debug) {
+                const auto& regs = cpu.get_registers();
+                const char* reg_names[] = {"RAX", "RBX", "RCX", "RDX", "RSI", "RDI", "RSP", "RBP", 
+                                          "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R15"};
+                const char* name = (reg < 16) ? reg_names[reg] : "UNKNOWN";
+                std::cout << name << " = 0x" << std::hex << regs[reg] << " (" << std::dec << regs[reg] << ")" << std::endl;
+            }
+            next_pc = pc + 3;
+        } else if (sub_opcode == 12) { // MEMSET
+            uint32_t addr = 0;
+            addr |= (uint32_t)program[pc + 2];
+            addr |= (uint32_t)program[pc + 3] << 8;
+            addr |= (uint32_t)program[pc + 4] << 16;
+            addr |= (uint32_t)program[pc + 5] << 24;
+            
+            uint32_t len = 0;
+            len |= (uint32_t)program[pc + 6];
+            len |= (uint32_t)program[pc + 7] << 8;
+            len |= (uint32_t)program[pc + 8] << 16;
+            len |= (uint32_t)program[pc + 9] << 24;
+            
+            uint8_t value = program[pc + 10];
+            
+            if (Config::debug) {
+                auto& mem = cpu.get_memory();
+                for (uint32_t i = 0; i < len && (addr + i) < mem.size(); ++i) {
+                    mem[addr + i] = value;
+                }
+                std::cout << "MEMSET: filled " << len << " bytes at 0x" << std::hex << addr 
+                          << " with 0x" << (int)value << std::dec << std::endl;
+            }
+            next_pc = pc + 11;
+        } else if (sub_opcode == 13) { // STEP
+            uint32_t count = 0;
+            count |= (uint32_t)program[pc + 2];
+            count |= (uint32_t)program[pc + 3] << 8;
+            count |= (uint32_t)program[pc + 4] << 16;
+            count |= (uint32_t)program[pc + 5] << 24;
+            
+            if (Config::debug) {
+                std::cout << "STEP: executing " << count << " instruction(s) starting at 0x" 
+                          << std::hex << pc << std::dec << std::endl;
+                // Note: Full implementation would require step-mode control
+            }
+            next_pc = pc + 6;
+        }
+        
+        cpu.set_pc(next_pc);
+        
+        if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
+            running = false;
+            return;
+        }
+        goto *dispatch_table[program[cpu.get_pc()]];
+    }
+
+    // Generic handler for non-inlined operations
     op_handler: {
         uint8_t opcode = program[cpu.get_pc()];
-        Logger::instance().debug() << fmt::format("[OP_HANDLER] Handling opcode 0x{:02X} at PC=0x{:04X}", opcode, cpu.get_pc()) << std::endl;
         
         // Switch to appropriate handler for non-inlined opcodes
         switch (opcode) {
@@ -311,6 +586,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
             case 0x0C: handle_jnz(cpu, program, running); break;
             
             // 64-bit operations (0x50-0x5F range)
+            case 0x52: handle_mov64(cpu, program, running); break;  // MOV64
             case 0x54: handle_mul64(cpu, program, running); break;  // MUL64
             case 0x55: handle_div64(cpu, program, running); break;  // DIV64
             case 0x56: handle_and64(cpu, program, running); break;  // AND64
@@ -321,14 +597,14 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
             case 0x67: handle_storex(cpu, program, running); break; // STOREX
             
             default:
-                Logger::instance().debug() << fmt::format("[OP_HANDLER] Falling back to consolidated dispatcher for opcode 0x{:02X}", opcode) << std::endl;
+                DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[OP_HANDLER] Falling back to consolidated dispatcher for opcode 0x{:02X}", opcode);
                 // Fall back to consolidated dispatcher for unhandled opcodes
                 dispatch_opcode(cpu, program, running);
-                Logger::instance().debug() << fmt::format("[OP_HANDLER] Returned from consolidated dispatcher") << std::endl;
+                DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[OP_HANDLER] Returned from consolidated dispatcher%s", "");
                 return;
         }
         
-        Logger::instance().debug() << fmt::format("[OP_HANDLER] Handler completed, continuing to next instruction") << std::endl;
+        DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[OP_HANDLER] Handler completed, continuing to next instruction%s", "");
         // Continue to next instruction
         if (__builtin_expect(!running, 0)) return;
         if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
@@ -341,17 +617,20 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
     // Invalid opcode handler
     op_invalid: {
         uint8_t opcode = program[cpu.get_pc()];
-        Logger::instance().error() << fmt::format("Invalid opcode: 0x{:02X} at PC={}", opcode, cpu.get_pc()) << std::endl;
+        DEBUG_CRITICAL(Logging::DebugCategory::CPU_EXECUTION, "Invalid opcode: 0x{:02X} at PC={}", opcode, cpu.get_pc());
         running = false;
-        return;
+        
+        // Throw exception to match consolidated dispatcher behavior and allow tests to catch it
+        std::string opcode_hex = fmt::format("{:02X}", static_cast<int>(opcode));
+        throw CPUException("Invalid opcode: 0x" + opcode_hex);
     }
 
     // Dispatch table initialization
 init_dispatch_table:
-    Logger::instance().debug() << fmt::format("[DISPATCH_INLINED] Reached init_dispatch_table") << std::endl;
+    DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] Reached init_dispatch_table%s", "");
     static bool initialized = false;
     if (!initialized) {
-        Logger::instance().debug() << fmt::format("[DISPATCH_INLINED] Initializing dispatch table") << std::endl;
+        DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] Initializing dispatch table%s", "");
         // Initialize dispatch table with inlined operations first
         for (int i = 0; i < 256; i++) {
             dispatch_table[i] = &&op_invalid;
@@ -422,8 +701,9 @@ init_dispatch_table:
         dispatch_table[0x39] = &&op_handler;    // OUTSTR
         
         // Data and memory operations
-        dispatch_table[0x40] = &&op_handler;    // DB
+        dispatch_table[static_cast<uint8_t>(Opcode::DB)] = &&op_handler;    // DB
         dispatch_table[0x41] = &&op_handler;    // LOADR
+        dispatch_table[0x42] = &&op_debug;      // DEBUG
         
         // 64-bit operations (0x50-0x5F range)
         dispatch_table[0x50] = &&op_handler;    // ADD64
@@ -481,20 +761,20 @@ init_dispatch_table:
         }
         
         initialized = true;
-        Logger::instance().debug() << "Inlined threaded dispatcher initialized" << std::endl;
+        DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "Inlined threaded dispatcher initialized%s", "");
     } else {
-        Logger::instance().debug() << fmt::format("[DISPATCH_INLINED] Dispatch table already initialized") << std::endl;
+        DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] Dispatch table already initialized%s", "");
     }
 
-    Logger::instance().debug() << fmt::format("[DISPATCH_INLINED] About to goto dispatch_start") << std::endl;
+    DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] About to goto dispatch_start%s", "");
     // Jump to main dispatch loop
     goto dispatch_start;
 
 dispatch_start:
-    Logger::instance().debug() << fmt::format("[DISPATCH_INLINED] Reached dispatch_start, PC=0x{:04X}", cpu.get_pc()) << std::endl;
+    DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] Reached dispatch_start, PC=0x{:04X}", cpu.get_pc());
     // Main interpreter loop
     if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
-        Logger::instance().debug() << fmt::format("[DISPATCH_INLINED] PC out of bounds, stopping") << std::endl;
+        DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] PC out of bounds, stopping%s", "");
         running = false;
         return;
     }
@@ -523,7 +803,7 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
             // Inlined NOP
             case 0x00: {
                 #ifndef NDEBUG
-                if (Config::debug) {
+                if (Config::trace) {
                     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [NOP] PC={}", pc, pc) << std::endl;
                     cpu.print_state("NOP");
                 }
@@ -550,7 +830,7 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
                     break;
                 }
                 
-                if (Config::debug) {
+                if (Config::trace) {
                     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM] R{} = {}", pc, reg, value) << std::endl;
                 }
                 #endif
@@ -563,7 +843,7 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
                 cpu.set_pc(pc + 3);
                 
                 #ifndef NDEBUG
-                if (Config::debug) {
+                if (Config::trace) {
                     cpu.print_state("LOAD_IMM");
                 }
                 #endif
@@ -588,7 +868,7 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
                     break;
                 }
                 
-                if (Config::debug) {
+                if (Config::trace) {
                     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [ADD] R{} += R{}", pc, reg1, reg2) << std::endl;
                 }
                 #endif
@@ -607,7 +887,7 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
                 cpu.set_pc(pc + 3);
                 
                 #ifndef NDEBUG
-                if (Config::debug) {
+                if (Config::trace) {
                     cpu.print_state("ADD");
                 }
                 #endif
@@ -632,7 +912,7 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
                     break;
                 }
                 
-                if (Config::debug) {
+                if (Config::trace) {
                     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MOV] R{} = R{}", pc, reg_dst, reg_src) << std::endl;
                 }
                 #endif
@@ -641,13 +921,83 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
                 cpu.set_pc(pc + 3);
                 
                 #ifndef NDEBUG
-                if (Config::debug) {
+                if (Config::trace) {
                     cpu.print_state("MOV");
                 }
                 #endif
                 break;
             }
             
+            // Inlined HALT
+            case 0xFF: {
+                #ifndef NDEBUG
+                if (Config::trace) {
+                    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [HALT]", pc) << std::endl;
+                    cpu.print_state("HALT");
+                }
+                #endif
+                running = false;
+                break;
+            }
+            
+            // Inlined DEBUG
+            case 0x42: {
+                #ifndef NDEBUG
+                if (__builtin_expect(pc + 2 >= program.size(), 0)) {
+                    running = false;
+                    break;
+                }
+                #endif
+                
+                uint8_t sub_opcode = program[pc + 1];
+                uint32_t next_pc = pc + 2;
+                
+                if (sub_opcode == 0) { // PRINT
+                    uint8_t type = program[pc + 2];
+                    if (type == 1) { // String
+                        uint8_t len = program[pc + 3];
+                        std::string s;
+                        for (int i = 0; i < len; ++i) s += (char)program[pc + 4 + i];
+                        std::cout << s << std::endl;
+                        next_pc = pc + 4 + len;
+                    } else if (type == 0) { // Register
+                        uint8_t reg = program[pc + 3];
+                        std::cout << cpu.get_registers()[reg] << std::endl;
+                        next_pc = pc + 4;
+                    }
+                } else if (sub_opcode == 1) { // BREAK
+                    std::cout << "BREAKPOINT at 0x" << std::hex << pc << std::dec << std::endl;
+                } else if (sub_opcode == 2) { // DUMP
+                    cpu.print_state("DUMP");
+                } else if (sub_opcode == 3) { // MEMDUMP
+                    uint32_t start = 0;
+                    start |= (uint32_t)program[pc + 2];
+                    start |= (uint32_t)program[pc + 3] << 8;
+                    start |= (uint32_t)program[pc + 4] << 16;
+                    start |= (uint32_t)program[pc + 5] << 24;
+                    
+                    uint32_t len = 0;
+                    len |= (uint32_t)program[pc + 6];
+                    len |= (uint32_t)program[pc + 7] << 8;
+                    len |= (uint32_t)program[pc + 8] << 16;
+                    len |= (uint32_t)program[pc + 9] << 24;
+                    
+                    cpu.print_memory(start, start + len);
+                    next_pc = pc + 10;
+                } else if (sub_opcode == 4) { // TRACE
+                    uint8_t val = program[pc + 2];
+                    if (val == 2) {
+                        Config::debug = !Config::debug;
+                    } else {
+                        Config::debug = (val != 0);
+                    }
+                    next_pc = pc + 3;
+                }
+                
+                cpu.set_pc(next_pc);
+                break;
+            }
+
             // Inlined LOAD_IMM64
             case 0x53: {
                 #ifndef NDEBUG
@@ -678,7 +1028,7 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
                 value |= static_cast<uint64_t>(program[pc + 9]) << 56;
                 
                 #ifndef NDEBUG
-                if (Config::debug) {
+                if (Config::trace) {
                     Logger::instance().debug() << fmt::format(
                         "[PC=0x{:04X}] [LOAD_IMM64] R{} = {}", pc, reg, value) << std::endl;
                 }
@@ -690,18 +1040,6 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
                 break;
             }
             
-            // Inlined HALT
-            case 0xFF: {
-                #ifndef NDEBUG
-                if (Config::debug) {
-                    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [HALT]", pc) << std::endl;
-                    cpu.print_state("HALT");
-                }
-                #endif
-                running = false;
-                break;
-            }
-            
             // Non-inlined operations - delegate to original handlers
             default: {
                 dispatch_opcode(cpu, program, running);
@@ -710,3 +1048,4 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
         }
     }
 }
+#pragma GCC diagnostic pop

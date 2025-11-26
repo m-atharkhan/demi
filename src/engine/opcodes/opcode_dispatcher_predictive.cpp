@@ -55,7 +55,6 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
     
     uint8_t opcode = program[pc];
     Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] Processing opcode 0x{:02X}", opcode) << std::endl;
-    auto& branch_predictor = cpu.get_branch_predictor();
     
     // Check if this is a branch instruction that should be predicted
     if (BranchPrediction::BranchPredictor::is_branch_instruction(opcode)) {

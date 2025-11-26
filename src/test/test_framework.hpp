@@ -150,7 +150,7 @@ public:
         }
         auto& memory = cpu.get_memory();
         std::copy_n(program.begin(), std::min(program.size(), memory.size()), memory.begin());
-        cpu.set_pc(0);
+        cpu.set_pc(entry_address);  // Use entry address from assembler
         cpu.set_sp(cpu.get_memory().size() - 4);
         cpu.set_fp(cpu.get_memory().size() - 4);  // Match main program behavior
 
@@ -375,6 +375,7 @@ public:
             }
             
             program = std::move(bytecode);
+            entry_address = assembler.get_entry_address();  // Capture entry point
         } catch (const std::exception& e) {
             throw std::runtime_error(fmt::format("Assembly failed: {}", e.what()));
         }
@@ -392,13 +393,14 @@ public:
                 throw std::runtime_error(error_msg);
             }
             program = std::move(bytecode);
+            entry_address = assembler.get_entry_address();  // Capture entry point
         } catch (const std::exception& e) {
             throw std::runtime_error(fmt::format("Assembly of file '{}' failed: {}", filename, e.what()));
         }
     }
 
     // Test assembler directives and symbol resolution
-    void assert_symbol_value(const std::string& symbol_name, uint32_t expected_value) {
+    void assert_symbol_value([[maybe_unused]] const std::string& symbol_name, [[maybe_unused]] uint32_t expected_value) {
         Assembler::DemiAssembler assembler;
         // Assemble current program to populate symbol table
         if (!program.empty()) {
@@ -506,6 +508,7 @@ public:
     // CPU instance for direct access if needed
     CPU cpu;
     std::vector<uint8_t> program;
+    uint32_t entry_address = 0;  // Entry point address from assembler
 };
 
 // Main test framework

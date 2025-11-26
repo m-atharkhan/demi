@@ -6,7 +6,7 @@
 
 using namespace DemiEngine_Registers;
 
-void handle_VDOT(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+void handle_VDOT(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     Logger::instance().debug() << "Executing VDOT - Vector Dot Product" << std::endl;
     
     // Dot product: sum of (R0-R3) * (R4-R7), store result in R0

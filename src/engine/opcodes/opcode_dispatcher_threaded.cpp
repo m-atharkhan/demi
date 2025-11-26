@@ -4,8 +4,11 @@
 #include <fmt/format.h>
 
 // Disable all warnings for this file to avoid clutter during implementation
+// Suppress pedantic warnings for performance-critical computed gotos
+// This is a widely-used GCC extension for threaded code interpretation
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-label"
+#pragma GCC diagnostic ignored "-Wpedantic"
 
 // Check for computed goto support at compile time
 #if USE_THREADED_CODE

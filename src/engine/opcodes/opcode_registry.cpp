@@ -189,11 +189,11 @@ void OpcodeRegistry::initialize_handlers() {
     REGISTER_OPCODE(0x2C, handle_inw);        // INW
     REGISTER_OPCODE(0x2D, handle_inl);        // INL
     REGISTER_OPCODE(0x2E, handle_instr);      // INSTR
-    REGISTER_OPCODE(0x2F, handle_outb);       // OUTB
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::OUTB), handle_outb);       // OUTB
     REGISTER_OPCODE(0x30, handle_outw);       // OUTW
     REGISTER_OPCODE(0x31, handle_outl);       // OUTL
     REGISTER_OPCODE(0x32, handle_outstr);     // OUTSTR
-    REGISTER_OPCODE(0x33, handle_db);         // DB
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::DB), handle_db);         // DB
     
     // Extended 64-bit operations (temporary range until proper 0x50+ range implemented)
     REGISTER_OPCODE(0x34, handle_add64);      // ADD64
@@ -258,7 +258,7 @@ void OpcodeRegistry::initialize_handlers() {
     REGISTER_OPCODE(0xDA, handle_PACKB);     // PACKB - Pack bytes
     REGISTER_OPCODE(0xDB, handle_UNPACKB);   // UNPACKB - Unpack bytes
     
-    REGISTER_OPCODE(0x40, handle_out);        // OUT
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::OUT), handle_out);        // OUT
     REGISTER_OPCODE(0x41, handle_loadr);      // LOADR - Load indirect (address in register)
     REGISTER_OPCODE(0xFF, handle_halt);       // HALT
     

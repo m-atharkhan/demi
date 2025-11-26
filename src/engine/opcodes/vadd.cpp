@@ -6,7 +6,7 @@
 
 using namespace DemiEngine_Registers;
 
-void handle_VADD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+void handle_VADD(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     Logger::instance().debug() << "Executing VADD - Vector Addition" << std::endl;
     
     // Debug: print what registers we're reading from
