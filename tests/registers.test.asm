@@ -7,10 +7,10 @@
     .category "Registers"
     .tag "basic"
     .tag "move"
-    LOAD_IMM R0, 42
-    MOV R1, R0
-    .assert_reg R0, 42  ; Source unchanged
-    .assert_reg R1, 42  ; Destination copied
+    LOAD_IMM EAX, 42
+    MOV EBX, EAX
+    .assert_reg EAX, 42  ; Source unchanged
+    .assert_reg EBX, 42  ; Destination copied
 }
 
 .test "multiple register operations" {
@@ -19,14 +19,14 @@
     .category "Registers"
     .tag "basic"
     .tag "load-immediate"
-    LOAD_IMM R0, 10
-    LOAD_IMM R1, 20
-    LOAD_IMM R2, 30
-    LOAD_IMM R3, 40
-    .assert_reg R0, 10
-    .assert_reg R1, 20
-    .assert_reg R2, 30
-    .assert_reg R3, 40
+    LOAD_IMM EAX, 10
+    LOAD_IMM EBX, 20
+    LOAD_IMM ECX, 30
+    LOAD_IMM EDX, 40
+    .assert_reg EAX, 10
+    .assert_reg EBX, 20
+    .assert_reg ECX, 30
+    .assert_reg EDX, 40
 }
 
 .test "register independence" {
@@ -35,23 +35,23 @@
     .category "Registers"
     .tag "independence"
     .tag "arithmetic"
-    LOAD_IMM R0, 100
-    LOAD_IMM R1, 200
-    ADD R0, R1  ; Only R0 should change
-    .assert_reg R0, 44  ; 100 + 200 = 300, but wraps to 44 (300 - 256)
-    .assert_reg R1, 200  ; R1 unchanged
+    LOAD_IMM EAX, 100
+    LOAD_IMM EBX, 200
+    ADD EAX, EBX  ; Only EAX should change
+    .assert_reg EAX, 44  ; 100 + 200 = 300, but wraps to 44 (300 - 256)
+    .assert_reg EBX, 200  ; EBX unchanged
 }
 
 .test "extended registers" {
-    .description "Tests using registers beyond R0-R7 (extended register set)"
+    .description "Tests using registers beyond EAX-EBP (extended register set)"
     .author "DemiEngine Team"
     .category "Registers"
     .tag "extended"
     .tag "basic"
-    LOAD_IMM R6, 80
-    LOAD_IMM R7, 90
-    .assert_reg R6, 80
-    .assert_reg R7, 90
+    LOAD_IMM ESP, 80
+    LOAD_IMM EBP, 90
+    .assert_reg ESP, 80
+    .assert_reg EBP, 90
 }
 
 .test "high register range test" {
@@ -78,12 +78,12 @@
     .category "Registers"
     .tag "chain"
     .tag "complex"
-    LOAD_IMM R0, 10
-    MOV R1, R0      ; R1 = 10
-    ADD R1, R0      ; R1 = 20
-    MOV R2, R1      ; R2 = 20
-    MUL R2, R0      ; R2 = 200
-    .assert_reg R0, 10   ; Original unchanged
-    .assert_reg R1, 20   ; First operation
-    .assert_reg R2, 200  ; Final result
+    LOAD_IMM EAX, 10
+    MOV EBX, EAX      ; EBX = 10
+    ADD EBX, EAX      ; EBX = 20
+    MOV ECX, EBX      ; ECX = 20
+    MUL ECX, EAX      ; ECX = 200
+    .assert_reg EAX, 10   ; Original unchanged
+    .assert_reg EBX, 20   ; First operation
+    .assert_reg ECX, 200  ; Final result
 }

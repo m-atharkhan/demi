@@ -9,12 +9,12 @@
     .category "64-bit Operations"
     .tag "storex"
     
-    LOAD_IMM64 R0, 987654
-    STOREX R0, 1000        ; Store 64-bit value from R0 to address 1000
-    LOADEX R1, 1000        ; Load it back to verify
+    LOAD_IMM64 EAX, 987654
+    STOREX EAX, 1000        ; Store 64-bit value from EAX to address 1000
+    LOADEX EBX, 1000        ; Load it back to verify
     HALT
     
-    .assert_reg R1, 987654
+    .assert_reg EBX, 987654
 }
 
 .test "storex zero value" {
@@ -24,12 +24,12 @@
     .tag "storex"
     .tag "zero"
     
-    LOAD_IMM R0, 0
-    STOREX R0, 1100
-    LOADEX R1, 1100        ; Load back to verify
+    LOAD_IMM EAX, 0
+    STOREX EAX, 1100
+    LOADEX EBX, 1100        ; Load back to verify
     HALT
     
-    .assert_reg R1, 0
+    .assert_reg EBX, 0
 }
 
 .test "storex large value" {
@@ -39,12 +39,12 @@
     .tag "storex"
     .tag "large-values"
     
-    LOAD_IMM64 R0, 1234567
-    STOREX R0, 1200
-    LOADEX R1, 1200        ; Load back to verify
+    LOAD_IMM64 EAX, 1234567
+    STOREX EAX, 1200
+    LOADEX EBX, 1200        ; Load back to verify
     HALT
     
-    .assert_reg R1, 1234567
+    .assert_reg EBX, 1234567
 }
 
 .test "storex multiple addresses" {
@@ -55,18 +55,18 @@
     .tag "multiple"
     
     ; Store different values to different addresses
-    LOAD_IMM R0, 111
-    STOREX R0, 1300
-    LOAD_IMM R0, 222
-    STOREX R0, 1400
-    LOAD_IMM R0, 77
-    STOREX R0, 1500
+    LOAD_IMM EAX, 111
+    STOREX EAX, 1300
+    LOAD_IMM EAX, 222
+    STOREX EAX, 1400
+    LOAD_IMM EAX, 77
+    STOREX EAX, 1500
     
     ; Load from middle address to verify
-    LOADEX R1, 1400
+    LOADEX EBX, 1400
     HALT
     
-    .assert_reg R1, 222
+    .assert_reg EBX, 222
 }
 
 .test "storex overwrite test" {
@@ -77,18 +77,18 @@
     .tag "overwrite"
     
     ; Store initial value
-    LOAD_IMM R0, 99
-    STOREX R0, 1600
+    LOAD_IMM EAX, 99
+    STOREX EAX, 1600
     
     ; Overwrite with new value
-    LOAD_IMM R0, 123
-    STOREX R0, 1600
+    LOAD_IMM EAX, 123
+    STOREX EAX, 1600
     
     ; Load back to verify overwrite
-    LOADEX R1, 1600
+    LOADEX EBX, 1600
     HALT
     
-    .assert_reg R1, 123
+    .assert_reg EBX, 123
 }
 
 .test "storex signed value" {
@@ -98,10 +98,10 @@
     .tag "storex"
     .tag "signed"
     
-    LOAD_IMM64 R0, 12345   ; Positive value for now
-    STOREX R0, 1700
-    LOADEX R1, 1700       ; Load back to verify
+    LOAD_IMM64 EAX, 12345   ; Positive value for now
+    STOREX EAX, 1700
+    LOADEX EBX, 1700       ; Load back to verify
     HALT
     
-    .assert_reg R1, 12345
+    .assert_reg EBX, 12345
 }

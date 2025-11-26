@@ -7,7 +7,7 @@ DB 'Hello, DemiEngine!', 18, 0x50
 .org 0x60
 
 ; Print the string using OUTSTR
-LOAD_IMM R0, 0x50      ; R0 = address of string
-OUTSTR R0, 1           ; Output string at [R0] to console
+LOAD_IMM EAX, 0x50      ; EAX = address of string
+OUTSTR EAX, 1           ; Output string at [EAX] to console
 
 HALT

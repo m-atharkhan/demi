@@ -10,14 +10,14 @@
     
     ; This test uses the default 10,000 step limit
     ; Running 100 iterations is well within the limit
-    LOAD_IMM R0, 0
-    LOAD_IMM R1, 1
-    LOAD_IMM R2, 100
+    LOAD_IMM EAX, 0
+    LOAD_IMM EBX, 1
+    LOAD_IMM ECX, 100
 loop_start:
-    ADD R0, R1
-    CMP R0, R2
+    ADD EAX, EBX
+    CMP EAX, ECX
     JL loop_start
-    .assert_reg R0, 100
+    .assert_reg EAX, 100
 }
 
 .test "custom maxsteps (500)" {
@@ -31,14 +31,14 @@ loop_start:
     
     ; This test sets a custom limit of 500 steps
     ; Running 20 iterations should complete successfully
-    LOAD_IMM R0, 0
-    LOAD_IMM R1, 1
-    LOAD_IMM R2, 20
+    LOAD_IMM EAX, 0
+    LOAD_IMM EBX, 1
+    LOAD_IMM ECX, 20
 repeat:
-    ADD R0, R1
-    CMP R0, R2
+    ADD EAX, EBX
+    CMP EAX, ECX
     JL repeat
-    .assert_reg R0, 20
+    .assert_reg EAX, 20
 }
 
 .test "infinite loop caught by limit" {
@@ -52,9 +52,9 @@ repeat:
     .expect_error true
     
     ; This test should fail because it will exceed the 50 step limit
-    LOAD_IMM R0, 0
-    LOAD_IMM R1, 1
+    LOAD_IMM EAX, 0
+    LOAD_IMM EBX, 1
 endless:
-    ADD R0, R1
+    ADD EAX, EBX
     JMP endless
 }

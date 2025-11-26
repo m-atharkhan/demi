@@ -10,22 +10,22 @@
     .tag "performance"
     
     ; Calculate fib(8) = 21
-    LOAD_IMM R0, 0    ; fib(0)
-    LOAD_IMM R1, 1    ; fib(1)
-    LOAD_IMM R2, 8    ; target
-    LOAD_IMM R3, 1    ; counter
+    LOAD_IMM EAX, 0    ; fib(0)
+    LOAD_IMM EBX, 1    ; fib(1)
+    LOAD_IMM ECX, 8    ; target
+    LOAD_IMM EDX, 1    ; counter
     
 benchmark_fib_loop:
-    CMP R3, R2
+    CMP EDX, ECX
     JGE benchmark_fib_done
-    MOV R4, R1
-    ADD R1, R0
-    MOV R0, R4
-    INC R3
+    MOV ESI, EBX
+    ADD EBX, EAX
+    MOV EAX, ESI
+    INC EDX
     JMP benchmark_fib_loop
     
 benchmark_fib_done:
-    .assert_reg R1, 21  ; fib(8) = 21
+    .assert_reg EBX, 21  ; fib(8) = 21
 }
 
 .test "benchmark_simple_arithmetic" {
@@ -36,14 +36,14 @@ benchmark_fib_done:
     .tag "performance"
     
     ; Simple arithmetic benchmark
-    LOAD_IMM R0, 17
-    LOAD_IMM R1, 2
+    LOAD_IMM EAX, 17
+    LOAD_IMM EBX, 2
     
     ; Check if 17 is odd (17 % 2 = 1)
-    MOV R2, R0
-    MOD R2, R1
+    MOV ECX, EAX
+    MOD ECX, EBX
     
-    .assert_reg R2, 1  ; 17 % 2 = 1
+    .assert_reg ECX, 1  ; 17 % 2 = 1
 }
 
 .test "benchmark_memory_ops" {
@@ -54,17 +54,17 @@ benchmark_fib_done:
     .tag "performance"
     
     ; Simple memory operations
-    LOAD_IMM R0, 72   ; 'H'
-    STORE R0, 50
-    LOAD_IMM R0, 69   ; 'E'
-    STORE R0, 51
+    LOAD_IMM EAX, 72   ; 'H'
+    STORE EAX, 50
+    LOAD_IMM EAX, 69   ; 'E'
+    STORE EAX, 51
     
     ; Load back and verify
-    LOAD R1, 50
-    LOAD R2, 51
+    LOAD EBX, 50
+    LOAD ECX, 51
     
-    .assert_reg R1, 72  ; 'H'
-    .assert_reg R2, 69  ; 'E'
+    .assert_reg EBX, 72  ; 'H'
+    .assert_reg ECX, 69  ; 'E'
 }
 
 .test "benchmark_matrix_multiply_2x2" {
@@ -76,40 +76,40 @@ benchmark_fib_done:
     .tag "performance"
     
     ; Matrix A: [[1,2], [3,4]]
-    LOAD_IMM R0, 1    ; A[0][0]
-    LOAD_IMM R1, 2    ; A[0][1]
-    LOAD_IMM R2, 3    ; A[1][0]
-    LOAD_IMM R3, 4    ; A[1][1]
+    LOAD_IMM EAX, 1    ; A[0][0]
+    LOAD_IMM EBX, 2    ; A[0][1]
+    LOAD_IMM ECX, 3    ; A[1][0]
+    LOAD_IMM EDX, 4    ; A[1][1]
     
     ; Matrix B: [[5,6], [7,8]]
-    LOAD_IMM R4, 5    ; B[0][0]
-    LOAD_IMM R5, 6    ; B[0][1]
-    LOAD_IMM R6, 7    ; B[1][0]
-    LOAD_IMM R7, 8    ; B[1][1]
+    LOAD_IMM ESI, 5    ; B[0][0]
+    LOAD_IMM EDI, 6    ; B[0][1]
+    LOAD_IMM ESP, 7    ; B[1][0]
+    LOAD_IMM EBP, 8    ; B[1][1]
     
     ; Calculate C[0][0] = A[0][0]*B[0][0] + A[0][1]*B[1][0]
-    ; Use memory to store intermediate results since we're limited to R0-R7
-    MUL R0, R4        ; R0 = 1*5 = 5 (overwrites A[0][0])
-    MUL R1, R6        ; R1 = 2*7 = 14 (overwrites A[0][1])
-    ADD R0, R1        ; R0 = 5+14 = 19 (C[0][0])
+    ; Use memory to store intermediate results since we're limited to EAX-EBP
+    MUL EAX, ESI        ; EAX = 1*5 = 5 (overwrites A[0][0])
+    MUL EBX, ESP        ; EBX = 2*7 = 14 (overwrites A[0][1])
+    ADD EAX, EBX        ; EAX = 5+14 = 19 (C[0][0])
     
     ; Store C[0][0] in memory and load fresh values for C[0][1]
-    STORE R0, 100     ; Store C[0][0] = 19
+    STORE EAX, 100     ; Store C[0][0] = 19
     
     ; Reload A values for next calculation
-    LOAD_IMM R0, 1    ; A[0][0] again
-    LOAD_IMM R1, 2    ; A[0][1] again
+    LOAD_IMM EAX, 1    ; A[0][0] again
+    LOAD_IMM EBX, 2    ; A[0][1] again
     
     ; Calculate C[0][1] = A[0][0]*B[0][1] + A[0][1]*B[1][1]
-    MUL R0, R5        ; R0 = 1*6 = 6
-    MUL R1, R7        ; R1 = 2*8 = 16
-    ADD R0, R1        ; R0 = 6+16 = 22 (C[0][1])
+    MUL EAX, EDI        ; EAX = 1*6 = 6
+    MUL EBX, EBP        ; EBX = 2*8 = 16
+    ADD EAX, EBX        ; EAX = 6+16 = 22 (C[0][1])
     
     ; Store C[0][1] and verify results
-    STORE R0, 101     ; Store C[0][1] = 22
-    LOAD R2, 100      ; Load C[0][0]
-    LOAD R3, 101      ; Load C[0][1]
+    STORE EAX, 101     ; Store C[0][1] = 22
+    LOAD ECX, 100      ; Load C[0][0]
+    LOAD EDX, 101      ; Load C[0][1]
     
-    .assert_reg R2, 19   ; C[0][0] = 19
-    .assert_reg R3, 22   ; C[0][1] = 22
+    .assert_reg ECX, 19   ; C[0][0] = 19
+    .assert_reg EDX, 22   ; C[0][1] = 22
 }

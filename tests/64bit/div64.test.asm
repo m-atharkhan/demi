@@ -7,12 +7,12 @@
     .category "64-bit Operations"
     .tag "div64"
     
-    LOAD_IMM64 R0, 2000000
-    LOAD_IMM64 R1, 1000
-    DIV64 R2, R0, R1    ; R2 = 2,000,000 / 1,000 = 2,000
+    LOAD_IMM64 EAX, 2000000
+    LOAD_IMM64 EBX, 1000
+    DIV64 ECX, EAX, EBX    ; ECX = 2,000,000 / 1,000 = 2,000
     HALT
     
-    .assert_reg R2, 2000
+    .assert_reg ECX, 2000
 }
 
 .test "div64 exact division" {
@@ -22,12 +22,12 @@
     .tag "div64"
     .tag "exact"
     
-    LOAD_IMM R0, 144
-    LOAD_IMM R1, 12
-    DIV64 R2, R0, R1    ; R2 = 144 / 12 = 12
+    LOAD_IMM EAX, 144
+    LOAD_IMM EBX, 12
+    DIV64 ECX, EAX, EBX    ; ECX = 144 / 12 = 12
     HALT
     
-    .assert_reg R2, 12
+    .assert_reg ECX, 12
 }
 
 .test "div64 division by one" {
@@ -37,12 +37,12 @@
     .tag "div64"
     .tag "identity"
     
-    LOAD_IMM64 R0, 987654
-    LOAD_IMM R1, 1
-    DIV64 R2, R0, R1    ; R2 = 987654 / 1 = 987654
+    LOAD_IMM64 EAX, 987654
+    LOAD_IMM EBX, 1
+    DIV64 ECX, EAX, EBX    ; ECX = 987654 / 1 = 987654
     HALT
     
-    .assert_reg R2, 987654
+    .assert_reg ECX, 987654
 }
 
 .test "div64 integer truncation" {
@@ -52,12 +52,12 @@
     .tag "div64"
     .tag "truncation"
     
-    LOAD_IMM R0, 100
-    LOAD_IMM R1, 7
-    DIV64 R2, R0, R1    ; R2 = 100 / 7 = 14 (remainder 2, but we only get quotient)
+    LOAD_IMM EAX, 100
+    LOAD_IMM EBX, 7
+    DIV64 ECX, EAX, EBX    ; ECX = 100 / 7 = 14 (remainder 2, but we only get quotient)
     HALT
     
-    .assert_reg R2, 14
+    .assert_reg ECX, 14
 }
 
 .test "div64 zero dividend" {
@@ -67,12 +67,12 @@
     .tag "div64"
     .tag "zero"
     
-    LOAD_IMM R0, 0
-    LOAD_IMM R1, 42
-    DIV64 R2, R0, R1    ; R2 = 0 / 42 = 0
+    LOAD_IMM EAX, 0
+    LOAD_IMM EBX, 42
+    DIV64 ECX, EAX, EBX    ; ECX = 0 / 42 = 0
     HALT
     
-    .assert_reg R2, 0
+    .assert_reg ECX, 0
 }
 
 .test "div64 division by zero error" {
@@ -83,8 +83,8 @@
     .tag "error"
     .expect_error
     
-    LOAD_IMM R0, 100
-    LOAD_IMM R1, 0
-    DIV64 R2, R0, R1    ; This should cause a division by zero error
+    LOAD_IMM EAX, 100
+    LOAD_IMM EBX, 0
+    DIV64 ECX, EAX, EBX    ; This should cause a division by zero error
     HALT
 }

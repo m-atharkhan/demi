@@ -12,6 +12,6 @@
 mystring: DB 'Hello!', 6
 
 ; Program code that references the labeled data
-LOAD_IMM64 R0, mystring    ; R0 = address of string data (uses 64-bit load for larger addresses)
-OUTSTR R0, 1               ; Output string at [R0] to console (port 1)
+LOAD_IMM64 EAX, mystring    ; EAX = address of string data (uses 64-bit load for larger addresses)
+OUTSTR EAX, 1               ; Output string at [EAX] to console (port 1)
 HALT                       ; End program

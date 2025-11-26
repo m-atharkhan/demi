@@ -8,9 +8,9 @@
     .tag "cmp64"
     .tag "equal"
     
-    LOAD_IMM R0, 123
-    LOAD_IMM R1, 123
-    CMP64 R0, R1          ; Compare R0 with R1 (equal)
+    LOAD_IMM EAX, 123
+    LOAD_IMM EBX, 123
+    CMP64 EAX, EBX          ; Compare EAX with EBX (equal)
     ; After CMP64, flags should be set appropriately
     ; We can't directly test flags, but we can test conditional behavior
     HALT
@@ -26,9 +26,9 @@
     .tag "cmp64"
     .tag "greater"
     
-    LOAD_IMM R0, 250
-    LOAD_IMM R1, 100
-    CMP64 R0, R1          ; Compare R0 with R1 (R0 > R1)
+    LOAD_IMM EAX, 250
+    LOAD_IMM EBX, 100
+    CMP64 EAX, EBX          ; Compare EAX with EBX (EAX > EBX)
     HALT
     
     ; Instruction should execute successfully
@@ -41,9 +41,9 @@
     .tag "cmp64"
     .tag "smaller"
     
-    LOAD_IMM R0, 100
-    LOAD_IMM R1, 250
-    CMP64 R0, R1          ; Compare R0 with R1 (R0 < R1)
+    LOAD_IMM EAX, 100
+    LOAD_IMM EBX, 250
+    CMP64 EAX, EBX          ; Compare EAX with EBX (EAX < EBX)
     HALT
     
     ; Instruction should execute successfully
@@ -56,9 +56,9 @@
     .tag "cmp64"
     .tag "zero"
     
-    LOAD_IMM R0, 0
-    LOAD_IMM R1, 0
-    CMP64 R0, R1          ; Compare R0 with R1 (both zero)
+    LOAD_IMM EAX, 0
+    LOAD_IMM EBX, 0
+    CMP64 EAX, EBX          ; Compare EAX with EBX (both zero)
     HALT
     
     ; Both values are zero, should be equal
@@ -71,9 +71,9 @@
     .tag "cmp64"
     .tag "large-values"
     
-    LOAD_IMM64 R0, 999999999
-    LOAD_IMM64 R1, 1000000000
-    CMP64 R0, R1          ; Compare large values
+    LOAD_IMM64 EAX, 999999999
+    LOAD_IMM64 EBX, 1000000000
+    CMP64 EAX, EBX          ; Compare large values
     HALT
     
     ; First value is slightly smaller than second
@@ -86,9 +86,9 @@
     .tag "cmp64"
     .tag "mixed-sign"
     
-    LOAD_IMM R0, 100     ; Positive value
-    LOAD_IMM R1, 200     ; Larger positive value
-    CMP64 R0, R1         ; Compare positive values
+    LOAD_IMM EAX, 100     ; Positive value
+    LOAD_IMM EBX, 200     ; Larger positive value
+    CMP64 EAX, EBX         ; Compare positive values
     HALT
     
     ; First value is smaller than second value

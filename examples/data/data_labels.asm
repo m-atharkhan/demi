@@ -12,10 +12,10 @@ greeting: DB 'Hi!\n', 3
 message: DB 'Labels work!\n', 12
 
 ; Program that uses both labels
-LOAD_IMM64 R0, greeting
-OUTSTR R0, 1
+LOAD_IMM64 EAX, greeting
+OUTSTR EAX, 1
 
-LOAD_IMM64 R0, message  
-OUTSTR R0, 1
+LOAD_IMM64 EAX, message  
+OUTSTR EAX, 1
 
 HALT

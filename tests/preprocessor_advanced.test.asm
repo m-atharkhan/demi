@@ -35,8 +35,8 @@
     
     HALT
     
-    .assert_reg R3, 1     # STATUS should be 1 (PLATFORM_DEMI)
-    .assert_reg R1, 255   # ACCUMULATOR should be debug marker
+    .assert_reg EDX, 1     # STATUS should be 1 (PLATFORM_DEMI)
+    .assert_reg EBX, 255   # ACCUMULATOR should be debug marker
 }
 
 .test "preprocessor_version_check" {
@@ -55,7 +55,7 @@
     
     HALT
     
-    .assert_reg R4, 10  # VERSION_REG should be 10 (1.0 encoded)
+    .assert_reg ESI, 10  # VERSION_REG should be 10 (1.0 encoded)
 }
 
 .test "preprocessor_complex_macros" {
@@ -74,8 +74,8 @@
     
     HALT
     
-    .assert_reg R0, 42   # COUNTER should be set to 42
-    .assert_reg R1, 21   # ACCUMULATOR should be 42/2 = 21
+    .assert_reg EAX, 42   # COUNTER should be set to 42
+    .assert_reg EBX, 21   # ACCUMULATOR should be 42/2 = 21
 }
 
 .test "preprocessor_register_aliases" {
@@ -95,12 +95,12 @@
     
     HALT
     
-    .assert_reg R0, 10   # COUNTER
-    .assert_reg R1, 20   # ACCUMULATOR  
-    .assert_reg R2, 30   # TEMP
-    .assert_reg R3, 40   # STATUS
-    .assert_reg R4, 50   # VERSION_REG
-    .assert_reg R5, 60   # FLAGS
+    .assert_reg EAX, 10   # COUNTER
+    .assert_reg EBX, 20   # ACCUMULATOR  
+    .assert_reg ECX, 30   # TEMP
+    .assert_reg EDX, 40   # STATUS
+    .assert_reg ESI, 50   # VERSION_REG
+    .assert_reg EDI, 60   # FLAGS
 }
 
 # Test the mathematical macros if available
@@ -127,7 +127,7 @@
         
         HALT
         
-        .assert_reg R1, 75
+        .assert_reg EBX, 75
     }
 .endif
 
@@ -147,5 +147,5 @@
     
     HALT
     
-    .assert_reg R0, 10  # COUNTER should be 5+3+2=10
+    .assert_reg EAX, 10  # COUNTER should be 5+3+2=10
 }

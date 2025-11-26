@@ -7,13 +7,13 @@
     .category "Control Flow"
     .tag "jump"
     .tag "basic"
-    LOAD_IMM R0, 0
+    LOAD_IMM EAX, 0
     JMP skip
-    LOAD_IMM R0, 99  ; This should be skipped
+    LOAD_IMM EAX, 99  ; This should be skipped
 skip:
-    LOAD_IMM R1, 42
-    .assert_reg R0, 0
-    .assert_reg R1, 42
+    LOAD_IMM EBX, 42
+    .assert_reg EAX, 0
+    .assert_reg EBX, 42
 }
 
 .test "compare and conditional jump" {
@@ -22,16 +22,16 @@ skip:
     .category "Control Flow"
     .tag "conditional"
     .tag "comparison"
-    LOAD_IMM R0, 10
-    LOAD_IMM R1, 10
-    CMP R0, R1
+    LOAD_IMM EAX, 10
+    LOAD_IMM EBX, 10
+    CMP EAX, EBX
     JZ equal
-    LOAD_IMM R2, 99  ; Should not execute
+    LOAD_IMM ECX, 99  ; Should not execute
     JMP end
 equal:
-    LOAD_IMM R2, 42
+    LOAD_IMM ECX, 42
 end:
-    .assert_reg R2, 42
+    .assert_reg ECX, 42
 }
 
 .test "jump if greater" {
@@ -40,16 +40,16 @@ end:
     .category "Control Flow"
     .tag "conditional"
     .tag "comparison"
-    LOAD_IMM R0, 15
-    LOAD_IMM R1, 10
-    CMP R0, R1
+    LOAD_IMM EAX, 15
+    LOAD_IMM EBX, 10
+    CMP EAX, EBX
     JG greater
-    LOAD_IMM R2, 99
+    LOAD_IMM ECX, 99
     JMP end
 greater:
-    LOAD_IMM R2, 42
+    LOAD_IMM ECX, 42
 end:
-    .assert_reg R2, 42
+    .assert_reg ECX, 42
 }
 
 .test "jump if less" {
@@ -58,16 +58,16 @@ end:
     .category "Control Flow"
     .tag "conditional"
     .tag "comparison"
-    LOAD_IMM R0, 5
-    LOAD_IMM R1, 10
-    CMP R0, R1
+    LOAD_IMM EAX, 5
+    LOAD_IMM EBX, 10
+    CMP EAX, EBX
     JL less
-    LOAD_IMM R2, 99
+    LOAD_IMM ECX, 99
     JMP end
 less:
-    LOAD_IMM R2, 42
+    LOAD_IMM ECX, 42
 end:
-    .assert_reg R2, 42
+    .assert_reg ECX, 42
 }
 
 .test "simple loop with counter" {
@@ -76,17 +76,17 @@ end:
     .category "Control Flow"
     .tag "loop"
     .tag "counter"
-    LOAD_IMM R0, 0   ; Counter
-    LOAD_IMM R1, 0   ; Sum
-    LOAD_IMM R2, 5   ; Limit
+    LOAD_IMM EAX, 0   ; Counter
+    LOAD_IMM EBX, 0   ; Sum
+    LOAD_IMM ECX, 5   ; Limit
 loop:
-    ADD R1, R0       ; Add counter to sum
-    INC R0           ; Increment counter
-    CMP R0, R2       ; Compare with limit
+    ADD EBX, EAX       ; Add counter to sum
+    INC EAX           ; Increment counter
+    CMP EAX, ECX       ; Compare with limit
     JL loop          ; Continue if less
     ; Final sum should be 0+1+2+3+4 = 10
-    .assert_reg R1, 10
-    .assert_reg R0, 5
+    .assert_reg EBX, 10
+    .assert_reg EAX, 5
 }
 
 .test "halt instruction" {
@@ -95,10 +95,10 @@ loop:
     .category "Control Flow"
     .tag "halt"
     .tag "termination"
-    LOAD_IMM R0, 42
+    LOAD_IMM EAX, 42
     HALT
-    LOAD_IMM R1, 99  ; This should never execute
-    .assert_reg R0, 42
+    LOAD_IMM EBX, 99  ; This should never execute
+    .assert_reg EAX, 42
 }
 
 .test "label definition and usage" {
@@ -109,15 +109,15 @@ loop:
     .tag "jumps"
     .tag "control-flow"
 
-    LOAD_IMM R0, 10
+    LOAD_IMM EAX, 10
     JMP end_label    ; Jump to end label
     
     ; This should be skipped
-    LOAD_IMM R0, 99
+    LOAD_IMM EAX, 99
     
 end_label:
-    LOAD_IMM R1, 20
+    LOAD_IMM EBX, 20
     
-    .assert_reg R0, 10  ; Should still be 10 (not 99)
-    .assert_reg R1, 20
+    .assert_reg EAX, 10  ; Should still be 10 (not 99)
+    .assert_reg EBX, 20
 }

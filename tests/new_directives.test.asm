@@ -10,10 +10,10 @@
     .maxcalldepth 32
     
     # Simple test that completes without deep recursion
-    LOAD_IMM R0, 42
+    LOAD_IMM EAX, 42
     HALT
     
-    .assert_reg R0, 42
+    .assert_reg EAX, 42
 }
 
 .test "timeout_test" {
@@ -24,10 +24,10 @@
     .timeout 1000
     
     # Simple test that completes quickly
-    LOAD_IMM R0, 42
+    LOAD_IMM EAX, 42
     HALT
     
-    .assert_reg R0, 42
+    .assert_reg EAX, 42
 }
 
 .test "skipped_test" {
@@ -38,7 +38,7 @@
     .skip
     
     # This code won't execute
-    LOAD_IMM R0, 999
+    LOAD_IMM EAX, 999
     HALT
 }
 
@@ -54,19 +54,19 @@
     .measure "time"
     
     # Simple arithmetic loop for timing
-    LOAD_IMM R0, 0
-    LOAD_IMM R1, 10
+    LOAD_IMM EAX, 0
+    LOAD_IMM EBX, 10
     
 bench_loop:
-    CMP R0, R1
+    CMP EAX, EBX
     JZ bench_end
-    INC R0
+    INC EAX
     JMP bench_loop
     
 bench_end:
     HALT
     
-    .assert_reg R0, 10
+    .assert_reg EAX, 10
 }
 
 .test "combined_metadata" {
@@ -78,10 +78,10 @@ bench_end:
     .maxsteps 500
     .maxcalldepth 16
     
-    LOAD_IMM R0, 67   # Use exact value that was found 
-    LOAD_IMM R1, 0    # Add 0 to keep it simple
-    ADD R0, R1
+    LOAD_IMM EAX, 67   # Use exact value that was found 
+    LOAD_IMM EBX, 0    # Add 0 to keep it simple
+    ADD EAX, EBX
     HALT
     
-    .assert_reg R0, 67  # This should pass
+    .assert_reg EAX, 67  # This should pass
 }

@@ -7,10 +7,10 @@
     .category "Arithmetic"
     .tag "basic"
     .tag "addition"
-    LOAD_IMM R0, 5
-    LOAD_IMM R1, 10
-    ADD R0, R1
-    .assert_reg R0, 15
+    LOAD_IMM EAX, 5
+    LOAD_IMM EBX, 10
+    ADD EAX, EBX
+    .assert_reg EAX, 15
 }
 
 .test "subtraction" {
@@ -19,10 +19,10 @@
     .category "Arithmetic"
     .tag "basic"
     .tag "subtraction"
-    LOAD_IMM R0, 20
-    LOAD_IMM R1, 7
-    SUB R0, R1
-    .assert_reg R0, 13
+    LOAD_IMM EAX, 20
+    LOAD_IMM EBX, 7
+    SUB EAX, EBX
+    .assert_reg EAX, 13
 }
 
 .test "multiplication" {
@@ -31,10 +31,10 @@
     .category "Arithmetic"
     .tag "basic"
     .tag "multiplication"
-    LOAD_IMM R0, 6
-    LOAD_IMM R1, 4
-    MUL R0, R1
-    .assert_reg R0, 24
+    LOAD_IMM EAX, 6
+    LOAD_IMM EBX, 4
+    MUL EAX, EBX
+    .assert_reg EAX, 24
 }
 
 .test "division" {
@@ -43,10 +43,10 @@
     .category "Arithmetic"
     .tag "basic"
     .tag "division"
-    LOAD_IMM R0, 20
-    LOAD_IMM R1, 4
-    DIV R0, R1
-    .assert_reg R0, 5
+    LOAD_IMM EAX, 20
+    LOAD_IMM EBX, 4
+    DIV EAX, EBX
+    .assert_reg EAX, 5
 }
 
 .test "modulo operation" {
@@ -55,10 +55,10 @@
     .category "Arithmetic"
     .tag "modulo"
     .tag "division"
-    LOAD_IMM R0, 17
-    LOAD_IMM R1, 5
-    MOD R0, R1
-    .assert_reg R0, 2
+    LOAD_IMM EAX, 17
+    LOAD_IMM EBX, 5
+    MOD EAX, EBX
+    .assert_reg EAX, 2
 }
 
 .test "increment operation" {
@@ -66,9 +66,9 @@
     .author "DemiEngine Team"
     .category "Arithmetic"
     .tag "increment"
-    LOAD_IMM R0, 42
-    INC R0
-    .assert_reg R0, 43
+    LOAD_IMM EAX, 42
+    INC EAX
+    .assert_reg EAX, 43
 }
 
 .test "decrement operation" {
@@ -76,9 +76,9 @@
     .author "DemiEngine Team"
     .category "Arithmetic"
     .tag "decrement"
-    LOAD_IMM R0, 42
-    DEC R0
-    .assert_reg R0, 41
+    LOAD_IMM EAX, 42
+    DEC EAX
+    .assert_reg EAX, 41
 }
 
 .test "overflow handling" {
@@ -87,9 +87,9 @@
     .category "Arithmetic"
     .tag "overflow"
     .tag "boundary"
-    LOAD_IMM R0, 255
-    LOAD_IMM R1, 1
-    ADD R0, R1
+    LOAD_IMM EAX, 255
+    LOAD_IMM EBX, 1
+    ADD EAX, EBX
     ; Should wrap around to 0
-    .assert_reg R0, 0
+    .assert_reg EAX, 0
 }

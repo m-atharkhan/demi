@@ -8,11 +8,11 @@
     .tag "basic"
     .tag "load"
     .tag "store"
-    LOAD_IMM R0, 42
-    STORE R0, 10
-    LOAD_IMM R1, 0
-    LOAD R1, 10
-    .assert_reg R1, 42
+    LOAD_IMM EAX, 42
+    STORE EAX, 10
+    LOAD_IMM EBX, 0
+    LOAD EBX, 10
+    .assert_reg EBX, 42
     .assert_mem 10, 42
 }
 
@@ -22,12 +22,12 @@
     .category "Memory"
     .tag "store"
     .tag "multi-location"
-    LOAD_IMM R0, 10
-    STORE R0, 20
-    LOAD_IMM R0, 20
-    STORE R0, 21
-    LOAD_IMM R0, 30
-    STORE R0, 22
+    LOAD_IMM EAX, 10
+    STORE EAX, 20
+    LOAD_IMM EAX, 20
+    STORE EAX, 21
+    LOAD_IMM EAX, 30
+    STORE EAX, 22
     .assert_mem 20, 10
     .assert_mem 21, 20
     .assert_mem 22, 30
@@ -40,16 +40,16 @@
     .tag "load"
     .tag "store"
     .tag "swap"
-    LOAD_IMM R0, 100
-    STORE R0, 30
-    LOAD_IMM R0, 200
-    STORE R0, 31
+    LOAD_IMM EAX, 100
+    STORE EAX, 30
+    LOAD_IMM EAX, 200
+    STORE EAX, 31
     ; Load both values
-    LOAD R1, 30
-    LOAD R2, 31
+    LOAD EBX, 30
+    LOAD ECX, 31
     ; Store swapped
-    STORE R2, 30
-    STORE R1, 31
+    STORE ECX, 30
+    STORE EBX, 31
     .assert_mem 30, 200
     .assert_mem 31, 100
 }
@@ -61,14 +61,14 @@
     .tag "indirect"
     .tag "loadr"
     ; Store value 42 at memory address 100
-    LOAD_IMM R0, 42
-    STORE R0, 100
-    ; Store address 100 in register R2
-    LOAD_IMM R2, 100
-    ; Use LOADR to load from address stored in R2
-    LOADR R3, R2
-    ; Test: R3 should now contain 42
-    .assert_reg R3, 42
+    LOAD_IMM EAX, 42
+    STORE EAX, 100
+    ; Store address 100 in register ECX
+    LOAD_IMM ECX, 100
+    ; Use LOADR to load from address stored in ECX
+    LOADR EDX, ECX
+    ; Test: EDX should now contain 42
+    .assert_reg EDX, 42
 }
 
 .test "memory boundary access" {
@@ -78,10 +78,10 @@
     .tag "bounds"
     .tag "edge-cases"
     ; Test access at address 0
-    LOAD_IMM R0, 123
-    STORE R0, 0
-    LOAD R1, 0
-    .assert_reg R1, 123
+    LOAD_IMM EAX, 123
+    STORE EAX, 0
+    LOAD EBX, 0
+    .assert_reg EBX, 123
     .assert_mem 0, 123
 }
 
@@ -92,6 +92,6 @@
     .tag "initialization"
     .tag "zero"
     ; Load from an uninitialized location
-    LOAD R0, 50
-    .assert_reg R0, 0
+    LOAD EAX, 50
+    .assert_reg EAX, 0
 }

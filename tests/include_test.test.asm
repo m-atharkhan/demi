@@ -7,8 +7,8 @@
     .author "Test Team"
     .category "Include Test"
     
-    LOAD_IMM R0, TRUE
+    LOAD_IMM EAX, TRUE
     HALT
     
-    .assert_reg R0, 1  # TRUE should be 1
+    .assert_reg EAX, 1  # TRUE should be 1
 }

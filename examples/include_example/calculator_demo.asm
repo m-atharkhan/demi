@@ -37,24 +37,24 @@ start:
     PRINT_SPACE
     
     # Setup operands
-    SET_VALUE(OPERAND_A, 3)     # R0 = 3  
-    SET_VALUE(OPERAND_B, 4)     # R1 = 4
+    SET_VALUE(OPERAND_A, 3)     # EAX = 3  
+    SET_VALUE(OPERAND_B, 4)     # EBX = 4
     
     # Print equation: dynamically print operands and result
-    PRINT_DIGIT(OPERAND_A)      # Print actual value of R0 as ASCII digit
+    PRINT_DIGIT(OPERAND_A)      # Print actual value of EAX as ASCII digit
     PRINT_SPACE
     PRINT_CHAR(ASCII_PLUS)      # '+'
     PRINT_SPACE
-    PRINT_DIGIT(OPERAND_B)      # Print actual value of R1 as ASCII digit
+    PRINT_DIGIT(OPERAND_B)      # Print actual value of EBX as ASCII digit
     PRINT_SPACE
     PRINT_EQUALS                # '='
     PRINT_SPACE
     
     # Perform addition (using same logic as static_addition from math_operations.asm)
-    CLEAR_REG(RESULT)           # R2 = 0
-    MOV RESULT, OPERAND_A       # R2 = R0 = 3
-    ADD RESULT, OPERAND_B       # R2 = 3 + 4 = 7
-    MOV R7, RESULT              # Store in R7
+    CLEAR_REG(RESULT)           # ECX = 0
+    MOV RESULT, OPERAND_A       # ECX = EAX = 3
+    ADD RESULT, OPERAND_B       # ECX = 3 + 4 = 7
+    MOV EBP, RESULT              # Store in EBP
     
     # Print result dynamically
     PRINT_DIGIT(RESULT)         # Print actual calculated value as ASCII digit
@@ -71,23 +71,23 @@ start:
     PRINT_SPACE
     
     # Setup operands
-    SET_VALUE(OPERAND_A, 9)     # R0 = 9
-    SET_VALUE(OPERAND_B, 2)     # R1 = 2
+    SET_VALUE(OPERAND_A, 9)     # EAX = 9
+    SET_VALUE(OPERAND_B, 2)     # EBX = 2
     
     # Print equation: dynamically print operands and result
-    PRINT_DIGIT(OPERAND_A)      # Print actual value of R0 as ASCII digit
+    PRINT_DIGIT(OPERAND_A)      # Print actual value of EAX as ASCII digit
     PRINT_SPACE
     PRINT_CHAR(ASCII_MINUS)     # '-'
     PRINT_SPACE
-    PRINT_DIGIT(OPERAND_B)      # Print actual value of R1 as ASCII digit
+    PRINT_DIGIT(OPERAND_B)      # Print actual value of EBX as ASCII digit
     PRINT_SPACE
     PRINT_EQUALS                # '='
     PRINT_SPACE
     
     # Perform subtraction (using same logic as static_subtraction from math_operations.asm)
-    CLEAR_REG(RESULT)           # R2 = 0
-    MOV RESULT, OPERAND_A       # R2 = R0 = 9
-    SUB RESULT, OPERAND_B       # R2 = 9 - 2 = 7
+    CLEAR_REG(RESULT)           # ECX = 0
+    MOV RESULT, OPERAND_A       # ECX = EAX = 9
+    SUB RESULT, OPERAND_B       # ECX = 9 - 2 = 7
     MOV R8, RESULT              # Store in R8
     
     # Print result dynamically
@@ -105,23 +105,23 @@ start:
     PRINT_SPACE
     
     # Setup operands
-    SET_VALUE(OPERAND_A, 2)     # R0 = 2
-    SET_VALUE(OPERAND_B, 3)     # R1 = 3
+    SET_VALUE(OPERAND_A, 2)     # EAX = 2
+    SET_VALUE(OPERAND_B, 3)     # EBX = 3
     
     # Print equation: dynamically print operands and result
-    PRINT_DIGIT(OPERAND_A)      # Print actual value of R0 as ASCII digit
+    PRINT_DIGIT(OPERAND_A)      # Print actual value of EAX as ASCII digit
     PRINT_SPACE
     PRINT_CHAR(ASCII_MULTIPLY)  # '*'
     PRINT_SPACE
-    PRINT_DIGIT(OPERAND_B)      # Print actual value of R1 as ASCII digit
+    PRINT_DIGIT(OPERAND_B)      # Print actual value of EBX as ASCII digit
     PRINT_SPACE
     PRINT_EQUALS                # '='
     PRINT_SPACE
     
     # Perform multiplication (using same logic as static_multiplication from math_operations.asm)
-    CLEAR_REG(RESULT)           # R2 = 0
-    MOV RESULT, OPERAND_A       # R2 = R0 = 2
-    MUL RESULT, OPERAND_B       # R2 = 2 * 3 = 6
+    CLEAR_REG(RESULT)           # ECX = 0
+    MOV RESULT, OPERAND_A       # ECX = EAX = 2
+    MUL RESULT, OPERAND_B       # ECX = 2 * 3 = 6
     MOV R9, RESULT              # Store in R9
     
     # Print result dynamically
@@ -147,7 +147,7 @@ start:
     # Verification - all should be 7, 7, 6
     SET_VALUE(TEMP_REG, 7)      # Expected value for addition and subtraction
     
-    CMP R7, TEMP_REG            # Check addition result (3+4=7)
+    CMP EBP, TEMP_REG            # Check addition result (3+4=7)
     JNZ test_failed
     CMP R8, TEMP_REG            # Check subtraction result (9-2=7)  
     JNZ test_failed

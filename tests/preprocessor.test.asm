@@ -17,8 +17,8 @@
     
     HALT
     
-    .assert_reg R0, 42  # COUNTER should be 42
-    .assert_reg R1, 42  # ACCUMULATOR should be 42
+    .assert_reg EAX, 42  # COUNTER should be 42
+    .assert_reg EBX, 42  # ACCUMULATOR should be 42
 }
 
 .test "preprocessor_conditional_compilation" {
@@ -46,8 +46,8 @@
     
     HALT
     
-    .assert_reg R3, 1   # STATUS should be TRUE (1)
-    .assert_reg R1, 100 # ACCUMULATOR should be 100
+    .assert_reg EDX, 1   # STATUS should be TRUE (1)
+    .assert_reg EBX, 100 # ACCUMULATOR should be 100
 }
 
 .test "preprocessor_function_macros" {
@@ -65,7 +65,7 @@
     
     HALT
     
-    .assert_reg R0, 50  # COUNTER should be 50 (25 * 2)
+    .assert_reg EAX, 50  # COUNTER should be 50 (25 * 2)
 }
 
 .test "preprocessor_advanced_conditionals" {
@@ -87,7 +87,7 @@
     
     HALT
     
-    .assert_reg R3, 2   # STATUS should be 2 (ENABLE_ADVANCED_ARITHMETIC branch)
+    .assert_reg EDX, 2   # STATUS should be 2 (ENABLE_ADVANCED_ARITHMETIC branch)
 }
 
 .test "preprocessor_nested_includes" {
@@ -105,8 +105,8 @@
     
     HALT
     
-    .assert_reg R0, 100  # MAX_ITERATIONS
-    .assert_reg R1, 255  # MEMORY_SIZE (DEMI_ENGINE version)
+    .assert_reg EAX, 100  # MAX_ITERATIONS
+    .assert_reg EBX, 255  # MEMORY_SIZE (DEMI_ENGINE version)
 }
 
 # Benchmark test using preprocessor macros
@@ -128,5 +128,5 @@
     
     HALT
     
-    .assert_reg R0, 25  # COUNTER should be 25
+    .assert_reg EAX, 25  # COUNTER should be 25
 }

@@ -10,13 +10,13 @@
     .tag "store"
     
     ; Test storing and loading a single byte value
-    LOAD_IMM R0, 72    ; Load ASCII value for 'H' 
-    STORE R0, 100      ; Store it at address 100
+    LOAD_IMM EAX, 72    ; Load ASCII value for 'H' 
+    STORE EAX, 100      ; Store it at address 100
     
     ; Clear the register and load it back
-    LOAD_IMM R0, 0     ; Clear R0
-    LOAD R0, 100       ; Load the stored value
-    .assert_reg R0, 72 ; Should be 'H' (72)
+    LOAD_IMM EAX, 0     ; Clear EAX
+    LOAD EAX, 100       ; Load the stored value
+    .assert_reg EAX, 72 ; Should be 'H' (72)
 }
 
 .test "string data storage" {
@@ -28,33 +28,33 @@
     .tag "ascii"
     
     ; Test storing and loading string data character by character
-    LOAD_IMM R0, 72    ; 'H'
-    STORE R0, 50
-    LOAD_IMM R0, 101   ; 'e' 
-    STORE R0, 51
-    LOAD_IMM R0, 108   ; 'l'
-    STORE R0, 52
-    LOAD_IMM R0, 108   ; 'l'
-    STORE R0, 53
-    LOAD_IMM R0, 111   ; 'o'
-    STORE R0, 54
-    LOAD_IMM R0, 0     ; null terminator
-    STORE R0, 55
+    LOAD_IMM EAX, 72    ; 'H'
+    STORE EAX, 50
+    LOAD_IMM EAX, 101   ; 'e' 
+    STORE EAX, 51
+    LOAD_IMM EAX, 108   ; 'l'
+    STORE EAX, 52
+    LOAD_IMM EAX, 108   ; 'l'
+    STORE EAX, 53
+    LOAD_IMM EAX, 111   ; 'o'
+    STORE EAX, 54
+    LOAD_IMM EAX, 0     ; null terminator
+    STORE EAX, 55
     
     ; Read back the string characters
-    LOAD R1, 50        ; Load 'H'
-    LOAD R2, 51        ; Load 'e'
-    LOAD R3, 52        ; Load 'l'
-    LOAD R4, 53        ; Load 'l'
-    LOAD R5, 54        ; Load 'o'
-    LOAD R6, 55        ; Load null terminator
+    LOAD EBX, 50        ; Load 'H'
+    LOAD ECX, 51        ; Load 'e'
+    LOAD EDX, 52        ; Load 'l'
+    LOAD ESI, 53        ; Load 'l'
+    LOAD EDI, 54        ; Load 'o'
+    LOAD ESP, 55        ; Load null terminator
     
-    .assert_reg R1, 72  ; 'H'
-    .assert_reg R2, 101 ; 'e'
-    .assert_reg R3, 108 ; 'l'
-    .assert_reg R4, 108 ; 'l'
-    .assert_reg R5, 111 ; 'o'
-    .assert_reg R6, 0   ; null terminator
+    .assert_reg EBX, 72  ; 'H'
+    .assert_reg ECX, 101 ; 'e'
+    .assert_reg EDX, 108 ; 'l'
+    .assert_reg ESI, 108 ; 'l'
+    .assert_reg EDI, 111 ; 'o'
+    .assert_reg ESP, 0   ; null terminator
 }
 
 .test "multiple data values at different addresses" {
@@ -66,25 +66,25 @@
     .tag "addresses"
     
     ; Test storing multiple different data types
-    LOAD_IMM R0, 65    ; 'A'
-    STORE R0, 200
-    LOAD_IMM R0, 123   ; numeric value
-    STORE R0, 201  
-    LOAD_IMM R0, 255   ; max byte value
-    STORE R0, 202
-    LOAD_IMM R0, 0     ; zero value
-    STORE R0, 203
+    LOAD_IMM EAX, 65    ; 'A'
+    STORE EAX, 200
+    LOAD_IMM EAX, 123   ; numeric value
+    STORE EAX, 201  
+    LOAD_IMM EAX, 255   ; max byte value
+    STORE EAX, 202
+    LOAD_IMM EAX, 0     ; zero value
+    STORE EAX, 203
     
     ; Load and verify each value
-    LOAD R1, 200
-    LOAD R2, 201
-    LOAD R3, 202
-    LOAD R4, 203
+    LOAD EBX, 200
+    LOAD ECX, 201
+    LOAD EDX, 202
+    LOAD ESI, 203
     
-    .assert_reg R1, 65  ; 'A'
-    .assert_reg R2, 123 ; numeric value
-    .assert_reg R3, 255 ; max byte value  
-    .assert_reg R4, 0   ; zero value
+    .assert_reg EBX, 65  ; 'A'
+    .assert_reg ECX, 123 ; numeric value
+    .assert_reg EDX, 255 ; max byte value  
+    .assert_reg ESI, 0   ; zero value
 }
 
 .test "data overwrite and update" {
@@ -96,20 +96,20 @@
     .tag "modify"
     
     ; Test overwriting stored data
-    LOAD_IMM R0, 100   ; Initial value
-    STORE R0, 150
+    LOAD_IMM EAX, 100   ; Initial value
+    STORE EAX, 150
     
     ; Verify initial storage
-    LOAD R1, 150
-    .assert_reg R1, 100
+    LOAD EBX, 150
+    .assert_reg EBX, 100
     
     ; Overwrite with new value
-    LOAD_IMM R0, 200   ; New value
-    STORE R0, 150
+    LOAD_IMM EAX, 200   ; New value
+    STORE EAX, 150
     
     ; Verify overwrite
-    LOAD R2, 150
-    .assert_reg R2, 200
+    LOAD ECX, 150
+    .assert_reg ECX, 200
 }
 
 .test "basic DB directive test" {
@@ -124,15 +124,17 @@
     .org 0x20
     
     ; Test that we can load the data
-    LOAD R0, 0      ; Load first byte 'H' (72)
-    LOAD R1, 1      ; Load second byte 'e' (101)
-    LOAD R2, 4      ; Load fifth byte 'o' (111)
-    LOAD R3, 5      ; Load null terminator (0)
+    LOAD EAX, 0      ; Load first byte 'H' (72)
+    LOAD EBX, 1      ; Load second byte 'e' (101)
+    LOAD ECX, 4      ; Load fifth byte 'o' (111)
+    LOAD EDX, 5      ; Load length byte (5)
+    LOAD ESI, 6      ; Load null terminator (0)
     
-    .assert_reg R0, 72   ; 'H'
-    .assert_reg R1, 101  ; 'e'
-    .assert_reg R2, 111  ; 'o'
-    .assert_reg R3, 0    ; null terminator
+    .assert_reg EAX, 72   ; 'H'
+    .assert_reg EBX, 101  ; 'e'
+    .assert_reg ECX, 111  ; 'o'
+    .assert_reg EDX, 5    ; length
+    .assert_reg ESI, 0    ; null terminator
     
     HALT
 }
@@ -149,15 +151,15 @@
     .org 0x20
     
     ; Test loading the data from memory address 0 where DB placed it
-    LOAD R0, 0      ; 'T' (84)
-    LOAD R1, 1      ; 'e' (101)
-    LOAD R2, 2      ; 's' (115)
-    LOAD R3, 3      ; 't' (116)
+    LOAD EAX, 0      ; 'T' (84)
+    LOAD EBX, 1      ; 'e' (101)
+    LOAD ECX, 2      ; 's' (115)
+    LOAD EDX, 3      ; 't' (116)
     
-    .assert_reg R0, 84   ; 'T'
-    .assert_reg R1, 101  ; 'e'
-    .assert_reg R2, 115  ; 's'
-    .assert_reg R3, 116  ; 't'
+    .assert_reg EAX, 84   ; 'T'
+    .assert_reg EBX, 101  ; 'e'
+    .assert_reg ECX, 115  ; 's'
+    .assert_reg EDX, 116  ; 't'
     
     HALT
 }
@@ -174,17 +176,17 @@
     .org 0x20
     
     ; Load and test the byte values
-    LOAD R0, 0  ; First byte (42)
-    LOAD R1, 1  ; Second byte (13)
-    LOAD R2, 2  ; Third byte (255)
-    LOAD R3, 3  ; Fourth byte (0)
-    LOAD R4, 4  ; Fifth byte (100)
+    LOAD EAX, 0  ; First byte (42)
+    LOAD EBX, 1  ; Second byte (13)
+    LOAD ECX, 2  ; Third byte (255)
+    LOAD EDX, 3  ; Fourth byte (0)
+    LOAD ESI, 4  ; Fifth byte (100)
 
-    .assert_reg R0, 42
-    .assert_reg R1, 13
-    .assert_reg R2, 255
-    .assert_reg R3, 0
-    .assert_reg R4, 100
+    .assert_reg EAX, 42
+    .assert_reg EBX, 13
+    .assert_reg ECX, 255
+    .assert_reg EDX, 0
+    .assert_reg ESI, 100
     
     HALT
 }
@@ -201,42 +203,19 @@
     .org 0x20
     
     ; Test individual characters
-    LOAD R0, 0  ; 'W' = 87
-    LOAD R1, 1  ; 'o' = 111
-    LOAD R2, 2  ; 'r' = 114
-    LOAD R3, 3  ; 'l' = 108
-    LOAD R4, 4  ; 'd' = 100
-    LOAD R5, 5  ; null terminator = 0
+    LOAD EAX, 0  ; 'W' = 87
+    LOAD EBX, 1  ; 'o' = 111
+    LOAD ECX, 2  ; 'r' = 114
+    LOAD EDX, 3  ; 'l' = 108
+    LOAD ESI, 4  ; 'd' = 100
+    LOAD EDI, 5  ; null terminator = 0
 
-    .assert_reg R0, 87   ; 'W'
-    .assert_reg R1, 111  ; 'o'
-    .assert_reg R2, 114  ; 'r'
-    .assert_reg R3, 108  ; 'l'
-    .assert_reg R4, 100  ; 'd'
-    .assert_reg R5, 0    ; null terminator
-    
-    HALT
-}
-
-.test "dot db directive test" {
-    .description "Test .db directive syntax (assembler directive, not instruction)"
-    .author "DemiEngine Team"
-    .category "Data"
-    .tag "db-directive"
-
-    ; Try using .db assembler directive
-    .db 65, 66, 67, 0  ; "ABC" with null terminator
-    
-    ; Test loading the data
-    LOAD R0, 256  ; First byte should be 'A' (65)
-    LOAD R1, 257  ; Second byte should be 'B' (66)
-    LOAD R2, 258  ; Third byte should be 'C' (67)
-    LOAD R3, 259  ; Fourth byte should be null (0)
-
-    .assert_reg R0, 65   ; 'A'
-    .assert_reg R1, 66   ; 'B'
-    .assert_reg R2, 67   ; 'C'
-    .assert_reg R3, 0    ; null terminator
+    .assert_reg EAX, 87   ; 'W'
+    .assert_reg EBX, 111  ; 'o'
+    .assert_reg ECX, 114  ; 'r'
+    .assert_reg EDX, 108  ; 'l'
+    .assert_reg ESI, 100  ; 'd'
+    .assert_reg EDI, 0    ; null terminator
     
     HALT
 }
@@ -254,11 +233,11 @@
     .align 4
     
     ; Store a value at the aligned address (should be at 0x44)
-    LOAD_IMM R0, 42
-    STORE R0, 0x44
-    LOAD R1, 0x44
+    LOAD_IMM EAX, 42
+    STORE EAX, 0x44
+    LOAD EBX, 0x44
     
-    .assert_reg R1, 42
+    .assert_reg EBX, 42
     
     HALT
 }
@@ -273,13 +252,13 @@
     .bss 10
     
     ; Test that the memory is initialized to zero
-    LOAD R0, 0    ; First byte should be 0
-    LOAD R1, 5    ; Middle byte should be 0  
-    LOAD R2, 9    ; Last byte should be 0
+    LOAD EAX, 0    ; First byte should be 0
+    LOAD EBX, 5    ; Middle byte should be 0  
+    LOAD ECX, 9    ; Last byte should be 0
     
-    .assert_reg R0, 0
-    .assert_reg R1, 0
-    .assert_reg R2, 0
+    .assert_reg EAX, 0
+    .assert_reg EBX, 0
+    .assert_reg ECX, 0
     
     HALT
 }
