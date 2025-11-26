@@ -7,15 +7,15 @@
     #tag "basic"
     #tag "addition"
     
-    LOAD_IMM R0, 5
-    LOAD_IMM R1, 3
-    ADD R0, R1
-    #assert_reg R0, 8
+    LOAD_IMM EAX, 5
+    LOAD_IMM EBX, 3
+    ADD EAX, EBX
+    #assert_reg EAX, 8
 }
 
 #test "simple test without metadata" {
-    LOAD_IMM R0, 10
-    #assert_reg R0, 10
+    LOAD_IMM EAX, 10
+    #assert_reg EAX, 10
 }
 
 ; Example test file demonstrating test metadata features
@@ -35,14 +35,14 @@
     #tag "beginner"
     #tag "example"
     
-    LOAD_IMM R0, 42
-    #assert_reg R0, 42
+    LOAD_IMM EAX, 42
+    #assert_reg EAX, 42
 }
 
 #test "test without metadata" {
     ; Tests can still work without any metadata
-    LOAD_IMM R1, 100
-    #assert_reg R1, 100
+    LOAD_IMM EBX, 100
+    #assert_reg EBX, 100
 }
 
 #test "complex metadata example" {
@@ -53,10 +53,10 @@
     #tag "multi-step"
     #tag "regression"
     
-    LOAD_IMM R0, 10
-    LOAD_IMM R1, 20
-    ADD R0, R1
-    #assert_reg R0, 30
+    LOAD_IMM EAX, 10
+    LOAD_IMM EBX, 20
+    ADD EAX, EBX
+    #assert_reg EAX, 30
 }
 
 #test "memory operations example" {
@@ -64,9 +64,9 @@
     #category "Memory"
     #tag "memory"
     
-    LOAD_IMM R0, 123
-    STORE R0, 50
-    LOAD_IMM R1, 0
-    LOAD R1, 50
-    #assert_reg R1, 123
+    LOAD_IMM EAX, 123
+    STORE EAX, 50
+    LOAD_IMM EBX, 0
+    LOAD EBX, 50
+    #assert_reg EBX, 123
 }

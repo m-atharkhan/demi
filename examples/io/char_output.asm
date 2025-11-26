@@ -5,6 +5,6 @@
 
 .org 0x100
 
-LOAD_IMM64 R0, 72      ; ASCII 'H' (72 decimal)
-OUT R0, 1              ; Output single character to console (port 1)
+LOAD_IMM64 EAX, 72      ; ASCII 'H' (72 decimal)
+OUT EAX, 1              ; Output single character to console (port 1)
 HALT                   ; End program

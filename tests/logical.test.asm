@@ -7,10 +7,10 @@
     .category "Logical Operations"
     .tag "bitwise"
     .tag "basic"
-    LOAD_IMM R0, 0b11110000  ; 240
-    LOAD_IMM R1, 0b10101010  ; 170
-    AND R0, R1
-    .assert_reg R0, 0b10100000  ; 160
+    LOAD_IMM EAX, 0b11110000  ; 240
+    LOAD_IMM EBX, 0b10101010  ; 170
+    AND EAX, EBX
+    .assert_reg EAX, 0b10100000  ; 160
 }
 
 .test "bitwise OR" {
@@ -19,10 +19,10 @@
     .category "Logical Operations"
     .tag "bitwise"
     .tag "basic"
-    LOAD_IMM R0, 0b11110000  ; 240
-    LOAD_IMM R1, 0b00001111  ; 15
-    OR R0, R1
-    .assert_reg R0, 0b11111111  ; 255
+    LOAD_IMM EAX, 0b11110000  ; 240
+    LOAD_IMM EBX, 0b00001111  ; 15
+    OR EAX, EBX
+    .assert_reg EAX, 0b11111111  ; 255
 }
 
 .test "bitwise XOR" {
@@ -31,10 +31,10 @@
     .category "Logical Operations"
     .tag "bitwise"
     .tag "basic"
-    LOAD_IMM R0, 0b11110000  ; 240
-    LOAD_IMM R1, 0b10101010  ; 170
-    XOR R0, R1
-    .assert_reg R0, 0b01011010  ; 90
+    LOAD_IMM EAX, 0b11110000  ; 240
+    LOAD_IMM EBX, 0b10101010  ; 170
+    XOR EAX, EBX
+    .assert_reg EAX, 0b01011010  ; 90
 }
 
 .test "bitwise NOT" {
@@ -43,9 +43,9 @@
     .category "Logical Operations"
     .tag "bitwise"
     .tag "unary"
-    LOAD_IMM R0, 0b10101010  ; 170
-    NOT R0
-    .assert_reg R0, 0b01010101  ; 85
+    LOAD_IMM EAX, 0b10101010  ; 170
+    NOT EAX
+    .assert_reg EAX, 0b01010101  ; 85
 }
 
 .test "shift left" {
@@ -54,9 +54,9 @@
     .category "Logical Operations"
     .tag "shift"
     .tag "basic"
-    LOAD_IMM R0, 1
-    SHL R0, 3
-    .assert_reg R0, 8
+    LOAD_IMM EAX, 1
+    SHL EAX, 3
+    .assert_reg EAX, 8
 }
 
 .test "shift right" {
@@ -65,9 +65,9 @@
     .category "Logical Operations"
     .tag "shift"
     .tag "basic"
-    LOAD_IMM R0, 64
-    SHR R0, 2
-    .assert_reg R0, 16
+    LOAD_IMM EAX, 64
+    SHR EAX, 2
+    .assert_reg EAX, 16
 }
 
 .test "XOR swap trick" {
@@ -76,12 +76,12 @@
     .category "Logical Operations"
     .tag "bitwise"
     .tag "xor-swap"
-    LOAD_IMM R0, 42
-    LOAD_IMM R1, 73
+    LOAD_IMM EAX, 42
+    LOAD_IMM EBX, 73
     ; XOR swap: a^=b, b^=a, a^=b
-    XOR R0, R1
-    XOR R1, R0  
-    XOR R0, R1
-    .assert_reg R0, 73
-    .assert_reg R1, 42
+    XOR EAX, EBX
+    XOR EBX, EAX  
+    XOR EAX, EBX
+    .assert_reg EAX, 73
+    .assert_reg EBX, 42
 }

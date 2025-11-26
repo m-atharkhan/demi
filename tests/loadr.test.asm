@@ -9,17 +9,17 @@
 
     # Test 1: Basic LOADR functionality
     # Store value 42 at memory address 100
-    LOAD_IMM R0, 42
-    STORE R0, 100
+    LOAD_IMM EAX, 42
+    STORE EAX, 100
 
-    # Store address 100 in register R2
-    LOAD_IMM R2, 100
+    # Store address 100 in register ECX
+    LOAD_IMM ECX, 100
 
-    # Use LOADR to load from address stored in R2
-    LOADR R3, R2
+    # Use LOADR to load from address stored in ECX
+    LOADR EDX, ECX
 
-    # Test: R3 should now contain 42
-    .assert_reg R3, 42
+    # Test: EDX should now contain 42
+    .assert_reg EDX, 42
 }
 
 .test "LOADR multiple addresses" {
@@ -31,15 +31,15 @@
     .tag "loadr"
 
     # Store value 123 at memory address 200
-    LOAD_IMM R4, 123
-    STORE R4, 200
+    LOAD_IMM ESI, 123
+    STORE ESI, 200
 
-    # Store address 200 in register R6
-    LOAD_IMM R6, 200
+    # Store address 200 in register ESP
+    LOAD_IMM ESP, 200
 
-    # Use LOADR to load from address stored in R6
-    LOADR R7, R6
+    # Use LOADR to load from address stored in ESP
+    LOADR EBP, ESP
 
-    # Test: R7 should contain 123
-    .assert_reg R7, 123
+    # Test: EBP should contain 123
+    .assert_reg EBP, 123
 }

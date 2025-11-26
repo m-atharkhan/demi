@@ -8,11 +8,11 @@
     .tag "basic"
     .tag "push"
     .tag "pop"
-    LOAD_IMM R0, 42
-    PUSH R0
-    LOAD_IMM R0, 0   ; Clear R0
-    POP R1
-    .assert_reg R1, 42
+    LOAD_IMM EAX, 42
+    PUSH EAX
+    LOAD_IMM EAX, 0   ; Clear EAX
+    POP EBX
+    .assert_reg EBX, 42
 }
 
 .test "push and pop multiple values" {
@@ -22,21 +22,21 @@
     .tag "push"
     .tag "pop"
     .tag "multi-value"
-    LOAD_IMM R0, 10
-    LOAD_IMM R1, 20
-    LOAD_IMM R2, 30
+    LOAD_IMM EAX, 10
+    LOAD_IMM EBX, 20
+    LOAD_IMM ECX, 30
     
-    PUSH R0
-    PUSH R1
-    PUSH R2
+    PUSH EAX
+    PUSH EBX
+    PUSH ECX
     
-    POP R3   ; Should be 30 (last in, first out)
-    POP R4   ; Should be 20
-    POP R5   ; Should be 10
+    POP EDX   ; Should be 30 (last in, first out)
+    POP ESI   ; Should be 20
+    POP EDI   ; Should be 10
     
-    .assert_reg R3, 30
-    .assert_reg R4, 20
-    .assert_reg R5, 10
+    .assert_reg EDX, 30
+    .assert_reg ESI, 20
+    .assert_reg EDI, 10
 }
 
 .test "stack LIFO order" {
@@ -46,18 +46,18 @@
     .tag "push"
     .tag "pop"
     .tag "lifo"
-    LOAD_IMM R0, 100
-    LOAD_IMM R1, 200
+    LOAD_IMM EAX, 100
+    LOAD_IMM EBX, 200
     
-    PUSH R0
-    PUSH R1
+    PUSH EAX
+    PUSH EBX
     
     ; Pop in reverse order
-    POP R2   ; Should get 200
-    POP R3   ; Should get 100
+    POP ECX   ; Should get 200
+    POP EDX   ; Should get 100
     
-    .assert_reg R2, 200
-    .assert_reg R3, 100
+    .assert_reg ECX, 200
+    .assert_reg EDX, 100
 }
 
 .test "push and pop flags" {
@@ -67,23 +67,23 @@
     .tag "flags"
     .tag "push"
     .tag "pop"
-    LOAD_IMM R0, 10
-    LOAD_IMM R1, 5
-    CMP R0, R1      ; Set flags (R0 > R1)
+    LOAD_IMM EAX, 10
+    LOAD_IMM EBX, 5
+    CMP EAX, EBX      ; Set flags (EAX > EBX)
     PUSH_FLAG       ; Save current flags
     
-    LOAD_IMM R0, 5
-    LOAD_IMM R1, 10
-    CMP R0, R1      ; Change flags (R0 < R1)
+    LOAD_IMM EAX, 5
+    LOAD_IMM EBX, 10
+    CMP EAX, EBX      ; Change flags (EAX < EBX)
     
-    POP_FLAG        ; Restore original flags (R0 > R1)
+    POP_FLAG        ; Restore original flags (EAX > EBX)
     JG greater      ; Should jump since original comparison was greater
-    LOAD_IMM R2, 99
+    LOAD_IMM ECX, 99
     JMP end
 greater:
-    LOAD_IMM R2, 42
+    LOAD_IMM ECX, 42
 end:
-    .assert_reg R2, 42
+    .assert_reg ECX, 42
 }
 
 .test "call and return" {
@@ -94,13 +94,13 @@ end:
     .tag "return"
     .tag "subroutine"
     
-    LOAD_IMM R0, 10
+    LOAD_IMM EAX, 10
     CALL subroutine
-    .assert_reg R0, 20  ; Should be doubled by subroutine
+    .assert_reg EAX, 20  ; Should be doubled by subroutine
     JMP end_test
     
 subroutine:
-    ADD R0, R0      ; Double the value in R0
+    ADD EAX, EAX      ; Double the value in EAX
     RET
     
 end_test:

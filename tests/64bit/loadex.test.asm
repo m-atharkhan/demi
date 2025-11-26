@@ -10,12 +10,12 @@
     .tag "loadex"
     
     ; Store a value first, then load it
-    LOAD_IMM64 R0, 123456
-    STOREX R0, 1000        ; Store R0 at memory address 1000
-    LOADEX R1, 1000        ; Load 64-bit value from address 1000 into R1
+    LOAD_IMM64 EAX, 123456
+    STOREX EAX, 1000        ; Store EAX at memory address 1000
+    LOADEX EBX, 1000        ; Load 64-bit value from address 1000 into EBX
     HALT
     
-    .assert_reg R1, 123456
+    .assert_reg EBX, 123456
 }
 
 .test "loadex zero value" {
@@ -25,12 +25,12 @@
     .tag "loadex"
     .tag "zero"
     
-    LOAD_IMM R0, 0
-    STOREX R0, 1100
-    LOADEX R1, 1100        ; Load zero value
+    LOAD_IMM EAX, 0
+    STOREX EAX, 1100
+    LOADEX EBX, 1100        ; Load zero value
     HALT
     
-    .assert_reg R1, 0
+    .assert_reg EBX, 0
 }
 
 .test "loadex large value" {
@@ -40,12 +40,12 @@
     .tag "loadex"
     .tag "large-values"
     
-    LOAD_IMM64 R0, 999999
-    STOREX R0, 1200
-    LOADEX R1, 1200        ; Load large value
+    LOAD_IMM64 EAX, 999999
+    STOREX EAX, 1200
+    LOADEX EBX, 1200        ; Load large value
     HALT
     
-    .assert_reg R1, 999999
+    .assert_reg EBX, 999999
 }
 
 .test "loadex different addresses" {
@@ -56,18 +56,18 @@
     .tag "addressing"
     
     ; Store different values at different addresses
-    LOAD_IMM R0, 111
-    STOREX R0, 1300
-    LOAD_IMM R0, 222
-    STOREX R0, 1400
-    LOAD_IMM R0, 77
-    STOREX R0, 1500
+    LOAD_IMM EAX, 111
+    STOREX EAX, 1300
+    LOAD_IMM EAX, 222
+    STOREX EAX, 1400
+    LOAD_IMM EAX, 77
+    STOREX EAX, 1500
     
     ; Load from second address
-    LOADEX R1, 1400
+    LOADEX EBX, 1400
     HALT
     
-    .assert_reg R1, 222
+    .assert_reg EBX, 222
 }
 
 .test "loadex sequential addresses" {
@@ -78,14 +78,14 @@
     .tag "sequential"
     
     ; Store values at sequential addresses
-    LOAD_IMM R0, 42
-    STOREX R0, 1600
-    LOAD_IMM R0, 84
-    STOREX R0, 1608  ; 8 bytes apart for 64-bit values
+    LOAD_IMM EAX, 42
+    STOREX EAX, 1600
+    LOAD_IMM EAX, 84
+    STOREX EAX, 1608  ; 8 bytes apart for 64-bit values
     
     ; Load from first address
-    LOADEX R1, 1600
+    LOADEX EBX, 1600
     HALT
     
-    .assert_reg R1, 42
+    .assert_reg EBX, 42
 }

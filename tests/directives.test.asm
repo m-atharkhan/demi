@@ -10,13 +10,13 @@
     .maxcalldepth 32
     
     # Recursive function that calls itself 31 times (should succeed)
-    LOAD_IMM R0, 31         # Counter
-    LOAD_IMM R1, 0          # Recursion depth tracker
+    LOAD_IMM EAX, 31         # Counter
+    LOAD_IMM EBX, 0          # Recursion depth tracker
     
 loop:
-    CMP R0, R1
+    CMP EAX, EBX
     JZ end
-    INC R1
+    INC EBX
     CALL recurse
     JMP loop
     
@@ -35,10 +35,10 @@ end:
     .timeout 1000
     
     # Simple test that completes quickly
-    LOAD_IMM R0, 42
+    LOAD_IMM EAX, 42
     HALT
     
-    .assert_reg R0, 42
+    .assert_reg EAX, 42
 }
 
 .test "skipped_test" {
@@ -49,7 +49,7 @@ end:
     .skip
     
     # This code won't execute
-    LOAD_IMM R0, 999
+    LOAD_IMM EAX, 999
     HALT
 }
 
@@ -65,19 +65,19 @@ end:
     .measure "time"
     
     # Simple arithmetic loop
-    LOAD_IMM R0, 0
-    LOAD_IMM R1, 100
+    LOAD_IMM EAX, 0
+    LOAD_IMM EBX, 100
     
 bench_loop:
-    CMP R0, R1
+    CMP EAX, EBX
     JZ bench_end
-    INC R0
+    INC EAX
     JMP bench_loop
     
 bench_end:
     HALT
     
-    .assert_reg R0, 100
+    .assert_reg EAX, 100
 }
 
 .test "combined_metadata" {
@@ -89,10 +89,10 @@ bench_end:
     .maxsteps 500
     .maxcalldepth 16
     
-    LOAD_IMM R0, 123
-    LOAD_IMM R1, 200  # Fixed: within 0-255 range
-    ADD R0, R1
+    LOAD_IMM EAX, 123
+    LOAD_IMM EBX, 200  # Fixed: within 0-255 range
+    ADD EAX, EBX
     HALT
     
-    .assert_reg R0, 67  # 123 + 200 = 323, but overflows in 8-bit to 67 (323 % 256)
+    .assert_reg EAX, 67  # 123 + 200 = 323, but overflows in 8-bit to 67 (323 % 256)
 }

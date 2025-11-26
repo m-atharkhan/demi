@@ -8,20 +8,20 @@
     .tag "vector"
     .tag "addition"
     
-    ; Load vector A: [10, 20, 30, 40]
+    ; Load vector A: [10, 20, 30, 40] into R0-R3
     LOAD_IMM R0, 10
     LOAD_IMM R1, 20
     LOAD_IMM R2, 30
     LOAD_IMM R3, 40
     
-    ; Load vector B: [1, 2, 3, 4]
+    ; Load vector B: [1, 2, 3, 4] into R4-R7
     LOAD_IMM R4, 1
     LOAD_IMM R5, 2
     LOAD_IMM R6, 3
     LOAD_IMM R7, 4
     
-    ; Perform vector addition: A = A + B
-    VADD R0, R4
+    ; Perform vector addition: R0-R3 = R0-R3 + R4-R7
+    VADD
     
     ; Expected results: [11, 22, 33, 44]
     .assert_reg R0, 11
@@ -37,20 +37,20 @@
     .tag "vector"
     .tag "multiplication"
     
-    ; Load vector A: [2, 3, 4, 5]
+    ; Load vector A: [2, 3, 4, 5] into R0-R3
     LOAD_IMM R0, 2
     LOAD_IMM R1, 3
     LOAD_IMM R2, 4
     LOAD_IMM R3, 5
     
-    ; Load vector B: [10, 10, 10, 10]
+    ; Load vector B: [10, 10, 10, 10] into R4-R7
     LOAD_IMM R4, 10
     LOAD_IMM R5, 10
     LOAD_IMM R6, 10
     LOAD_IMM R7, 10
     
-    ; Perform vector multiplication: A = A * B
-    VMUL R0, R4
+    ; Perform vector multiplication: R0-R3 = R0-R3 * R4-R7
+    VMUL
     
     ; Expected results: [20, 30, 40, 50]
     .assert_reg R0, 20
@@ -66,13 +66,13 @@
     .tag "vector"
     .tag "dot-product"
     
-    ; Load vector A: [1, 2, 3, 4]
+    ; Load vector A: [1, 2, 3, 4] into R0-R3
     LOAD_IMM R0, 1
     LOAD_IMM R1, 2
     LOAD_IMM R2, 3
     LOAD_IMM R3, 4
     
-    ; Load vector B: [5, 6, 7, 8]
+    ; Load vector B: [5, 6, 7, 8] into R4-R7
     LOAD_IMM R4, 5
     LOAD_IMM R5, 6
     LOAD_IMM R6, 7
@@ -92,7 +92,7 @@
     .tag "vector"
     .tag "max"
     
-    ; Load vector: [15, 42, 8, 23]
+    ; Load vector: [15, 42, 8, 23] into R0-R3
     LOAD_IMM R0, 15
     LOAD_IMM R1, 42
     LOAD_IMM R2, 8
@@ -133,7 +133,7 @@
     .tag "packed"
     .tag "bytes"
     
-    ; Load values to pack: [10, 20, 30, 40]
+    ; Load values to pack: [10, 20, 30, 40] into R0-R3
     LOAD_IMM R0, 10
     LOAD_IMM R1, 20
     LOAD_IMM R2, 30

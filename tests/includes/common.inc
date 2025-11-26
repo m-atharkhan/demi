@@ -8,10 +8,10 @@
 .define DEMI_BUILD_DATE "November 7, 2025"
 
 # Common register aliases
-.define COUNTER R0
-.define ACCUMULATOR R1
-.define TEMP R2
-.define STATUS R3
+.define COUNTER EAX
+.define ACCUMULATOR EBX
+.define TEMP ECX
+.define STATUS EDX
 
 # Useful constants
 .define TRUE 1
@@ -31,12 +31,12 @@
 .define LOAD_IMMEDIATE(reg, value) LOAD_IMM reg, value
 .define CLEAR_REG(reg) LOAD_IMM reg, 0
 .define COPY_REG(dest, src) MOV dest, src
-.define ADD_IMMEDIATE(reg, value) LOAD_IMM R7, value\nADD reg, R7
-.define INCREMENT_BY(reg, value) LOAD_IMM R7, value\nADD reg, R7
+.define ADD_IMMEDIATE(reg, value) LOAD_IMM EDI, value\nADD reg, EDI
+.define INCREMENT_BY(reg, value) LOAD_IMM EDI, value\nADD reg, EDI
 
 # Additional register aliases
-.define VERSION_REG R4
-.define FLAGS R5
+.define VERSION_REG ESI
+.define FLAGS EDI
 
 # Complex macro for loop setup
 .define SETUP_LOOP(counter_reg, limit_val) LOAD_IMM counter_reg, 0\nLOAD_IMM TEMP, limit_val
@@ -45,7 +45,7 @@
 .define COMPLEX_OPERATION(reg1, reg2) LOAD_IMM reg1, 42\nLOAD_IMM reg2, 21
 
 # Math utility macros
-.define MUL_BY_10(reg) LOAD_IMM R7, 10\nMUL reg, R7
+.define MUL_BY_10(reg) LOAD_IMM EDI, 10\nMUL reg, EDI
 
 # Conditional compilation examples
 .ifdef DEBUG

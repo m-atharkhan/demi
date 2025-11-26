@@ -19,8 +19,8 @@
     FST 0x80
     
     ; Verify CPU still works after FPU operations
-    LOAD_IMM R1, 50
-    .assert_reg R1, 50
+    LOAD_IMM EBX, 50
+    .assert_reg EBX, 50
 }
 
 .test "floating-point addition" {
@@ -39,8 +39,8 @@
     FST 0x100
     
     ; Verify CPU still works
-    LOAD_IMM R0, 123
-    .assert_reg R0, 123
+    LOAD_IMM EAX, 123
+    .assert_reg EAX, 123
 }
 
 .test "floating-point subtraction" {
@@ -59,8 +59,8 @@
     FST 0x108
     
     ; Verify CPU still works
-    LOAD_IMM R0, 200
-    .assert_reg R0, 200
+    LOAD_IMM EAX, 200
+    .assert_reg EAX, 200
 }
 
 .test "floating-point multiplication" {
@@ -79,8 +79,8 @@
     FST 0x110
     
     ; Verify CPU still works
-    LOAD_IMM R0, 42
-    .assert_reg R0, 42
+    LOAD_IMM EAX, 42
+    .assert_reg EAX, 42
 }
 
 .test "floating-point division" {
@@ -99,8 +99,8 @@
     FST 0x118
     
     ; Verify CPU still works
-    LOAD_IMM R0, 100
-    .assert_reg R0, 100
+    LOAD_IMM EAX, 100
+    .assert_reg EAX, 100
 }
 
 .test "trigonometric functions" {
@@ -123,10 +123,10 @@
     FST 0x208
     
     ; Verify CPU still functional
-    LOAD_IMM R1, 0
-    LOAD_IMM R2, 1
-    .assert_reg R1, 0
-    .assert_reg R2, 1
+    LOAD_IMM EBX, 0
+    LOAD_IMM ECX, 1
+    .assert_reg EBX, 0
+    .assert_reg ECX, 1
 }
 
 .test "square root function" {
@@ -149,6 +149,6 @@
     FST 0x168
     
     ; Verify CPU still works
-    LOAD_IMM R1, 8
-    .assert_reg R1, 8
+    LOAD_IMM EBX, 8
+    .assert_reg EBX, 8
 }

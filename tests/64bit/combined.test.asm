@@ -11,14 +11,14 @@
     .tag "mul64"
     .tag "storex"
     
-    LOAD_IMM64 R0, 1000
-    LOAD_IMM64 R1, 500
-    MUL64 R2, R0, R1      ; R2 = 1000 * 500 = 500,000
-    STOREX R2, 1000       ; Store result to memory
-    LOADEX R3, 1000       ; Load back to verify
+    LOAD_IMM64 EAX, 1000
+    LOAD_IMM64 EBX, 500
+    MUL64 ECX, EAX, EBX      ; ECX = 1000 * 500 = 500,000
+    STOREX ECX, 1000       ; Store result to memory
+    LOADEX EDX, 1000       ; Load back to verify
     HALT
     
-    .assert_reg R3, 500000
+    .assert_reg EDX, 500000
 }
 
 .test "combined div64 and loadex" {
@@ -30,16 +30,16 @@
     .tag "loadex"
     
     ; Store dividend in memory
-    LOAD_IMM64 R0, 100000
-    STOREX R0, 2000
+    LOAD_IMM64 EAX, 100000
+    STOREX EAX, 2000
     
     ; Load dividend and perform division
-    LOADEX R1, 2000
-    LOAD_IMM64 R2, 1000
-    DIV64 R3, R1, R2      ; R3 = 100,000 / 1,000 = 100
+    LOADEX EBX, 2000
+    LOAD_IMM64 ECX, 1000
+    DIV64 EDX, EBX, ECX      ; EDX = 100,000 / 1,000 = 100
     HALT
     
-    .assert_reg R3, 100
+    .assert_reg EDX, 100
 }
 
 .test "combined and64 with memory ops" {
@@ -51,16 +51,16 @@
     .tag "memory"
     
     ; Store mask in memory
-    LOAD_IMM64 R0, 255      ; Mask: all lower 8 bits set
-    STOREX R0, 3000
+    LOAD_IMM64 EAX, 255      ; Mask: all lower 8 bits set
+    STOREX EAX, 3000
     
     ; Load mask and apply to value
-    LOAD_IMM64 R1, 511      ; Value: 9 bits set (0x1FF)
-    LOADEX R2, 3000       ; Load mask
-    AND64 R3, R1, R2      ; R3 = 511 & 255 = 255
+    LOAD_IMM64 EBX, 511      ; Value: 9 bits set (0x1FF)
+    LOADEX ECX, 3000       ; Load mask
+    AND64 EDX, EBX, ECX      ; EDX = 511 & 255 = 255
     HALT
     
-    .assert_reg R3, 255
+    .assert_reg EDX, 255
 }
 
 .test "64bit arithmetic chain" {
@@ -71,16 +71,16 @@
     .tag "chain"
     
     ; Start with base values
-    LOAD_IMM R0, 100
-    LOAD_IMM R1, 50
+    LOAD_IMM EAX, 100
+    LOAD_IMM EBX, 50
     
     ; Chain of operations: (100 * 50) / 25 = 200
-    MUL64 R2, R0, R1      ; R2 = 100 * 50 = 5,000
-    LOAD_IMM R3, 25
-    DIV64 R4, R2, R3      ; R4 = 5,000 / 25 = 200
+    MUL64 ECX, EAX, EBX      ; ECX = 100 * 50 = 5,000
+    LOAD_IMM EDX, 25
+    DIV64 ESI, ECX, EDX      ; ESI = 5,000 / 25 = 200
     HALT
     
-    .assert_reg R4, 200
+    .assert_reg ESI, 200
 }
 
 .test "64bit memory stress test" {
@@ -92,18 +92,18 @@
     .tag "memory"
     
     ; Store multiple values
-    LOAD_IMM R0, 123
-    STOREX R0, 1000
-    LOAD_IMM R0, 200
-    STOREX R0, 2000
-    LOAD_IMM R0, 111
-    STOREX R0, 3000
+    LOAD_IMM EAX, 123
+    STOREX EAX, 1000
+    LOAD_IMM EAX, 200
+    STOREX EAX, 2000
+    LOAD_IMM EAX, 111
+    STOREX EAX, 3000
     
     ; Load and verify second value
-    LOADEX R1, 2000
+    LOADEX EBX, 2000
     HALT
     
-    .assert_reg R1, 200
+    .assert_reg EBX, 200
 }
 
 .test "64bit boundary test" {
@@ -115,14 +115,14 @@
     .tag "large-values"
     
     ; Test with moderately large numbers that won't overflow
-    LOAD_IMM64 R0, 100000
-    LOAD_IMM64 R1, 1000
-    MUL64 R2, R0, R1      ; R2 = 100,000,000
+    LOAD_IMM64 EAX, 100000
+    LOAD_IMM64 EBX, 1000
+    MUL64 ECX, EAX, EBX      ; ECX = 100,000,000
     
     ; Verify we can store and retrieve this large value
-    STOREX R2, 4000
-    LOADEX R3, 4000
+    STOREX ECX, 4000
+    LOADEX EDX, 4000
     HALT
     
-    .assert_reg R3, 100000000
+    .assert_reg EDX, 100000000
 }
