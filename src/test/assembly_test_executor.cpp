@@ -21,7 +21,7 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
     // Read file
     std::ifstream file(filename);
     if (!file.is_open()) {
-        Logger::instance().error() << fmt::format("Failed to open test file: {}", filename) << std::endl;
+        std::cerr << fmt::format("Failed to open test file: {}", filename) << std::endl;
         Config::test_mode = previous_test_mode; // Restore previous state
         return results;
     }
@@ -52,9 +52,9 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
         // Parser errors from unimplemented features (macros, conditionals) are expected
         // Only report them if in very verbose mode (test_mode = false)
         if (!Config::test_mode) {
-            Logger::instance().error() << "Lexer errors in test file:" << std::endl;
+            std::cerr << "Lexer errors in test file:" << std::endl;
             for (const auto& error : lexer.get_errors()) {
-                Logger::instance().error() << "  " << error << std::endl;
+                std::cerr << "  " << error << std::endl;
             }
         }
         Config::test_mode = previous_test_mode; // Restore previous state
@@ -65,9 +65,9 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
         // Parser errors from unimplemented features (macros, conditionals) are expected
         // Only report them if in very verbose mode (test_mode = false)
         if (!Config::test_mode) {
-            Logger::instance().error() << "Parser errors in test file:" << std::endl;
+            std::cerr << "Parser errors in test file:" << std::endl;
             for (const auto& error : parser.get_errors()) {
-                Logger::instance().error() << "  " << error << std::endl;
+                std::cerr << "  " << error << std::endl;
             }
         }
         // Don't return early - try to extract any test cases that were successfully parsed
@@ -76,7 +76,7 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
     
     // Execute each test
     if (!Config::quiet_assembly_test) {
-        Logger::instance().info() << fmt::format("\033[1;36m=== Running tests from {} ===\033[0m", filename) << std::endl;
+        std::cout << fmt::format("\033[1;36m=== Running tests from {} ===\033[0m", filename) << std::endl;
     }
     
     for (const auto& test : program->test_cases) {
@@ -93,7 +93,7 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
 }
 
 TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case, 
-                                      const std::vector<std::unique_ptr<Assembler::Statement>>& program_statements) {
+                                      [[maybe_unused]] const std::vector<std::unique_ptr<Assembler::Statement>>& program_statements) {
     // Set current test name for extraction
     current_test_name = test_case.name;
     
@@ -153,7 +153,36 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         
         try {
             cpu.reset();
-            cpu.execute(bytecode, assembler.get_entry_address(), test_case.max_steps);
+            
+            // Apply test case configuration
+            if (test_case.max_call_depth > 0) {
+                cpu.set_max_call_depth_override(test_case.max_call_depth);
+            }
+            
+            // Determine entry point
+            uint32_t entry_address = assembler.get_entry_address();
+            if (!test_case.entry_point.empty()) {
+                // Try to parse as number
+                try {
+                    size_t pos;
+                    entry_address = std::stoul(test_case.entry_point, &pos, 0);
+                    if (pos != test_case.entry_point.length()) {
+                        throw std::invalid_argument("Not a number");
+                    }
+                } catch (...) {
+                    // Try to resolve as label
+                    const auto& symbols = assembler.get_symbols();
+                    auto it = symbols.find(test_case.entry_point);
+                    if (it != symbols.end()) {
+                        entry_address = it->second.address;
+                    } else {
+                        result.set_error("Entry point label '" + test_case.entry_point + "' not found");
+                        return result;
+                    }
+                }
+            }
+            
+            cpu.execute(bytecode, entry_address, test_case.max_steps);
             
             // IMPORTANT: Sync legacy registers to new register system
             // The opcodes write to legacy_registers but get_register() reads from registers array
@@ -178,7 +207,7 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         }
         
         // Debug: Print CPU state after execution
-        Logger::instance().debug() << fmt::format("After execution: R0={}, R1={}, R2={}, R3={}", 
+        Logger::instance().debug() << fmt::format("After execution: EAX={}, EBX={}, ECX={}, EDX={}", 
             cpu.get_register(static_cast<Register>(0)),
             cpu.get_register(static_cast<Register>(1)),
             cpu.get_register(static_cast<Register>(2)),
@@ -226,7 +255,7 @@ AssertionResult TestExecutor::evaluate_assertion(const Assembler::TestAssertion&
             int64_t expected = get_expected_value(*assertion.arguments[1]);
             int64_t actual = cpu.get_register(static_cast<Register>(reg_num));
             
-            // For legacy registers (R0-R7), mask to 8-bit if expected value is 8-bit
+            // For legacy registers (EAX-EBP), mask to 8-bit if expected value is 8-bit
             if (reg_num < 8 && expected <= 255 && actual > 255) {
                 actual = actual & 0xFF;
             }
@@ -442,6 +471,16 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
     
     // If we only have HALT instruction (and maybe test assertions), use brace tracking
     bool use_brace_tracking = (meaningful_statements <= 1);
+
+    // Check if the test uses braces in the source (new style .test)
+    // This ensures we correctly extract the body even if it contains directives like section/global
+    std::string test_decl = ".test \"" + current_test_name + "\"";
+    for (const auto& line : source_lines) {
+        if (line.find(test_decl) != std::string::npos && line.find("{") != std::string::npos) {
+            use_brace_tracking = true;
+            break;
+        }
+    }
     
     // Also use brace tracking if the test contains preprocessor directives that the parser doesn't understand
     // Check if source contains .ifdef, .ifndef, .else, .endif within this test's context
@@ -459,8 +498,8 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
     }
     
     // Debug: Log strategy decision
-    Logger::instance().debug() << fmt::format("Test '{}': meaningful_statements={}, use_brace_tracking={}", 
-                                              current_test_name, meaningful_statements, use_brace_tracking) << std::endl;
+    DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Test '{}': meaningful_statements={}, use_brace_tracking={}, source_lines={}", 
+                                              current_test_name, meaningful_statements, use_brace_tracking, source_lines.size());
     
     if (!use_brace_tracking) {
         // Strategy 1: Use statement line ranges for tests with recognized statements
@@ -496,6 +535,7 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
                         code_line.find(".maxsteps") == 0 ||
                         code_line.find(".assert_") == 0 ||
                         code_line.find(".expect_") == 0 ||
+                        code_line.find(".entry_point") == 0 ||
                         code_line.find("#") == 0 ||
                         code_line.find("{") == 0 ||
                         code_line.find("}") == 0 ||
@@ -517,6 +557,7 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
         int test_start = -1;
         for (size_t i = 0; i < source_lines.size(); i++) {
             if (source_lines[i].find(test_marker) != std::string::npos) {
+                DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Found test marker at line {}", i);
                 test_start = i;
                 break;
             }
@@ -531,6 +572,7 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
         int brace_line = -1;
         for (size_t i = test_start; i < source_lines.size(); i++) {
             if (source_lines[i].find("{") != std::string::npos) {
+                DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Found opening brace at line {}", i);
                 brace_line = i;
                 break;
             }
@@ -548,8 +590,14 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
             
             // Count braces in this line
             for (char c : line) {
-                if (c == '{') brace_depth++;
-                else if (c == '}') brace_depth--;
+                if (c == '{') {
+                    brace_depth++;
+                    DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Brace open at line {}, depth={}", i, brace_depth);
+                }
+                else if (c == '}') {
+                    brace_depth--;
+                    DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Brace close at line {}, depth={}", i, brace_depth);
+                }
             }
             
             // Include content inside braces but skip metadata
@@ -568,13 +616,20 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
                         code_line.find(".iterations") == std::string::npos &&
                         code_line.find(".measure") == std::string::npos &&
                         code_line.find(".maxsteps") == std::string::npos &&
+                        code_line.find(".entry_point") == std::string::npos &&
+                        code_line.find(".maxcalldepth") == std::string::npos &&
+                        code_line.find(".timeout") == std::string::npos &&
+                        code_line.find(".skip") == std::string::npos &&
                         code_line.find(".assert_") == std::string::npos &&
                         code_line.find(".expect_") == std::string::npos &&
                         code_line.find("{") == std::string::npos &&
                         code_line.find("#") != 0 &&
                         !code_line.empty() &&
                         code_line[0] != ';') {
+                        DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Adding line to source: {}", code_line);
                         source << code_line << "\n";
+                    } else {
+                        DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Skipping line: {}", code_line);
                     }
                 }
             }
@@ -627,9 +682,39 @@ int64_t TestExecutor::get_expected_value(const Assembler::Expression& expr) {
 int TestExecutor::get_register_number(const Assembler::Expression& expr) {
     if (expr.type == Assembler::ASTNodeType::REGISTER) {
         const auto* reg = static_cast<const Assembler::RegisterExpression*>(&expr);
+        
+        // Handle 32-bit aliases
+        if (reg->name == "EAX") return 0;
+        if (reg->name == "ECX") return 1;
+        if (reg->name == "EDX") return 2;
+        if (reg->name == "EBX") return 3;
+        if (reg->name == "ESP") return 4;
+        if (reg->name == "EBP") return 5;
+        if (reg->name == "ESI") return 6;
+        if (reg->name == "EDI") return 7;
+
+        // Handle 64-bit names
+        if (reg->name == "RAX") return 0;
+        if (reg->name == "RCX") return 1;
+        if (reg->name == "RDX") return 2;
+        if (reg->name == "RBX") return 3;
+        if (reg->name == "RSP") return 4;
+        if (reg->name == "RBP") return 5;
+        if (reg->name == "RSI") return 6;
+        if (reg->name == "RDI") return 7;
+
         // Extract register number from name (e.g., "R0" -> 0)
         if (reg->name.size() > 1 && reg->name[0] == 'R') {
-            return std::stoi(reg->name.substr(1));
+            try {
+                std::string num_part = reg->name.substr(1);
+                // Handle R8D-R15D style
+                if (num_part.back() == 'D' && num_part.size() > 1) {
+                    num_part.pop_back();
+                }
+                return std::stoi(num_part);
+            } catch (...) {
+                // Ignore parsing errors
+            }
         }
     }
     return 0;
@@ -661,6 +746,7 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
     size_t total_tests = results.size();
     size_t passed_tests = 0;
     size_t failed_tests = 0;
+    size_t skipped_tests = 0;
     size_t total_assertions = 0;
     size_t passed_assertions = 0;
     double total_execution_time = 0.0;
@@ -680,8 +766,9 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
     std::map<std::string, size_t> shown_category_passed;
     
     for (const auto& result : results) {
-        // Skip counting for skipped tests in overall stats
+        // Count skipped tests separately
         if (result.skipped) {
+            skipped_tests++;
             total_execution_time += result.execution_time_ms;
             continue;
         }
@@ -864,10 +951,11 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
         } else {
             // Show all statistics
             Logger::instance().info() << fmt::format(
-                "Total Tests: {} ({}passed: {}{}, {}failed: {}{})",
+                "Total Tests: {} ({}passed: {}{}, {}failed: {}{}, {}skipped: {}{})",
                 total_tests,
                 "\033[32m", passed_tests, "\033[0m",
-                "\033[31m", failed_tests, "\033[0m"
+                "\033[31m", failed_tests, "\033[0m",
+                "\033[36m", skipped_tests, "\033[0m"
             ) << std::endl;
             
             Logger::instance().info() << fmt::format(
@@ -948,8 +1036,8 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
         } else {
             // Show all statistics
             Logger::instance().info() << fmt::format(
-                "Total Tests: {} (passed: {}, failed: {})",
-                total_tests, passed_tests, failed_tests
+                "Total Tests: {} (passed: {}, failed: {}, skipped: {})",
+                total_tests, passed_tests, failed_tests, skipped_tests
             ) << std::endl;
         }
     }

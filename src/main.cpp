@@ -72,7 +72,7 @@ void initialize_devices() {
     Logger::instance().info() << "Device system initialized with standard and storage devices" << std::endl;
 }
 
-enum class ArgType { Value, Action };
+enum class ArgType { Value, Action, MultiValue };
 
 struct ArgDef {
     std::string name;
@@ -82,11 +82,13 @@ struct ArgDef {
     ArgType type;
     std::function<void(const std::string&)> value_action; // For value args
     std::function<void()> action;                         // For action args
+    std::function<void(const std::vector<std::string>&)> multi_value_action; // For multi-value args
 };
 
 struct ParsedArg {
     std::string name;
     std::string value;
+    std::vector<std::string> values;
     ArgType type;
 };
 
@@ -94,11 +96,11 @@ class ArgParser {
 public:
     void add_value_arg(const std::string& name, const std::string& arg, const std::string& alias,
                        const std::string& help, std::function<void(const std::string&)> value_action) {
-        args_.push_back({name, arg, alias, help, ArgType::Value, value_action, nullptr});
+        args_.push_back({name, arg, alias, help, ArgType::Value, value_action, nullptr, nullptr});
     }
     void add_action_arg(const std::string& name, const std::string& arg, const std::string& alias,
                         const std::string& help, std::function<void()> action) {
-        args_.push_back({name, arg, alias, help, ArgType::Action, nullptr, action});
+        args_.push_back({name, arg, alias, help, ArgType::Action, nullptr, action, nullptr});
     }
     void add_bool_arg(const std::string& name, const std::string& arg, const std::string& alias,
                       const std::string& help, std::function<void(bool)> action) {
@@ -107,7 +109,11 @@ public:
                 // If value is empty, treat as true (flag style)
                 if (value.empty()) action(true);
                 else action(value == "true" || value == "1");
-            }, nullptr});
+            }, nullptr, nullptr});
+    }
+    void add_multi_value_arg(const std::string& name, const std::string& arg, const std::string& alias,
+                       const std::string& help, std::function<void(const std::vector<std::string>&)> multi_value_action) {
+        args_.push_back({name, arg, alias, help, ArgType::MultiValue, nullptr, nullptr, multi_value_action});
     }
 
     void parse(int argc, char* argv[]) {
@@ -147,10 +153,21 @@ public:
                             value = argv[++i];
                         }
                         // Store the parsed argument
-                        parsed_args.push_back({def.name, value, def.type});
+                        parsed_args.push_back({def.name, value, {}, def.type});
                     } else if (def.type == ArgType::Action) {
                         // Store the parsed action
-                        parsed_args.push_back({def.name, "", def.type});
+                        parsed_args.push_back({def.name, "", {}, def.type});
+                    } else if (def.type == ArgType::MultiValue) {
+                        std::vector<std::string> values;
+                        // If we got value from =, use it
+                        if (!value.empty()) {
+                            values.push_back(value);
+                        }
+                        // Consume arguments until next flag or end
+                        while (i + 1 < argc && argv[i + 1][0] != '-') {
+                            values.push_back(argv[++i]);
+                        }
+                        parsed_args.push_back({def.name, "", values, def.type});
                     }
                     break;
                 }
@@ -176,31 +193,47 @@ public:
                     def->value_action(parsed.value);
                 }
             }
-        }
-        
-        // Process value arguments next (files, paths, etc.)
-        for (const auto& parsed : parsed_args) {
-            if (parsed.name != "debug" && parsed.name != "verbose" && parsed.name != "extended_registers" && 
-                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" &&
-                parsed.name != "help" && parsed.name != "test" && parsed.name != "unit_test" && 
-                parsed.name != "assembly_test" && parsed.name != "assembly_test_quiet") {
-                auto def = find_arg_def(parsed.name);
-                if (def && def->value_action) {
-                    def->value_action(parsed.value);
-                }
-            }
-        }
-        
-        // Process action arguments last (test modes, help, etc.)
-        for (const auto& parsed : parsed_args) {
-            if (parsed.name == "help" || parsed.name == "test" || parsed.name == "unit_test" || 
-                parsed.name == "assembly_test" || parsed.name == "assembly_test_quiet") {
-                auto def = find_arg_def(parsed.name);
-                if (def) {
-                    if (def->type == ArgType::Action && def->action) {
+            
+            // Process debug actions (debug_verbose, debug_quiet)
+            for (const auto& parsed : parsed_args) {
+                if (parsed.name == "debug_verbose" || parsed.name == "debug_quiet") {
+                    auto def = find_arg_def(parsed.name);
+                    if (def && def->action) {
                         def->action();
-                    } else if (def->type == ArgType::Value && def->value_action) {
-                        def->value_action(parsed.value);
+                    }
+                }
+                
+                // Process value arguments next (files, paths, etc.)
+                for (const auto& parsed : parsed_args) {
+                    if (parsed.name != "debug" && parsed.name != "verbose" && parsed.name != "extended_registers" && 
+                        parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" &&
+                        parsed.name != "help" && parsed.name != "test" && parsed.name != "unit_test" && 
+                        parsed.name != "assembly_test" && parsed.name != "assembly_test_quiet") {
+                        auto def = find_arg_def(parsed.name);
+                        if (def) {
+                            if (def->value_action && parsed.type == ArgType::Value) {
+                                def->value_action(parsed.value);
+                            } else if (def->multi_value_action && parsed.type == ArgType::MultiValue) {
+                                def->multi_value_action(parsed.values);
+                            }
+                        }
+                    }
+                }
+                
+                // Process action arguments last (test modes, help, etc.)
+                for (const auto& parsed : parsed_args) {
+                    if (parsed.name == "help" || parsed.name == "test" || parsed.name == "unit_test" || 
+                        parsed.name == "assembly_test" || parsed.name == "assembly_test_quiet") {
+                        auto def = find_arg_def(parsed.name);
+                        if (def) {
+                            if (def->type == ArgType::Action && def->action) {
+                                def->action();
+                            } else if (def->type == ArgType::Value && def->value_action) {
+                                def->value_action(parsed.value);
+                            } else if (def->type == ArgType::MultiValue && def->multi_value_action) {
+                                def->multi_value_action(parsed.values);
+                            }
+                        }
                     }
                 }
             }
@@ -268,6 +301,7 @@ void run_in_assembly_tests() {
     int total_tests = 0;
     int total_passed = 0;
     int total_failed = 0;
+    int total_skipped = 0;
     
     for (const auto& file : test_files) {
         // Check if file exists
@@ -289,20 +323,26 @@ void run_in_assembly_tests() {
             int file_tests = results.size();
             int file_passed = 0;
             int file_failed = 0;
+            int file_skipped = 0;
             
             for (const auto& result : results) {
-                if (!result.skipped) {
-                    if (result.passed) file_passed++;
-                    else file_failed++;
+                if (result.skipped) {
+                    file_skipped++;
+                } else if (result.passed) {
+                    file_passed++;
+                } else {
+                    file_failed++;
                 }
             }
             
             total_tests += file_tests;
             total_passed += file_passed;
             total_failed += file_failed;
+            total_skipped += file_skipped;
             
             if (!Config::quiet_assembly_test) {
-                fmt::print("   {} tests: {} passed, {} failed\n", file_tests, file_passed, file_failed);
+                fmt::print("   {} tests: {} passed, {} failed, {} skipped\n", 
+                          file_tests, file_passed, file_failed, file_skipped);
             }
         }
         
@@ -324,6 +364,7 @@ void run_in_assembly_tests() {
             } else {
                 fmt::print("Failed: {}\n", total_failed);
             }
+            fmt::print("Skipped: \033[36m{}\033[0m\n", total_skipped);
             
             if (total_failed == 0) {
                 fmt::print("\n\033[1;32m🎉 All tests passed!\033[0m\n");
@@ -345,6 +386,45 @@ void run_unit_tests_only() {
     exit(0);
 }
 
+// Forward declaration
+void run_file_tests(const std::vector<std::string>& filepaths);
+
+void run_unit_tests_with_inputs(const std::vector<std::string>& inputs) {
+    const char* color = Config::debug ? "\033[38;5;208m" : "\033[36m";
+    std::cout << color << "┌──────────────────────────────────────────────────────┐\033[0m" << std::endl;
+    std::cout << color << "│     Running DemiEngine Unit Tests                    │\033[0m" << std::endl;
+    std::cout << color << "└──────────────────────────────────────────────────────┤\033[0m" << std::endl;
+
+    auto& framework = TestFramework::instance();
+    std::vector<TestResult> all_results;
+    std::vector<std::string> assembly_files;
+
+    for (const auto& input : inputs) {
+        if (input.find('/') != std::string::npos || input.find('.') != std::string::npos) {
+            // Treat as file path for assembly tests
+            assembly_files.push_back(input);
+        } else {
+            // Treat as unit test name
+            auto results = framework.run_single(input);
+            if (results.empty()) {
+                std::cerr << "Error: Unit test '" << input << "' not found" << std::endl;
+            } else {
+                all_results.insert(all_results.end(), results.begin(), results.end());
+            }
+        }
+    }
+
+    if (!all_results.empty()) {
+        framework.print_results(all_results);
+    }
+
+    if (!assembly_files.empty()) {
+        run_file_tests(assembly_files);
+    }
+    
+    exit(all_results.empty() && assembly_files.empty() ? 1 : 0);
+}
+
 void run_assembly_tests_only() {
     Config::verbose = true;  // Enable INFO logs for test output
     try {
@@ -358,6 +438,9 @@ void run_assembly_tests_only() {
     std::flush(std::cout);
     _exit(0); // Use _exit to completely bypass all destructors
 }
+
+// Forward declaration
+void run_file_tests(const std::vector<std::string>& filepaths);
 
 // Helper function to recursively scan directory for test files
 std::vector<std::string> scan_directory_for_tests(const std::string& directory_path) {
@@ -403,32 +486,44 @@ std::vector<std::string> scan_directory_for_tests(const std::string& directory_p
     return test_files;
 }
 
-void run_single_file_tests(const std::string& filepath) {
+void run_file_tests(const std::vector<std::string>& filepaths) {
     Config::verbose = true;  // Enable INFO logs for test output
-    
-    // Check if path exists
-    if (!fs::exists(filepath)) {
-        Logger::instance().error() << fmt::format("Test path not found: {}", filepath) << std::endl;
-        exit(1);
-    }
     
     std::vector<std::string> test_files;
     
-    if (fs::is_directory(filepath)) {
-        // If it's a directory, scan for test files
-        test_files = scan_directory_for_tests(filepath);
-        if (test_files.empty()) {
-            fmt::print("\nNo test files found in directory: {}\n", filepath);
+    for (const auto& filepath : filepaths) {
+        // Check if path exists
+        if (!fs::exists(filepath)) {
+            Logger::instance().error() << fmt::format("Test path not found: {}", filepath) << std::endl;
             exit(1);
         }
-        fmt::print("Found {} test files in directory: {}\n", test_files.size(), filepath);
-    } else if (fs::is_regular_file(filepath)) {
-        // If it's a file, add it to the list
-        test_files.push_back(filepath);
-    } else {
-        Logger::instance().error() << fmt::format("Path is neither a file nor a directory: {}", filepath) << std::endl;
+        
+        if (fs::is_directory(filepath)) {
+            // If it's a directory, scan for test files
+            auto dir_files = scan_directory_for_tests(filepath);
+            if (dir_files.empty()) {
+                fmt::print("\nNo test files found in directory: {}\n", filepath);
+            } else {
+                fmt::print("Found {} test files in directory: {}\n", dir_files.size(), filepath);
+                test_files.insert(test_files.end(), dir_files.begin(), dir_files.end());
+            }
+        } else if (fs::is_regular_file(filepath)) {
+            // If it's a file, add it to the list
+            test_files.push_back(filepath);
+        } else {
+            Logger::instance().error() << fmt::format("Path is neither a file nor a directory: {}", filepath) << std::endl;
+            exit(1);
+        }
+    }
+
+    if (test_files.empty()) {
+        fmt::print("\nNo test files found.\n");
         exit(1);
     }
+    
+    // Remove duplicates
+    std::sort(test_files.begin(), test_files.end());
+    test_files.erase(std::unique(test_files.begin(), test_files.end()), test_files.end());
     
     // Create test executor
     Testing::TestExecutor executor;
@@ -442,9 +537,28 @@ void run_single_file_tests(const std::string& filepath) {
     }
     
     if (all_results.empty()) {
-        fmt::print("\nNo tests found in: {}\n", filepath);
+        fmt::print("\nNo tests found in provided paths.\n");
     } else {
         executor.print_results(all_results);
+        
+        // Print explicit summary
+        int passed = 0;
+        int skipped = 0;
+        for (const auto& res : all_results) {
+            if (res.skipped) {
+                skipped++;
+            } else if (res.passed) {
+                passed++;
+            }
+        }
+        int failed = all_results.size() - passed - skipped;
+        
+        if (!Config::quiet_assembly_test) {
+             fmt::print("\nTest Summary: {} total, \033[32m{} passed\033[0m, {} failed, \033[36m{} skipped\033[0m\n", 
+                all_results.size(), passed, 
+                failed > 0 ? fmt::format("\033[31m{}\033[0m", failed) : "0",
+                skipped);
+        }
     }
     
     exit(0);
@@ -506,28 +620,76 @@ public:
             [this](bool value) { Config::debug = value; Config::verbose = value; });
         
         // Debug level argument
-        parser.add_value_arg("debug_level", "--debug-level", "-dl", "Set debug level (trace, detail, info, important, critical)",
+        parser.add_value_arg("debug_level", "--debug-level", "-dl", "Set debug level (trace, detail, info, important, critical, all). Supports comma-separated values.",
             [this](const std::string& value) {
                 Config::debug = true;  // Auto-enable debug mode when level is set
-                if (value == "trace") {
+                
+                std::stringstream ss(value);
+                std::string segment;
+                std::vector<std::string> levels;
+                
+                while(std::getline(ss, segment, ',')) {
+                    levels.push_back(segment);
+                }
+                
+                bool has_all = false;
+                bool trace_categories = false;
+                bool found_valid = false;
+                
+                // Check for "all" first
+                for(const auto& lvl : levels) {
+                    if (lvl == "all") {
+                        has_all = true;
+                        break;
+                    }
+                }
+                
+                if (has_all) {
+                    // "all" means everything (TRACE minimum, no filter mode)
                     Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::TRACE);
-                    // Enable verbose categories for trace level
-                    Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_DISPATCHER, true);
-                    Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_PREDICTION, true);
-                } else if (value == "detail") {
-                    Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::DETAIL);
-                } else if (value == "info") {
-                    Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::INFO);
-                } else if (value == "important") {
-                    Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::IMPORTANT);
-                } else if (value == "critical") {
-                    Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::CRITICAL);
+                    Logging::DebugHandler::instance().set_level_filter_mode(false);
+                    trace_categories = true;
+                    found_valid = true;
                 } else {
-                    std::cerr << "Invalid debug level: " << value << ". Valid levels: trace, detail, info, important, critical" << std::endl;
+                    // Specific levels -> enable filter mode
+                    Logging::DebugHandler::instance().set_level_filter_mode(true);
+                    
+                    // Always enable CRITICAL (it's hardcoded in handler anyway, but good for completeness)
+                    Logging::DebugHandler::instance().set_level_enabled(Logging::DebugLevel::CRITICAL, true);
+                    
+                    for(const auto& lvl : levels) {
+                        if (lvl == "trace") {
+                            Logging::DebugHandler::instance().set_level_enabled(Logging::DebugLevel::TRACE, true);
+                            trace_categories = true;
+                            found_valid = true;
+                        } else if (lvl == "detail") {
+                            Logging::DebugHandler::instance().set_level_enabled(Logging::DebugLevel::DETAIL, true);
+                            found_valid = true;
+                        } else if (lvl == "info") {
+                            Logging::DebugHandler::instance().set_level_enabled(Logging::DebugLevel::INFO, true);
+                            found_valid = true;
+                        } else if (lvl == "important") {
+                            Logging::DebugHandler::instance().set_level_enabled(Logging::DebugLevel::IMPORTANT, true);
+                            found_valid = true;
+                        } else if (lvl == "critical") {
+                            // Already enabled
+                            found_valid = true;
+                        }
+                    }
+                }
+                
+                if (found_valid) {
+                    if (trace_categories) {
+                        Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_DISPATCHER, true);
+                        Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_PREDICTION, true);
+                        Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::MEM_BOUNDS, true);
+                    }
+                } else {
+                    std::cerr << "Invalid debug level: " << value << ". Valid levels: trace, detail, info, important, critical, all" << std::endl;
                 }
             });
         
-        // Verbose debug shortcuts
+        // Debug verbose argument (shortcut for debug + verbose)
         parser.add_action_arg("debug_verbose", "--debug-verbose", "-dv", "Enable debug with verbose output (TRACE level)",
             [this]() { 
                 Config::debug = true; 
@@ -559,55 +721,59 @@ public:
             [this](const std::string& value) { Config::program_file = value; });
 
         // Run tests argument (with optional file path)
-        parser.add_value_arg("test", "--test", "-t", "Run built-in unit tests, or test a specific file if path provided",
-            [this](const std::string& value) {
-                if (value.empty() || value == "true") {
+        parser.add_multi_value_arg("test", "--test", "-t", "Run built-in unit tests, or test specific files if paths provided",
+            [this](const std::vector<std::string>& values) {
+                if (values.empty() || (values.size() == 1 && (values[0].empty() || values[0] == "true"))) {
                     // No file specified, run unit tests only
                     run_unit_tests_only();
                 } else {
-                    // File specified, run tests from that file only
-                    run_single_file_tests(value);
+                    // Files specified, run tests from those files
+                    run_file_tests(values);
                 }
             });
         
         // Run unit tests only (or specific file)
-        parser.add_value_arg("unit_test", "--unit-test", "-ut", "Run built-in unit tests only, or test a specific file if path provided",
-            [this](const std::string& value) {
-                if (value.empty()) {
+        parser.add_multi_value_arg("unit_test", "--unit-test", "-ut", "Run built-in unit tests only, specific test by name, or test file",
+            [this](const std::vector<std::string>& values) {
+                if (values.empty()) {
                     run_unit_tests_only();
                 } else {
-                    run_single_file_tests(value);
+                    run_unit_tests_with_inputs(values);
                 }
             });
         
         // Run assembly tests only (or specific file/folder)
-        parser.add_action_arg("assembly_test", "--assembly-test", "-at", "Run in-assembly tests only (supports files and folders)",
-            [this]() {
+        parser.add_multi_value_arg("assembly_test", "--assembly-test", "-at", "Run in-assembly tests only (supports files and folders)",
+            [this](const std::vector<std::string>& values) {
                 Config::test_mode = true;  // Enable test mode to suppress verbose logs
-                auto positional = parser.get_positional_args();
-                if (positional.empty()) {
-                    run_assembly_tests_only();
+                if (values.empty()) {
+                    // Check positional args for backward compatibility or if no values provided
+                    auto positional = parser.get_positional_args();
+                    if (positional.empty()) {
+                        run_assembly_tests_only();
+                    } else {
+                        run_file_tests(positional);
+                    }
                 } else {
                     // Run tests on specified files
-                    for (const auto& file : positional) {
-                        run_single_file_tests(file);
-                    }
+                    run_file_tests(values);
                 }
             });
         
         // Run assembly tests in quiet mode (only show title and description)
-        parser.add_action_arg("assembly_test_quiet", "--assembly-test-quiet", "-atq", "Run in-assembly tests in quiet mode (supports files and folders)",
-            [this]() {
+        parser.add_multi_value_arg("assembly_test_quiet", "--assembly-test-quiet", "-atq", "Run in-assembly tests in quiet mode (supports files and folders)",
+            [this](const std::vector<std::string>& values) {
                 Config::test_mode = true;  // Enable test mode to suppress verbose logs
                 Config::quiet_assembly_test = true;
-                auto positional = parser.get_positional_args();
-                if (positional.empty()) {
-                    run_assembly_tests_only();
-                } else {
-                    // Run tests on specified files
-                    for (const auto& file : positional) {
-                        run_single_file_tests(file);
+                if (values.empty()) {
+                    auto positional = parser.get_positional_args();
+                    if (positional.empty()) {
+                        run_assembly_tests_only();
+                    } else {
+                        run_file_tests(positional);
                     }
+                } else {
+                    run_file_tests(values);
                 }
             });
 
@@ -627,6 +793,12 @@ public:
 
         // Memory dump argument
         parser.add_bool_arg("memdump", "--memdump", "-m", "Print memory dump after execution", [this](bool value) { Config::memdump = value; });
+
+        // Entry point argument
+        parser.add_value_arg("entry_point", "--entry-point", "-e", "Specify entry point symbol (default: _start)",
+            [this](const std::string& value) {
+                Config::entry_point_symbol = value;
+            });
 
         // Test filter argument for tests
         parser.add_value_arg("test_filter", "--test-filter", "", "Filter test output (all|fails|success)", 
@@ -961,7 +1133,8 @@ public:
                 return;
             }
         } else {
-            std::cerr << "No hex file specified. Use --hex or -H to specify a hex file." << std::endl;
+            // No file specified, show help
+            parser.print_help();
             return;
         }
 
@@ -1044,6 +1217,7 @@ private:
 
         // Use DemiAssembler which includes preprocessing
         Assembler::DemiAssembler assembler;
+        assembler.set_entry_point_symbol(Config::entry_point_symbol);
         auto bytecode = assembler.assemble_file(Config::assembly_file);
 
         if (assembler.has_errors()) {
@@ -1083,7 +1257,7 @@ private:
         }
 
         // Print hex dump of assembled bytecode
-        DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "Assembled bytecode hex dump:");
+        DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "Assembled bytecode hex dump: %s", "");
         std::string line;
         for (size_t i = 0; i < bytecode.size(); ++i) {
             if (i % 16 == 0) {
