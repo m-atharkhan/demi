@@ -6,7 +6,7 @@
 
 using namespace DemiEngine_Registers;
 
-void handle_VMUL(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+void handle_VMUL(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     Logger::instance().debug() << "Executing VMUL - Vector Multiplication" << std::endl;
     
     // Vector multiplication: R0-R3 = R0-R3 * R4-R7

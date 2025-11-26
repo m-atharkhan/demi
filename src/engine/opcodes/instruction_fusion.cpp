@@ -51,7 +51,7 @@ bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& pr
 }
 
 // FusionEngine::fuse_cmp_branch - CMP + conditional jump
-bool FusionEngine::fuse_cmp_branch(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+bool FusionEngine::fuse_cmp_branch(CPU& cpu, const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     uint32_t pc = cpu.get_pc();
     
     // CMP format: opcode (1) + reg1 (1) + reg2 (1) = 3 bytes

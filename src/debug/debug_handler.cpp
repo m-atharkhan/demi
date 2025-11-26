@@ -16,7 +16,8 @@ DebugHandler& DebugHandler::instance() {
 }
 
 DebugHandler::DebugHandler() 
-    : minimum_level_(DebugLevel::INFO)
+    : level_filter_mode_(false)
+    , minimum_level_(DebugLevel::INFO)
     , frequency_throttling_enabled_(false)
     , max_frequency_per_second_(100)
     , session_recording_enabled_(false)
@@ -159,6 +160,22 @@ bool DebugHandler::is_category_enabled(DebugCategory category) const {
     std::lock_guard<std::mutex> lock(debug_mutex_);
     auto it = enabled_categories_.find(category);
     return it != enabled_categories_.end() ? it->second : false;
+}
+
+void DebugHandler::set_level_enabled(DebugLevel level, bool enabled) {
+    std::lock_guard<std::mutex> lock(debug_mutex_);
+    enabled_levels_[level] = enabled;
+}
+
+void DebugHandler::set_level_filter_mode(bool enabled) {
+    std::lock_guard<std::mutex> lock(debug_mutex_);
+    level_filter_mode_ = enabled;
+}
+
+bool DebugHandler::is_level_enabled(DebugLevel level) const {
+    std::lock_guard<std::mutex> lock(debug_mutex_);
+    auto it = enabled_levels_.find(level);
+    return it != enabled_levels_.end() ? it->second : false;
 }
 
 void DebugHandler::set_minimum_level(DebugLevel level) {
@@ -456,6 +473,8 @@ void DebugHandler::reset_to_defaults() {
     std::lock_guard<std::mutex> lock(debug_mutex_);
     
     enabled_categories_.clear();
+    enabled_levels_.clear();
+    level_filter_mode_ = false;
     minimum_level_ = DebugLevel::INFO;
     frequency_throttling_enabled_ = false;
     max_frequency_per_second_ = 100;
@@ -479,13 +498,22 @@ bool DebugHandler::should_filter_message(const DebugContext& debug) {
     }
     
     // Check if category is enabled
-    if (!is_category_enabled(debug.category)) {
+    // Direct access to avoid deadlock if called from report()
+    auto cat_it = enabled_categories_.find(debug.category);
+    if (cat_it == enabled_categories_.end() || !cat_it->second) {
         return true;
     }
     
-    // Check minimum level
-    if (debug.level < minimum_level_) {
-        return true;
+    // Check level filtering
+    if (level_filter_mode_) {
+        auto lvl_it = enabled_levels_.find(debug.level);
+        bool enabled = lvl_it != enabled_levels_.end() ? lvl_it->second : false;
+        if (!enabled) return true;
+    } else {
+        // Check minimum level
+        if (debug.level < minimum_level_) {
+            return true;
+        }
     }
     
     // Check frequency throttling

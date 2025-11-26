@@ -13,8 +13,8 @@ void handle_PACKB(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         return;
     }
 
-    uint8_t dest_reg = program[cpu.get_pc() + 1];
-    uint8_t src_reg = program[cpu.get_pc() + 2];
+    // Note: PACKB operates on fixed registers R0-R3 and R4
+    // dest_reg and src_reg bytes are present but not used
     
     // Pack bytes from R0-R3 into R4 as a 32-bit value
     auto& regs = cpu.get_registers(); // Use legacy register system like LOAD_IMM

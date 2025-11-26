@@ -2049,17 +2049,13 @@ void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         uint8_t dest_reg = program[pc + 1];
         uint8_t src_reg = program[pc + 2];
 
-        Logger::instance().debug() << fmt::format(
-            "[PC=0x{:04X}] [MOV64] Moving 64-bit value from R{} to R{}",
-            pc, src_reg, dest_reg) << std::endl;
+        DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [MOV64] Moving 64-bit value from R{} to R{}", pc, src_reg, dest_reg);
 
         // Use 64-bit register access for extended registers
         uint64_t value = cpu.get_register_64(static_cast<Register>(src_reg));
         cpu.set_register_64(static_cast<Register>(dest_reg), value);
 
-        Logger::instance().debug() << fmt::format(
-            "[PC=0x{:04X}] [MOV64] Result: R{} = 0x{:016X}",
-            pc, dest_reg, value) << std::endl;
+        DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [MOV64] Result: R{} = 0x{:016X}", pc, dest_reg, value);
 
         cpu.set_pc(pc + 3); // Advance past opcode and two register operands
     } else {
@@ -2071,7 +2067,7 @@ void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
 
 // Implementation for LOAD_IMM64 opcode - 64-bit immediate load
 void handle_load_imm64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [LOAD_IMM64] 64-bit immediate load operation", cpu.get_pc()) << std::endl;
+    DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [LOAD_IMM64] 64-bit immediate load operation", cpu.get_pc());
     uint32_t pc = cpu.get_pc();
     if (pc + 9 < program.size()) {
         uint8_t reg = program[pc + 1];
@@ -2095,14 +2091,14 @@ void handle_load_imm64(CPU& cpu, const std::vector<uint8_t>& program, bool& runn
 // Mode Control Operations Implementation
 
 // Implementation for MODE32 opcode - Switch to 32-bit mode
-void handle_mode32(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+void handle_mode32(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MODE32] Switching CPU to 32-bit mode", cpu.get_pc()) << std::endl;
     cpu.set_cpu_mode(CPUMode::MODE_32BIT);
     cpu.set_pc(cpu.get_pc() + 1);
 }
 
 // Implementation for MODE64 opcode - Switch to 64-bit mode
-void handle_mode64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+void handle_mode64(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [MODE64] Switching CPU to 64-bit mode", cpu.get_pc()) << std::endl;
     cpu.set_cpu_mode(CPUMode::MODE_64BIT);
     cpu.set_pc(cpu.get_pc() + 1);
