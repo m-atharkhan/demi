@@ -68,45 +68,61 @@ make
 # Run comprehensive test suite
 make test
 
-# Execute a hex program
-./bin/demi-engine -H tests/hex/helloworld.hex
+# Run assembly file (primary usage)
+./bin/demi-engine -A examples/basic/hello.asm
 
 # Enable debug mode with detailed logging
-./bin/demi-engine -H tests/hex/helloworld.hex -d
-
-# Run assembly file
-./bin/demi-engine -A examples/hello_world.asm
+./bin/demi-engine -A examples/basic/hello.asm -dv
 
 # Compile to standalone executable
-./bin/demi-engine -H tests/hex/calculator.hex -o calculator
+./bin/demi-engine -A examples/basic/hello.asm
 
 # Run specific test file
-./bin/demi-engine -at tests/asm/test_arithmetic.asm
+./bin/demi-engine -at tests/arithmetic.test.asm
+
+# Run unit tests
+./bin/demi-engine -ut
 ```
 
 ### Command Line Interface
-```bash
-demi-engine Usage: demi-engine [options]
-  --help                -h      Shows help information
-  --debug               -d      Enable debug mode with detailed logging
-  --verbose             -v      Show informational messages (use --verbose=false to disable)
-  --extended-registers  -er     Show extended register output (50 registers)
-  --quiet               -q      Suppress logs, show only test results
-  --debug-file          -f      Debug file path
-  --hex                 -H      Path to hex file (hex bytes, space or newline separated)
-  --test                -t      Run all tests (unit tests + assembly tests), or test a specific file
-  --unit-test           -ut     Run built-in unit tests only, or test a specific file
-  --assembly-test       -at     Run in-assembly tests only, or test a specific file
-  --assembly            -A      Assemble and run .asm file
-  --compile             -o      Compile program into a standalone executable (optionally specify output name)
-  --memdump             -m      Print memory dump after execution
-  --show                        Filter test output (all|fails|success)
+```
+Demi Engine - Virtualized Compiler and Assembler
 
-# Argument Linking - Combine multiple short flags
-  -utq                          Run unit tests in quiet mode (-ut + -q)
-  -atq                          Run assembly tests in quiet mode (-at + -q)
-  -tq                           Run all tests in quiet mode (-t + -q)
-  -erd                          Extended registers + debug mode (-er + -d)
+Usage: demi-engine [options] [files...]
+
+General:
+  --help                    -h      Shows help information
+
+Input/Output:
+  --compile                 -o      Compile program into a standalone executable
+
+Assembly:
+  --assembly                -A      Assembly mode: assemble and run .asm file
+  --entry-point             -e      Specify entry point symbol (default: _start)
+
+Architecture:
+  --architecture            -x      Set architecture (x86 or x64)
+  -x86                              Shortcut for --architecture=x86
+  -x64                              Shortcut for --architecture=x64
+  --no-arch-warn                    Silence mixed architecture warning
+
+Testing:
+  --test                    -t      Run built-in unit tests or test specific files
+  --unit-test               -ut     Run built-in unit tests only or specific test by name
+  --assembly-test           -at     Run in-assembly tests (supports files and folders)
+  --assembly-test-quiet     -atq    Run in-assembly tests in quiet mode
+  --test-filter                     Filter test output (all|fails|success)
+  --show-metadata           -sm     Show test metadata (description, author, category, tags)
+
+Debugging:
+  --debug                   -d      Enable debug mode
+  --debug-level             -dl     Set debug level (trace, detail, info, important, critical, all)
+  --debug-verbose           -dv     Enable debug with verbose output (TRACE level)
+  --debug-quiet             -dq     Enable debug with minimal output (IMPORTANT level)
+  --verbose                 -v      Show informational messages
+  --debug-file              -f      Debug file path
+  --extended-registers      -er     Show extended register output (50 registers)
+  --memdump                 -m      Print memory dump after execution
 ```
 
 **New Features:**
@@ -281,8 +297,11 @@ TOTAL: 180 tests passing (100% coverage)
 
 ### Test Organization
 ```bash
-# Organized test runner (comprehensive)
-./run_tests.sh
+# Run all tests (unit + integration)
+make test-all
+
+# Run unit tests only
+make test
 
 # Category-specific test directories
 tests/basic/     # Basic CPU operations and core instruction tests
