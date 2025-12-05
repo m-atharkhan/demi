@@ -29,6 +29,8 @@ void Lexer::init_tables() {
     keywords[".string"] = TokenType::DIRECTIVE;
     keywords[".align"] = TokenType::DIRECTIVE;
     keywords[".bss"] = TokenType::DIRECTIVE;
+    keywords[".resb"] = TokenType::DIRECTIVE;
+    keywords["RESB"] = TokenType::DIRECTIVE;
     keywords[".end"] = TokenType::DIRECTIVE;
     keywords[".memory"] = TokenType::DIRECTIVE;
     
@@ -44,6 +46,7 @@ void Lexer::init_tables() {
     keywords[".test"] = TokenType::TEST_DIRECTIVE;
     keywords[".assert_mem"] = TokenType::ASSERT_MEM;
     keywords[".assert_reg"] = TokenType::ASSERT_REG;
+    keywords[".assert_fpu"] = TokenType::ASSERT_FPU;
     keywords[".assert_output"] = TokenType::ASSERT_OUTPUT;
     keywords[".expect_error"] = TokenType::EXPECT_ERROR;
     keywords[".entry_point"] = TokenType::ENTRY_POINT;
@@ -55,6 +58,18 @@ void Lexer::init_tables() {
     keywords[".maxcalldepth"] = TokenType::MAXCALLDEPTH;
     keywords[".timeout"] = TokenType::TIMEOUT;
     keywords[".skip"] = TokenType::SKIP;
+    
+    // Legacy #-prefixed test directives (for backward compatibility)
+    keywords["#test"] = TokenType::TEST_DIRECTIVE;
+    keywords["#assert_mem"] = TokenType::ASSERT_MEM;
+    keywords["#assert_reg"] = TokenType::ASSERT_REG;
+    keywords["#assert_fpu"] = TokenType::ASSERT_FPU;
+    keywords["#assert_output"] = TokenType::ASSERT_OUTPUT;
+    keywords["#expect_error"] = TokenType::EXPECT_ERROR;
+    keywords["#description"] = TokenType::DESCRIPTION;
+    keywords["#author"] = TokenType::AUTHOR;
+    keywords["#category"] = TokenType::CATEGORY;
+    keywords["#tag"] = TokenType::TAG;
     
     // Benchmark directives
     keywords[".benchmark"] = TokenType::BENCHMARK;
@@ -96,12 +111,15 @@ void Lexer::init_tables() {
     mnemonics["JMP"] = TokenType::MNEMONIC;
     mnemonics["LOAD"] = TokenType::MNEMONIC;
     mnemonics["LOADR"] = TokenType::MNEMONIC;
+    mnemonics["STORER"] = TokenType::MNEMONIC;
     mnemonics["STORE"] = TokenType::MNEMONIC;
     mnemonics["PUSH"] = TokenType::MNEMONIC;
     mnemonics["POP"] = TokenType::MNEMONIC;
     mnemonics["CMP"] = TokenType::MNEMONIC;
     mnemonics["JZ"] = TokenType::MNEMONIC;
+    mnemonics["JE"] = TokenType::MNEMONIC;   // Alias for JZ (Jump if Equal)
     mnemonics["JNZ"] = TokenType::MNEMONIC;
+    mnemonics["JNE"] = TokenType::MNEMONIC;  // Alias for JNZ (Jump if Not Equal)
     mnemonics["JS"] = TokenType::MNEMONIC;
     mnemonics["JNS"] = TokenType::MNEMONIC;
     mnemonics["JC"] = TokenType::MNEMONIC;
@@ -142,7 +160,15 @@ void Lexer::init_tables() {
     mnemonics["INSTR"] = TokenType::MNEMONIC;
     mnemonics["OUTSTR"] = TokenType::MNEMONIC;
     mnemonics["DB"] = TokenType::MNEMONIC;
+    mnemonics["RESB"] = TokenType::MNEMONIC;
     mnemonics["EQU"] = TokenType::MNEMONIC;
+    
+    // Interrupt operations
+    mnemonics["INT"] = TokenType::MNEMONIC;
+    mnemonics["IRET"] = TokenType::MNEMONIC;
+    mnemonics["CLI"] = TokenType::MNEMONIC;
+    mnemonics["STI"] = TokenType::MNEMONIC;
+    
     mnemonics["HALT"] = TokenType::MNEMONIC;
     
     // Extended 64-bit operations
@@ -153,6 +179,11 @@ void Lexer::init_tables() {
     mnemonics["MUL64"] = TokenType::MNEMONIC;
     mnemonics["DIV64"] = TokenType::MNEMONIC;
     mnemonics["AND64"] = TokenType::MNEMONIC;
+    mnemonics["OR64"] = TokenType::MNEMONIC;
+    mnemonics["XOR64"] = TokenType::MNEMONIC;
+    mnemonics["NOT64"] = TokenType::MNEMONIC;
+    mnemonics["SHL64"] = TokenType::MNEMONIC;
+    mnemonics["SHR64"] = TokenType::MNEMONIC;
     mnemonics["CMP64"] = TokenType::MNEMONIC;
     mnemonics["MOD64"] = TokenType::MNEMONIC;
     mnemonics["INC64"] = TokenType::MNEMONIC;
@@ -266,8 +297,36 @@ std::vector<Token> Lexer::tokenize() {
         
         char c = current_char();
         
-        // Handle comments starting with # or ;
-        if (c == '#' || c == ';') {
+        // Handle # - could be a legacy test directive or a comment
+        if (c == '#') {
+            // Check if this is a legacy #test, #assert_*, etc. directive
+            size_t start_pos = pos;
+            size_t start_col = column;
+            std::string potential_keyword = "#";
+            advance();
+            
+            // Collect identifier characters after #
+            while (pos < source.length() && (is_identifier_part(current_char()) || current_char() == '_')) {
+                potential_keyword += current_char();
+                advance();
+            }
+            
+            // Check if this is a known keyword
+            auto it = keywords.find(potential_keyword);
+            if (it != keywords.end()) {
+                tokens.emplace_back(it->second, potential_keyword, line, start_col);
+                continue;
+            }
+            
+            // Not a known keyword - reset and treat as comment
+            pos = start_pos;
+            column = start_col;
+            skip_comment();
+            continue;
+        }
+        
+        // Handle comments starting with ;
+        if (c == ';') {
             skip_comment();
             continue;
         }

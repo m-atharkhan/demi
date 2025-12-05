@@ -39,12 +39,15 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["JMP"] = static_cast<uint8_t>(Opcode::JMP);
     mnemonic_to_opcode["LOAD"] = static_cast<uint8_t>(Opcode::LOAD);
     mnemonic_to_opcode["LOADR"] = static_cast<uint8_t>(Opcode::LOADR);
+    mnemonic_to_opcode["STORER"] = static_cast<uint8_t>(Opcode::STORER);
     mnemonic_to_opcode["STORE"] = static_cast<uint8_t>(Opcode::STORE);
     mnemonic_to_opcode["PUSH"] = static_cast<uint8_t>(Opcode::PUSH);
     mnemonic_to_opcode["POP"] = static_cast<uint8_t>(Opcode::POP);
     mnemonic_to_opcode["CMP"] = static_cast<uint8_t>(Opcode::CMP);
     mnemonic_to_opcode["JZ"] = static_cast<uint8_t>(Opcode::JZ);
+    mnemonic_to_opcode["JE"] = static_cast<uint8_t>(Opcode::JZ);   // Alias for JZ
     mnemonic_to_opcode["JNZ"] = static_cast<uint8_t>(Opcode::JNZ);
+    mnemonic_to_opcode["JNE"] = static_cast<uint8_t>(Opcode::JNZ); // Alias for JNZ
     mnemonic_to_opcode["JS"] = static_cast<uint8_t>(Opcode::JS);
     mnemonic_to_opcode["JNS"] = static_cast<uint8_t>(Opcode::JNS);
     mnemonic_to_opcode["JC"] = static_cast<uint8_t>(Opcode::JC);
@@ -86,6 +89,13 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["OUTSTR"] = static_cast<uint8_t>(Opcode::OUTSTR);
     mnemonic_to_opcode["DB"] = static_cast<uint8_t>(Opcode::DB);
     mnemonic_to_opcode["DEBUG"] = static_cast<uint8_t>(Opcode::DEBUG);
+    
+    // Interrupt operations
+    mnemonic_to_opcode["INT"] = static_cast<uint8_t>(Opcode::INT);
+    mnemonic_to_opcode["IRET"] = static_cast<uint8_t>(Opcode::IRET);
+    mnemonic_to_opcode["CLI"] = static_cast<uint8_t>(Opcode::CLI);
+    mnemonic_to_opcode["STI"] = static_cast<uint8_t>(Opcode::STI);
+    
     mnemonic_to_opcode["HALT"] = static_cast<uint8_t>(Opcode::HALT);
 
     // Extended operations
@@ -230,7 +240,7 @@ void AssemblerEngine::first_pass(const Program& program) {
     for (const auto& stmt : program.statements) {
         if (stmt->type == ASTNodeType::INSTRUCTION) {
             const auto& instruction = static_cast<const Instruction&>(*stmt);
-            if (instruction.mnemonic == "DB") {
+            if (instruction.mnemonic == "DB" || instruction.mnemonic == "RESB") {
                 db_count++;
             }
         } else if (stmt->type == ASTNodeType::DIRECTIVE) {
@@ -248,8 +258,10 @@ void AssemblerEngine::first_pass(const Program& program) {
     uint32_t highest_address = 0;
     for (size_t i = 0; i < program.statements.size(); ++i) {
         const auto& stmt = program.statements[i];
-        // DB: skip size accounting, address is explicit or auto
-        if ((stmt->type == ASTNodeType::INSTRUCTION && static_cast<const Instruction&>(*stmt).mnemonic == "DB") ||
+        // DB/RESB: skip size accounting, address is explicit or auto
+        if ((stmt->type == ASTNodeType::INSTRUCTION && 
+             (static_cast<const Instruction&>(*stmt).mnemonic == "DB" ||
+              static_cast<const Instruction&>(*stmt).mnemonic == "RESB")) ||
             (stmt->type == ASTNodeType::DIRECTIVE && static_cast<const Directive&>(*stmt).name == ".db")) {
             continue;
         }
@@ -291,7 +303,7 @@ void AssemblerEngine::first_pass(const Program& program) {
                         if (current_address > highest_address) highest_address = current_address;
                     }
                 }
-            } else if (directive.name == ".bss") {
+            } else if (directive.name == ".bss" || directive.name == ".resb" || directive.name == "RESB") {
                 if (directive.arguments.size() == 1) {
                     bool is_symbol;
                     std::string symbol_name;
@@ -301,6 +313,10 @@ void AssemblerEngine::first_pass(const Program& program) {
                         if (current_address > highest_address) highest_address = current_address;
                     }
                 }
+            } else if (directive.name == ".data") {
+                handle_data_section();
+            } else if (directive.name == ".text") {
+                handle_text_section();
             }
         }
     }
@@ -393,12 +409,18 @@ void Assembler::AssemblerEngine::process_directive(const Assembler::Directive& d
         handle_align_directive(directive.arguments);
     } else if (directive.name == ".bss") {
         handle_bss_directive(directive.arguments);
+    } else if (directive.name == ".resb" || directive.name == "RESB") {
+        handle_bss_directive(directive.arguments); // RESB works the same as .bss
     } else if (directive.name == "section" || directive.name == ".section") {
         handle_section_directive(directive.arguments);
     } else if (directive.name == "global" || directive.name == ".global") {
         handle_global_directive(directive.arguments);
     } else if (directive.name == "extern" || directive.name == ".extern") {
         handle_extern_directive(directive.arguments);
+    } else if (directive.name == ".data") {
+        handle_data_section();
+    } else if (directive.name == ".text") {
+        handle_text_section();
     } else if (directive.name == ".org") {
     Logging::Logger::instance().debug() << "Processing .org directive, args: ";
         [[maybe_unused]] for (const auto& arg : directive.arguments) {
@@ -506,6 +528,34 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             }
         }
         return; // DB doesn't emit an opcode, so return early
+    }
+    
+    // Handle RESB pseudo-instruction (reserve bytes - emit zeros)
+    if (mnemonic == "RESB") {
+        if (instruction.operands.size() != 1) {
+            add_error("RESB requires exactly one operand (number of bytes)", instruction.line, instruction.column);
+            return;
+        }
+        
+        bool is_symbol;
+        std::string symbol_name;
+        int64_t count = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
+        
+        if (is_symbol) {
+            add_error("RESB cannot use forward references", instruction.line, instruction.column);
+            return;
+        }
+        
+        if (count < 0) {
+            add_error("RESB count must be non-negative", instruction.line, instruction.column);
+            return;
+        }
+        
+        // Emit 'count' zero bytes
+        for (int64_t i = 0; i < count; i++) {
+            emit_byte(0);
+        }
+        return; // RESB doesn't emit an opcode, so return early
     }
     
     uint8_t opcode = get_opcode(mnemonic);
@@ -683,34 +733,53 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
 
     if (mnemonic == "LOAD_IMM") {
         // Format: LOAD_IMM reg, immediate
+        // Supports 1-byte (8-bit regs) or 4-byte (32-bit regs) immediates based on register type
         if (instruction.operands.size() != 2) {
             add_error("LOAD_IMM requires 2 operands", instruction.line, instruction.column);
             return;
         }
 
         // Register operand
+        std::string reg_name;
         if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get())) {
-            emit_byte(get_register_number(reg_expr->name));
+            reg_name = reg_expr->name;
+            emit_byte(get_register_number(reg_name));
         } else {
             add_error("First operand must be a register", instruction.line, instruction.column);
             return;
         }
 
-        // Immediate operand
+        // Immediate operand - size depends on register type
         bool is_symbol;
         std::string symbol_name;
         int64_t value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
 
+        // Determine immediate size based on register size
+        // Use register_sizes map to correctly identify 32-bit registers (including R0-R7 and EAX-EDI)
+        bool is_32bit_reg = (register_sizes.find(reg_name) != register_sizes.end() && register_sizes[reg_name] == 32);
+        size_t imm_size = is_32bit_reg ? 4 : 1;
+
         if (is_symbol) {
-            emit_forward_ref(symbol_name, 1); // DemiEngine's LOAD_IMM uses 1-byte immediate
+            emit_forward_ref(symbol_name, imm_size);
         } else {
-            // Validate that value fits in 1 byte for LOAD_IMM
-            if (value < 0 || value > 255) {
-                add_error("LOAD_IMM immediate value " + std::to_string(value) + 
-                          " out of range (must be 0-255)", instruction.line, instruction.column);
-                return;
+            // Validate value range
+            if (imm_size == 1) {
+                if (value < 0 || value > 255) {
+                    add_error("LOAD_IMM immediate value " + std::to_string(value) + 
+                              " out of range for 8-bit register (must be 0-255)", 
+                              instruction.line, instruction.column);
+                    return;
+                }
+                emit_byte(static_cast<uint8_t>(value));
+            } else { // 4-byte for 32-bit registers
+                if (value < 0 || value > 0xFFFFFFFF) {
+                    add_error("LOAD_IMM immediate value " + std::to_string(value) + 
+                              " out of range for 32-bit register (must be 0-4294967295)", 
+                              instruction.line, instruction.column);
+                    return;
+                }
+                emit_dword(static_cast<uint32_t>(value));
             }
-            emit_byte(static_cast<uint8_t>(value)); // 1-byte immediate, not 4-byte
         }
     } else if (mnemonic == "LOAD_IMM64") {
         // Format: LOAD_IMM64 reg, immediate (64-bit)
@@ -747,6 +816,8 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                mnemonic == "OR" || mnemonic == "XOR" ||
                mnemonic == "ADD64" || mnemonic == "SUB64" ||
                mnemonic == "MOV64" || mnemonic == "CMP64" || mnemonic == "MODECMP" ||
+               mnemonic == "MUL64" || mnemonic == "DIV64" || mnemonic == "MOD64" ||
+               mnemonic == "AND64" || mnemonic == "OR64" || mnemonic == "XOR64" ||
                mnemonic == "MOVEX" || mnemonic == "ADDEX" ||
                mnemonic == "SUBEX" || mnemonic == "CMPEX") {
         // Format: INSTRUCTION reg1, reg2
@@ -755,11 +826,22 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             return;
         }
 
-        for (const auto& operand : instruction.operands) {
+        for (size_t i = 0; i < instruction.operands.size(); ++i) {
+            const auto& operand = instruction.operands[i];
             if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(operand.get())) {
                 emit_byte(get_register_number(reg_expr->name));
             } else {
-                add_error("Operand must be a register", instruction.line, instruction.column);
+                // Debug: print what type of operand we got
+                std::string operand_type = "unknown";
+                if (dynamic_cast<const Assembler::ImmediateExpression*>(operand.get())) {
+                    operand_type = "immediate";
+                } else if (dynamic_cast<const Assembler::IdentifierExpression*>(operand.get())) {
+                    operand_type = "identifier";
+                } else if (dynamic_cast<const Assembler::StringLiteralExpression*>(operand.get())) {
+                    operand_type = "string";
+                }
+                add_error(mnemonic + " operand " + std::to_string(i+1) + " must be a register (got " + operand_type + ")", 
+                         instruction.line, instruction.column);
                 return;
             }
         }
@@ -770,14 +852,14 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             return;
         }
         // Opcode already emitted above, no additional bytes needed
-    } else if (mnemonic == "JMP" || mnemonic == "JZ" ||
-               mnemonic == "JNZ" || mnemonic == "JS" ||
+    } else if (mnemonic == "JMP" || mnemonic == "JZ" || mnemonic == "JE" ||
+               mnemonic == "JNZ" || mnemonic == "JNE" || mnemonic == "JS" ||
                mnemonic == "JNS" || mnemonic == "JC" ||
                mnemonic == "JNC" || mnemonic == "JO" ||
                mnemonic == "JNO" || mnemonic == "JG" ||
                mnemonic == "JL" || mnemonic == "JGE" ||
                mnemonic == "JLE" || mnemonic == "CALL") {
-        // Format: JUMP address
+        // Format: JUMP address (mode-aware: 32-bit or 64-bit address)
         if (instruction.operands.size() != 1) {
             add_error(mnemonic + " requires 1 operand", instruction.line, instruction.column);
             return;
@@ -788,13 +870,14 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         int64_t value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, 1); // DemiEngine uses 8-bit addresses for jumps
+            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address size
         } else {
-            emit_byte(static_cast<uint8_t>(value));
+            emit_mode_aware_address(value); // Mode-aware address emission
         }
     } else if (mnemonic == "PUSH" || mnemonic == "POP" ||
                mnemonic == "INC" || mnemonic == "DEC" ||
-               mnemonic == "NOT") {
+               mnemonic == "NOT" || mnemonic == "INC64" ||
+               mnemonic == "DEC64" || mnemonic == "NOT64") {
         // Format: INSTRUCTION reg
         if (instruction.operands.size() != 1) {
             add_error(mnemonic + " requires 1 operand", instruction.line, instruction.column);
@@ -837,9 +920,9 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         } else {
             emit_byte(static_cast<uint8_t>(port_value));
         }
-    } else if (mnemonic == "LOAD" || mnemonic == "LOADR" || mnemonic == "STORE" ||
+    } else if (mnemonic == "LOAD" || mnemonic == "LOADR" || mnemonic == "STORER" || mnemonic == "STORE" ||
                mnemonic == "LEA" || mnemonic == "SWAP") {
-        // Format: LOAD reg, addr  or  LOADR reg, reg  or  STORE reg, addr
+        // Format: LOAD reg, addr  or  LOADR reg, reg  or  STORER reg, reg  or  STORE reg, addr
         if (instruction.operands.size() != 2) {
             add_error(mnemonic + " requires 2 operands", instruction.line, instruction.column);
             return;
@@ -853,15 +936,26 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             return;
         }
 
-        // Address operand
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t addr_value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 1); // DemiEngine uses 8-bit addresses
+        // Second operand: For LOADR/STORER it's a register, for others it's an address
+        if (mnemonic == "LOADR" || mnemonic == "STORER") {
+            // Second operand must be a register
+            if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get())) {
+                emit_byte(get_register_number(reg_expr->name));
+            } else {
+                add_error("Second operand must be a register for " + mnemonic, instruction.line, instruction.column);
+                return;
+            }
         } else {
-            emit_byte(static_cast<uint8_t>(addr_value));
+            // Address operand - emit mode-aware address (32-bit or 64-bit based on architecture)
+            bool is_symbol;
+            std::string symbol_name;
+            int64_t addr_value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
+
+            if (is_symbol) {
+                emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address size
+            } else {
+                emit_mode_aware_address(addr_value);
+            }
         }
     } else if (mnemonic == "LOADEX" || mnemonic == "STOREX") {
         // Format: LOADEX/STOREX reg, 64-bit_address
@@ -985,19 +1079,15 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         // Operand type 0x01 = memory address (64-bit double)
         emit_byte(0x01);
         
-        // Memory address operand
+        // Memory address operand - mode-aware
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
+            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
         } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+            emit_mode_aware_address(addr_value);
         }
     } else if (mnemonic == "FADD" || mnemonic == "FSUB" || 
                mnemonic == "FMUL" || mnemonic == "FDIV") {
@@ -1030,19 +1120,15 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         // Operand type 0x01 = memory address (64-bit double)
         emit_byte(0x01);
         
-        // Memory address operand
+        // Memory address operand - mode-aware
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
+            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
         } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+            emit_mode_aware_address(addr_value);
         }
     } else if (instruction.mnemonic == "FILD") {
         // FILD - Load integer as floating point
@@ -1072,19 +1158,15 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         // Operand type 0x01 = memory address (32-bit integer)
         emit_byte(0x01);
         
-        // Memory address operand
+        // Memory address operand - mode-aware
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
+            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
         } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+            emit_mode_aware_address(addr_value);
         }
     } else if (instruction.mnemonic == "FIST" || instruction.mnemonic == "FISTP") {
         // FIST/FISTP - Store floating point as integer
@@ -1098,19 +1180,15 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         // Operand type 0x01 = memory address (32-bit integer)
         emit_byte(0x01);
         
-        // Memory address operand
+        // Memory address operand - mode-aware
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
+            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
         } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+            emit_mode_aware_address(addr_value);
         }
     } else if (instruction.mnemonic == "FSTCW" || instruction.mnemonic == "FLDCW") {
         // FSTCW/FLDCW - Store/Load FPU control word
@@ -1120,19 +1198,15 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             return;
         }
 
-        // Memory address operand (no operand type byte for these)
+        // Memory address operand (no operand type byte for these) - mode-aware
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
+            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
         } else {
-            // Emit 32-bit address directly
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+            emit_mode_aware_address(addr_value);
         }
     } else if (instruction.mnemonic == "FSTSW") {
         // FSTSW - Store FPU status word
@@ -1159,13 +1233,9 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
+            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
         } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
+            emit_mode_aware_address(addr_value);
         }
     } else if (instruction.mnemonic == "NOP" || instruction.mnemonic == "HALT" || 
                instruction.mnemonic == "RET" || instruction.mnemonic == "PUSH_FLAG" || 
@@ -1176,6 +1246,9 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                instruction.mnemonic == "FEXP" || instruction.mnemonic == "FLN" ||
                instruction.mnemonic == "FLG2" || instruction.mnemonic == "FLDPI" ||
                instruction.mnemonic == "FLDZ" || instruction.mnemonic == "FLD1" ||
+               // Interrupt instructions (no operands)
+               instruction.mnemonic == "CLI" || instruction.mnemonic == "STI" ||
+               instruction.mnemonic == "IRET" ||
                // SIMD instructions
                instruction.mnemonic == "VADD" || instruction.mnemonic == "VMUL" || 
                instruction.mnemonic == "VDOT" || instruction.mnemonic == "VMAX" || 
@@ -1187,6 +1260,28 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             return;
         }
         // Opcode already emitted, no additional bytes needed
+    } else if (instruction.mnemonic == "INT") {
+        // INT instruction: opcode + vector byte
+        if (instruction.operands.size() != 1) {
+            add_error("INT requires exactly 1 operand (interrupt vector)", instruction.line, instruction.column);
+            return;
+        }
+        
+        bool is_symbol;
+        std::string symbol;
+        int64_t vector = evaluate_expression(*instruction.operands[0], is_symbol, symbol);
+        
+        if (is_symbol) {
+            add_error("INT vector must be an immediate value, not a symbol", instruction.line, instruction.column);
+            return;
+        }
+        
+        if (vector < 0 || vector > 255) {
+            add_error("INT vector must be between 0 and 255", instruction.line, instruction.column);
+            return;
+        }
+        
+        emit_byte(static_cast<uint8_t>(vector));
     } else {
         add_error("Instruction encoding not implemented: " + instruction.mnemonic, instruction.line, instruction.column);
     }
@@ -1281,6 +1376,24 @@ void Assembler::AssemblerEngine::emit_qword(uint64_t qword) {
     emit_byte((qword >> 56) & 0xFF);
 }
 
+size_t Assembler::AssemblerEngine::get_address_size() const {
+    // Return address size based on current architecture setting
+    if (Config::architecture == Architecture::X64) {
+        return 8;  // 64-bit addresses
+    }
+    return 4;  // Default to 32-bit addresses (X86 or AUTO)
+}
+
+void Assembler::AssemblerEngine::emit_mode_aware_address(int64_t address) {
+    // Emit address based on current architecture mode
+    size_t addr_size = get_address_size();
+    if (addr_size == 8) {
+        emit_qword(static_cast<uint64_t>(address));
+    } else {
+        emit_dword(static_cast<uint32_t>(address));
+    }
+}
+
 void Assembler::AssemblerEngine::emit_forward_ref(const std::string& symbol, size_t size, bool relative) {
     forward_refs.push_back({current_address, symbol, size, relative});
         DEBUG_DETAIL(Logging::DebugCategory::ASM_FORWARD_REF, "emit_forward_ref: symbol='{}', address=0x{:04X}, size={}, relative={}", symbol, current_address, size, relative);
@@ -1291,45 +1404,65 @@ void Assembler::AssemblerEngine::emit_forward_ref(const std::string& symbol, siz
     }
 }
 
-size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemonic, const std::vector<std::unique_ptr<Assembler::Expression>>& /* operands */) {
+size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemonic, const std::vector<std::unique_ptr<Assembler::Expression>>& operands) {
     // Basic instruction size calculations for Demi Engine
     if (mnemonic == "NOP" || mnemonic == "HALT" || mnemonic == "RET" ||
         mnemonic == "PUSH_FLAG" || mnemonic == "POP_FLAG" ||
+        // Interrupt operations (no operands)
+        mnemonic == "CLI" || mnemonic == "STI" || mnemonic == "IRET" ||
         // SIMD instructions with no operands
         mnemonic == "VADD" || mnemonic == "VMUL" || mnemonic == "VDOT" ||
         mnemonic == "VMAX" || mnemonic == "VBROADCAST" || mnemonic == "VCMPGT" ||
         mnemonic == "PACKB" || mnemonic == "UNPACKB") {
         return 1;
+    } else if (mnemonic == "INT") {
+        return 2; // opcode + vector byte
     } else if (mnemonic == "LOAD_IMM") {
-        return 3; // opcode + register + 1-byte immediate
+        // Size depends on register type: 1-byte for 8-bit regs, 4-byte for 32-bit regs
+        if (operands.size() >= 1) {
+            if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(operands[0].get())) {
+                bool is_32bit_reg = (reg_expr->name.length() == 3 && reg_expr->name[0] == 'E');
+                return is_32bit_reg ? 6 : 3; // opcode + register + (4 or 1)-byte immediate
+            }
+        }
+        return 3; // default: opcode + register + 1-byte immediate
     } else if (mnemonic == "LOAD_IMM64") {
         return 10; // opcode + register + 8-byte immediate
     } else if (mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "MOV" ||
                mnemonic == "CMP" || mnemonic == "MUL" || mnemonic == "DIV" ||
                mnemonic == "MOD" || mnemonic == "AND" || mnemonic == "OR" ||
                mnemonic == "XOR" || mnemonic == "ADD64" || mnemonic == "SUB64" ||
-               mnemonic == "MOV64" || mnemonic == "CMP64") {
+               mnemonic == "MOV64" || mnemonic == "CMP64" || mnemonic == "MUL64" ||
+               mnemonic == "DIV64" || mnemonic == "MOD64" || mnemonic == "AND64" ||
+               mnemonic == "OR64" || mnemonic == "XOR64") {
         return 3; // opcode + reg1 + reg2 (2-operand instructions)
-    } else if (mnemonic == "MUL64" || mnemonic == "DIV64" || mnemonic == "AND64" ||
-               mnemonic == "OR64" || mnemonic == "XOR64" ||
-               mnemonic == "MOD64" || mnemonic == "MULEX" || mnemonic == "DIVEX") {
+    } else if (mnemonic == "MULEX" || mnemonic == "DIVEX") {
         return 4; // opcode + dest_reg + src_reg1 + src_reg2 (3-operand instructions)
-    } else if (mnemonic == "JMP" || mnemonic == "JZ" || mnemonic == "JNZ" ||
+    } else if (mnemonic == "JMP" || mnemonic == "JZ" || mnemonic == "JE" ||
+               mnemonic == "JNZ" || mnemonic == "JNE" ||
                mnemonic == "JS" || mnemonic == "JNS" || mnemonic == "JC" ||
                mnemonic == "JNC" || mnemonic == "JO" || mnemonic == "JNO" ||
                mnemonic == "JG" || mnemonic == "JL" || mnemonic == "JGE" ||
                mnemonic == "JLE" || mnemonic == "CALL") {
-        return 2; // opcode + address
+        // Mode-aware address size: 5 bytes in 32-bit mode, 9 bytes in 64-bit mode
+        return 1 + get_address_size(); // opcode + address
     } else if (mnemonic == "PUSH" || mnemonic == "POP" || mnemonic == "INC" ||
-               mnemonic == "DEC" || mnemonic == "NOT") {
+               mnemonic == "DEC" || mnemonic == "NOT" || mnemonic == "INC64" ||
+               mnemonic == "DEC64" || mnemonic == "NOT64") {
         return 2; // opcode + register
     } else if (mnemonic == "OUT" || mnemonic == "IN" || mnemonic == "OUTB" ||
                mnemonic == "INB" || mnemonic == "OUTW" || mnemonic == "INW" ||
                mnemonic == "OUTL" || mnemonic == "INL" || mnemonic == "OUTSTR" ||
-               mnemonic == "INSTR" || mnemonic == "LOAD" || mnemonic == "STORE" ||
-               mnemonic == "LEA" || mnemonic == "SWAP" || mnemonic == "SHL" ||
+               mnemonic == "INSTR" || mnemonic == "LOADR" ||
+               mnemonic == "STORER" || mnemonic == "SHL" ||
                mnemonic == "SHR") {
-        return 3; // opcode + register + address/port/immediate
+        return 3; // opcode + register + register/port/immediate
+    } else if (mnemonic == "SWAP") {
+        // Mode-aware address size: 6 bytes in 32-bit mode, 10 bytes in 64-bit mode
+        return 2 + get_address_size(); // opcode + register + address
+    } else if (mnemonic == "LOAD" || mnemonic == "STORE" || mnemonic == "LEA") {
+        // Mode-aware address size: 6 bytes in 32-bit mode, 10 bytes in 64-bit mode
+        return 2 + get_address_size(); // opcode + register + address
     } else if (mnemonic == "LOADEX" || mnemonic == "STOREX") {
         return 10; // opcode + register + 8-byte address
     }
@@ -1752,4 +1885,56 @@ void Assembler::AssemblerEngine::handle_data_section() {
 void Assembler::AssemblerEngine::handle_text_section() {
     current_section = ".text";
 }
+
+Architecture Assembler::AssemblerEngine::detect_architecture(const Program& program) {
+    // Scan program for architecture indicators
+    for (const auto& stmt : program.statements) {
+        if (stmt->type == ASTNodeType::DIRECTIVE) {
+            const auto& directive = static_cast<const Directive&>(*stmt);
+            if (directive.name == ".bits") {
+                if (!directive.arguments.empty()) {
+                    if (auto imm = dynamic_cast<const ImmediateExpression*>(directive.arguments[0].get())) {
+                        if (imm->value == 64) return Architecture::X64;
+                        if (imm->value == 32) return Architecture::X86;
+                    }
+                }
+            }
+        } else if (stmt->type == ASTNodeType::INSTRUCTION) {
+            const auto& instruction = static_cast<const Instruction&>(*stmt);
+            
+            // Check for 64-bit specific instructions
+            if (instruction.mnemonic == "MODE64") return Architecture::X64;
+            
+            // Check for 64-bit instruction suffixes
+            if (instruction.mnemonic.length() > 2) {
+                std::string suffix2 = instruction.mnemonic.substr(instruction.mnemonic.length() - 2);
+                if (suffix2 == "64" || suffix2 == "EX") return Architecture::X64;
+            }
+            
+            // Check operands for 64-bit registers
+            for (const auto& operand : instruction.operands) {
+                if (auto reg = dynamic_cast<const RegisterExpression*>(operand.get())) {
+                    std::string name = reg->name;
+                    // Check for R8-R15
+                    if (name.length() >= 2 && name[0] == 'R') {
+                        if (isdigit(name[1])) {
+                            int num = std::stoi(name.substr(1));
+                            if (num >= 8 && num <= 15) return Architecture::X64;
+                        }
+                    }
+                    // Check for standard 64-bit registers
+                    if (name == "RAX" || name == "RBX" || name == "RCX" || name == "RDX" ||
+                        name == "RSI" || name == "RDI" || name == "RBP" || name == "RSP" ||
+                        name == "RIP" || name == "RFLAGS") {
+                        return Architecture::X64;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Default to X86 if no 64-bit features detected
+    return Architecture::X86;
+}
+
 } // namespace Assembler

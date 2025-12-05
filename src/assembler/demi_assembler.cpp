@@ -1,4 +1,5 @@
 #include "demi_assembler.hpp"
+#include "../config.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 #include "preprocessor.hpp"
@@ -46,6 +47,11 @@ std::vector<uint8_t> DemiAssembler::assemble_string(const std::string& source) {
     // Code generation
     AssemblerEngine assembler;
     assembler.set_entry_point_symbol(entry_point_symbol);
+    // Architecture detection
+    if (Config::architecture == Architecture::AUTO) {
+        Architecture detected = assembler.detect_architecture(*program);
+        Config::architecture = detected;
+    }
     auto bytecode = assembler.assemble(*program);
 
     if (assembler.has_errors()) {
@@ -98,6 +104,11 @@ std::vector<uint8_t> DemiAssembler::assemble_string(const std::string& source, c
 
     // Code generation
     AssemblerEngine assembler;
+    // Architecture detection
+    if (Config::architecture == Architecture::AUTO) {
+        Architecture detected = assembler.detect_architecture(*program);
+        Config::architecture = detected;
+    }
     auto bytecode = assembler.assemble(*program);
 
     if (assembler.has_errors()) {
@@ -160,6 +171,11 @@ std::vector<uint8_t> DemiAssembler::assemble_file(const std::string& filename) {
     // Assembly
     AssemblerEngine assembler;
     assembler.set_entry_point_symbol(entry_point_symbol);
+    // Architecture detection
+    if (Config::architecture == Architecture::AUTO) {
+        Architecture detected = assembler.detect_architecture(*program);
+        Config::architecture = detected;
+    }
     auto bytecode = assembler.assemble(*program);
 
     if (assembler.has_errors()) {
