@@ -20,17 +20,18 @@ void handle_FSTSW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     // Get status word
     uint16_t status_word = cpu.get_fpu_status_word();
     
+    // Mode-aware address size
+    size_t addr_size = cpu.get_address_size();
+    
     if (operand_type == 0x00) {
         // Store to memory address
-        if (cpu.get_pc() + 6 > program.size()) {
+        size_t instr_size = 2 + addr_size;  // opcode + operand_type + address
+        if (cpu.get_pc() + instr_size > program.size()) {
             running = false;
             return;
         }
         
-        uint32_t addr = program[cpu.get_pc() + 2] |
-                       (program[cpu.get_pc() + 3] << 8) |
-                       (program[cpu.get_pc() + 4] << 16) |
-                       (program[cpu.get_pc() + 5] << 24);
+        uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
         
         // Check bounds - we need to write 2 bytes
         if (addr + 1 >= cpu.get_memory_size()) {
@@ -51,8 +52,8 @@ void handle_FSTSW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             cpu.get_pc(), status_word, addr
         ) << std::endl;
         
-        // Increment program counter (opcode + operand_type + 4 bytes address)
-        cpu.set_pc(cpu.get_pc() + 6);
+        // Increment program counter (opcode + operand_type + mode-aware address)
+        cpu.set_pc(cpu.get_pc() + instr_size);
     } else if (operand_type == 0x01) {
         // Store to AX register (RAX in our case)
         cpu.set_register(Register::RAX, static_cast<uint32_t>(status_word));

@@ -86,7 +86,7 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
         
         case static_cast<uint8_t>(Opcode::LOAD_IMM): {
             #ifndef NDEBUG
-            if (__builtin_expect(pc + 2 >= program.size(), 0)) {
+            if (__builtin_expect(pc + 5 >= program.size(), 0)) {
                 #ifdef VM_DEBUG_BOUNDS
                 Logger::instance().error() << fmt::format("[LOAD_IMM] Out of bounds at PC={}", pc) << std::endl;
                 #endif
@@ -96,10 +96,15 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             #endif
             
             uint8_t reg = program[pc + 1];
-            uint8_t value = program[pc + 2];
+            // Read 32-bit value (4 bytes) in little-endian format
+            uint32_t value = 0;
+            value |= static_cast<uint32_t>(program[pc + 2]);
+            value |= static_cast<uint32_t>(program[pc + 3]) << 8;
+            value |= static_cast<uint32_t>(program[pc + 4]) << 16;
+            value |= static_cast<uint32_t>(program[pc + 5]) << 24;
             
             #ifndef NDEBUG
-            if (__builtin_expect(reg >= cpu.get_registers().size(), 0)) {
+            if (__builtin_expect(reg >= cpu.get_registers_64().size(), 0)) {
                 #ifdef VM_DEBUG_BOUNDS
                 Logger::instance().error() << fmt::format("[LOAD_IMM] Invalid register R{}", reg) << std::endl;
                 #endif
@@ -115,12 +120,9 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             }
             #endif
             
-            cpu.get_registers()[reg] = value;
-            // Also update the 64-bit register array to maintain consistency
-            if (reg < cpu.get_registers_64().size()) {
-                cpu.get_registers_64()[reg] = static_cast<uint64_t>(value);
-            }
-            cpu.set_pc(pc + 3);
+            // Mode-aware register write
+            cpu.write_register_mode_aware(reg, static_cast<uint64_t>(value));
+            cpu.set_pc(pc + 6);
             break;
         }
         
@@ -136,15 +138,18 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             uint8_t reg2 = program[pc + 2];
             
             #ifndef NDEBUG
-            if (__builtin_expect(reg1 >= cpu.get_registers().size() || 
-                                 reg2 >= cpu.get_registers().size(), 0)) {
+            if (__builtin_expect(reg1 >= cpu.get_registers_64().size() || 
+                                 reg2 >= cpu.get_registers_64().size(), 0)) {
                 running = false;
                 return;
             }
             #endif
             
-            uint64_t old_value = cpu.get_registers()[reg1];
-            uint64_t result = old_value + cpu.get_registers()[reg2];
+            // Mode-aware addition
+            uint64_t old_value = cpu.read_register_mode_aware(reg1);
+            uint64_t val2 = cpu.read_register_mode_aware(reg2);
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t result = (old_value + val2) & mask;
             
             // Set flags for overflow and carry
             uint32_t flags = cpu.get_flags();
@@ -154,8 +159,9 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
                 flags &= ~FLAG_CARRY;
             }
             
-            if ((old_value & 0x80000000) == (cpu.get_registers()[reg2] & 0x80000000) &&
-                (result & 0x80000000) != (old_value & 0x80000000)) {
+            uint64_t sign_bit = cpu.is_64bit_mode() ? 0x8000000000000000ULL : 0x80000000ULL;
+            if ((old_value & sign_bit) == (val2 & sign_bit) &&
+                (result & sign_bit) != (old_value & sign_bit)) {
                 flags |= FLAG_OVERFLOW;
             } else {
                 flags &= ~FLAG_OVERFLOW;
@@ -168,13 +174,13 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             }
             
             cpu.set_flags(flags);
-            cpu.get_registers()[reg1] = result;
+            cpu.write_register_mode_aware(reg1, result);
             
             #ifndef NDEBUG
             if (Config::debug) {
                 Logger::instance().debug() << fmt::format(
                     "[PC=0x{:04X}] [ADD] R{} = {} + {} = {}", 
-                    pc, reg1, old_value, cpu.get_registers()[reg2], result) << std::endl;
+                    pc, reg1, old_value, val2, result) << std::endl;
             }
             #endif
             
@@ -194,20 +200,22 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             uint8_t reg2 = program[pc + 2];
             
             #ifndef NDEBUG
-            if (__builtin_expect(reg1 >= cpu.get_registers().size() || 
-                                 reg2 >= cpu.get_registers().size(), 0)) {
+            if (__builtin_expect(reg1 >= cpu.get_registers_64().size() || 
+                                 reg2 >= cpu.get_registers_64().size(), 0)) {
                 running = false;
                 return;
             }
             #endif
             
-            cpu.get_registers()[reg1] = cpu.get_registers()[reg2];
+            // Mode-aware register move
+            uint64_t value = cpu.read_register_mode_aware(reg2);
+            cpu.write_register_mode_aware(reg1, value);
             
             #ifndef NDEBUG
             if (Config::debug) {
                 Logger::instance().debug() << fmt::format(
                     "[PC=0x{:04X}] [MOV] R{} = R{} ({})", 
-                    pc, reg1, reg2, cpu.get_registers()[reg1]) << std::endl;
+                    pc, reg1, reg2, value) << std::endl;
             }
             #endif
             
@@ -284,9 +292,12 @@ bool handle_predictive_branch(CPU& cpu, const std::vector<uint8_t>& program,
     bool condition_met = false;
     uint32_t target_address = 0;
     
-    // Extract target address (assuming 1-byte operand)
-    if (pc + 1 < program.size()) {
-        target_address = program[pc + 1];
+    // Extract target address (4-byte operand)
+    if (pc + 5 <= program.size()) {
+        target_address |= static_cast<uint32_t>(program[pc + 1]);
+        target_address |= static_cast<uint32_t>(program[pc + 2]) << 8;
+        target_address |= static_cast<uint32_t>(program[pc + 3]) << 16;
+        target_address |= static_cast<uint32_t>(program[pc + 4]) << 24;
     }
     
     // Evaluate branch condition
@@ -329,14 +340,14 @@ bool handle_predictive_branch(CPU& cpu, const std::vector<uint8_t>& program,
         if (condition_met) {
             cpu.set_pc(target_address);
         } else {
-            cpu.set_pc(pc + 2); // Skip to next instruction
+            cpu.set_pc(pc + 5); // Skip to next instruction (opcode + 4 bytes address)
         }
     } else {
         // Prediction was wrong - execute correctly
         if (condition_met) {
             cpu.set_pc(target_address);
         } else {
-            cpu.set_pc(pc + 2);
+            cpu.set_pc(pc + 5);
         }
     }
     
@@ -344,7 +355,7 @@ bool handle_predictive_branch(CPU& cpu, const std::vector<uint8_t>& program,
     BranchPrediction::BranchOutcome outcome;
     outcome.pc = pc;
     outcome.actually_taken = condition_met;
-    outcome.actual_target = condition_met ? target_address : (pc + 2);
+    outcome.actual_target = condition_met ? target_address : (pc + 5);
     outcome.opcode = opcode;
     branch_predictor.update(outcome);
     

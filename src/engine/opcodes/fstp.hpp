@@ -22,19 +22,19 @@ void handle_FSTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // Get and pop value from ST(0)
     double value = cpu.fpu_pop();
     
+    // Mode-aware address size
+    size_t addr_size = cpu.get_address_size();
+    
     switch (operand_type) {
         case 0x00: {
             // FSTP to memory (32-bit float)
-            if (cpu.get_pc() + 4 > program.size()) {
+            if (cpu.get_pc() + addr_size > program.size()) {
                 running = false;
                 return;
             }
             
-            uint32_t addr = program[cpu.get_pc()] |
-                           (program[cpu.get_pc() + 1] << 8) |
-                           (program[cpu.get_pc() + 2] << 16) |
-                           (program[cpu.get_pc() + 3] << 24);
-            cpu.set_pc(cpu.get_pc() + 4);
+            uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc());
+            cpu.set_pc(cpu.get_pc() + addr_size);
             
             // Convert double to 32-bit float
             float float_val = static_cast<float>(value);
@@ -49,16 +49,13 @@ void handle_FSTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         
         case 0x01: {
             // FSTP to memory (64-bit double)
-            if (cpu.get_pc() + 4 > program.size()) {
+            if (cpu.get_pc() + addr_size > program.size()) {
                 running = false;
                 return;
             }
             
-            uint32_t addr = program[cpu.get_pc()] |
-                           (program[cpu.get_pc() + 1] << 8) |
-                           (program[cpu.get_pc() + 2] << 16) |
-                           (program[cpu.get_pc() + 3] << 24);
-            cpu.set_pc(cpu.get_pc() + 4);
+            uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc());
+            cpu.set_pc(cpu.get_pc() + addr_size);
             
             // Convert double to raw bytes
             uint64_t raw_double;
