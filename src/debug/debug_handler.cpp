@@ -27,14 +27,10 @@ DebugHandler::DebugHandler()
     , next_cycle_(0)
     , next_line_(0) {
     
-    // Enable common categories by default
-    enabled_categories_[DebugCategory::CPU_EXECUTION] = true;
-    enabled_categories_[DebugCategory::CPU_REGISTERS] = true;
-    enabled_categories_[DebugCategory::ASM_INSTRUCTION] = true;
-    enabled_categories_[DebugCategory::MEM_ACCESS] = true;
-    enabled_categories_[DebugCategory::TEST_EXECUTION] = true;
+    // All categories disabled by default - only enable when Config::debug is true
+    // This ensures no output appears without -d or -v flags
     
-    // Disable verbose categories by default
+    // Verbose categories explicitly disabled
     enabled_categories_[DebugCategory::CPU_DISPATCHER] = false;
     enabled_categories_[DebugCategory::CPU_PREDICTION] = false;
     enabled_categories_[DebugCategory::MEM_BOUNDS] = false;
@@ -198,6 +194,18 @@ void DebugHandler::set_session_recording(bool enabled, size_t max_entries) {
     }
 }
 
+void DebugHandler::enable_default_categories() {
+    std::lock_guard<std::mutex> lock(debug_mutex_);
+    // Enable common categories when debug mode is activated
+    enabled_categories_[DebugCategory::CPU_EXECUTION] = true;
+    enabled_categories_[DebugCategory::CPU_REGISTERS] = true;
+    enabled_categories_[DebugCategory::ASM_INSTRUCTION] = true;
+    enabled_categories_[DebugCategory::MEM_ACCESS] = true;
+    enabled_categories_[DebugCategory::TEST_EXECUTION] = true;
+    enabled_categories_[DebugCategory::ASM_PARSING] = true;
+    enabled_categories_[DebugCategory::ASM_FORWARD_REF] = true;
+}
+
 DebugHandler& DebugHandler::with_metadata(const std::string& key, const std::string& value) {
     next_metadata_[key] = value;
     return *this;
@@ -260,6 +268,8 @@ std::string DebugHandler::category_to_string(DebugCategory category) {
             return "ASM_ENCODING (0x105)";
         case DebugCategory::ASM_OPTIMIZATION:
             return "ASM_OPTIMIZATION (0x106)";
+        case DebugCategory::ASM_HEXDUMP:
+            return "ASM_HEXDUMP (0x107)";
             
         // Memory/Storage
         case DebugCategory::MEM_ACCESS:
@@ -492,16 +502,24 @@ void DebugHandler::reset_to_defaults() {
 }
 
 bool DebugHandler::should_filter_message(const DebugContext& debug) {
+    // Check if debug mode is enabled first (avoid processing if not needed)
+    if (!Config::debug && !force_next_ && debug.level != DebugLevel::CRITICAL) {
+        return true;  // Filter out when debug is disabled
+    }
+    
     // Never filter forced messages or critical messages
     if (force_next_ || debug.level == DebugLevel::CRITICAL) {
         return false;
     }
     
-    // Check if category is enabled
-    // Direct access to avoid deadlock if called from report()
-    auto cat_it = enabled_categories_.find(debug.category);
-    if (cat_it == enabled_categories_.end() || !cat_it->second) {
-        return true;
+    // When debug mode is on, check if category is explicitly disabled
+    // If category is not in the map, it's enabled by default when Config::debug is true
+    if (Config::debug) {
+        auto cat_it = enabled_categories_.find(debug.category);
+        if (cat_it != enabled_categories_.end() && !cat_it->second) {
+            return true;  // Category explicitly disabled
+        }
+        // Otherwise, category is enabled (either not in map or set to true)
     }
     
     // Check level filtering
@@ -540,15 +558,8 @@ bool DebugHandler::should_throttle_message(DebugCategory category) {
 }
 
 void DebugHandler::log_debug(const DebugContext& debug) {
-    // Only output debug messages if debug mode is enabled
-    if (!Config::debug) {
-        return;
-    }
-    
-    // Apply debug filtering (level, category, throttling)
-    if (should_filter_message(debug)) {
-        return;
-    }
+    // Note: Config::debug check is now done in should_filter_message to avoid duplicate checks
+    // This function is only called after should_filter_message passes in report()
     
     // FIXED: Direct C stdio output to avoid Logger circular dependency deadlock
     
@@ -573,6 +584,7 @@ void DebugHandler::log_debug(const DebugContext& debug) {
         case DebugCategory::ASM_FORWARD_REF: category_name = "ASM_FORWARD_REF"; break;
         case DebugCategory::ASM_ENCODING: category_name = "ASM_ENCODING"; break;
         case DebugCategory::ASM_OPTIMIZATION: category_name = "ASM_OPTIMIZATION"; break;
+        case DebugCategory::ASM_HEXDUMP: category_name = "ASM_HEXDUMP"; break;
         
         // Memory/Storage categories
         case DebugCategory::MEM_ACCESS: category_name = "MEM_ACCESS"; break;

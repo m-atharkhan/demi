@@ -42,6 +42,7 @@ enum class DebugCategory {
     ASM_FORWARD_REF = 0x104,
     ASM_ENCODING = 0x105,
     ASM_OPTIMIZATION = 0x106,
+    ASM_HEXDUMP = 0x107,
     
     // Memory/Storage (0x200-0x299)
     MEM_ACCESS = 0x200,
@@ -254,6 +255,11 @@ public:
      */
     void set_session_recording(bool enabled, size_t max_entries = 10000);
     
+    /**
+     * @brief Enable common debug categories (called when debug mode is enabled)
+     */
+    void enable_default_categories();
+    
     // ============================================================================
     // Advanced Features
     // ============================================================================
@@ -407,7 +413,7 @@ private:
         debug_ctx.function = __FUNCTION__; \
         debug_ctx.file = __FILE__; \
         debug_ctx.line = __LINE__; \
-        Logging::DebugHandler::instance().log_debug(debug_ctx); \
+        Logging::DebugHandler::instance().report(debug_ctx); \
     } while(0)
 
 #define DEBUG_INSTRUCTION(name, pc, operands, result) \
@@ -416,7 +422,7 @@ private:
         debug_ctx.function = __FUNCTION__; \
         debug_ctx.file = __FILE__; \
         debug_ctx.line = __LINE__; \
-        Logging::DebugHandler::instance().log_debug(debug_ctx); \
+        Logging::DebugHandler::instance().report(debug_ctx); \
     } while(0)
 
 #define DEBUG_MEMORY(message, addr, value, op) \
@@ -425,7 +431,7 @@ private:
         debug_ctx.function = __FUNCTION__; \
         debug_ctx.file = __FILE__; \
         debug_ctx.line = __LINE__; \
-        Logging::DebugHandler::instance().log_debug(debug_ctx); \
+        Logging::DebugHandler::instance().report(debug_ctx); \
     } while(0)
 
 #define DEBUG_CATEGORY(cat, level, message, ...) \
@@ -434,7 +440,7 @@ private:
         debug_ctx.function = __FUNCTION__; \
         debug_ctx.file = __FILE__; \
         debug_ctx.line = __LINE__; \
-        Logging::DebugHandler::instance().log_debug(debug_ctx); \
+        Logging::DebugHandler::instance().report(debug_ctx); \
     } while(0)
 
 #define DEBUG_TRACE(cat, message, ...) \
