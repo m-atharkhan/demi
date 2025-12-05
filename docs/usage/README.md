@@ -634,7 +634,7 @@ DemiEngine provides 14 powerful debug directives for program development and tro
 ```asm
 .dump                       ; Shows all registers, flags, PC, SP
 ```
-Output: `[PC=0x004A] MODE=x32 R0=0x64 R1=0x2A ... FLAGS=0x00000000`
+Output: `[PC=0x004A] MODE=x86 R0=0x64 R1=0x2A ... FLAGS=0x00000000`
 
 **3. `.memdump` - Hex dump with ASCII representation**
 ```asm
