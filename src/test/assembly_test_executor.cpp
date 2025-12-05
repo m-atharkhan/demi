@@ -207,11 +207,11 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         }
         
         // Debug: Print CPU state after execution
-        Logger::instance().debug() << fmt::format("After execution: EAX={}, EBX={}, ECX={}, EDX={}", 
+        DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "After execution: EAX={}, EBX={}, ECX={}, EDX={}", 
             cpu.get_register(static_cast<Register>(0)),
             cpu.get_register(static_cast<Register>(1)),
             cpu.get_register(static_cast<Register>(2)),
-            cpu.get_register(static_cast<Register>(3))) << std::endl;
+            cpu.get_register(static_cast<Register>(3)));
         
         // Evaluate assertions
         for (const auto& stmt : test_case.body) {
@@ -472,11 +472,13 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
     // If we only have HALT instruction (and maybe test assertions), use brace tracking
     bool use_brace_tracking = (meaningful_statements <= 1);
 
-    // Check if the test uses braces in the source (new style .test)
+    // Check if the test uses braces in the source (new style .test or #test)
     // This ensures we correctly extract the body even if it contains directives like section/global
-    std::string test_decl = ".test \"" + current_test_name + "\"";
+    std::string test_decl_dot = ".test \"" + current_test_name + "\"";
+    std::string test_decl_hash = "#test \"" + current_test_name + "\"";
     for (const auto& line : source_lines) {
-        if (line.find(test_decl) != std::string::npos && line.find("{") != std::string::npos) {
+        if ((line.find(test_decl_dot) != std::string::npos || line.find(test_decl_hash) != std::string::npos) 
+            && line.find("{") != std::string::npos) {
             use_brace_tracking = true;
             break;
         }
@@ -552,11 +554,13 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
         // Strategy 2: Use brace tracking for tests with only function macro calls
         // (no recognized statements)
         
-        // Find the current test case in the source
-        std::string test_marker = ".test \"" + current_test_name + "\"";
+        // Find the current test case in the source (support both .test and #test syntax)
+        std::string test_marker_dot = ".test \"" + current_test_name + "\"";
+        std::string test_marker_hash = "#test \"" + current_test_name + "\"";
         int test_start = -1;
         for (size_t i = 0; i < source_lines.size(); i++) {
-            if (source_lines[i].find(test_marker) != std::string::npos) {
+            if (source_lines[i].find(test_marker_dot) != std::string::npos ||
+                source_lines[i].find(test_marker_hash) != std::string::npos) {
                 DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Found test marker at line {}", i);
                 test_start = i;
                 break;
@@ -703,6 +707,11 @@ int TestExecutor::get_register_number(const Assembler::Expression& expr) {
         if (reg->name == "RSI") return 6;
         if (reg->name == "RDI") return 7;
 
+        // Handle special registers (from cpu_registers.hpp)
+        if (reg->name == "RIP") return 47;
+        if (reg->name == "RFLAGS" || reg->name == "FLAGS") return 48;
+        if (reg->name == "MSW") return 49;
+
         // Extract register number from name (e.g., "R0" -> 0)
         if (reg->name.size() > 1 && reg->name[0] == 'R') {
             try {
@@ -830,90 +839,88 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
         
         // For non-quiet mode, show detailed test information
         if (!Config::quiet_assembly_test) {
-            // Print test metadata
+            // Print test name
             if (!result.test_name.empty()) {
-                Logger::instance().info() << fmt::format("\033[1mTest: {}\033[0m", result.test_name) << std::endl;
+                fmt::print("\033[1mTest: {}\033[0m\n", result.test_name);
             }
-            if (!result.description.empty()) {
-                Logger::instance().info() << fmt::format("  Description: {}", result.description) << std::endl;
-            }
-            if (!result.author.empty()) {
-                Logger::instance().info() << fmt::format("  Author: {}", result.author) << std::endl;
-            }
-            if (!result.category.empty()) {
-                Logger::instance().info() << fmt::format("  Category: {}", result.category) << std::endl;
-            }
-            if (!result.tags.empty()) {
-                std::string tags_str = "  Tags: ";
-                for (size_t i = 0; i < result.tags.size(); ++i) {
-                    if (i > 0) tags_str += ", ";
-                    tags_str += result.tags[i];
+            
+            // Print test metadata only when --show-metadata is enabled
+            if (Config::show_test_metadata) {
+                if (!result.description.empty()) {
+                    fmt::print("  Description: {}\n", result.description);
                 }
-                Logger::instance().info() << tags_str << std::endl;
+                if (!result.author.empty()) {
+                    fmt::print("  Author: {}\n", result.author);
+                }
+                if (!result.category.empty()) {
+                    fmt::print("  Category: {}\n", result.category);
+                }
+                if (!result.tags.empty()) {
+                    std::string tags_str = "  Tags: ";
+                    for (size_t i = 0; i < result.tags.size(); ++i) {
+                        if (i > 0) tags_str += ", ";
+                        tags_str += result.tags[i];
+                    }
+                    fmt::print("{}\n", tags_str);
+                }
             }
             
             // Print test result
             if (result.skipped) {
-                Logger::instance().info() << "\033[33m⊘ Test skipped\033[0m" << std::endl;
+                fmt::print("\033[33m⊘ Test skipped\033[0m\n");
             } else if (result.passed) {
-                Logger::instance().info() << "\033[32m✓ Test completed successfully\033[0m" << std::endl;
+                fmt::print("\033[32m✓ Test completed successfully\033[0m\n");
             } else {
-                Logger::instance().error() << "\033[31m✗ Test failed\033[0m" << std::endl;
+                fmt::print(stderr, "\033[31m✗ Test failed\033[0m\n");
                 
                 if (!result.error_message.empty()) {
-                    Logger::instance().error() << fmt::format("  Error: {}", result.error_message) << std::endl;
+                    fmt::print(stderr, "  Error: {}\n", result.error_message);
                 }
                 
                 // Print failed assertions with detailed information
                 for (const auto& assertion : result.assertions) {
                     if (!assertion.passed) {
-                        Logger::instance().error() << fmt::format(
-                            "  \033[31m✗\033[0m {} at line {}: {}",
+                        fmt::print(stderr, "  \033[31m✗\033[0m {} at line {}: {}\n",
                             assertion.assertion_type,
                             assertion.line,
-                            assertion.message
-                        ) << std::endl;
+                            assertion.message);
                     } else {
-                        Logger::instance().info() << fmt::format(
-                            "  \033[32m✓\033[0m {} at line {}: {}",
+                        fmt::print("  \033[32m✓\033[0m {} at line {}: {}\n",
                             assertion.assertion_type,
                             assertion.line,
-                            assertion.message
-                        ) << std::endl;
+                            assertion.message);
                     }
                 }
             }
-            Logger::instance().info() << std::endl; // Add spacing between tests
+            fmt::print("\n"); // Add spacing between tests
         } else {
             // For quiet mode, print test name and description, plus error details for failures
             if (result.passed) {
-                Logger::instance().info() << result.test_name << std::endl;
+                fmt::print("{}\n", result.test_name);
             } else {
-                Logger::instance().error() << result.test_name << std::endl;
+                fmt::print(stderr, "{}\n", result.test_name);
             }
             if (!result.description.empty()) {
                 if (result.passed) {
-                    Logger::instance().info() << fmt::format("  {}", result.description) << std::endl;
+                    fmt::print("  {}\n", result.description);
                 } else {
-                    Logger::instance().error() << fmt::format("  {}", result.description) << std::endl;
+                    fmt::print(stderr, "  {}\n", result.description);
                 }
             }
             
             // In quiet mode, still show error details for failed tests
             if (!result.passed) {
                 if (!result.error_message.empty()) {
-                    Logger::instance().error() << fmt::format("  Error: {}", result.error_message) << std::endl;
+                    fmt::print(stderr, "  Error: {}\n", result.error_message);
                 }
                 
                 // Print failed assertions with detailed information
                 for (const auto& assertion : result.assertions) {
                     if (!assertion.passed) {
-                        Logger::instance().error() << fmt::format(
-                            "  \033[31m✗\033[0m {} at line {}: {}",
+                        fmt::print(stderr, "  \033[31m✗\033[0m {} at line {}: {}\n",
                             assertion.assertion_type,
                             assertion.line,
-                            assertion.message
-                        ) << std::endl;
+                            assertion.message);
                     }
                 }
             }
@@ -922,7 +929,7 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
     
     // Print enhanced summary (skip in quiet mode)
     if (!Config::quiet_assembly_test) {
-        Logger::instance().info() << "\033[1m=== Test Summary ===\033[0m" << std::endl;
+        fmt::print("\033[1m=== Test Summary ===\033[0m\n");
         
         // Show filtered statistics if filtering is active
         if (Config::test_show_mode != TestShowMode::ALL) {
@@ -933,58 +940,34 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
                 default: mode_name = "Shown"; break;
             }
             
-            Logger::instance().info() << fmt::format(
-                "{} Tests: {} ({}passed: {}{}, {}failed: {}{})",
-                mode_name,
-                shown_tests,
-                "\033[32m", shown_passed, "\033[0m",
-                "\033[31m", shown_failed, "\033[0m"
-            ) << std::endl;
+            fmt::print("{} Tests: {} (\033[32mpassed: {}\033[0m, \033[31mfailed: {}\033[0m)\n",
+                mode_name, shown_tests, shown_passed, shown_failed);
             
-            Logger::instance().info() << fmt::format(
-                "{} Assertions: {} ({}passed: {}{}, {}failed: {}{})",
-                mode_name,
-                shown_assertions,
-                "\033[32m", shown_passed_assertions, "\033[0m",
-                "\033[31m", shown_assertions - shown_passed_assertions, "\033[0m"
-            ) << std::endl;
+            fmt::print("{} Assertions: {} (\033[32mpassed: {}\033[0m, \033[31mfailed: {}\033[0m)\n",
+                mode_name, shown_assertions, shown_passed_assertions, 
+                shown_assertions - shown_passed_assertions);
         } else {
             // Show all statistics
-            Logger::instance().info() << fmt::format(
-                "Total Tests: {} ({}passed: {}{}, {}failed: {}{}, {}skipped: {}{})",
-                total_tests,
-                "\033[32m", passed_tests, "\033[0m",
-                "\033[31m", failed_tests, "\033[0m",
-                "\033[36m", skipped_tests, "\033[0m"
-            ) << std::endl;
+            fmt::print("Total Tests: {} (\033[32mpassed: {}\033[0m, \033[31mfailed: {}\033[0m, \033[36mskipped: {}\033[0m)\n",
+                total_tests, passed_tests, failed_tests, skipped_tests);
             
-            Logger::instance().info() << fmt::format(
-                "Total Assertions: {} ({}passed: {}{}, {}failed: {}{})",
-                total_assertions,
-                "\033[32m", passed_assertions, "\033[0m",
-                "\033[31m", total_assertions - passed_assertions, "\033[0m"
-            ) << std::endl;
+            fmt::print("Total Assertions: {} (\033[32mpassed: {}\033[0m, \033[31mfailed: {}\033[0m)\n",
+                total_assertions, passed_assertions, total_assertions - passed_assertions);
         }
         
-        Logger::instance().info() << fmt::format(
-            "Total Execution Time: {:.2f}ms",
-            total_execution_time
-        ) << std::endl;
+        fmt::print("Total Execution Time: {:.2f}ms\n", total_execution_time);
         
         // Category breakdown - show filtered categories if filtering is active
         auto& category_display = (Config::test_show_mode != TestShowMode::ALL) ? shown_category_totals : category_totals;
         auto& category_display_passed = (Config::test_show_mode != TestShowMode::ALL) ? shown_category_passed : category_passed;
         
         if (!category_display.empty()) {
-            Logger::instance().info() << "\033[1mBy Category:\033[0m" << std::endl;
+            fmt::print("\033[1mBy Category:\033[0m\n");
             for (const auto& [category, total] : category_display) {
                 size_t cat_passed = category_display_passed[category];
                 size_t cat_failed = total - cat_passed;
                 const char* color = (cat_failed == 0) ? "\033[32m" : "\033[33m";
-                Logger::instance().info() << fmt::format(
-                    "  {}{}: {}/{} passed{}",
-                    color, category, cat_passed, total, "\033[0m"
-                ) << std::endl;
+                fmt::print("  {}{}: {}/{} passed\033[0m\n", color, category, cat_passed, total);
             }
         }
         
@@ -998,24 +981,18 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
                     case TestShowMode::SUCCESS: mode_name = "successful"; break;
                     default: mode_name = "matching"; break;
                 }
-                Logger::instance().info() << fmt::format("\033[1;36mNo {} tests found.\033[0m", mode_name) << std::endl;
+                fmt::print("\033[1;36mNo {} tests found.\033[0m\n", mode_name);
             } else if (shown_passed == shown_tests) {
-                Logger::instance().info() << fmt::format("\033[1;32m✓ All {} shown tests passed!\033[0m", shown_tests) << std::endl;
+                fmt::print("\033[1;32m✓ All {} shown tests passed!\033[0m\n", shown_tests);
             } else {
-                Logger::instance().error() << fmt::format(
-                    "\033[1;31m✗ {} test(s) failed\033[0m",
-                    shown_failed
-                ) << std::endl;
+                fmt::print(stderr, "\033[1;31m✗ {} test(s) failed\033[0m\n", shown_failed);
             }
         } else {
             // Show overall result for all tests
             if (passed_tests == total_tests) {
-                Logger::instance().info() << "\033[1;32m✓ All tests passed!\033[0m" << std::endl;
+                fmt::print("\033[1;32m✓ All tests passed!\033[0m\n");
             } else {
-                Logger::instance().error() << fmt::format(
-                    "\033[1;31m✗ {} test(s) failed\033[0m",
-                    failed_tests
-                ) << std::endl;
+                fmt::print(stderr, "\033[1;31m✗ {} test(s) failed\033[0m\n", failed_tests);
             }
         }
     } else {
@@ -1029,16 +1006,12 @@ void TestExecutor::print_results(const std::vector<TestResult>& results) {
                 default: mode_name = "Shown"; break;
             }
             
-            Logger::instance().info() << fmt::format(
-                "{} Tests: {} (passed: {}, failed: {})",
-                mode_name, shown_tests, shown_passed, shown_failed
-            ) << std::endl;
+            fmt::print("{} Tests: {} (passed: {}, failed: {})\n",
+                mode_name, shown_tests, shown_passed, shown_failed);
         } else {
             // Show all statistics
-            Logger::instance().info() << fmt::format(
-                "Total Tests: {} (passed: {}, failed: {}, skipped: {})",
-                total_tests, passed_tests, failed_tests, skipped_tests
-            ) << std::endl;
+            fmt::print("Total Tests: {} (passed: {}, failed: {}, skipped: {})\n",
+                total_tests, passed_tests, failed_tests, skipped_tests);
         }
     }
 }

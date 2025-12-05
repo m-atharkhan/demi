@@ -115,12 +115,12 @@
     ; Test FSIN: sin(0) = 0
     FLD 0
     FSIN
-    FST 0x200
+    FST 0x120
     
     ; Test FCOS: cos(0) = 1
     FLD 0
     FCOS
-    FST 0x208
+    FST 0x128
     
     ; Verify CPU still functional
     LOAD_IMM EBX, 0

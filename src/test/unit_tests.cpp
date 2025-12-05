@@ -34,8 +34,8 @@ TEST_CASE(cpu_reset, "cpu") {
 TEST_CASE(load_immediate, "instructions") {
     // Test LOAD_IMM instruction
     ctx.load_program({
-        0x01, 0x00, 0x05,  // LOAD_IMM EAX, 5
-        0x01, 0x01, 0x0A,  // LOAD_IMM EBX, 10
+        0x01, 0x00, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 5
+        0x01, 0x01, 0x0A, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 10
         0xFF               // HALT
     });
 
@@ -56,82 +56,117 @@ TEST_CASE(load_immediate, "instructions") {
 }
 
 TEST_CASE(add_instruction, "arithmetic") {
-    // Test ADD instruction
+    // Test ADD instruction with comprehensive assertions
     ctx.load_program({
-        0x01, 0x00, 0x05,  // LOAD_IMM EAX, 5
-        0x01, 0x01, 0x03,  // LOAD_IMM EBX, 3
+        0x01, 0x00, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 5 (6-byte format)
+        0x01, 0x01, 0x03, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 3 (6-byte format)
         0x02, 0x00, 0x01,                     // ADD EAX, EBX
         0xFF                                  // HALT
     });
 
     ctx.execute_program();
 
-    // Check that EAX contains the sum
+    // Primary assertion: EAX contains the sum
     ctx.assert_register_eq(0, 8);
 
-    // Check that EBX is unchanged
-    ctx.assert_register_eq(1, 3);
+    // Secondary assertions: verify other state
+    ctx.assert_register_eq(1, 3);    // EBX unchanged (operand preserved)
+    ctx.assert_register_eq(2, 0);    // ECX still zero
+    ctx.assert_register_eq(3, 0);    // EDX still zero
+    
+    // Flag assertions
+    ctx.assert_zero_flag_clear();    // Result 8 is non-zero
+    ctx.assert_carry_flag_clear();   // No overflow occurred
+    ctx.assert_overflow_flag_clear(); // No signed overflow
+    
+    // Mode assertions
+    ctx.assert_32bit_mode();          // Should be in 32-bit mode
+    ctx.assert_register_upper_bits_zero(0);  // Upper 32 bits should be zero
 }
 
 TEST_CASE(sub_instruction, "arithmetic") {
-    // Test SUB instruction
+    // Test SUB instruction with comprehensive assertions
     ctx.load_program({
-        0x01, 0x00, 0x0A,  // LOAD_IMM EAX, 10
-        0x01, 0x01, 0x03,  // LOAD_IMM EBX, 3
+        0x01, 0x00, 0x0A, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 10 (6-byte format)
+        0x01, 0x01, 0x03, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 3 (6-byte format)
         0x03, 0x00, 0x01,                     // SUB EAX, EBX
         0xFF                                  // HALT
     });
 
     ctx.execute_program();
 
-    // Check that EAX contains the difference
+    // Primary assertion: EAX contains the difference
     ctx.assert_register_eq(0, 7);
 
-    // Check that EBX is unchanged
-    ctx.assert_register_eq(1, 3);
+    // Secondary assertions: verify other state
+    ctx.assert_register_eq(1, 3);    // EBX unchanged (operand preserved)
+    ctx.assert_register_eq(2, 0);    // ECX still zero
+    ctx.assert_register_eq(3, 0);    // EDX still zero
+    
+    // Flag assertions
+    ctx.assert_zero_flag_clear();    // Result 7 is non-zero
+    ctx.assert_carry_flag_clear();   // No borrow occurred (10 > 3)
+    ctx.assert_sign_flag_clear();    // Result is positive
+    
+    // Mode assertions
+    ctx.assert_32bit_mode();          // Should be in 32-bit mode
+    ctx.assert_register_upper_bits_zero(0);  // Upper 32 bits should be zero
 }
 
 TEST_CASE(cmp_instruction_flags, "flags") {
-    // Test CMP instruction flag setting
+    // Test CMP instruction flag setting with equal values
     ctx.load_program({
-        0x01, 0x00, 0x05,  // LOAD_IMM EAX, 5
-        0x01, 0x01, 0x05,  // LOAD_IMM EBX, 5
+        0x01, 0x00, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 5
+        0x01, 0x01, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 5
         0x0A, 0x00, 0x01,                     // CMP EAX, EBX
         0xFF                                  // HALT
     });
 
     ctx.execute_program();
 
-    // Check that zero flag is set (5 - 5 = 0)
-    ctx.assert_flag_set(FLAG_ZERO);
-
-    // Check that sign flag is not set
-    ctx.assert_flag_clear(FLAG_SIGN);
+    // Primary flag assertions
+    ctx.assert_zero_flag_set();         // 5 - 5 = 0, so zero flag should be set
+    ctx.assert_sign_flag_clear();       // Result is zero, not negative
+    ctx.assert_carry_flag_clear();      // No borrow (5 >= 5)
+    ctx.assert_overflow_flag_clear();   // No signed overflow
+    
+    // CMP should NOT modify operand registers
+    ctx.assert_register_eq(0, 5);       // EAX unchanged
+    ctx.assert_register_eq(1, 5);       // EBX unchanged
+    
+    // Mode assertion
+    ctx.assert_32bit_mode();
 }
 
 TEST_CASE(cmp_instruction_different, "flags") {
-    // Test CMP instruction with EAX < EBX
+    // Test CMP instruction with EAX < EBX (borrow case)
     ctx.load_program({
-        0x01, 0x00, 0x03,  // LOAD_IMM EAX, 3
-        0x01, 0x01, 0x05,  // LOAD_IMM EBX, 5
+        0x01, 0x00, 0x03, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 3
+        0x01, 0x01, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 5
         0x0A, 0x00, 0x01,                     // CMP EAX, EBX (3 - 5 = -2)
         0xFF                                  // HALT
     });
 
     ctx.execute_program();
 
-    // Check that zero flag is not set
-    ctx.assert_flag_clear(FLAG_ZERO);
-
-    // Check that sign flag is set (negative result)
-    ctx.assert_flag_set(FLAG_SIGN);
+    // Primary flag assertions
+    ctx.assert_zero_flag_clear();       // Result -2 is non-zero
+    ctx.assert_sign_flag_set();         // Result is negative
+    ctx.assert_carry_flag_set();        // Borrow occurred (3 < 5)
+    
+    // CMP should NOT modify operand registers
+    ctx.assert_register_eq(0, 3);       // EAX unchanged
+    ctx.assert_register_eq(1, 5);       // EBX unchanged
+    
+    // Mode assertion
+    ctx.assert_32bit_mode();
 }
 
 TEST_CASE_EXPECT_ERROR(division_by_zero, "arithmetic") {
     // Test that division by zero throws an error
     ctx.load_program({
-        0x01, 0x00, 0x0A,  // LOAD_IMM EAX, 10
-        0x01, 0x01, 0x00,  // LOAD_IMM EBX, 0
+        0x01, 0x00, 0x0A, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 10
+        0x01, 0x01, 0x00, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0
         0x11, 0x00, 0x01,                     // DIV EAX, EBX
         0xFF                                  // HALT
     });
@@ -141,28 +176,45 @@ TEST_CASE_EXPECT_ERROR(division_by_zero, "arithmetic") {
 }
 
 TEST_CASE(memory_operations, "memory") {
-    // Test that we can load and store values in memory
-    ctx.load_program({
-        0x01, 0x00, 0x42,  // LOAD_IMM EAX, 0x42
-        0x07, 0x00, 0x10,                     // STORE EAX, 0x10
-        0x01, 0x01, 0x00,  // LOAD_IMM EBX, 0 (clear EBX)
-        0x06, 0x01, 0x10,                     // LOAD EBX, 0x10
-        0xFF                                  // HALT
-    });
+    // Test that we can load and store values in memory with comprehensive checks
+    // Uses assembler to generate correct bytecode format
+    // Note: x86 register numbering: EAX=0, ECX=1, EDX=2, EBX=3, ESP=4, EBP=5, ESI=6, EDI=7
+    // Use address 0x50 to avoid overlap with program bytecode (program is ~26 bytes)
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0x42
+        STORE EAX, 0x50
+        LOAD_IMM EBX, 0
+        LOAD EBX, 0x50
+        HALT
+    )");
 
     ctx.execute_program();
 
-    // Check that value was stored and loaded correctly
-    ctx.assert_register_eq(0, 0x42);
-    ctx.assert_register_eq(1, 0x42);
-    ctx.assert_memory_eq(0x10, 0x42);
+    // Primary assertions: value stored and loaded correctly
+    // EAX is R0, EBX is R3 in x86 convention
+    ctx.assert_register_eq(0, 0x42);    // EAX (R0) should have original value
+    ctx.assert_register_eq(3, 0x42);    // EBX (R3) should have loaded value
+    
+    // Memory assertions (STORE writes 4 bytes in 32-bit mode)
+    ctx.assert_memory_eq(0x50, 0x42);   // Memory at address 0x50 should contain 0x42
+    ctx.assert_memory_eq(0x51, 0x00);   // Adjacent bytes should be zero (little-endian)
+    ctx.assert_memory_eq(0x52, 0x00);
+    ctx.assert_memory_eq(0x53, 0x00);
+    
+    // Other registers should be unaffected
+    ctx.assert_register_eq(1, 0);       // ECX still zero
+    ctx.assert_register_eq(2, 0);       // EDX still zero
+    
+    // Mode assertion
+    ctx.assert_32bit_mode();
 }
 
 TEST_CASE(program_counter_progression, "cpu") {
     // Test that PC advances correctly with simple instructions
     // Use a different instruction that might work better than NOP
     ctx.load_program({
-        0x01, 0x00, 0x01,  // LOAD_IMM EAX, 1  (3 bytes)
+        0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 1 (6 bytes)
         0xFF               // HALT
     });
 
@@ -170,14 +222,14 @@ TEST_CASE(program_counter_progression, "cpu") {
     ctx.assert_pc_eq(0);
 
     ctx.execute_single_step();  // LOAD_IMM EAX, 1
-    ctx.assert_pc_eq(3);  // Should advance by 3 for LOAD_IMM
+    ctx.assert_pc_eq(6);  // Should advance by 6 for LOAD_IMM (6-byte format)
 }
 
 TEST_CASE(stack_operations, "stack") {
     // Test PUSH and POP operations
     ctx.load_program({
-        0x01, 0x00, 0x42,  // LOAD_IMM EAX, 66
-        0x01, 0x01, 0x84,  // LOAD_IMM EBX, 132
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x01, 0x01, 0x84, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 132
         0x08, 0x00,                           // PUSH EAX
         0x08, 0x01,                           // PUSH EBX
         0x09, 0x02,                           // POP ECX
@@ -197,14 +249,23 @@ TEST_CASE(stack_operations, "stack") {
 
 TEST_CASE(conditional_jumps, "control_flow") {
     // Test conditional jump (JZ after CMP)
+    // Instruction layout with 6-byte LOAD_IMM and 4-byte addresses:
+    // PC=0: LOAD_IMM EAX, 5 (6 bytes) -> next at 6
+    // PC=6: LOAD_IMM EBX, 5 (6 bytes) -> next at 12
+    // PC=12: CMP EAX, EBX (3 bytes) -> next at 15
+    // PC=15: JZ target (5 bytes - opcode + 4-byte addr) -> next at 20
+    // PC=20: LOAD_IMM ECX, 153 (6 bytes) -> next at 26 (should be skipped)
+    // PC=26: LOAD_IMM EDX, 119 (6 bytes) -> next at 32
+    // PC=32: HALT
+    // If equal, JZ should jump to PC=26 to skip the ECX load
     ctx.load_program({
-        0x01, 0x00, 0x05,  // LOAD_IMM EAX, 5
-        0x01, 0x01, 0x05,  // LOAD_IMM EBX, 5
-        0x0A, 0x00, 0x01,  // CMP EAX, EBX
-        0x0B, 0x0E,        // JZ 14 (skip next instruction)
-        0x01, 0x02, 0x99,  // LOAD_IMM ECX, 153 (should be skipped)
-        0x01, 0x03, 0x77,  // LOAD_IMM EDX, 119
-        0xFF               // HALT
+        0x01, 0x00, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 5 (PC=0)
+        0x01, 0x01, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 5 (PC=6)
+        0x0A, 0x00, 0x01,                     // CMP EAX, EBX (PC=12)
+        0x0B, 0x1A, 0x00, 0x00, 0x00,        // JZ 0x1A (26) - jump to LOAD_IMM EDX (PC=15)
+        0x01, 0x02, 0x99, 0x00, 0x00, 0x00,  // LOAD_IMM ECX, 153 (PC=20, should be skipped)
+        0x01, 0x03, 0x77, 0x00, 0x00, 0x00,  // LOAD_IMM EDX, 119 (PC=26)
+        0xFF                                  // HALT (PC=32)
     });
 
     ctx.execute_program();
@@ -219,12 +280,13 @@ TEST_CASE(conditional_jumps, "control_flow") {
 
 TEST_CASE(memory_load_store, "memory") {
     // Test LOAD and STORE operations
+    // STORE and LOAD now use mode-aware 4-byte addresses in 32-bit mode
     ctx.load_program({
-        0x01, 0x00, 0x42,  // LOAD_IMM EAX, 66
-        0x07, 0x00, 0x64,  // STORE EAX, 0x64 (store EAX to address 100)
-        0x01, 0x00, 0x00,  // LOAD_IMM EAX, 0 (clear EAX)
-        0x06, 0x00, 0x64,  // LOAD EAX, 0x64 (load from address 100)
-        0xFF               // HALT
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x07, 0x00, 0x64, 0x00, 0x00, 0x00,  // STORE EAX, 0x64 (store EAX to address 100)
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0 (clear EAX)
+        0x06, 0x00, 0x64, 0x00, 0x00, 0x00,  // LOAD EAX, 0x64 (load from address 100)
+        0xFF                                  // HALT
     });
 
     ctx.execute_program();
@@ -238,8 +300,8 @@ TEST_CASE(memory_load_store, "memory") {
 TEST_CASE(io_operations, "devices") {
     // Test input/output operations
     ctx.load_program({
-        0x01, 0x00, 0x42,  // LOAD_IMM EAX, 66
-        0x01, 0x01, 0x01,  // LOAD_IMM EBX, 1 (console port)
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x01, 0x01, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 1 (console port)
         0x31, 0x00, 0x01,  // OUT EAX, EBX (output to console)
         0x30, 0x02, 0x01,  // IN ECX, EBX (read from console)
         0xFF               // HALT
@@ -256,14 +318,14 @@ TEST_CASE(io_operations, "devices") {
 TEST_CASE(bitwise_operations, "bitwise") {
     // Test AND, OR, XOR operations
     ctx.load_program({
-        0x01, 0x00, 0x0F,  // LOAD_IMM EAX, 15 (0x0F)
-        0x01, 0x01, 0x33,  // LOAD_IMM EBX, 51 (0x33)
+        0x01, 0x00, 0x0F, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 15 (0x0F)
+        0x01, 0x01, 0x33, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 51 (0x33)
         0x14, 0x00, 0x01,                     // AND EAX, EBX (0x0F & 0x33 = 0x03)
-        0x01, 0x02, 0x0F,  // LOAD_IMM ECX, 15 (0x0F)
-        0x01, 0x03, 0x33,  // LOAD_IMM EDX, 51 (0x33)
+        0x01, 0x02, 0x0F, 0x00, 0x00, 0x00,  // LOAD_IMM ECX, 15 (0x0F)
+        0x01, 0x03, 0x33, 0x00, 0x00, 0x00,  // LOAD_IMM EDX, 51 (0x33)
         0x15, 0x02, 0x03,                     // OR ECX, EDX (0x0F | 0x33 = 0x3F)
-        0x01, 0x04, 0x0F,  // LOAD_IMM ESI, 15 (0x0F)
-        0x01, 0x05, 0x33,  // LOAD_IMM EDI, 51 (0x33)
+        0x01, 0x04, 0x0F, 0x00, 0x00, 0x00,  // LOAD_IMM ESI, 15 (0x0F)
+        0x01, 0x05, 0x33, 0x00, 0x00, 0x00,  // LOAD_IMM EDI, 51 (0x33)
         0x16, 0x04, 0x05,                     // XOR ESI, EDI (0x0F ^ 0x33 = 0x3C)
         0xFF                                  // HALT
     });
@@ -279,9 +341,9 @@ TEST_CASE(bitwise_operations, "bitwise") {
 TEST_CASE(shift_operations, "bitwise") {
     // Test SHL and SHR operations
     ctx.load_program({
-        0x01, 0x00, 0x08,  // LOAD_IMM EAX, 8
+        0x01, 0x00, 0x08, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 8
         0x18, 0x00, 0x02,  // SHL EAX, 2 (immediate) (8 << 2 = 32)
-        0x01, 0x02, 0x20,  // LOAD_IMM ECX, 32
+        0x01, 0x02, 0x20, 0x00, 0x00, 0x00,  // LOAD_IMM ECX, 32
         0x19, 0x02, 0x02,  // SHR ECX, 2 (immediate) (32 >> 2 = 8)
         0xFF               // HALT
     });
@@ -296,8 +358,8 @@ TEST_CASE(shift_operations, "bitwise") {
 TEST_CASE(flags_comprehensive, "flags") {
     // Test various flag conditions
     ctx.load_program({
-        0x01, 0x00, 0x00,  // LOAD_IMM EAX, 0
-        0x01, 0x01, 0x01,  // LOAD_IMM EBX, 1
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0
+        0x01, 0x01, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 1
         0x0A, 0x00, 0x01,  // CMP EAX, EBX (correct opcode: 0x0A, not 0x05)
         0xFF               // HALT
     });
@@ -312,10 +374,11 @@ TEST_CASE(flags_comprehensive, "flags") {
 
 TEST_CASE(lea_basic, "lea") {
     // Test LEA (Load Effective Address) - loads address into register
+    // LEA now uses mode-aware 4-byte addresses in 32-bit mode
     ctx.load_program({
-        0x20, 0x00, 0x42,  // LEA EAX, 0x42 (load address 0x42 into EAX)
-        0x20, 0x01, 0x10,  // LEA EBX, 0x10 (load address 0x10 into EBX)
-        0xFF               // HALT
+        0x20, 0x00, 0x42, 0x00, 0x00, 0x00,  // LEA EAX, 0x42 (load address 0x42 into EAX)
+        0x20, 0x01, 0x10, 0x00, 0x00, 0x00,  // LEA EBX, 0x10 (load address 0x10 into EBX)
+        0xFF                                  // HALT
     });
 
     ctx.execute_program();
@@ -327,11 +390,12 @@ TEST_CASE(lea_basic, "lea") {
 
 TEST_CASE(lea_multiple_addresses, "lea") {
     // Test LEA with multiple different addresses
+    // LEA now uses mode-aware 4-byte addresses in 32-bit mode
     ctx.load_program({
-        0x20, 0x00, 0x00,  // LEA EAX, 0x00 (load address 0x00 into EAX)
-        0x20, 0x01, 0xFF,  // LEA EBX, 0xFF (load address 0xFF into EBX)
-        0x20, 0x02, 0x80,  // LEA ECX, 0x80 (load address 0x80 into ECX)
-        0xFF               // HALT
+        0x20, 0x00, 0x00, 0x00, 0x00, 0x00,  // LEA EAX, 0x00 (load address 0x00 into EAX)
+        0x20, 0x01, 0xFF, 0x00, 0x00, 0x00,  // LEA EBX, 0xFF (load address 0xFF into EBX)
+        0x20, 0x02, 0x80, 0x00, 0x00, 0x00,  // LEA ECX, 0x80 (load address 0x80 into ECX)
+        0xFF                                  // HALT
     });
 
     ctx.execute_program();
@@ -344,11 +408,12 @@ TEST_CASE(lea_multiple_addresses, "lea") {
 
 TEST_CASE(swap_basic, "swap") {
     // Test SWAP - swap values between register and memory
+    // STORE and SWAP now use mode-aware 4-byte addresses in 32-bit mode
     ctx.load_program({
-        0x01, 0x00, 0x42,  // LOAD_IMM EAX, 0x42
-        0x07, 0x00, 0x50,                     // STORE EAX, 0x50 (store 0x42 at memory[0x50])
-        0x01, 0x00, 0x33,  // LOAD_IMM EAX, 0x33
-        0x21, 0x00, 0x50,                     // SWAP EAX, 0x50 (swap EAX with memory[0x50])
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0x42
+        0x07, 0x00, 0x50, 0x00, 0x00, 0x00,  // STORE EAX, 0x50 (store 0x42 at memory[0x50])
+        0x01, 0x00, 0x33, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0x33
+        0x21, 0x00, 0x50, 0x00, 0x00, 0x00,  // SWAP EAX, 0x50 (swap EAX with memory[0x50])
         0xFF                                  // HALT
     });
 
@@ -361,17 +426,18 @@ TEST_CASE(swap_basic, "swap") {
 
 TEST_CASE(swap_multiple_operations, "swap") {
     // Test multiple SWAP operations
+    // STORE and SWAP now use mode-aware 4-byte addresses in 32-bit mode
     ctx.load_program({
-        0x01, 0x00, 0x11,  // LOAD_IMM EAX, 0x11
-        0x01, 0x01, 0x22,  // LOAD_IMM EBX, 0x22
-        0x07, 0x00, 0x60,                     // STORE EAX, 0x60 (store 0x11 at memory[0x60])
-        0x07, 0x01, 0x61,                     // STORE EBX, 0x61 (store 0x22 at memory[0x61])
+        0x01, 0x00, 0x11, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0x11
+        0x01, 0x01, 0x22, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0x22
+        0x07, 0x00, 0x60, 0x00, 0x00, 0x00,  // STORE EAX, 0x60 (store 0x11 at memory[0x60])
+        0x07, 0x01, 0x61, 0x00, 0x00, 0x00,  // STORE EBX, 0x61 (store 0x22 at memory[0x61])
 
-        0x01, 0x00, 0x33,  // LOAD_IMM EAX, 0x33
-        0x01, 0x01, 0x44,  // LOAD_IMM EBX, 0x44
+        0x01, 0x00, 0x33, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0x33
+        0x01, 0x01, 0x44, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0x44
 
-        0x21, 0x00, 0x60,                     // SWAP EAX, 0x60 (swap EAX with memory[0x60])
-        0x21, 0x01, 0x61,                     // SWAP EBX, 0x61 (swap EBX with memory[0x61])
+        0x21, 0x00, 0x60, 0x00, 0x00, 0x00,  // SWAP EAX, 0x60 (swap EAX with memory[0x60])
+        0x21, 0x01, 0x61, 0x00, 0x00, 0x00,  // SWAP EBX, 0x61 (swap EBX with memory[0x61])
         0xFF                                  // HALT
     });
 
@@ -387,12 +453,13 @@ TEST_CASE(swap_multiple_operations, "swap") {
 
 TEST_CASE(lea_swap_combination, "lea") {
     // Test LEA and SWAP working together
+    // LEA, STORE, and SWAP now use mode-aware 4-byte addresses in 32-bit mode
     ctx.load_program({
-        0x20, 0x00, 0x70,                     // LEA EAX, 0x70 (load address 0x70 into EAX)
-        0x01, 0x01, 0x55,  // LOAD_IMM EBX, 0x55
-        0x07, 0x01, 0x70,                     // STORE EBX, 0x70 (store 0x55 at memory[0x70])
-        0x01, 0x01, 0x99,  // LOAD_IMM EBX, 0x99
-        0x21, 0x01, 0x70,                     // SWAP EBX, 0x70 (swap EBX with memory[0x70])
+        0x20, 0x00, 0x70, 0x00, 0x00, 0x00,  // LEA EAX, 0x70 (load address 0x70 into EAX)
+        0x01, 0x01, 0x55, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0x55
+        0x07, 0x01, 0x70, 0x00, 0x00, 0x00,  // STORE EBX, 0x70 (store 0x55 at memory[0x70])
+        0x01, 0x01, 0x99, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0x99
+        0x21, 0x01, 0x70, 0x00, 0x00, 0x00,  // SWAP EBX, 0x70 (swap EBX with memory[0x70])
         0xFF                                  // HALT
     });
 
@@ -406,10 +473,11 @@ TEST_CASE(lea_swap_combination, "lea") {
 
 TEST_CASE(swap_edge_cases, "swap") {
     // Test SWAP with same values
+    // STORE and SWAP now use mode-aware 4-byte addresses in 32-bit mode
     ctx.load_program({
-        0x01, 0x00, 0x77,  // LOAD_IMM EAX, 0x77
-        0x07, 0x00, 0x80,                     // STORE EAX, 0x80 (store 0x77 at memory[0x80])
-        0x21, 0x00, 0x80,                     // SWAP EAX, 0x80 (swap EAX with memory[0x80])
+        0x01, 0x00, 0x77, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0x77
+        0x07, 0x00, 0x80, 0x00, 0x00, 0x00,  // STORE EAX, 0x80 (store 0x77 at memory[0x80])
+        0x21, 0x00, 0x80, 0x00, 0x00, 0x00,  // SWAP EAX, 0x80 (swap EAX with memory[0x80])
         0xFF                                  // HALT
     });
 
@@ -423,14 +491,22 @@ TEST_CASE(swap_edge_cases, "swap") {
 TEST_CASE(jc_carry_set, "conditional_jumps") {
     // Test JC (Jump if Carry) when carry flag is set
     // Use a simpler approach: load max value and add to it
+    // PC layout with 6-byte LOAD_IMM:
+    // PC=0: LOAD_IMM EAX, 0 (6 bytes)
+    // PC=6: NOT EAX (2 bytes) - EAX becomes 0xFFFFFFFF
+    // PC=8: LOAD_IMM EBX, 1 (6 bytes)
+    // PC=14: ADD EAX, EBX (3 bytes) - causes carry
+    // PC=17: JC 0x1C (5 bytes) - jump to HALT if carry
+    // PC=22: LOAD_IMM ECX, 0x42 (6 bytes) - should be skipped
+    // PC=28: HALT
     ctx.load_program({
-        0x01, 0x00, 0x00,  // 0x00: LOAD_IMM EAX, 0 (start with 0)
-        0x17, 0x00,        // 0x03: NOT EAX (EAX becomes 0xFFFFFFFF, max 32-bit value)
-        0x01, 0x01, 0x01,  // 0x05: LOAD_IMM EBX, 1
-        0x02, 0x00, 0x01,  // 0x08: ADD EAX, EBX (0xFFFFFFFF + 1 = 0, causes carry)
-        0x0F, 0x10,        // 0x0B: JC 0x10 (jump to HALT if carry flag set)
-        0x01, 0x02, 0x42,  // 0x0D: LOAD_IMM ECX, 0x42 (should be skipped)
-        0xFF               // 0x10: HALT
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00,  // 0x00: LOAD_IMM EAX, 0 (6 bytes)
+        0x17, 0x00,                           // 0x06: NOT EAX (EAX becomes 0xFFFFFFFF)
+        0x01, 0x01, 0x01, 0x00, 0x00, 0x00,  // 0x08: LOAD_IMM EBX, 1 (6 bytes)
+        0x02, 0x00, 0x01,                     // 0x0E: ADD EAX, EBX (0xFFFFFFFF + 1 = 0, carry)
+        0x0F, 0x1C, 0x00, 0x00, 0x00,        // 0x11: JC 0x1C (28) - jump to HALT if carry
+        0x01, 0x02, 0x42, 0x00, 0x00, 0x00,  // 0x16: LOAD_IMM ECX, 0x42 (should be skipped)
+        0xFF                                  // 0x1C: HALT
     });
 
     ctx.execute_program();
@@ -444,13 +520,20 @@ TEST_CASE(jc_carry_set, "conditional_jumps") {
 
 TEST_CASE(jc_carry_clear, "conditional_jumps") {
     // Test JC (Jump if Carry) when carry flag is clear
+    // PC layout with 6-byte LOAD_IMM:
+    // PC=0: LOAD_IMM EAX, 0x10 (6 bytes)
+    // PC=6: LOAD_IMM EBX, 0x20 (6 bytes)
+    // PC=12: ADD EAX, EBX (3 bytes) - no carry
+    // PC=15: JC 0x1C (5 bytes) - should NOT jump
+    // PC=20: LOAD_IMM ECX, 0x42 (6 bytes) - should execute
+    // PC=26: HALT
     ctx.load_program({
-        0x01, 0x00, 0x10,  // LOAD_IMM EAX, 0x10
-        0x01, 0x01, 0x20,  // LOAD_IMM EBX, 0x20
-        0x02, 0x00, 0x01,                     // ADD EAX, EBX (should not cause carry)
-        0x0F, 0x15,                           // JC 0x15 (should not jump)
-        0x01, 0x02, 0x42,  // LOAD_IMM ECX, 0x42 (should execute)
-        0xFF                                  // HALT
+        0x01, 0x00, 0x10, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0x10 (PC=0)
+        0x01, 0x01, 0x20, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0x20 (PC=6)
+        0x02, 0x00, 0x01,                     // ADD EAX, EBX (PC=12, no carry)
+        0x0F, 0x1A, 0x00, 0x00, 0x00,        // JC 0x1A (26) - (PC=15, should NOT jump)
+        0x01, 0x02, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM ECX, 0x42 (PC=20, should execute)
+        0xFF                                  // HALT (PC=26)
     });
 
     ctx.execute_program();
@@ -464,15 +547,20 @@ TEST_CASE(jc_carry_clear, "conditional_jumps") {
 
 TEST_CASE(jnc_carry_clear, "conditional_jumps") {
     // Test JNC (Jump if No Carry) when carry flag is clear
+    // PC layout with 6-byte LOAD_IMM:
+    // PC=0: LOAD_IMM EAX, 0x10 (6 bytes)
+    // PC=6: LOAD_IMM EBX, 0x20 (6 bytes)
+    // PC=12: ADD EAX, EBX (3 bytes) - no carry
+    // PC=15: JNC 0x1A (5 bytes) - should jump (no carry)
+    // PC=20: LOAD_IMM ECX, 0x42 (6 bytes) - should be skipped
+    // PC=26: HALT
     ctx.load_program({
-        0x01, 0x00, 0x10,  // LOAD_IMM EAX, 0x10
-        0x01, 0x01, 0x20,  // LOAD_IMM EBX, 0x20
-        0x02, 0x00, 0x01,                     // ADD EAX, EBX (should not cause carry)
-        0x22, 0x15,                           // JNC 0x15 (should jump)
-        0x01, 0x02, 0x42,  // LOAD_IMM ECX, 0x42 (should be skipped)
-        0xFF,                                 // HALT (at 0x15)
-        0x01, 0x02, 0x99,  // LOAD_IMM ECX, 0x99 (should not execute)
-        0xFF                                  // HALT
+        0x01, 0x00, 0x10, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0x10 (PC=0)
+        0x01, 0x01, 0x20, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0x20 (PC=6)
+        0x02, 0x00, 0x01,                     // ADD EAX, EBX (PC=12, no carry)
+        0x22, 0x1A, 0x00, 0x00, 0x00,        // JNC 0x1A (26) - (PC=15, should jump to HALT)
+        0x01, 0x02, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM ECX, 0x42 (PC=20, should be skipped)
+        0xFF                                  // HALT (PC=26)
     });
 
     ctx.execute_program();
@@ -486,14 +574,22 @@ TEST_CASE(jnc_carry_clear, "conditional_jumps") {
 
 TEST_CASE(jnc_carry_set, "conditional_jumps") {
     // Test JNC (Jump if No Carry) when carry flag is set
+    // PC layout with 6-byte LOAD_IMM:
+    // PC=0: LOAD_IMM EAX, 0 (6 bytes)
+    // PC=6: NOT EAX (2 bytes) - EAX becomes 0xFFFFFFFF
+    // PC=8: LOAD_IMM EBX, 1 (6 bytes)
+    // PC=14: ADD EAX, EBX (3 bytes) - causes carry
+    // PC=17: JNC 0x1E (5 bytes) - should NOT jump (carry is set)
+    // PC=22: LOAD_IMM ECX, 0x42 (6 bytes) - should execute
+    // PC=28: HALT
     ctx.load_program({
-        0x01, 0x00, 0x00,  // LOAD_IMM EAX, 0 (start with 0)
-        0x17, 0x00,        // NOT EAX (EAX becomes 0xFFFFFFFF, max 32-bit value)
-        0x01, 0x01, 0x01,  // LOAD_IMM EBX, 1
-        0x02, 0x00, 0x01,  // ADD EAX, EBX (0xFFFFFFFF + 1 = 0, causes carry)
-        0x22, 0x12,        // JNC 0x12 (should not jump since carry is set)
-        0x01, 0x02, 0x42,  // LOAD_IMM ECX, 0x42 (should execute)
-        0xFF               // HALT
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0 (PC=0)
+        0x17, 0x00,                           // NOT EAX (PC=6) - EAX becomes 0xFFFFFFFF
+        0x01, 0x01, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 1 (PC=8)
+        0x02, 0x00, 0x01,                     // ADD EAX, EBX (PC=14, causes carry)
+        0x22, 0x1C, 0x00, 0x00, 0x00,        // JNC 0x1C (28) - (PC=17, should NOT jump)
+        0x01, 0x02, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM ECX, 0x42 (PC=22, should execute)
+        0xFF                                  // HALT (PC=28)
     });
 
     ctx.execute_program();
@@ -509,14 +605,14 @@ TEST_CASE(carry_flag_arithmetic, "flags") {
     // Test that carry flag is properly set/cleared by arithmetic operations
     ctx.load_program({
         // Test case 1: No carry
-        0x01, 0x00, 0x10,  // LOAD_IMM EAX, 0x10
-        0x01, 0x01, 0x20,  // LOAD_IMM EBX, 0x20
+        0x01, 0x00, 0x10, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0x10
+        0x01, 0x01, 0x20, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0x20
         0x02, 0x00, 0x01,  // ADD EAX, EBX (0x10 + 0x20 = 0x30, no carry)
 
         // Test case 2: Cause carry using NOT to get max value
-        0x01, 0x02, 0x00,  // LOAD_IMM ECX, 0 (start with 0)
+        0x01, 0x02, 0x00, 0x00, 0x00, 0x00,  // LOAD_IMM ECX, 0 (start with 0)
         0x17, 0x02,        // NOT ECX (ECX becomes 0xFFFFFFFF)
-        0x01, 0x03, 0x01,  // LOAD_IMM EDX, 1
+        0x01, 0x03, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM EDX, 1
         0x02, 0x02, 0x03,  // ADD ECX, EDX (0xFFFFFFFF + 1 = 0, carry)
         0xFF               // HALT
     });
@@ -582,9 +678,9 @@ TEST_CASE(mode_switching, "cpu_modes") {
     // Test CPU mode switching
     ctx.load_program({
         0x70,              // MODE32 - Switch to 32-bit mode
-        0x01, 0x00, 0x42,  // LOAD_IMM EAX, 0x42
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0x42
         0x71,              // MODE64 - Switch to 64-bit mode
-        0x01, 0x01, 0x84,  // LOAD_IMM EBX, 0x84
+        0x01, 0x01, 0x84, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0x84
         0xFF               // HALT
     });
 
@@ -715,11 +811,12 @@ TEST_CASE(fpu_register_access, "fpu_registers") {
 
 TEST_CASE(fpu_instruction_tests, "fpu_registers") {
     // Test FPU instructions: FILD (load integer as floating point)
+    // STORE now uses mode-aware 4-byte addresses in 32-bit mode
     
     // First, put a known integer value in memory
     ctx.load_program({
-        0x01, 0x00, 0x2A,              // LOAD_IMM EAX, 42 (load 42 into EAX)
-        0x07, 0x00, 0x64,              // STORE EAX, 0x64 (store 42 at address 100)
+        0x01, 0x00, 0x2A, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 42 (load 42 into EAX)
+        0x07, 0x00, 0x64, 0x00, 0x00, 0x00,  // STORE EAX, 0x64 (store 42 at address 100)
         
         // Test FILD with immediate 32-bit integer
         0xA3, 0x00, 0x2A, 0x00, 0x00, 0x00,  // FILD immediate 42 (load immediate 32-bit integer 42 as double)
@@ -727,7 +824,7 @@ TEST_CASE(fpu_instruction_tests, "fpu_registers") {
         // Test FILD from memory address (load the 42 we stored earlier)
         0xA3, 0x01, 0x64, 0x00, 0x00, 0x00,  // FILD [0x0064] (load int32 from address 100 as double)
         
-        0xFF                           // HALT
+        0xFF                                  // HALT
     });
 
     ctx.execute_program();
@@ -739,6 +836,7 @@ TEST_CASE(fpu_instruction_tests, "fpu_registers") {
 
 TEST_CASE(fpu_store_instructions, "fpu_registers") {
     // Test FPU store instructions: FISTP (store floating point as integer and pop)
+    // LOAD now uses mode-aware 4-byte addresses in 32-bit mode
     
     ctx.load_program({
         // Load a value onto FPU stack first
@@ -748,9 +846,9 @@ TEST_CASE(fpu_store_instructions, "fpu_registers") {
         0xA5, 0x01, 0x70, 0x00, 0x00, 0x00,  // FISTP [0x0070] (store ST(0) as int32 to address 112)
         
         // Load the stored value to verify it worked
-        0x06, 0x01, 0x70,              // LOAD EBX, 0x70 (load from address 112 into EBX)
+        0x06, 0x01, 0x70, 0x00, 0x00, 0x00,  // LOAD EBX, 0x70 (load from address 112 into EBX)
         
-        0xFF                           // HALT
+        0xFF                                  // HALT
     });
 
     ctx.execute_program();
@@ -884,14 +982,15 @@ TEST_CASE(register_type_boundaries, "register_validation") {
 
 TEST_CASE(test_context_basic, "assembler") {
     // Test basic TestContext functionality without assembler
-    std::vector<uint8_t> test_program = {0x01, 0x00, 0x42, 0xFF}; // LOAD_IMM EAX, 66; HALT
+    // Updated to 6-byte LOAD_IMM format: opcode + reg + 4-byte immediate
+    std::vector<uint8_t> test_program = {0x01, 0x00, 0x42, 0x00, 0x00, 0x00, 0xFF}; // LOAD_IMM EAX, 66; HALT
     ctx.program = test_program;
     
-    ctx.assert_program_size(4);
+    ctx.assert_program_size(7);
     ctx.assert_byte_at(0, 0x01);
     ctx.assert_byte_at(1, 0x00);
     ctx.assert_byte_at(2, 0x42);
-    ctx.assert_byte_at(3, 0xFF);
+    ctx.assert_byte_at(6, 0xFF);  // HALT is at position 6 now
 }
 
 TEST_CASE(debug_db_simple, "assembler") {
@@ -922,21 +1021,27 @@ TEST_CASE(debug_db_simple, "assembler") {
 
 TEST_CASE(assembler_basic_test, "assembler") {
     // Test basic assembler functionality without directives
+    // Note: LOAD_IMM EAX uses 4-byte immediate (6 bytes total: opcode + reg + imm32)
     ctx.assemble_code(R"(
         LOAD_IMM EAX, 42
         HALT
     )");
     
     // Check basic program structure
-    ctx.assert_program_size(4); // LOAD_IMM (3 bytes) + HALT (1 byte)
+    // LOAD_IMM with 32-bit register uses 4-byte immediate
+    ctx.assert_program_size(7); // LOAD_IMM (6 bytes: 1+1+4) + HALT (1 byte)
     ctx.assert_byte_at(0, 0x01); // LOAD_IMM opcode
     ctx.assert_byte_at(1, 0x00); // EAX
-    ctx.assert_byte_at(2, 42);   // immediate value
-    ctx.assert_byte_at(3, 0xFF); // HALT
+    ctx.assert_byte_at(2, 42);   // immediate value (little-endian low byte)
+    ctx.assert_byte_at(3, 0x00); // immediate value (byte 2)
+    ctx.assert_byte_at(4, 0x00); // immediate value (byte 3)
+    ctx.assert_byte_at(5, 0x00); // immediate value (high byte)
+    ctx.assert_byte_at(6, 0xFF); // HALT
 }
 
 TEST_CASE(org_directive_basic, "assembler") {
     // Test basic .org directive functionality
+    // Note: LOAD_IMM EAX uses 4-byte immediate (6 bytes total: opcode + reg + imm32)
     try {
         ctx.assemble_code(R"(
             .org 0x100
@@ -946,7 +1051,8 @@ TEST_CASE(org_directive_basic, "assembler") {
         
         // Check that program starts at 0x100 worth of padding + actual instructions
         // .org 0x100 should pad with 0x100 (256) null bytes, then the instructions
-        size_t expected_size = 0x100 + 4; // 256 null bytes + LOAD_IMM (3 bytes) + HALT (1 byte)
+        // LOAD_IMM with 32-bit reg = 6 bytes, HALT = 1 byte
+        size_t expected_size = 0x100 + 7; // 256 null bytes + LOAD_IMM (6 bytes) + HALT (1 byte)
         ctx.assert_program_size(expected_size);
         
         // Check padding bytes are null
@@ -957,8 +1063,11 @@ TEST_CASE(org_directive_basic, "assembler") {
         // Check actual instructions start at 0x100
         ctx.assert_byte_at(0x100, 0x01); // LOAD_IMM opcode
         ctx.assert_byte_at(0x101, 0x00); // EAX
-        ctx.assert_byte_at(0x102, 42);   // immediate value
-        ctx.assert_byte_at(0x103, 0xFF); // HALT
+        ctx.assert_byte_at(0x102, 42);   // immediate value (low byte)
+        ctx.assert_byte_at(0x103, 0x00); // immediate value (byte 2)
+        ctx.assert_byte_at(0x104, 0x00); // immediate value (byte 3)
+        ctx.assert_byte_at(0x105, 0x00); // immediate value (high byte)
+        ctx.assert_byte_at(0x106, 0xFF); // HALT
     } catch (const std::exception& e) {
         throw std::runtime_error("org_directive_basic test failed: " + std::string(e.what()));
     }
@@ -966,6 +1075,8 @@ TEST_CASE(org_directive_basic, "assembler") {
 
 TEST_CASE(org_directive_multiple, "assembler") {
     // Test multiple .org directives
+    // Note: LOAD_IMM with 32-bit registers uses 4-byte immediates (6 bytes total)
+    // Register mapping: EAX=0, ECX=1, EDX=2, EBX=3
     
     ctx.assemble_code(R"(
         LOAD_IMM EAX, 1
@@ -976,31 +1087,40 @@ TEST_CASE(org_directive_multiple, "assembler") {
         HALT
     )");
     
-    // First instruction at address 0
+    // First instruction at address 0 (6 bytes: opcode + reg + imm32)
     ctx.assert_byte_at(0, 0x01);    // LOAD_IMM
-    ctx.assert_byte_at(1, 0x00);    // EAX
-    ctx.assert_byte_at(2, 1);       // value 1
+    ctx.assert_byte_at(1, 0x00);    // EAX (register 0)
+    ctx.assert_byte_at(2, 1);       // value 1 (low byte)
+    ctx.assert_byte_at(3, 0x00);    // value 1 (byte 2)
+    ctx.assert_byte_at(4, 0x00);    // value 1 (byte 3)
+    ctx.assert_byte_at(5, 0x00);    // value 1 (high byte)
     
-    // Padding from 3 to 0x10
-    for (size_t i = 3; i < 0x10; i++) {
+    // Padding from 6 to 0x10
+    for (size_t i = 6; i < 0x10; i++) {
         ctx.assert_byte_at(i, 0x00);
     }
     
-    // Second instruction at 0x10
+    // Second instruction at 0x10 (6 bytes)
     ctx.assert_byte_at(0x10, 0x01); // LOAD_IMM
-    ctx.assert_byte_at(0x11, 0x03); // EBX (Register index 3)
-    ctx.assert_byte_at(0x12, 2);    // value 2
+    ctx.assert_byte_at(0x11, 0x03); // EBX (register 3)
+    ctx.assert_byte_at(0x12, 2);    // value 2 (low byte)
+    ctx.assert_byte_at(0x13, 0x00); // value 2 (byte 2)
+    ctx.assert_byte_at(0x14, 0x00); // value 2 (byte 3)
+    ctx.assert_byte_at(0x15, 0x00); // value 2 (high byte)
     
-    // Padding from 0x13 to 0x20
-    for (size_t i = 0x13; i < 0x20; i++) {
+    // Padding from 0x16 to 0x20
+    for (size_t i = 0x16; i < 0x20; i++) {
         ctx.assert_byte_at(i, 0x00);
     }
     
-    // Third instruction at 0x20
+    // Third instruction at 0x20 (6 bytes)
     ctx.assert_byte_at(0x20, 0x01); // LOAD_IMM
-    ctx.assert_byte_at(0x21, 0x01); // ECX (Register index 1)
-    ctx.assert_byte_at(0x22, 3);    // value 3
-    ctx.assert_byte_at(0x23, 0xFF); // HALT
+    ctx.assert_byte_at(0x21, 0x01); // ECX (register 1)
+    ctx.assert_byte_at(0x22, 3);    // value 3 (low byte)
+    ctx.assert_byte_at(0x23, 0x00); // value 3 (byte 2)
+    ctx.assert_byte_at(0x24, 0x00); // value 3 (byte 3)
+    ctx.assert_byte_at(0x25, 0x00); // value 3 (high byte)
+    ctx.assert_byte_at(0x26, 0xFF); // HALT
 }
 
 TEST_CASE_EXPECT_ERROR(org_directive_backwards_old, "assembler") {
@@ -1081,6 +1201,7 @@ TEST_CASE(db_directive_multiple_labels, "assembler") {
 
 TEST_CASE(db_directive_with_org, "assembler") {
     // Test DB directive combined with .org
+    // Note: LOAD_IMM with 32-bit registers uses 4-byte immediates (6 bytes total)
     
     ctx.assemble_code(R"(
         .org 0x100
@@ -1109,11 +1230,14 @@ TEST_CASE(db_directive_with_org, "assembler") {
         ctx.assert_byte_at(i, 0x00);
     }
     
-    // Check code at 0x200
+    // Check code at 0x200 (6 bytes for LOAD_IMM + 1 byte for HALT)
     ctx.assert_byte_at(0x200, 0x01); // LOAD_IMM
     ctx.assert_byte_at(0x201, 0x00); // EAX
-    ctx.assert_byte_at(0x202, 42);   // value
-    ctx.assert_byte_at(0x203, 0xFF); // HALT
+    ctx.assert_byte_at(0x202, 42);   // value (low byte)
+    ctx.assert_byte_at(0x203, 0x00); // value (byte 2)
+    ctx.assert_byte_at(0x204, 0x00); // value (byte 3)
+    ctx.assert_byte_at(0x205, 0x00); // value (high byte)
+    ctx.assert_byte_at(0x206, 0xFF); // HALT
 }
 
 TEST_CASE(db_directive_execution_test, "assembler") {
@@ -1225,35 +1349,46 @@ TEST_CASE(org_and_db_integration, "assembler") {
 
 TEST_CASE(org_directive_edge_cases, "assembler") {
     // Test edge cases for .org directive
+    // Note: LOAD_IMM with 32-bit registers uses 6 bytes (opcode + reg + 4-byte imm)
+    // Register mapping: EAX=0, ECX=1, EDX=2, EBX=3
     ctx.assemble_code(R"(
         LOAD_IMM EAX, 1
-        .org 0x03  ; Jump to exact end of previous instruction
+        .org 0x06  ; Jump to exact end of previous instruction (6 bytes)
         LOAD_IMM EBX, 2
         .org 0x10  ; Jump forward
         LOAD_IMM ECX, 3
         HALT
     )");
     
-    // First instruction at 0
-    ctx.assert_byte_at(0, 0x01);
-    ctx.assert_byte_at(1, 0x00);
-    ctx.assert_byte_at(2, 1);
+    // First instruction at 0 (6 bytes)
+    ctx.assert_byte_at(0, 0x01);   // LOAD_IMM
+    ctx.assert_byte_at(1, 0x00);   // EAX (register 0)
+    ctx.assert_byte_at(2, 1);      // value 1 (low byte)
+    ctx.assert_byte_at(3, 0x00);   // value 1 (byte 2)
+    ctx.assert_byte_at(4, 0x00);   // value 1 (byte 3)
+    ctx.assert_byte_at(5, 0x00);   // value 1 (high byte)
     
-    // Second instruction at 0x03 (.org moves to exactly where we'd be anyway)
-    ctx.assert_byte_at(3, 0x01);
-    ctx.assert_byte_at(4, 0x03); // EBX (Register index 3)
-    ctx.assert_byte_at(5, 2);
+    // Second instruction at 0x06 (.org moves to exactly where we'd be anyway)
+    ctx.assert_byte_at(6, 0x01);   // LOAD_IMM
+    ctx.assert_byte_at(7, 0x03);   // EBX (register 3)
+    ctx.assert_byte_at(8, 2);      // value 2 (low byte)
+    ctx.assert_byte_at(9, 0x00);   // value 2 (byte 2)
+    ctx.assert_byte_at(10, 0x00);  // value 2 (byte 3)
+    ctx.assert_byte_at(11, 0x00);  // value 2 (high byte)
     
-    // Padding to 0x10
-    for (size_t i = 6; i < 0x10; i++) {
+    // Padding from 12 (0x0C) to 0x10
+    for (size_t i = 12; i < 0x10; i++) {
         ctx.assert_byte_at(i, 0x00);
     }
     
     // Third instruction at 0x10
-    ctx.assert_byte_at(0x10, 0x01);
-    ctx.assert_byte_at(0x11, 0x01); // ECX (Register index 1)
-    ctx.assert_byte_at(0x12, 3);
-    ctx.assert_byte_at(0x13, 0xFF);
+    ctx.assert_byte_at(0x10, 0x01);  // LOAD_IMM
+    ctx.assert_byte_at(0x11, 0x01);  // ECX (register 1)
+    ctx.assert_byte_at(0x12, 3);     // value 3 (low byte)
+    ctx.assert_byte_at(0x13, 0x00);  // value 3 (byte 2)
+    ctx.assert_byte_at(0x14, 0x00);  // value 3 (byte 3)
+    ctx.assert_byte_at(0x15, 0x00);  // value 3 (high byte)
+    ctx.assert_byte_at(0x16, 0xFF);  // HALT
 }
 
 TEST_CASE(db_directive_empty_string, "assembler") {
@@ -1302,63 +1437,79 @@ TEST_CASE(db_directive_special_chars, "assembler") {
 
 TEST_CASE(mixed_org_db_comprehensive, "assembler") {
     // Comprehensive test mixing .org and DB directives
+    // Note: LOAD_IMM uses 6 bytes (opcode + reg + 4-byte imm)
+    // JMP uses 5 bytes (opcode + 4-byte addr)
+    // Register mapping: EAX=0, ECX=1, EDX=2, EBX=3
     ctx.assemble_code(R"(
         ; Code section at start
         LOAD_IMM EAX, 10
         JMP data_end
         
-        ; Data section at 0x20
-        .org 0x20
+        ; Data section at 0x30 (need room for 6-byte LOAD_IMM + 5-byte JMP = 11 bytes)
+        .org 0x30
         str1:
         DB "Hello", 5
         str2:
         DB "World", 5
         
-        ; Code continuation at 0x40
-        .org 0x40
+        ; Code continuation at 0x50
+        .org 0x50
         data_end:
         LOAD_IMM EBX, 20
         HALT
         
-        ; More data at 0x60
-        .org 0x60
+        ; More data at 0x70
+        .org 0x70
         str3:
         DB "End", 3
     )");
     
-    // Check initial code
-    ctx.assert_byte_at(0, 0x01);  // LOAD_IMM
-    ctx.assert_byte_at(1, 0x00);  // EAX
-    ctx.assert_byte_at(2, 10);    // value 10
+    // Check initial code (6 bytes for LOAD_IMM)
+    ctx.assert_byte_at(0, 0x01);    // LOAD_IMM
+    ctx.assert_byte_at(1, 0x00);    // EAX (register 0)
+    ctx.assert_byte_at(2, 10);      // value 10 (low byte)
+    ctx.assert_byte_at(3, 0x00);    // value 10 (byte 2)
+    ctx.assert_byte_at(4, 0x00);    // value 10 (byte 3)
+    ctx.assert_byte_at(5, 0x00);    // value 10 (high byte)
     
-    // Check first string at 0x20: "Hello" + length
-    ctx.assert_byte_at(0x20, 'H');
-    ctx.assert_byte_at(0x21, 'e');
-    ctx.assert_byte_at(0x22, 'l');
-    ctx.assert_byte_at(0x23, 'l');
-    ctx.assert_byte_at(0x24, 'o');
-    ctx.assert_byte_at(0x25, 5);    // Length
+    // JMP at offset 6 (5 bytes: opcode + 4-byte addr)
+    ctx.assert_byte_at(6, 0x05);    // JMP opcode (0x05)
+    ctx.assert_byte_at(7, 0x50);    // Target 0x50 (low byte)
+    ctx.assert_byte_at(8, 0x00);    // Target (byte 2)
+    ctx.assert_byte_at(9, 0x00);    // Target (byte 3)
+    ctx.assert_byte_at(10, 0x00);   // Target (high byte)
+    
+    // Check first string at 0x30: "Hello" + length
+    ctx.assert_byte_at(0x30, 'H');
+    ctx.assert_byte_at(0x31, 'e');
+    ctx.assert_byte_at(0x32, 'l');
+    ctx.assert_byte_at(0x33, 'l');
+    ctx.assert_byte_at(0x34, 'o');
+    ctx.assert_byte_at(0x35, 5);    // Length
     
     // Check second string follows first
-    // First DB: "Hello"(5) + length(1) = 6 bytes from 0x20
-    // So second string starts at 0x20 + 6 = 0x26
-    ctx.assert_byte_at(0x26, 'W');
-    ctx.assert_byte_at(0x27, 'o');
-    ctx.assert_byte_at(0x28, 'r');
-    ctx.assert_byte_at(0x29, 'l');
-    ctx.assert_byte_at(0x2A, 'd');
-    ctx.assert_byte_at(0x2B, 5);    // Length
+    // First DB: "Hello"(5) + length(1) = 6 bytes from 0x30
+    // So second string starts at 0x30 + 6 = 0x36
+    ctx.assert_byte_at(0x36, 'W');
+    ctx.assert_byte_at(0x37, 'o');
+    ctx.assert_byte_at(0x38, 'r');
+    ctx.assert_byte_at(0x39, 'l');
+    ctx.assert_byte_at(0x3A, 'd');
+    ctx.assert_byte_at(0x3B, 5);    // Length
     
-    // Check code at 0x40
-    ctx.assert_byte_at(0x40, 0x01);  // LOAD_IMM
-    ctx.assert_byte_at(0x41, 0x03);  // EBX (Register index 3)
-    ctx.assert_byte_at(0x42, 20);    // value 20
-    ctx.assert_byte_at(0x43, 0xFF);  // HALT
+    // Check code at 0x50 (6 bytes for LOAD_IMM + 1 for HALT)
+    ctx.assert_byte_at(0x50, 0x01);  // LOAD_IMM
+    ctx.assert_byte_at(0x51, 0x03);  // EBX (register 3)
+    ctx.assert_byte_at(0x52, 20);    // value 20 (low byte)
+    ctx.assert_byte_at(0x53, 0x00);  // value 20 (byte 2)
+    ctx.assert_byte_at(0x54, 0x00);  // value 20 (byte 3)
+    ctx.assert_byte_at(0x55, 0x00);  // value 20 (high byte)
+    ctx.assert_byte_at(0x56, 0xFF);  // HALT
     
-    // Check final string at 0x60 (simple format)
-    ctx.assert_byte_at(0x60, 'E');   // "End" starts at 0x60
-    ctx.assert_byte_at(0x61, 'n');
-    ctx.assert_byte_at(0x62, 'd');
+    // Check final string at 0x70 (simple format)
+    ctx.assert_byte_at(0x70, 'E');   // "End" starts at 0x70
+    ctx.assert_byte_at(0x71, 'n');
+    ctx.assert_byte_at(0x72, 'd');
 }
 
 TEST_CASE(db_directive_execution_with_labels, "assembler") {
@@ -1420,7 +1571,7 @@ TEST_CASE(memory_out_of_bounds_read_limitation, "negative_tests") {
     // This test documents the limitation and passes to indicate the constraint is understood
     // TODO: Add LOAD32 instruction with 4-byte address for proper out-of-bounds testing
     ctx.load_program({
-        0x01, 0x00, 0xFF,  // LOAD_IMM EAX, 255
+        0x01, 0x00, 0xFF, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 255
         0x06, 0x00, 0xFF,  // LOAD EAX, [255] - highest valid address
         0xFF               // HALT
     });
@@ -1428,32 +1579,32 @@ TEST_CASE(memory_out_of_bounds_read_limitation, "negative_tests") {
     // This passes - confirming that all 1-byte addresses are valid in 256-byte memory
 }
 
-TEST_CASE(memory_out_of_bounds_write_limitation, "negative_tests") {
-    // DOCUMENTATION: Cannot test memory out-of-bounds with current STORE instruction
-    // STORE opcode uses 1-byte address (0-255), test memory is 256 bytes (0-255)
-    // All possible addresses fit within memory, making true out-of-bounds impossible
-    // This test documents the limitation and passes to indicate the constraint is understood
-    // TODO: Add STORE32 instruction with 4-byte address for proper out-of-bounds testing
+TEST_CASE_EXPECT_ERROR(memory_out_of_bounds_write_limitation, "negative_tests") {
+    // STORE uses 4-byte addresses: opcode + reg + 4-byte addr = 6 bytes
+    // STORE writes a single byte to the specified address
+    // Writing to address 0x1000 (memory size is 256) should cause out-of-bounds error
     ctx.load_program({
-        0x01, 0x00, 0x42,  // LOAD_IMM EAX, 66
-        0x07, 0x00, 0xFF,  // STORE EAX, [255] - highest valid address
-        0xFF               // HALT
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66 (3 bytes)
+        0x07, 0x00, 0x00, 0x10, 0x00, 0x00,  // STORE EAX, [0x1000] - clearly out of bounds
+        0xFF                                  // HALT
     });
     ctx.execute_program();
-    // This passes - confirming that all 1-byte addresses are valid in 256-byte memory
+    // Should throw: address 0x1000 > 256 memory size
 }
 
 TEST_CASE_EXPECT_ERROR(stack_overflow, "negative_tests") {
     // Test that stack overflow is detected
     // SP starts at 256 (memory.size()), each PUSH subtracts 4
     // With our check for SP < 8, we'll catch overflow after ~62 pushes
+    // JMP now uses 4-byte address: opcode + 4-byte addr = 5 bytes
+    // LOAD_IMM now uses 6-byte format: opcode + reg + 4-byte immediate
     ctx.load_program({
         // Loop pushing values until stack overflows
-        0x01, 0x00, 0x01,  // 0: LOAD_IMM EAX, 1
-        // loop:
-        0x08, 0x00,        // 3: PUSH EAX (opcode 0x08 is PUSH)
-        0x05, 0x03,        // 5: JMP 3 (opcode 0x05 is JMP, back to PUSH)
-        0xFF               // 7: HALT (never reached)
+        0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  // 0: LOAD_IMM EAX, 1 (6 bytes)
+        // loop at offset 6:
+        0x08, 0x00,                           // 6: PUSH EAX (2 bytes)
+        0x05, 0x06, 0x00, 0x00, 0x00,        // 8: JMP 6 (5 bytes, back to PUSH)
+        0xFF                                  // 13: HALT (never reached)
     });
     ctx.execute_program();
 }
@@ -1568,8 +1719,8 @@ TEST_CASE_EXPECT_ERROR(division_modulo_zero, "negative_tests") {
     // Note: This test currently passes because DIV by zero is already handled
     // by the division_by_zero test. Keeping for completeness.
     ctx.load_program({
-        0x01, 0x00, 0x0A,  // LOAD_IMM EAX, 10
-        0x01, 0x01, 0x00,  // LOAD_IMM EBX, 0
+        0x01, 0x00, 0x0A, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 10
+        0x01, 0x01, 0x00, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 0
         0x11, 0x00, 0x01,  // DIV EAX, EBX (division by zero)
         0xFF               // HALT
     });
@@ -1579,10 +1730,11 @@ TEST_CASE_EXPECT_ERROR(division_modulo_zero, "negative_tests") {
 TEST_CASE_EXPECT_ERROR(jump_to_invalid_address, "negative_tests") {
     // Test that jumping to invalid address is caught
     // Create a program that's smaller than the jump target
+    // JMP now uses 4-byte address: opcode(1) + addr(4) = 5 bytes
     ctx.load_program({
-        0x05, 0x10,  // JMP to address 16 (0x10) - opcode 0x05 is JMP
-        0xFF,        // HALT
-        // Program ends at byte 3, but we're jumping to byte 16
+        0x05, 0xFF, 0xFF, 0x00, 0x00,  // JMP to address 0xFFFF - way beyond program
+        0xFF,                           // HALT
+        // Program ends at byte 6, but we're jumping to byte 0xFFFF
     });
     ctx.execute_program();
 }
@@ -1819,4 +1971,435 @@ TEST_CASE(modecmp_64bit_greater_than, "mode_operations") {
     
     ctx.assert_flag_clear(FLAG_ZERO);    // Not equal
     ctx.assert_flag_clear(FLAG_CARRY);   // R10 > R11 (no borrow in unsigned)
+}
+
+// ==================== Comprehensive Mode-Aware Tests ====================
+
+TEST_CASE(mode_default_is_32bit, "mode_awareness") {
+    // Test that CPU defaults to 32-bit mode
+    ctx.load_program({
+        0xFF  // HALT
+    });
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+}
+
+TEST_CASE(mode_switch_32_to_64, "mode_awareness") {
+    // Test switching from 32-bit to 64-bit mode
+    ctx.load_program({
+        0x70,              // MODE32 (ensure we start in 32-bit)
+        0x71,              // MODE64 (switch to 64-bit)
+        0xFF               // HALT
+    });
+    ctx.execute_program();
+    
+    ctx.assert_64bit_mode();
+}
+
+TEST_CASE(mode_switch_64_to_32, "mode_awareness") {
+    // Test switching from 64-bit to 32-bit mode
+    ctx.load_program({
+        0x71,              // MODE64
+        0x70,              // MODE32
+        0xFF               // HALT
+    });
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+}
+
+TEST_CASE(mode_32bit_register_masking, "mode_awareness") {
+    // Test that 32-bit mode properly masks register values
+    // In 32-bit mode, operations should only affect lower 32 bits
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0xFFFFFFFF
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0xFFFFFFFF);
+    ctx.assert_register_upper_bits_zero(0);  // Upper bits should be zero in 32-bit mode
+}
+
+TEST_CASE(mode_32bit_add_overflow, "mode_awareness") {
+    // Test 32-bit overflow behavior
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0xFFFFFFFF
+        LOAD_IMM EBX, 1
+        ADD EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0);  // 0xFFFFFFFF + 1 = 0 (overflow)
+    ctx.assert_carry_flag_set();       // Carry should be set on overflow
+    ctx.assert_zero_flag_set();        // Result is zero
+}
+
+TEST_CASE(mode_32bit_sub_underflow, "mode_awareness") {
+    // Test 32-bit underflow behavior
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0
+        LOAD_IMM EBX, 1
+        SUB EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0xFFFFFFFF);  // 0 - 1 = 0xFFFFFFFF (underflow/borrow)
+    ctx.assert_carry_flag_set();                // Carry (borrow) should be set
+}
+
+TEST_CASE(mode_64bit_large_values, "mode_awareness") {
+    // Test 64-bit mode with large values
+    ctx.assemble_code(R"(
+        MODE64
+        LOAD_IMM64 RAX, 0x123456789ABCDEF0
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_64bit_mode();
+    ctx.assert_register_64_eq(0, 0x123456789ABCDEF0);
+}
+
+TEST_CASE(mode_64bit_add_large_values, "mode_awareness") {
+    // Test 64-bit addition with large values
+    ctx.assemble_code(R"(
+        MODE64
+        LOAD_IMM64 RAX, 0x7FFFFFFFFFFFFFFF
+        LOAD_IMM64 RBX, 1
+        ADD RAX, RBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_64bit_mode();
+    ctx.assert_register_64_eq(0, 0x8000000000000000);  // Max signed + 1 = min signed
+    ctx.assert_overflow_flag_set();  // Signed overflow
+}
+
+TEST_CASE(mode_switch_preserves_registers, "mode_awareness") {
+    // Test that mode switching preserves register values
+    // Note: x86 register numbering: EAX=0, ECX=1, EDX=2, EBX=3
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0x12345678
+        LOAD_IMM EBX, 0x9ABCDEF0
+        MODE64
+        ; After switching to 64-bit, lower 32 bits should be preserved
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_64bit_mode();
+    ctx.assert_register_32_eq(0, 0x12345678);  // EAX (R0)
+    ctx.assert_register_32_eq(3, 0x9ABCDEF0);  // EBX (R3)
+}
+
+TEST_CASE(mode_32bit_mul_overflow, "mode_awareness") {
+    // Test 32-bit multiplication overflow behavior
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0x10000
+        LOAD_IMM EBX, 0x10000
+        MUL EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    // 0x10000 * 0x10000 = 0x100000000, but truncated to 32 bits = 0
+    ctx.assert_register_32_eq(0, 0);
+}
+
+TEST_CASE(mode_32bit_boundary_values, "mode_awareness") {
+    // Test 32-bit boundary values
+    // Note: x86 register numbering: EAX=0, ECX=1, EDX=2, EBX=3
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0x7FFFFFFF  ; Max positive signed 32-bit
+        LOAD_IMM EBX, 0x80000000  ; Min negative signed 32-bit (or max+1 unsigned)
+        LOAD_IMM ECX, 0xFFFFFFFF  ; Max unsigned 32-bit / -1 signed
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0x7FFFFFFF);  // EAX (R0)
+    ctx.assert_register_32_eq(3, 0x80000000);  // EBX (R3)
+    ctx.assert_register_32_eq(1, 0xFFFFFFFF);  // ECX (R1)
+    ctx.assert_register_upper_bits_zero(0);
+    ctx.assert_register_upper_bits_zero(3);
+    ctx.assert_register_upper_bits_zero(1);
+}
+
+TEST_CASE(mode_32bit_shift_boundary, "mode_awareness") {
+    // Test 32-bit shift operations at boundary
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 1
+        SHL EAX, 31    ; Shift to sign bit position
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0x80000000);
+}
+
+TEST_CASE(mode_32bit_and_operation, "mode_awareness") {
+    // Test 32-bit AND operation
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0xFF00FF00
+        LOAD_IMM EBX, 0x0F0F0F0F
+        AND EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0x0F000F00);
+    ctx.assert_register_upper_bits_zero(0);
+    ctx.assert_zero_flag_clear();  // Result is non-zero
+}
+
+TEST_CASE(mode_32bit_or_operation, "mode_awareness") {
+    // Test 32-bit OR operation
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0xF0F0F0F0
+        LOAD_IMM EBX, 0x0F0F0F0F
+        OR EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0xFFFFFFFF);
+    ctx.assert_register_upper_bits_zero(0);
+}
+
+TEST_CASE(mode_32bit_xor_self, "mode_awareness") {
+    // Test XOR with self (zeroing pattern)
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0xDEADBEEF
+        XOR EAX, EAX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0);
+    ctx.assert_zero_flag_set();
+}
+
+TEST_CASE(mode_32bit_not_operation, "mode_awareness") {
+    // Test 32-bit NOT operation
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0x55555555
+        NOT EAX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0xAAAAAAAA);
+    ctx.assert_register_upper_bits_zero(0);
+}
+
+TEST_CASE(mode_32bit_inc_overflow, "mode_awareness") {
+    // Test INC at 32-bit boundary
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0xFFFFFFFF
+        INC EAX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0);
+    ctx.assert_zero_flag_set();
+}
+
+TEST_CASE(mode_32bit_dec_underflow, "mode_awareness") {
+    // Test DEC at 32-bit boundary (0 -> 0xFFFFFFFF)
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0
+        DEC EAX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 0xFFFFFFFF);
+    ctx.assert_zero_flag_clear();
+}
+
+TEST_CASE(mode_64bit_add_no_overflow, "mode_awareness") {
+    // Test 64-bit addition without overflow
+    ctx.assemble_code(R"(
+        MODE64
+        LOAD_IMM64 RAX, 0x00000000FFFFFFFF
+        LOAD_IMM64 RBX, 0x0000000000000001
+        ADD RAX, RBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_64bit_mode();
+    ctx.assert_register_64_eq(0, 0x0000000100000000);  // No wrap in 64-bit mode
+    ctx.assert_carry_flag_clear();
+}
+
+TEST_CASE(mode_32bit_cmp_equal, "mode_awareness") {
+    // Test CMP with equal values in 32-bit mode
+    // Note: x86 register numbering: EAX=0, ECX=1, EDX=2, EBX=3
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0x12345678
+        LOAD_IMM EBX, 0x12345678
+        CMP EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_zero_flag_set();
+    ctx.assert_carry_flag_clear();
+    // Registers should be unchanged after CMP
+    ctx.assert_register_32_eq(0, 0x12345678);  // EAX (R0)
+    ctx.assert_register_32_eq(3, 0x12345678);  // EBX (R3)
+}
+
+TEST_CASE(mode_32bit_cmp_less, "mode_awareness") {
+    // Test CMP with first < second in 32-bit mode
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 10
+        LOAD_IMM EBX, 20
+        CMP EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_zero_flag_clear();
+    ctx.assert_carry_flag_set();  // Borrow occurred
+}
+
+TEST_CASE(mode_32bit_cmp_greater, "mode_awareness") {
+    // Test CMP with first > second in 32-bit mode
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 30
+        LOAD_IMM EBX, 20
+        CMP EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_zero_flag_clear();
+    ctx.assert_carry_flag_clear();  // No borrow
+}
+
+TEST_CASE(mode_multiple_switches, "mode_awareness") {
+    // Test multiple mode switches
+    // Note: x86 register numbering: EAX/RAX=0, ECX/RCX=1, EDX/RDX=2, EBX/RBX=3
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 1
+        MODE64
+        LOAD_IMM RBX, 2
+        MODE32
+        LOAD_IMM ECX, 3
+        MODE64
+        LOAD_IMM RDX, 4
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_64bit_mode();  // Should end in 64-bit mode
+    ctx.assert_register_32_eq(0, 1);  // EAX/RAX (R0)
+    ctx.assert_register_32_eq(3, 2);  // RBX (R3)
+    ctx.assert_register_32_eq(1, 3);  // ECX/RCX (R1)
+    ctx.assert_register_32_eq(2, 4);  // RDX (R2)
+}
+
+TEST_CASE(mode_32bit_mod_operation, "mode_awareness") {
+    // Test modulo operation in 32-bit mode
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 17
+        LOAD_IMM EBX, 5
+        MOD EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 2);  // 17 % 5 = 2
+}
+
+TEST_CASE(mode_32bit_div_operation, "mode_awareness") {
+    // Test division operation in 32-bit mode
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 100
+        LOAD_IMM EBX, 7
+        DIV EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    ctx.assert_register_32_eq(0, 14);  // 100 / 7 = 14
+}
+
+TEST_CASE(mode_32bit_all_registers_masked, "mode_awareness") {
+    // Test that all registers are properly masked in 32-bit mode
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0xFFFFFFFF
+        LOAD_IMM EBX, 0xFFFFFFFF
+        LOAD_IMM ECX, 0xFFFFFFFF
+        LOAD_IMM EDX, 0xFFFFFFFF
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_32bit_mode();
+    for (int i = 0; i < 4; i++) {
+        ctx.assert_register_32_eq(i, 0xFFFFFFFF);
+        ctx.assert_register_upper_bits_zero(i);
+    }
+}
+
+TEST_CASE(mode_flags_after_mode_switch, "mode_awareness") {
+    // Test that flags are preserved across mode switches
+    ctx.assemble_code(R"(
+        MODE32
+        LOAD_IMM EAX, 0
+        LOAD_IMM EBX, 0
+        CMP EAX, EBX  ; Set zero flag
+        MODE64
+        HALT
+    )");
+    ctx.execute_program();
+    
+    ctx.assert_64bit_mode();
+    ctx.assert_zero_flag_set();  // Flag should be preserved
 }
