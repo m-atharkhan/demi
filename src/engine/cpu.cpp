@@ -5,11 +5,15 @@
 #include <sstream>
 #include <unordered_set>
 #include <fmt/core.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <errno.h>
 
 #include "cpu.hpp"
+#include "syscalls.hpp"
 #include "cpu_flags.hpp"
-#include "../debug/logger.hpp"
 #include "../debug/debug_handler.hpp"
+#include "../debug/error_handler.hpp"
 #include <iostream>
 #include <iomanip>
 
@@ -25,6 +29,7 @@
 #include "opcodes/instruction_fusion.hpp"  // Instruction fusion optimizer
 
 using namespace DemiEngine_Registers;
+using namespace DemiEngine;
 
 // Constants for CPU configuration
 constexpr size_t CPU_LEGACY_REGISTER_COUNT = 8;  // For backward compatibility
@@ -98,12 +103,18 @@ std::unordered_set<size_t> compute_valid_instruction_starts(const std::vector<ui
             case Opcode::JNC:
             case Opcode::JO:
             case Opcode::JNO:
+            case Opcode::JG:
+            case Opcode::JL:
+            case Opcode::JGE:
+            case Opcode::JLE:
+            case Opcode::CALL:
+                pc += 5;
+                break;
             case Opcode::PUSH:
             case Opcode::POP:
             case Opcode::INC:
             case Opcode::DEC:
             case Opcode::NOT:
-            case Opcode::CALL:
             case Opcode::PUSH_ARG:
             case Opcode::POP_ARG:
                 pc += 2;
@@ -144,6 +155,11 @@ CPU::CPU(size_t memory_size)
     : cpu_mode(CPUMode::MODE_32BIT), // Default to 32-bit mode for backward compatibility
       registers(TOTAL_REGISTERS, 0), legacy_registers(CPU_LEGACY_REGISTER_COUNT, 0) {
 
+    // Initialize mode based on config
+    if (Config::architecture == Architecture::X64) {
+        cpu_mode = CPUMode::MODE_64BIT;
+    }
+
     // Determine actual memory size to use
     if (memory_size == 0) {
         memory_size = CPU_DEFAULT_MEMORY_SIZE; // Use default 1MB
@@ -151,15 +167,19 @@ CPU::CPU(size_t memory_size)
 
     // Validate memory size bounds
     if (memory_size < CPU_MIN_MEMORY_SIZE) {
-        Logger::instance().warn() << fmt::format(
-            "Memory size {} bytes is below minimum {}, using minimum",
-            memory_size, CPU_MIN_MEMORY_SIZE) << std::endl;
+        Logging::DebugHandler::instance().report(
+            Logging::DebugCategory::MEM_ALLOCATION,
+            fmt::format("Memory size {} bytes is below minimum {}, using minimum",
+                memory_size, CPU_MIN_MEMORY_SIZE),
+            Logging::DebugLevel::IMPORTANT);
         memory_size = CPU_MIN_MEMORY_SIZE;
     }
     if (memory_size > CPU_MAX_MEMORY_SIZE) {
-        Logger::instance().warn() << fmt::format(
-            "Memory size {} bytes exceeds maximum {}, using maximum",
-            memory_size, CPU_MAX_MEMORY_SIZE) << std::endl;
+        Logging::DebugHandler::instance().report(
+            Logging::DebugCategory::MEM_ALLOCATION,
+            fmt::format("Memory size {} bytes exceeds maximum {}, using maximum",
+                memory_size, CPU_MAX_MEMORY_SIZE),
+            Logging::DebugLevel::IMPORTANT);
         memory_size = CPU_MAX_MEMORY_SIZE;
     }
 
@@ -181,9 +201,11 @@ CPU::CPU(size_t memory_size)
 
     // Only log CPU initialization if not in test mode
     if (!Config::test_mode) {
-        Logger::instance().info() << fmt::format(
-            "Virtual CPU initialized with {} bytes ({:.1f}MB) of memory and {} total registers",
-            memory.size(), memory.size() / (1024.0 * 1024.0), TOTAL_REGISTERS) << std::endl;
+        Logging::DebugHandler::instance().report(
+            Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("Virtual CPU initialized with {} bytes ({:.1f}MB) of memory and {} total registers",
+                memory.size(), memory.size() / (1024.0 * 1024.0), TOTAL_REGISTERS),
+            Logging::DebugLevel::INFO);
     }
 }
 
@@ -246,15 +268,19 @@ CPU CPU::create_test_cpu() {
 void CPU::resize_memory(size_t new_size) {
     // Validate new size bounds
     if (new_size < CPU_MIN_MEMORY_SIZE) {
-        Logger::instance().warn() << fmt::format(
-            "Cannot resize memory to {} bytes (below minimum {})",
-            new_size, CPU_MIN_MEMORY_SIZE) << std::endl;
+        Logging::DebugHandler::instance().report(
+            Logging::DebugCategory::MEM_ALLOCATION,
+            fmt::format("Cannot resize memory to {} bytes (below minimum {})",
+                new_size, CPU_MIN_MEMORY_SIZE),
+            Logging::DebugLevel::IMPORTANT);
         return;
     }
     if (new_size > CPU_MAX_MEMORY_SIZE) {
-        Logger::instance().warn() << fmt::format(
-            "Cannot resize memory to {} bytes (exceeds maximum {})",
-            new_size, CPU_MAX_MEMORY_SIZE) << std::endl;
+        Logging::DebugHandler::instance().report(
+            Logging::DebugCategory::MEM_ALLOCATION,
+            fmt::format("Cannot resize memory to {} bytes (exceeds maximum {})",
+                new_size, CPU_MAX_MEMORY_SIZE),
+            Logging::DebugLevel::IMPORTANT);
         return;
     }
 
@@ -268,10 +294,12 @@ void CPU::resize_memory(size_t new_size) {
         registers[static_cast<size_t>(Register::RBP)] = registers[static_cast<size_t>(Register::RSP)]; // Reset frame pointer too
     }
 
-    Logger::instance().info() << fmt::format(
-        "Memory resized from {} bytes ({:.1f}MB) to {} bytes ({:.1f}MB)",
-        old_size, old_size / (1024.0 * 1024.0),
-        new_size, new_size / (1024.0 * 1024.0)) << std::endl;
+    Logging::DebugHandler::instance().report(
+        Logging::DebugCategory::MEM_ALLOCATION,
+        fmt::format("Memory resized from {} bytes ({:.1f}MB) to {} bytes ({:.1f}MB)",
+            old_size, old_size / (1024.0 * 1024.0),
+            new_size, new_size / (1024.0 * 1024.0)),
+        Logging::DebugLevel::INFO);
 }
 
 // Reset the CPU state
@@ -280,8 +308,12 @@ void CPU::reset() {
     std::fill(legacy_registers.begin(), legacy_registers.end(), 0);
     std::fill(memory.begin(), memory.end(), 0); // Clear memory
 
-    // Reset CPU mode to 32-bit for backward compatibility
-    cpu_mode = CPUMode::MODE_32BIT;
+    // Reset CPU mode based on configuration
+    if (Config::architecture == Architecture::X64) {
+        cpu_mode = CPUMode::MODE_64BIT;
+    } else {
+        cpu_mode = CPUMode::MODE_32BIT;
+    }
 
     // Reset special registers
     registers[static_cast<size_t>(Register::RIP)] = 0;
@@ -313,12 +345,17 @@ void CPU::print_state(const std::string& info) const {
     oss << "[" << pc_ss.str() << "] "<< std::string("(" + info + ")") << " ";
 
     // Add CPU mode indicator
-    oss << "MODE=" << (is_64bit_mode() ? "x64" : "x32") << " ";
+    oss << "MODE=" << (is_64bit_mode() ? "x64" : "x86") << " ";
 
-    for (size_t i = 0; i < legacy_registers.size(); ++i) {
-        oss << "R" << i << "=0x" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(legacy_registers[i]) << " ";
+    // x86/64 register names mapping
+    const char* reg_names[] = {"RAX", "RCX", "RDX", "RBX", "RSP", "RBP", "RSI", "RDI"};
+    for (size_t i = 0; i < 8; ++i) {
+        uint64_t val = registers[i];
+        int width = is_64bit_mode() ? 16 : 8;
+        if (!is_64bit_mode()) val &= 0xFFFFFFFF;
+        
+        oss << reg_names[i] << "=0x" << std::setw(width) << std::setfill('0') << std::hex << std::uppercase << val << " ";
     }
-    oss << "SP=0x" << std::setw(3) << std::setfill('0') << std::hex << std::uppercase << get_sp() << " ";
     oss << "FLAGS=0x" << std::setw(8) << std::setfill('0') << std::hex << std::uppercase << get_flags();
 
     // Use DebugHandler instead of Logger to avoid deadlock
@@ -401,6 +438,15 @@ void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address, s
             throw std::runtime_error("Test exceeded maximum execution steps (possible infinite loop)");
         }
         
+        // Handle pending interrupts before executing next instruction
+        if (handle_pending_interrupts(program, running)) {
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Interrupt handled, PC now at 0x{:04X}", get_pc());
+        }
+        if (!running) {
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Execution stopped by interrupt handler");
+            break;
+        }
+        
         // Try instruction fusion first for performance
         // If fusion doesn't apply, use branch-predictive dispatcher
         if (!InstructionFusion::try_instruction_fusion(*this, program, running)) {
@@ -421,7 +467,10 @@ void CPU::print_registers() const {
     oss << "SP=0x" << std::setw(3) << std::setfill('0') << std::hex << std::uppercase << get_sp() << " ";
     oss << "FLAGS=0x" << std::setw(8) << std::setfill('0') << std::hex << std::uppercase << get_flags();
 
-    Logger::instance().info() << oss.str() << std::endl;
+    Logging::DebugHandler::instance().report(
+        Logging::DebugCategory::CPU_REGISTERS,
+        oss.str(),
+        Logging::DebugLevel::INFO);
 }
 
 void CPU::print_register_update(Register reg, uint64_t old_value, uint64_t new_value) const {
@@ -429,10 +478,11 @@ void CPU::print_register_update(Register reg, uint64_t old_value, uint64_t new_v
     if (!Config::debug || !Config::extended_registers) return;
 
     std::string reg_name = get_register_name(reg);
-    Logger::instance().debug() << fmt::format(
-        "[REG_UPDATE] {} changed: 0x{:016X} -> 0x{:016X}",
-        reg_name, old_value, new_value
-    ) << std::endl;
+    Logging::DebugHandler::instance().report(
+        Logging::DebugCategory::CPU_REGISTERS,
+        fmt::format("[REG_UPDATE] {} changed: 0x{:016X} -> 0x{:016X}",
+            reg_name, old_value, new_value),
+        Logging::DebugLevel::TRACE);
 }
 
 void CPU::print_extended_registers() const {
@@ -464,7 +514,10 @@ void CPU::print_extended_registers() const {
     oss << "RBP=0x" << std::setw(16) << std::setfill('0') << std::hex << std::uppercase << get_register_64(Register::RBP) << " ";
     oss << "RFLAGS=0x" << std::setw(16) << std::setfill('0') << std::hex << std::uppercase << get_register_64(Register::RFLAGS);
 
-    Logger::instance().info() << oss.str() << std::endl;
+    Logging::DebugHandler::instance().report(
+        Logging::DebugCategory::CPU_REGISTERS,
+        oss.str(),
+        Logging::DebugLevel::INFO);
 }
 
 void CPU::print_memory(std::size_t start, std::size_t end) const {
@@ -495,7 +548,10 @@ void CPU::print_memory(std::size_t start, std::size_t end) const {
             oss << "[" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(value) << "] ";
     }
 
-    Logger::instance().info() << oss.str() << std::endl;
+    Logging::DebugHandler::instance().report(
+        Logging::DebugCategory::MEM_ACCESS,
+        oss.str(),
+        Logging::DebugLevel::INFO);
 }
 
 void CPU::run(const std::vector<uint8_t>& program) {
@@ -646,4 +702,316 @@ void CPU::fpu_init() {
         Register meta_reg = static_cast<Register>(static_cast<size_t>(st_reg) + 1);
         set_register(meta_reg, 0);  // exponent/sign part
     }
+}
+
+// ============================================================================
+// Interrupt System Implementation
+// ============================================================================
+
+void CPU::trigger_interrupt(uint8_t vector) {
+    interrupt_controller_.queue_interrupt(vector);
+}
+
+bool CPU::handle_pending_interrupts(const std::vector<uint8_t>& [[maybe_unused]] program, bool& running) {
+    // Check if we have pending interrupts and interrupts are enabled
+    if (!interrupt_controller_.has_pending_interrupts()) {
+        return false;
+    }
+    
+    // Get next interrupt vector
+    uint8_t vector = interrupt_controller_.get_next_interrupt();
+    if (vector == 0xFF) {
+        return false; // No interrupt available
+    }
+    
+    // Handle Linux-style syscalls (INT 0x80)
+    if (vector == 0x80) {
+        handle_syscall(running);
+        return true;
+    }
+    
+    // Read handler address from IVT in memory
+    // IVT base address + (vector * 4) gives us the handler address location
+    uint32_t ivt_base = interrupt_controller_.get_ivt_base();
+    uint32_t handler_entry_address = ivt_base + (vector * 4);
+    
+    // Read 32-bit handler address from memory
+    uint32_t handler_address = read_mem32(handler_entry_address);
+    
+    if (handler_address == 0) {
+        // No handler installed for this vector
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_GENERIC,
+            fmt::format("[CPU] No handler for interrupt vector 0x{:02X} at IVT[0x{:04X}] - halting",
+                vector, handler_entry_address),
+            get_pc(),
+            "Missing interrupt handler");
+        running = false;
+        return false;
+    }
+    
+    Logging::DebugHandler::instance().report(
+        Logging::DebugCategory::IO_INTERRUPT,
+        fmt::format("[CPU] Handling interrupt 0x{:02X}, jumping to handler at 0x{:08X}",
+            vector, handler_address),
+        Logging::DebugLevel::DETAIL);
+    
+    // Save current CPU state to stack
+    save_interrupt_state();
+    
+    // Enter interrupt context
+    interrupt_controller_.enter_interrupt();
+    
+    // Jump to interrupt handler
+    set_pc(handler_address);
+    
+    return true;
+}
+
+void CPU::save_interrupt_state() {
+    // Save state in reverse order so IRET can restore correctly
+    // This matches x86 interrupt stack frame:
+    // 1. FLAGS
+    // 2. CS (we don't have segmentation, so we'll skip this or use 0)
+    // 3. EIP/RIP (program counter)
+    
+    uint32_t sp = get_sp();
+    
+    // Push FLAGS
+    set_sp(sp - 4);
+    write_mem32(get_sp(), get_flags());
+    
+    // Push CS (code segment - we'll use 0 for now as we don't have segmentation)
+    set_sp(get_sp() - 4);
+    write_mem32(get_sp(), 0);
+    
+    // Push return address (current PC)
+    set_sp(get_sp() - 4);
+    write_mem32(get_sp(), get_pc());
+    
+    // Optionally save all general-purpose registers
+    // This provides more context for the interrupt handler
+    for (size_t i = 0; i < 16; i++) {  // Save first 16 registers (RAX-R15)
+        Register reg = static_cast<Register>(i);
+        if (is_64bit_mode()) {
+            uint64_t value = get_register_64(reg);
+            set_sp(get_sp() - 4);
+            write_mem32(get_sp(), static_cast<uint32_t>(value >> 32));  // High 32 bits
+            set_sp(get_sp() - 4);
+            write_mem32(get_sp(), static_cast<uint32_t>(value & 0xFFFFFFFF));  // Low 32 bits
+        } else {
+            set_sp(get_sp() - 4);
+            write_mem32(get_sp(), get_register_32(reg));
+        }
+    }
+    
+    Logging::DebugHandler::instance().report(
+        Logging::DebugCategory::IO_INTERRUPT,
+        fmt::format("[CPU] Saved interrupt state (SP: 0x{:08X} -> 0x{:08X})",
+            sp, get_sp()),
+        Logging::DebugLevel::DETAIL);
+}
+
+void CPU::restore_interrupt_state() {
+    uint32_t sp = get_sp();
+    
+    // Restore general-purpose registers (in reverse order)
+    for (int i = 15; i >= 0; i--) {
+        Register reg = static_cast<Register>(i);
+        if (is_64bit_mode()) {
+            uint32_t low = read_mem32(get_sp());
+            set_sp(get_sp() + 4);
+            uint32_t high = read_mem32(get_sp());
+            set_sp(get_sp() + 4);
+            uint64_t value = (static_cast<uint64_t>(high) << 32) | low;
+            set_register_64(reg, value);
+        } else {
+            set_register_32(reg, read_mem32(get_sp()));
+            set_sp(get_sp() + 4);
+        }
+    }
+    
+    // Pop return address
+    uint32_t return_address = read_mem32(get_sp());
+    set_sp(get_sp() + 4);
+    
+    // Pop CS (discard)
+    set_sp(get_sp() + 4);
+    
+    // Pop FLAGS
+    set_flags(read_mem32(get_sp()));
+    set_sp(get_sp() + 4);
+    
+    // Exit interrupt context
+    interrupt_controller_.exit_interrupt();
+    
+    // Return to interrupted code
+    set_pc(return_address);
+    
+    Logging::DebugHandler::instance().report(
+        Logging::DebugCategory::IO_INTERRUPT,
+        fmt::format("[CPU] Restored interrupt state, returning to 0x{:08X} (SP: 0x{:08X} -> 0x{:08X})",
+            return_address, sp, get_sp()),
+        Logging::DebugLevel::DETAIL);
+}
+
+void CPU::handle_syscall(bool& running) {
+    // Linux syscall conventions (INT 0x80):
+    // EAX (RAX/R0) = syscall number
+    // EBX (RBX/R3) = arg1
+    // ECX (RCX/R1) = arg2
+    // EDX (RDX/R2) = arg3
+    // ESI (RSI/R6) = arg4
+    // EDI (RDI/R7) = arg5
+    // Return value in EAX (RAX/R0)
+    
+    uint32_t syscall_num = get_register_32(Register::RAX);
+    uint32_t arg1 = get_register_32(Register::RBX);
+    uint32_t arg2 = get_register_32(Register::RCX);
+    uint32_t arg3 = get_register_32(Register::RDX);
+    uint32_t arg4 = get_register_32(Register::RSI);  // arg4
+    uint32_t arg5 = get_register_32(Register::RDI);  // arg5
+    
+    Syscall sc = to_syscall(syscall_num);
+    const char* sc_name = syscall_name(sc);
+    
+    Logging::DebugHandler::instance().report(
+        Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[SYSCALL] INT 0x80: {}({}), args=({}, {}, {}, {}, {})",
+            sc_name, syscall_num, arg1, arg2, arg3, arg4, arg5),
+        Logging::DebugLevel::INFO);
+    
+    long result = -ENOSYS;
+    
+    // Dispatch to appropriate handler
+    switch (sc) {
+        case Syscall::SYS_EXIT:
+            Logging::DebugHandler::instance().report(
+                Logging::DebugCategory::CPU_EXECUTION,
+                fmt::format("[SYSCALL] {}({}) - stopping VM", sc_name, arg1),
+                Logging::DebugLevel::INFO);
+            running = false;
+            set_register_32(Register::RAX, 0);
+            return;
+            
+        case Syscall::SYS_READ:
+            if (arg2 < memory.size() && arg2 + arg3 <= memory.size()) {
+                result = syscall(SYS_read, arg1, &memory[arg2], arg3);
+                Logging::DebugHandler::instance().report(
+                    Logging::DebugCategory::CPU_EXECUTION,
+                    fmt::format("[SYSCALL] {}(fd={}, buf=0x{:08X}, count={}) = {}",
+                        sc_name, arg1, arg2, arg3, result),
+                    Logging::DebugLevel::INFO);
+            } else {
+                Logging::ErrorHandler::instance().report_runtime(
+                    Logging::ErrorCode::IO_GENERIC,
+                    fmt::format("[SYSCALL] {}: buffer out of bounds (addr=0x{:08X}, count={}, mem_size={})",
+                        sc_name, arg2, arg3, memory.size()),
+                    get_pc(),
+                    "Syscall buffer overflow");
+                result = -EFAULT;
+            }
+            break;
+            
+        case Syscall::SYS_WRITE:
+            if (arg2 < memory.size() && arg2 + arg3 <= memory.size()) {
+                result = syscall(SYS_write, arg1, &memory[arg2], arg3);
+                Logging::DebugHandler::instance().report(
+                    Logging::DebugCategory::CPU_EXECUTION,
+                    fmt::format("[SYSCALL] {}(fd={}, buf=0x{:08X}, count={}) = {}",
+                        sc_name, arg1, arg2, arg3, result),
+                    Logging::DebugLevel::INFO);
+            } else {
+                Logging::ErrorHandler::instance().report_runtime(
+                    Logging::ErrorCode::IO_GENERIC,
+                    fmt::format("[SYSCALL] {}: buffer out of bounds (addr=0x{:08X}, count={}, mem_size={})",
+                        sc_name, arg2, arg3, memory.size()),
+                    get_pc(),
+                    "Syscall buffer overflow");
+                result = -EFAULT;
+            }
+            break;
+            
+        case Syscall::SYS_OPEN:
+            if (arg1 < memory.size()) {
+                // Need to verify null-terminated string is within bounds
+                size_t max_len = memory.size() - arg1;
+                const char* pathname = reinterpret_cast<const char*>(&memory[arg1]);
+                size_t path_len = strnlen(pathname, max_len);
+                
+                if (path_len < max_len) {
+                    result = syscall(SYS_open, pathname, arg2, arg3);
+                    Logging::DebugHandler::instance().report(
+                        Logging::DebugCategory::CPU_EXECUTION,
+                        fmt::format("[SYSCALL] {}('{}', flags=0x{:X}, mode=0{:o}) = {}",
+                            sc_name, pathname, arg2, arg3, result),
+                        Logging::DebugLevel::INFO);
+                } else {
+                    Logging::ErrorHandler::instance().report_runtime(
+                        Logging::ErrorCode::IO_GENERIC,
+                        fmt::format("[SYSCALL] {}: pathname not null-terminated", sc_name),
+                        get_pc(),
+                        "Invalid syscall pathname");
+                    result = -EFAULT;
+                }
+            } else {
+                Logging::ErrorHandler::instance().report_runtime(
+                    Logging::ErrorCode::IO_GENERIC,
+                    fmt::format("[SYSCALL] {}: pathname address out of bounds (0x{:08X} >= {})",
+                        sc_name, arg1, memory.size()),
+                    get_pc(),
+                    "Syscall path out of bounds");
+                result = -EFAULT;
+            }
+            break;
+            
+        case Syscall::SYS_CLOSE:
+            result = syscall(SYS_close, arg1);
+            Logging::DebugHandler::instance().report(
+                Logging::DebugCategory::CPU_EXECUTION,
+                fmt::format("[SYSCALL] {}(fd={}) = {}", sc_name, arg1, result),
+                Logging::DebugLevel::INFO);
+            break;
+            
+        case Syscall::SYS_BRK:
+            // Memory management - simulated
+            Logging::DebugHandler::instance().report(
+                Logging::DebugCategory::CPU_EXECUTION,
+                fmt::format("[SYSCALL] {}(0x{:08X}) - simulated, returning current break",
+                    sc_name, arg1),
+                Logging::DebugLevel::INFO);
+            result = memory.size();
+            break;
+            
+        case Syscall::SYS_IOCTL:
+            result = syscall(SYS_ioctl, arg1, arg2, arg3);
+            Logging::DebugHandler::instance().report(
+                Logging::DebugCategory::CPU_EXECUTION,
+                fmt::format("[SYSCALL] {}(fd={}, request={}, arg={}) = {}",
+                    sc_name, arg1, arg2, arg3, result),
+                Logging::DebugLevel::INFO);
+            break;
+            
+        case Syscall::SYS_MMAP:
+        case Syscall::SYS_MMAP2:
+            Logging::DebugHandler::instance().report(
+                Logging::DebugCategory::CPU_EXECUTION,
+                fmt::format("[SYSCALL] {} - not fully supported", sc_name),
+                Logging::DebugLevel::INFO);
+            result = -ENOSYS;
+            break;
+            
+        default:
+            Logging::ErrorHandler::instance().report_runtime(
+                Logging::ErrorCode::IO_GENERIC,
+                fmt::format("[SYSCALL] Unsupported syscall: {} (num={})",
+                    sc_name, syscall_num),
+                get_pc(),
+                "Unsupported syscall");
+            result = -ENOSYS;
+            break;
+    }
+    
+    // Set return value (negative for errors, non-negative for success)
+    set_register_32(Register::RAX, static_cast<uint32_t>(result));
 }
