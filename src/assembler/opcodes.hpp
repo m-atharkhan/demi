@@ -15,6 +15,7 @@ enum class Opcode : uint8_t {
     STORE = 0x07,       // Store value from reg to memory
     LOADR = 0x41,       // Load value from memory to reg (indirect addressing - addr in register)
     DEBUG = 0x42,       // Debug directive (print, break, dump, etc.)
+    STORER = 0x43,      // Store value from reg to memory (indirect addressing - addr in register)
 
     PUSH = 0x08,        // Push reg onto stack
     POP = 0x09,         // Pop value from stack to reg
@@ -184,6 +185,16 @@ enum class Opcode : uint8_t {
     VORPD = 0xD2,       // AVX Bitwise OR Packed Double
     VXORPD = 0xD3,      // AVX Bitwise XOR Packed Double
 
+    // Custom SIMD Operations (0xD4-0xDB range)
+    VADD = 0xD4,        // Vector add
+    VMUL = 0xD5,        // Vector multiply
+    VDOT = 0xD6,        // Vector dot product
+    VMAX = 0xD7,        // Vector maximum
+    VBROADCAST = 0xD8,  // Vector broadcast
+    VCMPGT = 0xD9,      // Vector compare greater than
+    PACKB = 0xDA,       // Pack bytes
+    UNPACKB = 0xDB,     // Unpack bytes
+
     // MMX Operations (0xE0-0xEF range)
     MOVQ = 0xE0,        // Move Quadword
     PADDB = 0xE1,       // Add Packed Bytes
@@ -196,6 +207,12 @@ enum class Opcode : uint8_t {
     PCMPEQW = 0xE8,     // Compare Packed Words for Equality
     PCMPEQD = 0xE9,     // Compare Packed Doublewords for Equality
     EMMS = 0xEA,        // Empty MMX State
+
+    // Interrupt operations
+    INT = 0xCD,         // Software interrupt
+    IRET = 0xCF,        // Interrupt return
+    CLI = 0xFA,         // Clear interrupt flag (disable interrupts)
+    STI = 0xFB,         // Set interrupt flag (enable interrupts)
 
     HALT = 0xFF         // Halt execution
 };

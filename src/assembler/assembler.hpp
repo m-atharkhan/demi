@@ -3,7 +3,9 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+
 #include <cstdint>
+#include "../config.hpp"
 
 namespace Assembler {
 
@@ -39,6 +41,9 @@ public:
     
     // Set entry point symbol (default: "_start")
     void set_entry_point_symbol(const std::string& symbol) { entry_point_symbol = symbol; }
+
+    // Architecture detection
+    Architecture detect_architecture(const Program& program);
 
 private:
     std::vector<std::string> errors;
@@ -89,7 +94,11 @@ private:
     void emit_dword(uint32_t dword);
     void emit_qword(uint64_t qword);
     void emit_address(uint32_t address, size_t size = 4);
+    void emit_mode_aware_address(int64_t address);  // Emit address based on current architecture mode
     void emit_forward_ref(const std::string& symbol, size_t size = 4, bool relative = false);
+    
+    // Architecture helpers
+    size_t get_address_size() const;  // Returns 4 for x86, 8 for x64
     
     // Instruction encoding
     void encode_instruction(const Instruction& instruction);
@@ -105,7 +114,7 @@ private:
     void handle_org_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_equ_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_memory_directive(const std::vector<std::unique_ptr<Expression>>& args);
-    
+
     // Structure directive handling
     void handle_section_directive(const std::vector<std::unique_ptr<Expression>>& args);
     void handle_global_directive(const std::vector<std::unique_ptr<Expression>>& args);
@@ -113,7 +122,6 @@ private:
 
     void handle_data_section();
     void handle_text_section();
-    
     // Utility methods
     void add_error(const std::string& message);
     void add_error(const std::string& message, size_t line, size_t column);
