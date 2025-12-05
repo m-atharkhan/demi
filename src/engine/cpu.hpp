@@ -9,6 +9,7 @@
 #include "cpu_registers.hpp"  // New extended register architecture
 #include "device_manager.hpp"
 #include "branch_prediction.hpp"  // Branch prediction support
+#include "interrupt_controller.hpp"  // Interrupt system support
 // #include "speculative_execution.hpp"  // Speculative execution support (temporarily disabled)
 
 using Logging::Logger;
@@ -91,6 +92,7 @@ enum class Opcode : uint8_t {
     DB = 0x40,          // Define byte
     LOADR = 0x41,       // Load value from memory to reg (indirect addressing - addr in register)
     DEBUG = 0x42,       // Debug directive (print, break, dump, etc.)
+    STORER = 0x43,      // Store value from reg to memory (indirect addressing - addr in register)
 
     // Extended 64-bit Register Operations (0x50-0x6F range)
     ADD64 = 0x50,       // 64-bit Add reg1, reg2
@@ -232,6 +234,12 @@ enum class Opcode : uint8_t {
     PCMPEQD = 0xE9,     // Compare Packed Doublewords for Equality
     EMMS = 0xEA,        // Empty MMX State
 
+    // Interrupt operations
+    INT = 0xCD,         // Software interrupt
+    IRET = 0xCF,        // Interrupt return
+    CLI = 0xFA,         // Clear interrupt flag (disable interrupts)
+    STI = 0xFB,         // Set interrupt flag (enable interrupts)
+
     HALT = 0xFF         // Halt execution
 };
 
@@ -291,6 +299,96 @@ public:
     // Get effective register size based on current mode
     size_t get_register_size() const {
         return is_64bit_mode() ? 8 : 4; // 8 bytes for 64-bit, 4 bytes for 32-bit
+    }
+
+    // Get effective address size based on current mode
+    size_t get_address_size() const {
+        return is_64bit_mode() ? 8 : 4; // 8 bytes for 64-bit, 4 bytes for 32-bit
+    }
+
+    // Read address from program at given offset based on current mode
+    uint64_t read_address_from_program(const std::vector<uint8_t>& program, uint32_t offset) const {
+        if (is_64bit_mode()) {
+            // Read 8 bytes (64-bit address) in little-endian
+            if (offset + 7 >= program.size()) return 0;
+            return static_cast<uint64_t>(program[offset]) |
+                   (static_cast<uint64_t>(program[offset + 1]) << 8) |
+                   (static_cast<uint64_t>(program[offset + 2]) << 16) |
+                   (static_cast<uint64_t>(program[offset + 3]) << 24) |
+                   (static_cast<uint64_t>(program[offset + 4]) << 32) |
+                   (static_cast<uint64_t>(program[offset + 5]) << 40) |
+                   (static_cast<uint64_t>(program[offset + 6]) << 48) |
+                   (static_cast<uint64_t>(program[offset + 7]) << 56);
+        } else {
+            // Read 4 bytes (32-bit address) in little-endian
+            if (offset + 3 >= program.size()) return 0;
+            return static_cast<uint32_t>(program[offset]) |
+                   (static_cast<uint32_t>(program[offset + 1]) << 8) |
+                   (static_cast<uint32_t>(program[offset + 2]) << 16) |
+                   (static_cast<uint32_t>(program[offset + 3]) << 24);
+        }
+    }
+
+    // Read mode-aware immediate value (same as address for now)
+    uint64_t read_immediate_from_program(const std::vector<uint8_t>& program, uint32_t offset) const {
+        return read_address_from_program(program, offset);
+    }
+
+    // Mode-aware register read - returns value based on current CPU mode
+    // In 32-bit mode: uses legacy 32-bit registers
+    // In 64-bit mode: uses full 64-bit registers
+    uint64_t read_register_mode_aware(uint8_t reg) const {
+        if (reg >= registers.size()) return 0;
+        if (is_64bit_mode()) {
+            return registers[reg];
+        } else {
+            // In 32-bit mode, return only lower 32 bits
+            return registers[reg] & 0xFFFFFFFF;
+        }
+    }
+
+    // Mode-aware register write - writes value based on current CPU mode
+    // In 32-bit mode: writes only lower 32 bits, keeps upper bits for legacy_registers sync
+    // In 64-bit mode: writes full 64-bit value
+    void write_register_mode_aware(uint8_t reg, uint64_t value) {
+        if (reg >= registers.size()) return;
+        if (is_64bit_mode()) {
+            registers[reg] = value;
+        } else {
+            // In 32-bit mode, write only lower 32 bits
+            registers[reg] = value & 0xFFFFFFFF;
+        }
+        // Sync legacy registers for compatibility (R0-R7 / RAX-RDI)
+        if (reg < 8) {
+            legacy_registers[reg] = static_cast<uint32_t>(registers[reg] & 0xFFFFFFFF);
+        }
+    }
+
+    // Get operand mask based on current mode
+    uint64_t get_operand_mask() const {
+        return is_64bit_mode() ? 0xFFFFFFFFFFFFFFFFULL : 0xFFFFFFFFULL;
+    }
+
+    // Read fixed 32-bit value from program (for opcodes that always use 32-bit)
+    static uint32_t read_dword_from_program(const std::vector<uint8_t>& program, uint32_t offset) {
+        if (offset + 3 >= program.size()) return 0;
+        return static_cast<uint32_t>(program[offset]) |
+               (static_cast<uint32_t>(program[offset + 1]) << 8) |
+               (static_cast<uint32_t>(program[offset + 2]) << 16) |
+               (static_cast<uint32_t>(program[offset + 3]) << 24);
+    }
+
+    // Read fixed 64-bit value from program
+    static uint64_t read_qword_from_program(const std::vector<uint8_t>& program, uint32_t offset) {
+        if (offset + 7 >= program.size()) return 0;
+        return static_cast<uint64_t>(program[offset]) |
+               (static_cast<uint64_t>(program[offset + 1]) << 8) |
+               (static_cast<uint64_t>(program[offset + 2]) << 16) |
+               (static_cast<uint64_t>(program[offset + 3]) << 24) |
+               (static_cast<uint64_t>(program[offset + 4]) << 32) |
+               (static_cast<uint64_t>(program[offset + 5]) << 40) |
+               (static_cast<uint64_t>(program[offset + 6]) << 48) |
+               (static_cast<uint64_t>(program[offset + 7]) << 56);
     }
 
     // Extended register access (64-bit registers)
@@ -497,6 +595,40 @@ public:
     BranchPrediction::BranchPredictor& get_branch_predictor() { return branch_predictor; }
     const BranchPrediction::BranchPredictor& get_branch_predictor() const { return branch_predictor; }
 
+    // Interrupt System Support
+    DemiEngine_Interrupts::InterruptController& get_interrupt_controller() { return interrupt_controller_; }
+    const DemiEngine_Interrupts::InterruptController& get_interrupt_controller() const { return interrupt_controller_; }
+    
+    /**
+     * @brief Trigger an interrupt
+     * @param vector Interrupt vector number (0x00-0xFF)
+     */
+    void trigger_interrupt(uint8_t vector);
+    
+    /**
+     * @brief Handle pending interrupts (called before each instruction)
+     * @param program Current program bytecode
+     * @param running Reference to running flag
+     * @return true if an interrupt was handled
+     */
+    bool handle_pending_interrupts(const std::vector<uint8_t>& program, bool& running);
+    
+    /**
+     * @brief Handle Linux-style syscalls (INT 0x80)
+     * @param running Reference to execution flag
+     */
+    void handle_syscall(bool& running);
+    
+    /**
+     * @brief Save CPU state to stack (for interrupt handling)
+     */
+    void save_interrupt_state();
+    
+    /**
+     * @brief Restore CPU state from stack (for IRET)
+     */
+    void restore_interrupt_state();
+
     // Speculative Execution Support (temporarily disabled)
     // SpeculativeExecution::SpeculativeExecutor& get_speculative_executor() { return speculative_executor; }
     // const SpeculativeExecution::SpeculativeExecutor& get_speculative_executor() const { return speculative_executor; }
@@ -529,6 +661,9 @@ private:
 
     // Branch Prediction Unit
     BranchPrediction::BranchPredictor branch_predictor;
+
+    // Interrupt Controller
+    DemiEngine_Interrupts::InterruptController interrupt_controller_;
 
     // Speculative Execution Engine (temporarily disabled)
     // SpeculativeExecution::SpeculativeExecutor speculative_executor;

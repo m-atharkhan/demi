@@ -24,8 +24,14 @@ enum class TestShowMode {
     SUCCESS   // Show only successful tests
 };
 
+enum class Architecture {
+    AUTO,
+    X86,
+    X64
+};
+
 class Config {
-public:    
+public:
     inline static bool debug = false;
     inline static bool trace = false;  // Runtime tracing enabled via .trace directive
     inline static bool verbose = false;  // Default to showing info messages
@@ -37,13 +43,19 @@ public:
     inline static bool quiet_assembly_test = false;  // Quiet mode for assembly tests
     inline static bool quiet = false;  // Global quiet mode - suppress logs and only show results
     inline static bool test_mode = false;  // Test mode - suppress verbose logs during testing
+    inline static bool show_test_metadata = false;  // Show test metadata (description, author, category, tags)
     inline static TestShowMode test_show_mode = TestShowMode::ALL;  // Test filtering mode
     inline static std::string debug_file = "debug.log";
-    inline static std::string program_file = "";
+    // Removed: program_file (hex file input no longer supported)
     inline static std::string assembly_file = "";  // Assembly source file
     inline static std::string output_name = "";  // Output name for compiled executable
     inline static std::string entry_point_symbol = "_start";  // Entry point symbol name
     inline static int error_count = 0;
+
+    // Architecture detection and warning state
+    inline static Architecture architecture = Architecture::AUTO;
+    inline static bool arch_warn_silenced = false;
+    inline static bool arch_warn_printed = false;
 };
 
 // Declare device initialization for use in tests and main
