@@ -13,16 +13,16 @@ void handle_FLDCW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         return;
     }
     
-    // Read memory address (4 bytes)
-    if (cpu.get_pc() + 5 > program.size()) {
+    // Mode-aware address reading
+    size_t addr_size = cpu.get_address_size();
+    size_t instr_size = 1 + addr_size;  // opcode + address
+    
+    if (cpu.get_pc() + instr_size > program.size()) {
         running = false;
         return;
     }
     
-    uint32_t addr = program[cpu.get_pc() + 1] |
-                   (program[cpu.get_pc() + 2] << 8) |
-                   (program[cpu.get_pc() + 3] << 16) |
-                   (program[cpu.get_pc() + 4] << 24);
+    uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 1);
     
     // Check bounds - we need to read 2 bytes
     if (addr + 1 >= cpu.get_memory_size()) {
@@ -47,6 +47,6 @@ void handle_FLDCW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         cpu.get_pc(), control_word, addr
     ) << std::endl;
     
-    // Increment program counter (opcode + 4 bytes address)
-    cpu.set_pc(cpu.get_pc() + 5);
+    // Increment program counter (opcode + mode-aware address)
+    cpu.set_pc(cpu.get_pc() + instr_size);
 }

@@ -19,19 +19,19 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     
     Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FLD] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
     
+    // Mode-aware address size
+    size_t addr_size = cpu.get_address_size();
+    
     switch (operand_type) {
         case 0x00: {
             // FLD from memory (32-bit float)
-            if (cpu.get_pc() + 4 > program.size()) {
+            if (cpu.get_pc() + addr_size > program.size()) {
                 running = false;
                 return;
             }
             
-            uint32_t addr = program[cpu.get_pc()] |
-                           (program[cpu.get_pc() + 1] << 8) |
-                           (program[cpu.get_pc() + 2] << 16) |
-                           (program[cpu.get_pc() + 3] << 24);
-            cpu.set_pc(cpu.get_pc() + 4);
+            uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc());
+            cpu.set_pc(cpu.get_pc() + addr_size);
             
             // Read 32-bit float from memory
             uint32_t raw_float = cpu.read_mem32(addr);
@@ -46,16 +46,13 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         
         case 0x01: {
             // FLD from memory (64-bit double)
-            if (cpu.get_pc() + 4 > program.size()) {
+            if (cpu.get_pc() + addr_size > program.size()) {
                 running = false;
                 return;
             }
             
-            uint32_t addr = program[cpu.get_pc()] |
-                           (program[cpu.get_pc() + 1] << 8) |
-                           (program[cpu.get_pc() + 2] << 16) |
-                           (program[cpu.get_pc() + 3] << 24);
-            cpu.set_pc(cpu.get_pc() + 4);
+            uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc());
+            cpu.set_pc(cpu.get_pc() + addr_size);
             
             // Read 64-bit double from memory
             uint64_t raw_double = static_cast<uint64_t>(cpu.read_mem32(addr)) |

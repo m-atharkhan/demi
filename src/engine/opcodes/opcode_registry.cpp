@@ -29,6 +29,7 @@ extern void handle_jge(CPU& cpu, const std::vector<uint8_t>& program, bool& runn
 extern void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_lea(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_swap(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
@@ -66,12 +67,20 @@ extern void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& ru
 extern void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_cmp64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_inc64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_dec64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_load_imm64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_movex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_addex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_subex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_loadex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_storex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+
+// Interrupt operations
+extern void handle_cli(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_sti(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_int(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_iret(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 
 // FPU Operations - Forward declarations (existing implementations)
 extern void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
@@ -213,6 +222,8 @@ void OpcodeRegistry::initialize_handlers() {
     REGISTER_OPCODE(0x55, handle_div64);      // DIV64
     REGISTER_OPCODE(0x56, handle_and64);      // AND64
     REGISTER_OPCODE(0x5C, handle_cmp64);      // CMP64
+    REGISTER_OPCODE(0x5D, handle_inc64);      // INC64
+    REGISTER_OPCODE(0x5E, handle_dec64);      // DEC64
     
     // Extended register operations (0x60-0x6F range per opcodes.hpp)
     REGISTER_OPCODE(0x60, handle_movex);      // MOVEX
@@ -260,6 +271,14 @@ void OpcodeRegistry::initialize_handlers() {
     
     REGISTER_OPCODE(static_cast<uint8_t>(Opcode::OUT), handle_out);        // OUT
     REGISTER_OPCODE(0x41, handle_loadr);      // LOADR - Load indirect (address in register)
+    REGISTER_OPCODE(0x43, handle_storer);     // STORER - Store indirect (address in register)
+    
+    // Interrupt operations (matching x86 conventions)
+    REGISTER_OPCODE(0xCD, handle_int);        // INT - Software interrupt
+    REGISTER_OPCODE(0xCF, handle_iret);       // IRET - Interrupt return
+    REGISTER_OPCODE(0xFA, handle_cli);        // CLI - Clear interrupt flag
+    REGISTER_OPCODE(0xFB, handle_sti);        // STI - Set interrupt flag
+    
     REGISTER_OPCODE(0xFF, handle_halt);       // HALT
     
     initialized_ = true;
