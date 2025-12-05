@@ -1,15 +1,26 @@
 # DemiEngine Development Roadmap
 
-> **Last Updated:** November 22, 2025
-> **Project Status:** Advanced Backend Complete - Production-Ready Foundation
+> **Last Updated:** December 5, 2025
+> **Project Status:** Advanced Backend Complete - Mode Awareness & Architecture Support
 
 ---
 
 ## 🎯 Project Overview
 
-DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionary programming language with unprecedented customization capabilities. With the core infrastructure complete (134 registers, 94+ total opcodes implemented including 8 SIMD operations and 23+ FPU operations, **219 comprehensive tests passing**), development has successfully completed the first two major expansion phases with **SIMD vector processing**, **FPU floating-point arithmetic**, **structured error handling**, and **advanced testing framework** now fully operational.
+DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionary programming language with unprecedented customization capabilities. With the core infrastructure complete (134 registers, 94+ total opcodes implemented including 8 SIMD operations and 23+ FPU operations, **145 unit tests + 118 assembly tests passing**), development has successfully completed the first two major expansion phases with **SIMD vector processing**, **FPU floating-point arithmetic**, **structured error handling**, **mode-aware architecture support (x86/x64)**, and **advanced testing framework** now fully operational.
 
-### 🌟 Current Status: SIMD Foundation + FPU Implementation Complete ✅
+### 🌟 Current Status: Mode-Aware Architecture Complete ✅
+
+**Recent Achievements (December 2025):**
+- ✅ **Mode-Aware Operations**: Full x86 (32-bit) and x64 (64-bit) architecture support
+- ✅ **Architecture Selection**: `--architecture`, `-x86`, `-x64` CLI flags for mode selection
+- ✅ **x86 Register Naming**: EAX, EBX, ECX, EDX, ESI, EDI, ESP, EBP support
+- ✅ **x64 Register Naming**: RAX, RBX, RCX, RDX, RSI, RDI, RSP, RBP, R8-R15 support
+- ✅ **Mode-Aware Instructions**: MODE32, MODE64 directives for inline mode switching
+- ✅ **Comprehensive Examples**: x86/ and x64/ example directories with full coverage
+- ✅ **LOAD_IMM 32-bit Format**: 6-byte instruction format (opcode + reg + 4-byte immediate)
+- ✅ **145 Unit Tests**: Comprehensive unit test coverage including mode awareness tests
+- ✅ **Real Linux Syscalls**: INT 0x80 executes actual kernel syscalls
 
 **Phase 1 Achievements:**
 - ✅ **Robust Virtual Machine**: 134-register architecture with comprehensive instruction set
@@ -39,9 +50,39 @@ DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionar
 - ✅ **Production Build System**: Optimized Makefile with debug/release configurations
 - ✅ **Performance Verification**: Excellent VM performance for both vector and floating-point operations
 
-### 🚀 Current Phase: Phase 3 - **NATIVE CODE GENERATION & VM OPTIMIZATION**
+### 🔧 Current Priority: Logger to DebugHandler/ErrorHandler Migration (December 2025)
 
-**🎯 Phase 3 Objectives (Current Focus):**
+**Status:** 🚧 **IN PROGRESS** - 121 of ~449 Logger calls replaced (27%)
+
+**Objective:** Complete migration from legacy `Logger::instance()` to structured `DebugHandler` and `ErrorHandler` APIs across the entire codebase for improved debugging capabilities and performance.
+
+**Progress:**
+- ✅ **cpu.cpp**: 27 Logger calls replaced
+- ✅ **interrupt_controller.cpp**: 12 Logger calls replaced
+- ✅ **opcodes_consolidated.cpp**: 82 Logger calls replaced (largest file complete)
+- ⏳ **assembly_test_executor.cpp**: 41 Logger calls remaining
+- ⏳ **Device files** (serial_port, file_device, ramdisk): ~54 Logger calls remaining
+- ⏳ **Dispatcher files** (predictive, inlined, unified): ~37 Logger calls remaining
+- ⏳ **main.cpp**: 20 Logger calls remaining
+- ⏳ **FPU opcodes** (fdiv, fld, fadd, etc.): ~40 Logger calls remaining
+- ⏳ **Vector opcodes** (vadd, vmul, vmax, etc.): ~20 Logger calls remaining
+- ⏳ **64-bit opcodes** (div64, mul64, and64, cmp64): ~25 Logger calls remaining
+- ⏳ **Other files**: ~90 Logger calls remaining
+
+**Benefits:**
+- 🎯 Structured debug categories (CPU_EXECUTION, MEM_ACCESS, IO_DEVICE, etc.)
+- 📊 Debug levels (TRACE, DETAIL, INFO, IMPORTANT, CRITICAL)
+- 🚀 Better performance with intelligent filtering
+- 🐛 Enhanced debugging with contextual information
+- 📝 Cleaner, more maintainable code
+
+**Estimated Completion:** ~2-3 days for remaining 328 Logger calls
+
+---
+
+### 🚀 Phase 3: Native Code Generation & VM Optimization
+
+**🎯 Phase 3 Objectives:**
 - 🚀 **VM Performance Optimization**: Threaded code interpretation and instruction fusion
 - 🎯 **Native Code Generation**: x86-64 translation for production performance  
 - 🎯 **Extended 64-bit Operations**: Complete extended addressing and register modes
