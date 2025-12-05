@@ -470,23 +470,34 @@ private:
 
 ## Test Automation
 
-### Continuous Integration
+### Makefile Test Targets
 ```bash
-#!/bin/bash
-# run_tests.sh - Automated test execution
+# Run all tests (unit + integration)
+make test-all
 
-echo "Building DemiEngine with test support..."
-make clean
+# Run unit tests only
 make test
 
-echo "Running comprehensive test suite..."
-./bin/demi-engine --test
+# Run unit tests (alias)
+make unit-test
 
-echo "Running assembly language examples..."
-for asm_file in examples/*.asm; do
-    echo "Testing: $asm_file"
-    ./bin/demi-engine -A "$asm_file" || echo "FAILED: $asm_file"
-done
+# Run integration tests with debug output
+make integration-test
+
+# Run assembler-specific tests
+make test-assembler
+```
+
+### Manual Test Execution
+```bash
+# Run unit tests directly
+./bin/demi-engine-debug -ut
+
+# Run assembly tests directly
+./bin/demi-engine-debug -at
+
+# Run a specific assembly file
+./bin/demi-engine-debug -A examples/basic/hello_world.asm
 
 echo "Test execution completed."
 ```
