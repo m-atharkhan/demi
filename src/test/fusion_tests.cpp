@@ -11,16 +11,23 @@
 
 TEST_CASE(fusion_simple_working_test, "fusion") {
     // Very simple test with correct bytecode
+    // Mode-aware: JZ now uses 4-byte addresses, LOAD_IMM now uses 6-byte format
     ctx.reset_fusion_stats();
     
-    // Program: EAX=5, EBX=5, CMP, JZ->HALT (should jump, ECX stays 0)
+    // Program layout with 6-byte LOAD_IMM:
+    // PC=0:  LOAD_IMM EAX, 5 (6 bytes)
+    // PC=6:  LOAD_IMM EBX, 5 (6 bytes)
+    // PC=12: CMP EAX, EBX (3 bytes)
+    // PC=15: JZ 26 (5 bytes - opcode + 4-byte addr) -> points to HALT
+    // PC=20: LOAD_IMM ECX, 99 (6 bytes) - should be skipped
+    // PC=26: HALT
     ctx.load_program({
-        0x01, 0x00, 0x05,  // PC=0:  LOAD_IMM EAX, 5
-        0x01, 0x01, 0x05,  // PC=3:  LOAD_IMM EBX, 5  
-        0x0A, 0x00, 0x01,  // PC=6:  CMP EAX, EBX
-        0x0B, 0x0E,        // PC=9:  JZ 14 (0x0E) -> points to HALT
-        0x01, 0x02, 0x63,  // PC=11: LOAD_IMM ECX, 99 (0x63) - should be skipped
-        0xFF               // PC=14 (0x0E): HALT
+        0x01, 0x00, 0x05, 0x00, 0x00, 0x00,  // PC=0:  LOAD_IMM EAX, 5
+        0x01, 0x01, 0x05, 0x00, 0x00, 0x00,  // PC=6:  LOAD_IMM EBX, 5  
+        0x0A, 0x00, 0x01,                     // PC=12: CMP EAX, EBX
+        0x0B, 0x1A, 0x00, 0x00, 0x00,        // PC=15: JZ 0x1A (26) -> points to HALT
+        0x01, 0x02, 0x63, 0x00, 0x00, 0x00,  // PC=20: LOAD_IMM ECX, 99 (0x63) - should be skipped
+        0xFF                                  // PC=26: HALT
     });
     
     ctx.execute_program();
@@ -40,10 +47,10 @@ TEST_CASE(fusion_no_jump_pattern, "fusion") {
     
     // CMP not followed by conditional jump - should not fuse
     ctx.load_program({
-        0x01, 0x00, 0x05,  // LOAD_IMM EAX, 5
-        0x01, 0x01, 0x03,  // LOAD_IMM EBX, 3
+        0x01, 0x00, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 5
+        0x01, 0x01, 0x03, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 3
         0x0A, 0x00, 0x01,  // CMP EAX, EBX
-        0x01, 0x02, 0x2A,  // LOAD_IMM ECX, 42 (NOT a jump)
+        0x01, 0x02, 0x2A, 0x00, 0x00, 0x00,  // LOAD_IMM ECX, 42 (NOT a jump)
         0xFF               // HALT
     });
     
@@ -58,16 +65,24 @@ TEST_CASE(fusion_no_jump_pattern, "fusion") {
 
 TEST_CASE(fusion_disabled_test, "fusion") {
     // Test that fusion can be disabled
+    // Mode-aware: JZ now uses 4-byte addresses, LOAD_IMM now uses 6-byte format
     ctx.disable_fusion();
     ctx.reset_fusion_stats();
     
+    // Program layout with 6-byte LOAD_IMM:
+    // PC=0:  LOAD_IMM EAX, 5 (6 bytes)
+    // PC=6:  LOAD_IMM EBX, 5 (6 bytes)
+    // PC=12: CMP EAX, EBX (3 bytes)
+    // PC=15: JZ 26 (5 bytes) -> points to HALT
+    // PC=20: LOAD_IMM ECX, 99 (6 bytes)
+    // PC=26: HALT
     ctx.load_program({
-        0x01, 0x00, 0x05,  // PC=0:  LOAD_IMM EAX, 5
-        0x01, 0x01, 0x05,  // PC=3:  LOAD_IMM EBX, 5
-        0x0A, 0x00, 0x01,  // PC=6:  CMP EAX, EBX
-        0x0B, 0x0E,        // PC=9:  JZ 14 (0x0E)
-        0x01, 0x02, 0x63,  // PC=11: LOAD_IMM ECX, 99
-        0xFF               // PC=14: HALT
+        0x01, 0x00, 0x05, 0x00, 0x00, 0x00,  // PC=0:  LOAD_IMM EAX, 5
+        0x01, 0x01, 0x05, 0x00, 0x00, 0x00,  // PC=6:  LOAD_IMM EBX, 5
+        0x0A, 0x00, 0x01,                     // PC=12: CMP EAX, EBX
+        0x0B, 0x1A, 0x00, 0x00, 0x00,        // PC=15: JZ 0x1A (26)
+        0x01, 0x02, 0x63, 0x00, 0x00, 0x00,  // PC=20: LOAD_IMM ECX, 99
+        0xFF                                  // PC=26: HALT
     });
     
     ctx.execute_program();
@@ -87,8 +102,8 @@ TEST_CASE(fusion_at_end_of_program, "fusion") {
     
     // CMP at end with no room for jump instruction
     ctx.load_program({
-        0x01, 0x00, 0x05,  // LOAD_IMM EAX, 5
-        0x01, 0x01, 0x05,  // LOAD_IMM EBX, 5
+        0x01, 0x00, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 5
+        0x01, 0x01, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EBX, 5
         0x0A, 0x00, 0x01   // CMP EAX, EBX (no jump follows, end of program)
     });
     
@@ -103,7 +118,7 @@ TEST_CASE(fusion_load_imm_not_implemented, "fusion") {
     
     // LOAD_IMM followed by ADD - fusion pattern exists but is stubbed
     ctx.load_program({
-        0x01, 0x00, 0x05,  // LOAD_IMM EAX, 5
+        0x01, 0x00, 0x05, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 5
         0x02, 0x00, 0x01,  // ADD EAX, EBX
         0xFF               // HALT
     });
@@ -120,7 +135,7 @@ TEST_CASE(fusion_stats_tracking, "fusion") {
     
     // Run a simple program
     ctx.load_program({
-        0x01, 0x00, 0x01,  // LOAD_IMM EAX, 1
+        0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 1
         0xFF               // HALT
     });
     

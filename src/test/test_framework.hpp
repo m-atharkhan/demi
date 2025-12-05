@@ -10,6 +10,7 @@
 #include <map>
 #include <fmt/format.h>
 #include "../engine/cpu.hpp"
+#include "../engine/cpu_flags.hpp"
 #include "../engine/device_factory.hpp"
 #include "../config.hpp"
 #include "../debug/logger.hpp"
@@ -294,6 +295,200 @@ public:
         }
     }
 
+    // ==================== CPU Mode Assertions ====================
+    
+    // Assert CPU is in 32-bit mode
+    void assert_32bit_mode() {
+        if (!cpu.is_32bit_mode()) {
+            throw AssertionFailure("CPU mode assertion failed: expected 32-bit mode, but CPU is in 64-bit mode");
+        }
+    }
+    
+    // Assert CPU is in 64-bit mode
+    void assert_64bit_mode() {
+        if (!cpu.is_64bit_mode()) {
+            throw AssertionFailure("CPU mode assertion failed: expected 64-bit mode, but CPU is in 32-bit mode");
+        }
+    }
+    
+    // Assert CPU mode matches expected
+    void assert_cpu_mode(CPUMode expected) {
+        CPUMode actual = cpu.get_cpu_mode();
+        if (actual != expected) {
+            throw AssertionFailure(fmt::format(
+                "CPU mode assertion failed: expected {}-bit mode, got {}-bit mode",
+                expected == CPUMode::MODE_64BIT ? 64 : 32,
+                actual == CPUMode::MODE_64BIT ? 64 : 32));
+        }
+    }
+    
+    // Assert register value in mode-aware manner (applies 32-bit mask in 32-bit mode)
+    void assert_register_mode_aware(int reg, uint64_t expected) {
+        uint64_t actual = cpu.read_register_mode_aware(reg);
+        uint64_t mask = cpu.get_operand_mask();
+        uint64_t masked_expected = expected & mask;
+        if (actual != masked_expected) {
+            throw AssertionFailure(fmt::format(
+                "Register R{} mode-aware assertion failed ({}-bit mode): expected 0x{:X}, got 0x{:X}",
+                reg, cpu.is_64bit_mode() ? 64 : 32, masked_expected, actual));
+        }
+    }
+    
+    // Assert register's lower 32 bits (useful for checking 32-bit behavior)
+    void assert_register_32_eq(int reg, uint32_t expected) {
+        uint32_t actual = cpu.get_register_32(static_cast<Register>(reg));
+        if (actual != expected) {
+            throw AssertionFailure(fmt::format(
+                "Register R{} (32-bit) assertion failed: expected 0x{:08X}, got 0x{:08X}",
+                reg, expected, actual));
+        }
+    }
+    
+    // Assert that upper 32 bits of register are zero (important for 32-bit mode operations)
+    void assert_register_upper_bits_zero(int reg) {
+        uint64_t full_value = cpu.get_register_64(static_cast<Register>(reg));
+        uint32_t upper_bits = static_cast<uint32_t>(full_value >> 32);
+        if (upper_bits != 0) {
+            throw AssertionFailure(fmt::format(
+                "Register R{} upper 32 bits assertion failed: expected 0x00000000, got 0x{:08X} (full value: 0x{:016X})",
+                reg, upper_bits, full_value));
+        }
+    }
+    
+    // Assert that upper 32 bits of register match expected value
+    void assert_register_upper_bits_eq(int reg, uint32_t expected) {
+        uint64_t full_value = cpu.get_register_64(static_cast<Register>(reg));
+        uint32_t upper_bits = static_cast<uint32_t>(full_value >> 32);
+        if (upper_bits != expected) {
+            throw AssertionFailure(fmt::format(
+                "Register R{} upper 32 bits assertion failed: expected 0x{:08X}, got 0x{:08X}",
+                reg, expected, upper_bits));
+        }
+    }
+    
+    // Assert register overflow behavior (value wrapped around mask)
+    void assert_register_wrapped(int reg, uint64_t original_value, uint64_t expected_wrapped) {
+        uint64_t actual = cpu.read_register_mode_aware(reg);
+        if (actual != expected_wrapped) {
+            throw AssertionFailure(fmt::format(
+                "Register R{} wrap assertion failed: original value 0x{:X} should wrap to 0x{:X}, but got 0x{:X}",
+                reg, original_value, expected_wrapped, actual));
+        }
+    }
+    
+    // Set CPU mode for testing
+    void set_cpu_mode(CPUMode mode) {
+        cpu.set_cpu_mode(mode);
+    }
+    
+    // Get current CPU mode
+    CPUMode get_cpu_mode() const {
+        return cpu.get_cpu_mode();
+    }
+    
+    // Helper to get operand mask for current mode
+    uint64_t get_operand_mask() const {
+        return cpu.get_operand_mask();
+    }
+    
+    // ==================== Enhanced Flag Assertions ====================
+    
+    // Assert zero flag is set
+    void assert_zero_flag_set() {
+        assert_flag_set(FLAG_ZERO);
+    }
+    
+    // Assert zero flag is clear
+    void assert_zero_flag_clear() {
+        assert_flag_clear(FLAG_ZERO);
+    }
+    
+    // Assert carry flag is set
+    void assert_carry_flag_set() {
+        assert_flag_set(FLAG_CARRY);
+    }
+    
+    // Assert carry flag is clear
+    void assert_carry_flag_clear() {
+        assert_flag_clear(FLAG_CARRY);
+    }
+    
+    // Assert overflow flag is set
+    void assert_overflow_flag_set() {
+        assert_flag_set(FLAG_OVERFLOW);
+    }
+    
+    // Assert overflow flag is clear
+    void assert_overflow_flag_clear() {
+        assert_flag_clear(FLAG_OVERFLOW);
+    }
+    
+    // Assert sign flag is set
+    void assert_sign_flag_set() {
+        assert_flag_set(FLAG_SIGN);
+    }
+    
+    // Assert sign flag is clear
+    void assert_sign_flag_clear() {
+        assert_flag_clear(FLAG_SIGN);
+    }
+    
+    // ==================== Memory Assertions (Enhanced) ====================
+    
+    // Assert 32-bit value at memory address (little-endian)
+    void assert_memory_dword_eq(uint32_t addr, uint32_t expected) {
+        auto& memory = cpu.get_memory();
+        if (addr + 3 >= memory.size()) {
+            throw AssertionFailure(fmt::format(
+                "Memory address 0x{:X} + 3 is out of bounds (memory size: {})",
+                addr, memory.size()));
+        }
+        uint32_t actual = memory[addr] |
+                         (static_cast<uint32_t>(memory[addr + 1]) << 8) |
+                         (static_cast<uint32_t>(memory[addr + 2]) << 16) |
+                         (static_cast<uint32_t>(memory[addr + 3]) << 24);
+        if (actual != expected) {
+            throw AssertionFailure(fmt::format(
+                "Memory DWORD at 0x{:X} assertion failed: expected 0x{:08X}, got 0x{:08X}",
+                addr, expected, actual));
+        }
+    }
+    
+    // Assert 64-bit value at memory address (little-endian)
+    void assert_memory_qword_eq(uint32_t addr, uint64_t expected) {
+        auto& memory = cpu.get_memory();
+        if (addr + 7 >= memory.size()) {
+            throw AssertionFailure(fmt::format(
+                "Memory address 0x{:X} + 7 is out of bounds (memory size: {})",
+                addr, memory.size()));
+        }
+        uint64_t actual = 0;
+        for (int i = 0; i < 8; i++) {
+            actual |= static_cast<uint64_t>(memory[addr + i]) << (i * 8);
+        }
+        if (actual != expected) {
+            throw AssertionFailure(fmt::format(
+                "Memory QWORD at 0x{:X} assertion failed: expected 0x{:016X}, got 0x{:016X}",
+                addr, expected, actual));
+        }
+    }
+    
+    // Assert 16-bit value at memory address (little-endian)
+    void assert_memory_word_eq(uint32_t addr, uint16_t expected) {
+        auto& memory = cpu.get_memory();
+        if (addr + 1 >= memory.size()) {
+            throw AssertionFailure(fmt::format(
+                "Memory address 0x{:X} + 1 is out of bounds (memory size: {})",
+                addr, memory.size()));
+        }
+        uint16_t actual = memory[addr] | (static_cast<uint16_t>(memory[addr + 1]) << 8);
+        if (actual != expected) {
+            throw AssertionFailure(fmt::format(
+                "Memory WORD at 0x{:X} assertion failed: expected 0x{:04X}, got 0x{:04X}",
+                addr, expected, actual));
+        }
+    }
+
     // Exception assertions
     void assert_throws(std::function<void()> func) {
         bool threw = false;
@@ -340,31 +535,9 @@ public:
     // Assembler functionality for testing directives
     void assemble_code(const std::string& assembly_code) {
         try {
-            // Use the same pattern as main.cpp
-            Assembler::Lexer lexer(assembly_code);
-            auto tokens = lexer.tokenize();
-            
-            if (lexer.has_errors()) {
-                std::string error_msg = "Lexer errors:\n";
-                for (const auto& error : lexer.get_errors()) {
-                    error_msg += "  " + error + "\n";
-                }
-                throw std::runtime_error(error_msg);
-            }
-            
-            Assembler::Parser parser(tokens);
-            auto ast = parser.parse();
-            
-            if (parser.has_errors()) {
-                std::string error_msg = "Parser errors:\n";
-                for (const auto& error : parser.get_errors()) {
-                    error_msg += "  " + error + "\n";
-                }
-                throw std::runtime_error(error_msg);
-            }
-            
-            Assembler::AssemblerEngine assembler;
-            std::vector<uint8_t> bytecode = assembler.assemble(*ast);
+            // Use DemiAssembler for full preprocessing support (handles macros, defines, etc.)
+            Assembler::DemiAssembler assembler;
+            std::vector<uint8_t> bytecode = assembler.assemble_string(assembly_code);
             
             if (assembler.has_errors()) {
                 std::string error_msg = "Assembly errors:\n";
