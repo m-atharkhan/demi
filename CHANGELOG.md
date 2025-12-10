@@ -76,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add mode-aware execution with x86/x64 register support (a7531e6) - Owen Boreham
 - add MODE32/MODE64 directive support (1473066) - Owen Boreham
 - improve debug handler with mode-aware output (617844c) - Owen Boreham
+- standardize test syntax to .test and add octal number support (19f6cee) - Owen Boreham
+- enhance MOV instruction with multiple operand types (f37315f) - Owen Boreham
 
 ### ⚡ Performance Improvements
 
@@ -167,6 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update documentation structure and roadmap (00c7ecc) - Owen Boreham
 - update documentation for mode-aware execution (4c5efb2) - Owen Boreham
 - update README, roadmap, and remove run_tests.sh (9af33c6) - Owen Boreham
+- update changelog, examples, and project documentation (795f490) - Owen Boreham
 
 ### ♻️ Code Refactoring
 
@@ -185,6 +188,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reorganize examples and remove debug tests (1d1384c) - Owen Boreham
 - reorganize examples into x86 and x64 directories (da207be) - Owen Boreham
 - remove hex file input support, improve help output (ffcc717) - Owen Boreham
+- improve CPU architecture and test infrastructure (a94ab8b) - Owen Boreham
 
 ### 💅 Code Style
 
