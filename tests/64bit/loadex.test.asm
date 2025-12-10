@@ -5,7 +5,7 @@
 
 .test "loadex basic load" {
     .description "Basic 64-bit extended load test"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "loadex"
     
@@ -20,7 +20,7 @@
 
 .test "loadex zero value" {
     .description "Test extended load of zero value"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "loadex"
     .tag "zero"
@@ -35,7 +35,7 @@
 
 .test "loadex large value" {
     .description "Test extended load of large 64-bit value"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "loadex"
     .tag "large-values"
@@ -50,7 +50,7 @@
 
 .test "loadex different addresses" {
     .description "Test loading from different memory addresses"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "loadex"
     .tag "addressing"
@@ -72,7 +72,7 @@
 
 .test "loadex sequential addresses" {
     .description "Test loading from sequential memory addresses"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "loadex"
     .tag "sequential"

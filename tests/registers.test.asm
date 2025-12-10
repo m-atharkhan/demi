@@ -3,7 +3,7 @@
 
 .test "register to register move" {
     .description "Tests MOV instruction for copying values between registers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Registers"
     .tag "basic"
     .tag "move"
@@ -15,7 +15,7 @@
 
 .test "multiple register operations" {
     .description "Tests loading immediate values into multiple registers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Registers"
     .tag "basic"
     .tag "load-immediate"
@@ -31,7 +31,7 @@
 
 .test "register independence" {
     .description "Tests that operations on one register don't affect other registers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Registers"
     .tag "independence"
     .tag "arithmetic"
@@ -44,7 +44,7 @@
 
 .test "extended registers" {
     .description "Tests using registers beyond EAX-EBP (extended register set)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Registers"
     .tag "extended"
     .tag "basic"
@@ -56,7 +56,7 @@
 
 .test "high register range test" {
     .description "Tests registers R8 and beyond to find the supported range"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Registers"
     .tag "extended"
     .tag "limits"
@@ -74,7 +74,7 @@
 
 .test "register chain operations" {
     .description "Tests chaining operations through multiple registers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Registers"
     .tag "chain"
     .tag "complex"

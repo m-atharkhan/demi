@@ -10,7 +10,7 @@
 
 .test "preprocessor_platform_specific" {
     .description "Tests platform-specific conditional compilation"
-    .author "Platform Team" 
+    .author "bobrossrtx" 
     .category "Platform Tests"
     .tag "platform"
     .tag "conditional"
@@ -41,7 +41,7 @@
 
 .test "preprocessor_version_check" {
     .description "Tests version-specific compilation"
-    .author "Version Team"
+    .author "bobrossrtx"
     .category "Version Tests"
     .tag "version"
     .tag "conditional"
@@ -60,7 +60,7 @@
 
 .test "preprocessor_complex_macros" {
     .description "Tests complex multi-line macro expansion"
-    .author "Macro Team"
+    .author "bobrossrtx"
     .category "Macro Tests" 
     .tag "macros"
     .tag "complex"
@@ -80,7 +80,7 @@
 
 .test "preprocessor_register_aliases" {
     .description "Tests register alias definitions"
-    .author "Register Team"
+    .author "bobrossrtx"
     .category "Register Tests"
     .tag "registers"
     .tag "aliases"
@@ -109,7 +109,7 @@
     
     .test "preprocessor_math_operations" {
         .description "Tests mathematical operation macros"
-        .author "Math Team"
+        .author "bobrossrtx"
         .category "Math Tests"
         .tag "math"
         .tag "arithmetic"
@@ -133,7 +133,7 @@
 
 .test "preprocessor_macro_nesting" {
     .description "Tests nested macro expansion"
-    .author "Nesting Team" 
+    .author "bobrossrtx" 
     .category "Complex Tests"
     .tag "nesting"
     .tag "macros"

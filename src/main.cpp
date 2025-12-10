@@ -3,7 +3,6 @@
 #include <string>
 #include <functional>
 #include <unordered_map>
-#include <map>
 #include <fstream>
 #include <filesystem>
 #include <iomanip>
@@ -26,6 +25,7 @@ namespace fs = std::experimental::filesystem;
 // Include the debug framework
 #include "debug/logger.hpp"
 #include "debug/debug_handler.hpp"
+#include "debug/hexdumper.hpp"
 
 // Include the test framework
 #include "test/test.hpp"
@@ -62,15 +62,15 @@ void initialize_devices() {
 
     // Create a file device for virtual file I/O
     auto file = DeviceFactory::createFileDevice("virtual_storage/vhd.dat", 0x04);    // Create a RAM disk device for block storage
-    Logger::instance().debug() << "About to create RAMDisk..." << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_RAMDISK, "About to create RAMDisk...", Logging::DebugLevel::DETAIL);
     auto ramdisk = DeviceFactory::createRamDiskDevice(8192, 0x05, 0x06);
-    Logger::instance().debug() << "RAMDisk created successfully" << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_RAMDISK, "RAMDisk created successfully", Logging::DebugLevel::DETAIL);
 
     // Optionally, create a real serial port device if available
     // Uncomment and modify the port name as needed for your system
     // auto serial = DeviceFactory::createSerialPortDevice("/dev/ttyUSB0", 0x03);
 
-    Logger::instance().info() << "Device system initialized with standard and storage devices" << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, "Device system initialized with standard and storage devices", Logging::DebugLevel::INFO);
 }
 
 enum class ArgType { Value, Action, MultiValue };
@@ -80,7 +80,7 @@ struct ArgDef {
     std::string arg;
     std::string alias;
     std::string help;
-    std::string category;  // Category for grouping in help output
+    std::string category;
     ArgType type;
     std::function<void(const std::string&)> value_action; // For value args
     std::function<void()> action;                         // For action args
@@ -97,18 +97,15 @@ struct ParsedArg {
 class ArgParser {
 public:
     void add_value_arg(const std::string& name, const std::string& arg, const std::string& alias,
-                       const std::string& help, std::function<void(const std::string&)> value_action,
-                       const std::string& category = "General") {
+                       const std::string& help, const std::string& category, std::function<void(const std::string&)> value_action) {
         args_.push_back({name, arg, alias, help, category, ArgType::Value, value_action, nullptr, nullptr});
     }
     void add_action_arg(const std::string& name, const std::string& arg, const std::string& alias,
-                        const std::string& help, std::function<void()> action,
-                        const std::string& category = "General") {
+                        const std::string& help, const std::string& category, std::function<void()> action) {
         args_.push_back({name, arg, alias, help, category, ArgType::Action, nullptr, action, nullptr});
     }
     void add_bool_arg(const std::string& name, const std::string& arg, const std::string& alias,
-                      const std::string& help, std::function<void(bool)> action,
-                      const std::string& category = "General") {
+                      const std::string& help, const std::string& category, std::function<void(bool)> action) {
         args_.push_back({name, arg, alias, help, category, ArgType::Value,
             [action](const std::string& value) {
                 // If value is empty, treat as true (flag style)
@@ -117,8 +114,7 @@ public:
             }, nullptr, nullptr});
     }
     void add_multi_value_arg(const std::string& name, const std::string& arg, const std::string& alias,
-                       const std::string& help, std::function<void(const std::vector<std::string>&)> multi_value_action,
-                       const std::string& category = "General") {
+                       const std::string& help, const std::string& category, std::function<void(const std::vector<std::string>&)> multi_value_action) {
         args_.push_back({name, arg, alias, help, category, ArgType::MultiValue, nullptr, nullptr, multi_value_action});
     }
 
@@ -200,20 +196,10 @@ public:
                 }
             }
         }
-        
-        // Process debug actions (debug_verbose, debug_quiet)
+            
+        // Process debug actions (debug_verbose, debug_quiet, hexdump)
         for (const auto& parsed : parsed_args) {
-            if (parsed.name == "debug_verbose" || parsed.name == "debug_quiet") {
-                auto def = find_arg_def(parsed.name);
-                if (def && def->action) {
-                    def->action();
-                }
-            }
-        }
-        
-        // Process action arguments BEFORE test execution (important for flags like show_metadata)
-        for (const auto& parsed : parsed_args) {
-            if (parsed.type == ArgType::Action) {
+            if (parsed.name == "debug_verbose" || parsed.name == "debug_quiet" || parsed.name == "hexdump") {
                 auto def = find_arg_def(parsed.name);
                 if (def && def->action) {
                     def->action();
@@ -227,69 +213,79 @@ public:
                 parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" &&
                 parsed.name != "help" && parsed.name != "test" && parsed.name != "unit_test" && 
                 parsed.name != "assembly_test" && parsed.name != "assembly_test_quiet" &&
-                parsed.type == ArgType::Value) {
+                parsed.name != "debug_verbose" && parsed.name != "debug_quiet" && parsed.name != "hexdump") {
                 auto def = find_arg_def(parsed.name);
-                if (def && def->value_action) {
-                    def->value_action(parsed.value);
+                if (def) {
+                    if (def->value_action && parsed.type == ArgType::Value) {
+                        def->value_action(parsed.value);
+                    } else if (def->multi_value_action && parsed.type == ArgType::MultiValue) {
+                        def->multi_value_action(parsed.values);
+                    }
                 }
             }
         }
         
-        // Process multi-value arguments last (these may execute tests)
+        // Process action arguments last (test modes, help, etc.)
         for (const auto& parsed : parsed_args) {
-            if (parsed.type == ArgType::MultiValue) {
+            if (parsed.name == "help" || parsed.name == "test" || parsed.name == "unit_test" || 
+                parsed.name == "assembly_test" || parsed.name == "assembly_test_quiet") {
                 auto def = find_arg_def(parsed.name);
-                if (def && def->multi_value_action) {
-                    def->multi_value_action(parsed.values);
+                if (def) {
+                    if (def->type == ArgType::Action && def->action) {
+                        def->action();
+                    } else if (def->type == ArgType::Value && def->value_action) {
+                        def->value_action(parsed.value);
+                    } else if (def->type == ArgType::MultiValue && def->multi_value_action) {
+                        def->multi_value_action(parsed.values);
+                    }
+                }
+            }
+        }
+
+        // Process any remaining action arguments (like x64, x86)
+        for (const auto& parsed : parsed_args) {
+            if (parsed.type == ArgType::Action && 
+                parsed.name != "debug_verbose" && parsed.name != "debug_quiet" && parsed.name != "hexdump" &&
+                parsed.name != "help" && parsed.name != "test" && parsed.name != "unit_test" && 
+                parsed.name != "assembly_test" && parsed.name != "assembly_test_quiet") {
+                
+                auto def = find_arg_def(parsed.name);
+                if (def && def->action) {
+                    def->action();
                 }
             }
         }
     }
 
     void print_help() const {
-        std::cout << "\033[1;36mDemi Engine - Virtualized Compiler and Assembler\033[0m\n\n";
-        std::cout << "\033[1mUsage:\033[0m demi-engine [options] [files...]\n\n";
-        
-        // Define category order
-        std::vector<std::string> category_order = {
-            "General",
-            "Input/Output",
-            "Assembly",
-            "Architecture",
-            "Testing",
-            "Debugging"
-        };
+        std::cout << "demi-engine Usage: demi-engine [options]" << std::endl;
         
         // Group arguments by category
         std::map<std::string, std::vector<const ArgDef*>> categories;
+        std::vector<std::string> category_order = {
+            "General", "Execution", "Debugging", "Testing", "Hardware"
+        };
+        
         for (const auto& def : args_) {
             categories[def.category].push_back(&def);
         }
         
-        // Print categories in defined order
-        for (const auto& cat_name : category_order) {
-            auto it = categories.find(cat_name);
-            if (it != categories.end() && !it->second.empty()) {
-                std::cout << "\033[1;33m" << cat_name << ":\033[0m\n";
-                for (const auto* def : it->second) {
-                    std::string alias_str = def->alias.empty() ? "" : def->alias;
-                    std::cout << fmt::format("  \033[32m{:<25}\033[0m \033[36m{:<6}\033[0m  {}\n", 
-                                           def->arg, alias_str, def->help);
+        for (const auto& cat : category_order) {
+            if (categories.count(cat) && !categories[cat].empty()) {
+                std::cout << "\n" << cat << " Options:" << std::endl;
+                for (const auto* def : categories[cat]) {
+                    std::cout << fmt::format("  {:<25} {:<6}  {}\n", def->arg, def->alias, def->help);
                 }
-                std::cout << "\n";
             }
         }
         
-        // Print any categories not in the order list
-        for (const auto& [cat_name, defs] : categories) {
-            if (std::find(category_order.begin(), category_order.end(), cat_name) == category_order.end()) {
-                std::cout << "\033[1;33m" << cat_name << ":\033[0m\n";
+        // Print any remaining categories
+        for (const auto& [cat, defs] : categories) {
+            if (std::find(category_order.begin(), category_order.end(), cat) == category_order.end()) {
+                std::cout << "\n" << cat << " Options:" << std::endl;
                 for (const auto* def : defs) {
-                    std::string alias_str = def->alias.empty() ? "" : def->alias;
-                    std::cout << fmt::format("  \033[32m{:<25}\033[0m \033[36m{:<6}\033[0m  {}\n", 
-                                           def->arg, alias_str, def->help);
+                    std::cout << fmt::format("  {:<25} {:<6}  {}\n", def->arg, def->alias, def->help);
                 }
-                std::cout << "\n";
             }
         }
     }
@@ -316,21 +312,21 @@ private:
 };
 
 void run_in_assembly_tests() {
-    // Scan tests/ directory for .asm files
+    // Scan tests/ directory recursively for .asm files
     std::vector<std::string> test_files;
     
-    // Use filesystem to find all .asm files in tests/
+    // Use filesystem to find all .asm files in tests/ (recursive)
     std::string test_dir = "tests";
     if (fs::exists(test_dir) && fs::is_directory(test_dir)) {
-        for (const auto& entry : fs::directory_iterator(test_dir)) {
+        for (const auto& entry : fs::recursive_directory_iterator(test_dir)) {
             if (entry.is_regular_file() && entry.path().extension() == ".asm") {
                 test_files.push_back(entry.path().string());
             }
         }
     }
     
-    // Note: Removed examples files from default -at execution
-    // To include examples, run with specific file path: ./bin/demi-engine -at examples/test_example.asm
+    // Note: Now uses recursive scanning to include subdirectories like tests/64bit/
+    // To run specific files: ./bin/demi-engine -at examples/test_example.asm
     
     if (test_files.empty()) {
         fmt::print("\nNo in-assembly test files found in tests/.\n");
@@ -524,7 +520,7 @@ std::vector<std::string> scan_directory_for_tests(const std::string& directory_p
             }
         }
     } catch (const fs::filesystem_error& e) {
-        Logger::instance().error() << fmt::format("Error scanning directory {}: {}", directory_path, e.what()) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Error scanning directory {}: {}", directory_path, e.what()), Logging::DebugLevel::CRITICAL);
     }
     
     // Sort files for consistent ordering
@@ -540,7 +536,7 @@ void run_file_tests(const std::vector<std::string>& filepaths) {
     for (const auto& filepath : filepaths) {
         // Check if path exists
         if (!fs::exists(filepath)) {
-            Logger::instance().error() << fmt::format("Test path not found: {}", filepath) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Test path not found: {}", filepath), Logging::DebugLevel::CRITICAL);
             exit(1);
         }
         
@@ -557,7 +553,7 @@ void run_file_tests(const std::vector<std::string>& filepaths) {
             // If it's a file, add it to the list
             test_files.push_back(filepath);
         } else {
-            Logger::instance().error() << fmt::format("Path is neither a file nor a directory: {}", filepath) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Path is neither a file nor a directory: {}", filepath), Logging::DebugLevel::CRITICAL);
             exit(1);
         }
     }
@@ -658,17 +654,24 @@ bool run_tests() {
 class DemiEngine {
 public:
     DemiEngine(int argc, char *argv[]) {
-        // === General ===
-        parser.add_action_arg("help", "--help", "-h", "Shows help information",
-            [this]() { parser.print_help(); show_help = true; }, "General");
+        // Help argument
+        parser.add_action_arg("help", "--help", "-h", "Shows help information", "General",
+            [this]() { parser.print_help(); show_help = true; });
+        // Debug argument
+        parser.add_bool_arg("debug", "--debug", "-d", "Enable debug mode", "Debugging",
+            [this](bool value) { 
+                Config::debug = value; 
+                Config::verbose = value; 
+                if (value) {
+                    Logging::DebugHandler::instance().enable_default_categories();
+                }
+            });
         
-        // === Debugging ===
-        parser.add_bool_arg("debug", "--debug", "-d", "Enable debug mode",
-            [this](bool value) { Config::debug = value; Config::verbose = value; }, "Debugging");
-        
-        parser.add_value_arg("debug_level", "--debug-level", "-dl", "Set debug level (trace, detail, info, important, critical, all)",
+        // Debug level argument
+        parser.add_value_arg("debug_level", "--debug-level", "-dl", "Set debug level (trace, detail, info, important, critical, all). Supports comma-separated values.", "Debugging",
             [this](const std::string& value) {
                 Config::debug = true;  // Auto-enable debug mode when level is set
+                Logging::DebugHandler::instance().enable_default_categories();
                 
                 std::stringstream ss(value);
                 std::string segment;
@@ -733,95 +736,75 @@ public:
                 } else {
                     std::cerr << "Invalid debug level: " << value << ". Valid levels: trace, detail, info, important, critical, all" << std::endl;
                 }
-            }, "Debugging");
+            });
         
-        parser.add_action_arg("debug_verbose", "--debug-verbose", "-dv", "Enable debug with verbose output (TRACE level)",
+        // Debug verbose argument (shortcut for debug + verbose)
+        parser.add_action_arg("debug_verbose", "--debug-verbose", "-dv", "Enable debug with verbose output (TRACE level)", "Debugging",
             [this]() { 
                 Config::debug = true; 
+                Logging::DebugHandler::instance().enable_default_categories();
                 Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::TRACE);
                 // Enable all verbose categories for maximum visibility
                 Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_DISPATCHER, true);
                 Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::CPU_PREDICTION, true);
                 Logging::DebugHandler::instance().set_category_enabled(Logging::DebugCategory::MEM_BOUNDS, true);
-            }, "Debugging");
-        
-        parser.add_action_arg("debug_quiet", "--debug-quiet", "-dq", "Enable debug with minimal output (IMPORTANT level)",
+            });
+        parser.add_action_arg("debug_quiet", "--debug-quiet", "-dq", "Enable debug with minimal output (IMPORTANT level)", "Debugging",
             [this]() { 
                 Config::debug = true; 
+                Logging::DebugHandler::instance().enable_default_categories();
                 Logging::DebugHandler::instance().set_minimum_level(Logging::DebugLevel::IMPORTANT); 
-            }, "Debugging");
+            });
         
-        parser.add_bool_arg("verbose", "--verbose", "-v", "Show informational messages",
-            [this](bool value) { Config::verbose = value; }, "Debugging");
+        // Hexdump argument
+        parser.add_action_arg("hexdump", "--hexdump", "", "Enable bytecode hex dump output after assembly", "Debugging",
+            [this]() {
+                Logging::HexDumper::enable();
+            });
+        // Verbose argument
+        parser.add_bool_arg("verbose", "--verbose", "-v", "Show informational messages (use --verbose=false to disable)", "General",
+            [this](bool value) { Config::verbose = value; });
 
-        parser.add_value_arg("debug_file", "--debug-file", "-f", "Debug file path",
-            [this](const std::string& value) { Config::debug_file = value; }, "Debugging");
+        // Extended registers argument
+        parser.add_bool_arg("extended_registers", "--extended-registers", "-er", "Show extended register output (50 registers)", "Debugging",
+            [this](bool value) { Config::extended_registers = value; });
 
-        parser.add_bool_arg("extended_registers", "--extended-registers", "-er", "Show extended register output (50 registers)",
-            [this](bool value) { Config::extended_registers = value; }, "Debugging");
+        // Debug File argument
+        parser.add_value_arg("debug_file", "--debug-file", "-f", "Debug file path", "Debugging",
+            [this](const std::string& value) { Config::debug_file = value; });
 
-        parser.add_bool_arg("memdump", "--memdump", "-m", "Print memory dump after execution", 
-            [this](bool value) { Config::memdump = value; }, "Debugging");
+        // Hex file argument
+        parser.add_value_arg("hex", "--hex", "-H", "Path to hex file (hex bytes, space or newline separated)", "Execution",
+            [this](const std::string& value) { Config::program_file = value; });
 
-        // === Input/Output ===
-        parser.add_value_arg("compile", "--compile", "-o", "Compile program into a standalone executable",
-            [this](const std::string& value) {
-                Config::compile_only = true;
-                Config::output_name = value;
-            }, "Input/Output");
-
-        // === Assembly ===
-        parser.add_value_arg("assembly", "--assembly", "-A", "Assembly mode: assemble and run .asm file",
-            [this](const std::string& value) {
-                Config::assembly_mode = true;
-                Config::assembly_file = value;
-            }, "Assembly");
-
-        parser.add_value_arg("entry_point", "--entry-point", "-e", "Specify entry point symbol (default: _start)",
-            [this](const std::string& value) {
-                Config::entry_point_symbol = value;
-            }, "Assembly");
-
-        // === Architecture ===
-        parser.add_value_arg("architecture", "--architecture", "-x", "Set architecture (x86 or x64)",
-            [this](const std::string& value) {
-                if (value == "x86" || value == "86") Config::architecture = Architecture::X86;
-                else if (value == "x64" || value == "64") Config::architecture = Architecture::X64;
-                else Config::architecture = Architecture::AUTO;
-            }, "Architecture");
-        
-        parser.add_action_arg("arch_x86", "-x86", "", "Shortcut for --architecture=x86",
-            [this]() { Config::architecture = Architecture::X86; }, "Architecture");
-        
-        parser.add_action_arg("arch_x64", "-x64", "", "Shortcut for --architecture=x64",
-            [this]() { Config::architecture = Architecture::X64; }, "Architecture");
-        
-        parser.add_action_arg("no_arch_warn", "--no-arch-warn", "", "Silence mixed architecture warning",
-            [this]() { Config::arch_warn_silenced = true; }, "Architecture");
-
-        // === Testing ===
-        parser.add_multi_value_arg("test", "--test", "-t", "Run built-in unit tests or test specific files",
+        // Run tests argument (with optional file path)
+        parser.add_multi_value_arg("test", "--test", "-t", "Run built-in unit tests, or test specific files if paths provided", "Testing",
             [this](const std::vector<std::string>& values) {
                 if (values.empty() || (values.size() == 1 && (values[0].empty() || values[0] == "true"))) {
+                    // No file specified, run unit tests only
                     run_unit_tests_only();
                 } else {
+                    // Files specified, run tests from those files
                     run_file_tests(values);
                 }
-            }, "Testing");
+            });
         
-        parser.add_multi_value_arg("unit_test", "--unit-test", "-ut", "Run built-in unit tests only or specific test by name",
+        // Run unit tests only (or specific file)
+        parser.add_multi_value_arg("unit_test", "--unit-test", "-ut", "Run built-in unit tests only, specific test by name, or test file", "Testing",
             [this](const std::vector<std::string>& values) {
                 if (values.empty()) {
                     run_unit_tests_only();
                 } else {
                     run_unit_tests_with_inputs(values);
                 }
-            }, "Testing");
+            });
         
-        parser.add_multi_value_arg("assembly_test", "--assembly-test", "-at", "Run in-assembly tests (supports files and folders)",
+        // Run assembly tests only (or specific file/folder)
+        parser.add_multi_value_arg("assembly_test", "--assembly-test", "-at", "Run in-assembly tests only (supports files and folders)", "Testing",
             [this](const std::vector<std::string>& values) {
-                Config::test_mode = true;
+                Config::test_mode = true;  // Enable test mode to suppress verbose logs
                 if (values.empty()) {
+                    // Check positional args for backward compatibility or if no values provided
                     auto positional = parser.get_positional_args();
                     if (positional.empty()) {
                         run_assembly_tests_only();
@@ -829,13 +812,15 @@ public:
                         run_file_tests(positional);
                     }
                 } else {
+                    // Run tests on specified files
                     run_file_tests(values);
                 }
-            }, "Testing");
+            });
         
-        parser.add_multi_value_arg("assembly_test_quiet", "--assembly-test-quiet", "-atq", "Run in-assembly tests in quiet mode",
+        // Run assembly tests in quiet mode (only show title and description)
+        parser.add_multi_value_arg("assembly_test_quiet", "--assembly-test-quiet", "-atq", "Run in-assembly tests in quiet mode (supports files and folders)", "Testing",
             [this](const std::vector<std::string>& values) {
-                Config::test_mode = true;
+                Config::test_mode = true;  // Enable test mode to suppress verbose logs
                 Config::quiet_assembly_test = true;
                 if (values.empty()) {
                     auto positional = parser.get_positional_args();
@@ -847,9 +832,54 @@ public:
                 } else {
                     run_file_tests(values);
                 }
-            }, "Testing");
+            });
 
-        parser.add_value_arg("test_filter", "--test-filter", "", "Filter test output (all|fails|success)", 
+        // Assembly mode argument
+        parser.add_value_arg("assembly", "--assembly", "-A", "Assembly mode: assemble and run .asm file", "Execution",
+            [this](const std::string& value) {
+                Config::assembly_mode = true;
+                Config::assembly_file = value;
+            });
+
+        // Compile argument
+        parser.add_value_arg("compile", "--compile", "-o", "Compile program into a standalone executable (optionally specify output name)", "Execution",
+            [this](const std::string& value) {
+                Config::compile_only = true;
+                Config::output_name = value;
+            });
+
+        // Memory dump argument
+        parser.add_bool_arg("memdump", "--memdump", "-m", "Print memory dump after execution", "Debugging", [this](bool value) { Config::memdump = value; });
+
+        // Entry point argument
+        parser.add_value_arg("entry_point", "--entry-point", "-e", "Specify entry point symbol (default: _start)", "Execution",
+            [this](const std::string& value) {
+                Config::entry_point_symbol = value;
+            });
+
+        // Architecture arguments
+        parser.add_value_arg("architecture", "--architecture", "-arch", "Set CPU architecture (x86, x64, auto)", "Execution",
+            [this](const std::string& value) {
+                if (value == "x86" || value == "32") {
+                    Config::architecture = Architecture::X86;
+                } else if (value == "x64" || value == "64") {
+                    Config::architecture = Architecture::X64;
+                } else if (value == "auto") {
+                    Config::architecture = Architecture::AUTO;
+                } else {
+                    std::cerr << "Error: Invalid architecture '" << value << "'. Use 'x86', 'x64', or 'auto'." << std::endl;
+                    exit(1);
+                }
+            });
+
+        parser.add_action_arg("x86", "-x86", "", "Force x86 (32-bit) mode", "Execution",
+            [this]() { Config::architecture = Architecture::X86; });
+
+        parser.add_action_arg("x64", "-x64", "", "Force x64 (64-bit) mode", "Execution",
+            [this]() { Config::architecture = Architecture::X64; });
+
+        // Test filter argument for tests
+        parser.add_value_arg("test_filter", "--test-filter", "", "Filter test output (all|fails|success)", "Testing",
             [this](const std::string& value) {
                 if (value == "fails" || value == "fail") {
                     Config::test_show_mode = TestShowMode::FAILS;
@@ -861,10 +891,7 @@ public:
                     std::cerr << "Error: Invalid --test-filter value '" << value << "'. Use 'all', 'fails', or 'success'." << std::endl;
                     exit(1);
                 }
-            }, "Testing");
-
-        parser.add_action_arg("show_metadata", "--show-metadata", "-sm", "Show test metadata (description, author, category, tags)",
-            [this]() { Config::show_test_metadata = true; }, "Testing");
+            });
 
         parser.parse(argc, argv);
     }
@@ -875,12 +902,8 @@ public:
         std::string output_name;
 
         if (Config::output_name.empty()) {
-            // Generate a name from assembly file if available, otherwise use default
-            if (!Config::assembly_file.empty()) {
-                output_name = generate_executable_name(Config::assembly_file);
-            } else {
-                output_name = "demi_output";
-            }
+            // Generate a name if none provided
+            output_name = generate_executable_name(Config::program_file);
         } else {
             // Use provided name and sanitize it
             output_name = sanitize_filename(Config::output_name);
@@ -1158,7 +1181,17 @@ public:
                 std::cerr << "Error: Test mode (-t/--test) cannot be used with assembly mode (-A/--assembly)" << std::endl;
                 return;
             }
+            if (!Config::program_file.empty()) {
+                std::cerr << "Error: Test mode (-t/--test) cannot be used with hex file (-H/--hex)" << std::endl;
+                return;
+            }
             run_tests();
+            return;
+        }
+
+        // Validate conflicting flags for assembly mode
+        if (Config::assembly_mode && !Config::program_file.empty()) {
+            std::cerr << "Error: Assembly mode (-A/--assembly) cannot be used with hex file (-H/--hex)" << std::endl;
             return;
         }
 
@@ -1168,28 +1201,20 @@ public:
             return;
         }
 
-
         CPU cpu;
         cpu.reset();
-        // Set CPU mode based on detected architecture
-        switch (Config::architecture) {
-            case Architecture::X64:
-                cpu.set_cpu_mode(CPUMode::MODE_64BIT);
-                break;
-            case Architecture::X86:
-                cpu.set_cpu_mode(CPUMode::MODE_32BIT);
-                break;
-            default:
-                /* AUTO: leave as default (32-bit) */
-                break;
-        }
 
-        // No direct hex input mode - use assembly mode (-A) instead
-        parser.print_help();
-        return;
-
-        // Note: The following code is kept for future use with compiled programs
         std::vector<uint8_t> program;
+        if (!Config::program_file.empty()) {
+            if (!load_program_file(Config::program_file, program)) {
+                std::cerr << "Failed to load program file: " << Config::program_file << std::endl;
+                return;
+            }
+        } else {
+            // No file specified, show help
+            parser.print_help();
+            return;
+        }
 
         // Check if we should compile instead of run
         if (Config::compile_only) {
@@ -1221,9 +1246,9 @@ public:
         cpu.print_memory();
 
         if (Config::error_count > 0) {
-            Logger::instance().error() << "Execution failed with " << Config::error_count << " errors." << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("Execution failed with {} errors.", Config::error_count), Logging::DebugLevel::CRITICAL);
         } else {
-            Logger::instance().success() << "Execution completed successfully." << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, "Execution completed successfully.", Logging::DebugLevel::IMPORTANT);
         }
     }
 
@@ -1231,6 +1256,25 @@ private:
     ArgParser parser;
     std::string data;
     bool show_help = false;
+
+    // Helper to load hex bytes from file
+    bool load_program_file(const std::string& path, std::vector<uint8_t>& out) {
+        std::ifstream file(path);
+        if (!file) return false;
+        std::string token;
+        while (file >> token) {
+            if (token[0] == '#') { file.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); continue; }
+            try {
+                uint8_t byte = static_cast<uint8_t>(std::stoul(token, nullptr, 16));
+                out.push_back(byte);
+            } catch (...) {
+                std::cerr << "Invalid hex byte in program file: " << token << std::endl;
+                Config::error_count++;
+                return false;
+            }
+        }
+        return true;
+    }
 
     // Assembly mode: assemble and run .asm file
     void run_assembly_mode() {
@@ -1275,111 +1319,71 @@ private:
             }
         }
 
-
         // Initialize CPU and devices
         CPU cpu;
         cpu.reset();
-        // Set CPU mode based on detected architecture
-        switch (Config::architecture) {
-            case Architecture::X64:
-                cpu.set_cpu_mode(CPUMode::MODE_64BIT);
-                break;
-            case Architecture::X86:
-                cpu.set_cpu_mode(CPUMode::MODE_32BIT);
-                break;
-            default:
-                /* AUTO: leave as default (32-bit) */
-                break;
-        }
         initialize_devices();
 
         // Set PC to entry address if available
         uint32_t entry_addr = assembler.get_entry_address();
 
-        // Print header for assembled program
-        if (Config::verbose) {
-            std::cout << "\n\033[36m┌─────────────────────────────────────────────────────────────┐\033[0m" << std::endl;
-            std::cout << "\033[36m│\033[0m               \033[1mRunning Assembled Program\033[0m                     \033[36m│\033[0m" << std::endl;
-            std::cout << "\033[36m└─────────────────────────────────────────────────────────────┘\033[0m" << std::endl;
+        // Print hex dump of assembled bytecode
+        // Use HexDumper for --hexdump flag (always prints)
+        if (Logging::HexDumper::is_enabled()) {
+            Logging::HexDumper::dump_bytecode(bytecode, "Assembled bytecode hex dump");
         }
-
-        // Print hex dump of assembled bytecode with ASCII representation
-        DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "Assembled bytecode hex dump: (size={})", bytecode.size());
         
-        for (size_t i = 0; i < bytecode.size(); i += 16) {
-            std::ostringstream hex_part;
-            std::ostringstream ascii_part;
-            
-            // Address
-            hex_part << "0x" << std::setw(4) << std::setfill('0') << std::hex << i << ": ";
-            
-            // Hex bytes and ASCII
-            for (size_t j = 0; j < 16; ++j) {
-                if (i + j < bytecode.size()) {
-                    uint8_t byte = bytecode[i + j];
-                    hex_part << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(byte) << " ";
-                    // Printable ASCII range (32-126), otherwise show '.'
-                    ascii_part << (byte >= 32 && byte <= 126 ? static_cast<char>(byte) : '.');
-                } else {
-                    // Pad with ?? for missing bytes
-                    hex_part << "?? ";
-                    ascii_part << ".";
-                }
-            }
-            
-            // Combine hex and ASCII parts
-            DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "{} |{}|", hex_part.str(), ascii_part.str());
+        // Also send to debug system if debug mode is enabled (for debug directives)
+        if (Config::debug) {
+            std::string dump = Logging::HexDumper::format_bytecode(bytecode);
+            // Add a newline at the end so the metadata (file:line) appears on a new line
+            DEBUG_INFO(Logging::DebugCategory::ASM_HEXDUMP, "Assembled bytecode hex dump ({} bytes):\n{}\n", bytecode.size(), dump);
         }
-        std::cout << std::dec << std::endl;
 
         // Print entry address and bytes at entry address
-        DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "Entry address: 0x{:04x}", entry_addr);
-        std::ostringstream bytes_stream;
-        bytes_stream << "Bytes at entry address:";
+        DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Entry address: 0x{:X}", entry_addr);
+        std::string bytes_str = "Bytes at entry address:";
         for (size_t i = entry_addr; i < entry_addr + 8 && i < bytecode.size(); ++i) {
-            bytes_stream << " " << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(bytecode[i]);
+            bytes_str += fmt::format(" {:02X}", bytecode[i]);
         }
-        DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "{}", bytes_stream.str());
+        DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "{}", bytes_str);
 
         try {
             // Debug: Print entry address before execution
-            if (Config::debug) {
-                std::cout << "DEBUG: Entry address: 0x" << std::hex << entry_addr << std::dec << std::endl;
-                std::cout << "DEBUG: About to call cpu.execute() with bytecode size: " << bytecode.size() << std::endl;
-            }
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Entry address: 0x{:X}", entry_addr);
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "About to call cpu.execute() with bytecode size: {}", bytecode.size());
+            
             std::cout.flush();
             // Execute the assembled bytecode, starting at entry address
             cpu.execute(bytecode, entry_addr);
-            if (Config::debug) {
-                std::cout << "DEBUG: cpu.execute() completed successfully" << std::endl;
-            }
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "cpu.execute() completed successfully");
 
             // Print CPU state and registers (same as regular program mode)
-            Logger::instance().debug() << "Post-execution: printing CPU state..." << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Post-execution: printing CPU state...");
             cpu.print_state("End");
-            Logger::instance().debug() << "Post-execution: printing registers..." << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::CPU_REGISTERS, "Post-execution: printing registers...");
             cpu.print_registers();
 
             // Print extended registers if enabled
             if (Config::extended_registers) {
-                Logger::instance().debug() << "Post-execution: printing extended registers..." << std::endl;
+                DEBUG_INFO(Logging::DebugCategory::CPU_REGISTERS, "Post-execution: printing extended registers...");
                 cpu.print_extended_registers();
             }
 
             if (Config::memdump) {
-                Logger::instance().debug() << "Post-execution: printing memory..." << std::endl;
+                DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Post-execution: printing memory...");
                 size_t mem_size = cpu.get_memory().size();
                 if (mem_size > 0) {
                     cpu.print_memory(0, std::min<size_t>(mem_size, 256));
                 } else {
-                    Logger::instance().debug() << "Memory size is zero, skipping print_memory." << std::endl;
+                    DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Memory size is zero, skipping print_memory.");
                 }
             }
 
             if (Config::error_count > 0) {
-                Logger::instance().error() << "Assembly program failed with " << Config::error_count << " errors." << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("Assembly program failed with {} errors.", Config::error_count), Logging::DebugLevel::CRITICAL);
             } else {
-                Logger::instance().success() << "Assembly program completed successfully." << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, "Assembly program completed successfully.", Logging::DebugLevel::IMPORTANT);
             }
         } catch (const std::exception& e) {
             std::cerr << "Runtime error: " << e.what() << std::endl;

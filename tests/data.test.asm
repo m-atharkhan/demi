@@ -3,7 +3,7 @@
 
 .test "basic data storage and retrieval" {
     .description "Tests basic STORE and LOAD operations with single byte value"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Data"
     .tag "basic"
     .tag "load"
@@ -21,7 +21,7 @@
 
 .test "string data storage" {
     .description "Tests storing and loading string data character by character"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Data"
     .tag "string"
     .tag "characters"
@@ -59,7 +59,7 @@
 
 .test "multiple data values at different addresses" {
     .description "Tests storing multiple different data types at various memory locations"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Data"
     .tag "multi-location"
     .tag "types"
@@ -89,7 +89,7 @@
 
 .test "data overwrite and update" {
     .description "Tests overwriting stored data with new values"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Data"
     .tag "overwrite"
     .tag "update"
@@ -114,7 +114,7 @@
 
 .test "basic DB directive test" {
     .description "Tests that DB directive works within test framework"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Data"
     .tag "db"
     .tag "data"
@@ -141,7 +141,7 @@
 
 .test "DB with mixed data" {
     .description "Tests DB directive with mixed data types"
-    .author "DemiEngine Team" 
+    .author "bobrossrtx" 
     .category "Data"
     .tag "db"
     .tag "mixed-data"
@@ -166,7 +166,7 @@
 
 .test "DB with byte values" {
     .description "Test DB directive with numeric byte values"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Data"
     .tag "db"
     .tag "bytes"
@@ -193,7 +193,7 @@
 
 .test "DB string data" {
     .description "Test DB directive with string data"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Data"
     .tag "db"
     .tag "string"
@@ -222,7 +222,7 @@
 
 .test "align directive test" {
     .description "Test .align directive for data alignment"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Data"
     .tag "align"
 
@@ -244,7 +244,7 @@
 
 .test "bss directive test" {
     .description "Test .bss directive for zero-initialized memory"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Data"
     .tag "bss"
 

@@ -3,7 +3,7 @@
 
 .test "benchmark_fibonacci" {
     .description "Benchmark: Fibonacci sequence calculation"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Benchmarks"
     .tag "fibonacci"
     .tag "recursive"
@@ -30,7 +30,7 @@ benchmark_fib_done:
 
 .test "benchmark_simple_arithmetic" {
     .description "Benchmark: Simple arithmetic operations"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Benchmarks"
     .tag "arithmetic"
     .tag "performance"
@@ -48,7 +48,7 @@ benchmark_fib_done:
 
 .test "benchmark_memory_ops" {
     .description "Benchmark: Memory operations"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Benchmarks"
     .tag "memory"
     .tag "performance"
@@ -69,7 +69,7 @@ benchmark_fib_done:
 
 .test "benchmark_matrix_multiply_2x2" {
     .description "Benchmark: 2x2 matrix multiplication"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Benchmarks"
     .tag "matrix"
     .tag "multiplication"

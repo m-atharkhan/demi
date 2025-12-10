@@ -3,7 +3,7 @@
 
 .test "div64 basic division" {
     .description "Basic 64-bit division test"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "div64"
     
@@ -17,7 +17,7 @@
 
 .test "div64 exact division" {
     .description "Test exact division with no remainder"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "div64"
     .tag "exact"
@@ -32,7 +32,7 @@
 
 .test "div64 division by one" {
     .description "Test division by one (identity)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "div64"
     .tag "identity"
@@ -47,7 +47,7 @@
 
 .test "div64 integer truncation" {
     .description "Test division with remainder (integer truncation)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "div64"
     .tag "truncation"
@@ -62,7 +62,7 @@
 
 .test "div64 zero dividend" {
     .description "Test division of zero"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "div64"
     .tag "zero"
@@ -77,7 +77,7 @@
 
 .test "div64 division by zero error" {
     .description "Test division by zero should cause error"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "div64"
     .tag "error"

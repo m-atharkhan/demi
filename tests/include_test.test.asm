@@ -4,7 +4,7 @@
 
 .test "include_test" {
     .description "Tests file inclusion"
-    .author "Test Team"
+    .author "bobrossrtx"
     .category "Include Test"
     
     LOAD_IMM EAX, TRUE

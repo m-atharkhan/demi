@@ -1,6 +1,6 @@
 .test "Smart Opcode Selection" {
     .description "Verify that MOV is promoted to MOV64 when using 64-bit registers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Assembler"
     
     ; This should be encoded as MOV64 (0x52) because RAX and RBX are 64-bit

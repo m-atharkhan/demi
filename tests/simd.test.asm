@@ -3,7 +3,7 @@
 
 .test "vector addition" {
     .description "Test parallel addition of vector elements using VADD"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "SIMD"
     .tag "vector"
     .tag "addition"
@@ -32,7 +32,7 @@
 
 .test "vector multiplication" {
     .description "Test parallel multiplication of vector elements using VMUL"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "SIMD"
     .tag "vector"
     .tag "multiplication"
@@ -61,7 +61,7 @@
 
 .test "vector dot product" {
     .description "Test dot product of two vectors using VDOT"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "SIMD"
     .tag "vector"
     .tag "dot-product"
@@ -87,7 +87,7 @@
 
 .test "vector max" {
     .description "Test finding maximum element in vector using VMAX"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "SIMD"
     .tag "vector"
     .tag "max"
@@ -107,7 +107,7 @@
 
 .test "vector broadcast" {
     .description "Test broadcasting scalar to vector using VBROADCAST"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "SIMD"
     .tag "vector"
     .tag "broadcast"
@@ -128,7 +128,7 @@
 
 .test "packed byte operations" {
     .description "Test packing and unpacking bytes using PACKB and UNPACKB"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "SIMD"
     .tag "packed"
     .tag "bytes"

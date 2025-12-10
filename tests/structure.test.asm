@@ -1,5 +1,6 @@
 .test "Program Structure" {
     .description "Verify section and global directives"
+    .author "bobrossrtx"
     .category "Assembler"
     .entry_point 0  ; Start at beginning to execute DB instruction in .data
 
@@ -22,6 +23,7 @@
 
 .test "Interleaved Sections" {
     .description "Verify switching between sections multiple times"
+    .author "bobrossrtx"
     .category "Assembler"
 
     section .data
@@ -46,6 +48,7 @@
 
 .test "Origin Directive" {
     .description "Verify .org directive sets address"
+    .author "bobrossrtx"
     .category "Assembler"
     .entry_point 0x100
 

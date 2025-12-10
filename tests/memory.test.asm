@@ -3,7 +3,7 @@
 
 .test "basic load and store" {
     .description "Tests basic LOAD and STORE memory operations"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Memory"
     .tag "basic"
     .tag "load"
@@ -18,7 +18,7 @@
 
 .test "multiple memory locations" {
     .description "Tests writing to multiple distinct memory addresses"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Memory"
     .tag "store"
     .tag "multi-location"
@@ -35,7 +35,7 @@
 
 .test "memory swap using registers" {
     .description "Tests swapping values between memory locations using register intermediates"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Memory"
     .tag "load"
     .tag "store"
@@ -56,7 +56,7 @@
 
 .test "LOADR indirect addressing" {
     .description "Test LOADR instruction for indirect addressing"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Memory"
     .tag "indirect"
     .tag "loadr"
@@ -73,7 +73,7 @@
 
 .test "memory boundary access" {
     .description "Test memory access at boundaries"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Memory"
     .tag "bounds"
     .tag "edge-cases"
@@ -87,7 +87,7 @@
 
 .test "memory initialization test" {
     .description "Test memory is properly initialized to zero"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Memory"
     .tag "initialization"
     .tag "zero"

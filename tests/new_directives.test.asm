@@ -3,7 +3,7 @@
 
 .test "max_call_depth_test" {
     .description "Tests custom call depth limit (32 instead of default 64)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Test Framework"
     .tag "maxcalldepth"
     .tag "call-stack"
@@ -18,7 +18,7 @@
 
 .test "timeout_test" {
     .description "Tests timeout directive (currently informational)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Test Framework"
     .tag "timeout"
     .timeout 1000
@@ -32,7 +32,7 @@
 
 .test "skipped_test" {
     .description "This test is skipped"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Test Framework"
     .tag "skip"
     .skip
@@ -44,7 +44,7 @@
 
 .test "benchmark_example" {
     .description "Benchmark example with comprehensive timing statistics"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Benchmarks"
     .tag "benchmark"
     .tag "arithmetic"
@@ -71,7 +71,7 @@ bench_end:
 
 .test "combined_metadata" {
     .description "Test with all metadata directives"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Test Framework"
     .tag "comprehensive"
     .tag "metadata"

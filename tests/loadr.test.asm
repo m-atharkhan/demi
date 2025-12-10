@@ -1,7 +1,7 @@
 # Test LOADR instruction - indirect memory addressing
 .test "LOADR basic functionality" {
     .description "Test LOADR instruction for indirect addressing"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Core Instructions"
     .tag "memory"
     .tag "indirect"
@@ -24,7 +24,7 @@
 
 .test "LOADR multiple addresses" {
     .description "Test LOADR with different memory addresses"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Core Instructions"
     .tag "memory"
     .tag "indirect"
