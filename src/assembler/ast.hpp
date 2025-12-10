@@ -198,6 +198,15 @@ public:
     size_t iterations = 1;
     std::string measure_type = "time";  // "time", "cycles", "instructions"
     
+    // One-time directive tracking
+    bool maxsteps_set = false;
+    bool maxcalldepth_set = false;
+    bool timeout_set = false;
+    bool description_set = false;
+    bool author_set = false;
+    bool category_set = false;
+    bool entry_point_set = false;
+    
     TestCase(const std::string& test_name, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::TEST_CASE, ln, col), name(test_name) {}
     
@@ -208,36 +217,58 @@ public:
         body.push_back(std::move(stmt));
     }
     
-    void set_description(const std::string& desc) {
+    // Returns false if already set (duplicate directive)
+    bool set_description(const std::string& desc) {
+        if (description_set) return false;
+        description_set = true;
         description = desc;
+        return true;
     }
     
-    void set_author(const std::string& auth) {
+    bool set_author(const std::string& auth) {
+        if (author_set) return false;
+        author_set = true;
         author = auth;
+        return true;
     }
     
-    void set_category(const std::string& cat) {
+    bool set_category(const std::string& cat) {
+        if (category_set) return false;
+        category_set = true;
         category = cat;
+        return true;
     }
     
     void add_tag(const std::string& tag) {
         tags.push_back(tag);
     }
 
-    void set_entry_point(const std::string& ep) {
+    bool set_entry_point(const std::string& ep) {
+        if (entry_point_set) return false;
+        entry_point_set = true;
         entry_point = ep;
+        return true;
     }
     
-    void set_max_steps(size_t steps) {
+    bool set_max_steps(size_t steps) {
+        if (maxsteps_set) return false;
+        maxsteps_set = true;
         max_steps = steps;
+        return true;
     }
     
-    void set_max_call_depth(size_t depth) {
+    bool set_max_call_depth(size_t depth) {
+        if (maxcalldepth_set) return false;
+        maxcalldepth_set = true;
         max_call_depth = depth;
+        return true;
     }
     
-    void set_timeout(size_t ms) {
+    bool set_timeout(size_t ms) {
+        if (timeout_set) return false;
+        timeout_set = true;
         timeout_ms = ms;
+        return true;
     }
     
     void set_skip(bool should_skip) {

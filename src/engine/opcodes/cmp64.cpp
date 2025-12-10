@@ -1,16 +1,14 @@
 #include "cmp64.hpp"
 #include "../cpu_flags.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/core.h>
-
-using Logging::Logger;
 
 void handle_cmp64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
     
     if (pc + 2 >= program.size()) {
-        Logger::instance().error() << fmt::format(
-            "[PC=0x{:04X}] CMP64: Not enough bytes for instruction", pc) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] CMP64: Not enough bytes for instruction", pc), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -18,17 +16,17 @@ void handle_cmp64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     uint8_t reg1_id = program[pc + 1];
     uint8_t reg2_id = program[pc + 2];
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [CMP64] Comparing 64-bit registers {} and {}", 
-        pc, reg1_id, reg2_id) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [CMP64] Comparing 64-bit registers {} and {}", 
+        pc, reg1_id, reg2_id), Logging::DebugLevel::DETAIL);
 
     // Get values directly from register array (consistent with other 64-bit instructions)
     uint64_t value1 = cpu.get_registers_64()[reg1_id];
     uint64_t value2 = cpu.get_registers_64()[reg2_id];
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [CMP64] Comparing {} with {}", 
-        pc, value1, value2) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [CMP64] Comparing {} with {}", 
+        pc, value1, value2), Logging::DebugLevel::DETAIL);
 
     // Perform 64-bit comparison using subtraction
     int64_t signed_val1 = static_cast<int64_t>(value1);
@@ -54,13 +52,13 @@ void handle_cmp64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
 
     cpu.set_flags(flags);
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [CMP64] Compare 0x{:016X} vs 0x{:016X} (Flags: C={} O={} S={} Z={})",
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [CMP64] Compare 0x{:016X} vs 0x{:016X} (Flags: C={} O={} S={} Z={})",
         pc, value1, value2,
         (flags & FLAG_CARRY) ? 1 : 0,
         (flags & FLAG_OVERFLOW) ? 1 : 0,
         (flags & FLAG_SIGN) ? 1 : 0,
-        (flags & FLAG_ZERO) ? 1 : 0) << std::endl;
+        (flags & FLAG_ZERO) ? 1 : 0), Logging::DebugLevel::DETAIL);
 
     // Move to next instruction
     cpu.set_pc(pc + 3);

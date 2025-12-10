@@ -1,6 +1,6 @@
 #include "unpackb.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include "../cpu_registers.hpp"
 #include <fmt/format.h>
 
@@ -8,7 +8,8 @@ using namespace DemiEngine_Registers;
 
 void handle_UNPACKB(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 >= program.size()) {
-        Logger::instance().error() << "UNPACKB: Insufficient instruction bytes" << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            "UNPACKB: Insufficient instruction bytes", Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -30,8 +31,9 @@ void handle_UNPACKB(CPU& cpu, const std::vector<uint8_t>& program, bool& running
     regs[static_cast<uint8_t>(R2)] = b2;
     regs[static_cast<uint8_t>(R3)] = b3;
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] UNPACKB: Unpacked 0x{:02X} = [0x{:02X},0x{:02X},0x{:02X},0x{:02X}]",
-        cpu.get_pc(), packed, b0, b1, b2, b3) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] UNPACKB: Unpacked 0x{:02X} = [0x{:02X},0x{:02X},0x{:02X},0x{:02X}]",
+        cpu.get_pc(), packed, b0, b1, b2, b3), Logging::DebugLevel::DETAIL);
     
     cpu.set_pc(cpu.get_pc() + 1);
 }

@@ -1,6 +1,6 @@
 #include "vcmpgt.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include "../cpu_registers.hpp"
 #include <fmt/format.h>
 
@@ -8,7 +8,8 @@ using namespace DemiEngine_Registers;
 
 void handle_VCMPGT(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 >= program.size()) {
-        Logger::instance().error() << "VCMPGT: Insufficient instruction bytes" << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            "VCMPGT: Insufficient instruction bytes", Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -41,8 +42,9 @@ void handle_VCMPGT(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
     regs[static_cast<uint8_t>(R2)] = result2;
     regs[static_cast<uint8_t>(R3)] = result3;
     
-    Logger::instance().debug() << fmt::format("VCMPGT: Vector compare [{},{},{},{}] > [{},{},{},{}] = [{},{},{},{}]",
-        a0, a1, a2, a3, b0, b1, b2, b3, result0, result1, result2, result3) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("VCMPGT: Vector compare [{},{},{},{}] > [{},{},{},{}] = [{},{},{},{}]",
+        a0, a1, a2, a3, b0, b1, b2, b3, result0, result1, result2, result3), Logging::DebugLevel::DETAIL);
     
     cpu.set_pc(cpu.get_pc() + 1);
 }

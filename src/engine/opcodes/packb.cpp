@@ -1,6 +1,6 @@
 #include "packb.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include "../cpu_registers.hpp"
 #include <fmt/format.h>
 
@@ -8,7 +8,8 @@ using namespace DemiEngine_Registers;
 
 void handle_PACKB(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 >= program.size()) {
-        Logger::instance().error() << "PACKB: Insufficient instruction bytes" << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            "PACKB: Insufficient instruction bytes", Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -33,8 +34,9 @@ void handle_PACKB(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     // Store packed result in R4
     regs[static_cast<uint8_t>(R4)] = packed;
     
-    Logger::instance().debug() << fmt::format("PACKB: Packed bytes [0x{:02X},0x{:02X},0x{:02X},0x{:02X}] = 0x{:08X}",
-        b0, b1, b2, b3, packed) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("PACKB: Packed bytes [0x{:02X},0x{:02X},0x{:02X},0x{:02X}] = 0x{:08X}",
+        b0, b1, b2, b3, packed), Logging::DebugLevel::DETAIL);
     
     cpu.set_pc(cpu.get_pc() + 1);
 }

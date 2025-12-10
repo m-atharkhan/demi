@@ -1,6 +1,6 @@
 #include "vmax.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include "../cpu_registers.hpp"
 #include <fmt/format.h>
 #include <algorithm>
@@ -9,7 +9,8 @@ using namespace DemiEngine_Registers;
 
 void handle_VMAX(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 >= program.size()) {
-        Logger::instance().error() << "VMAX: Insufficient instruction bytes" << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            "VMAX: Insufficient instruction bytes", Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -27,8 +28,9 @@ void handle_VMAX(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // Store result in R0
     regs[static_cast<uint8_t>(R0)] = max_val;
     
-    Logger::instance().debug() << fmt::format("VMAX: Maximum of [{},{},{},{}] = {}",
-        a0, a1, a2, a3, max_val) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("VMAX: Maximum of [{},{},{},{}] = {}",
+        a0, a1, a2, a3, max_val), Logging::DebugLevel::DETAIL);
     
     cpu.set_pc(cpu.get_pc() + 1);
 }

@@ -1,7 +1,7 @@
 #include "opcode_dispatcher_unified.hpp"
 #include "opcode_registry.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/format.h>
 
 // Suppress pedantic warnings about computed gotos - they are intentional for performance
@@ -32,7 +32,8 @@ void dispatch_opcode_unified(CPU& cpu, const std::vector<uint8_t>& program, bool
         if (handler) {
             handler(cpu, program, running);
         } else {
-            Logger::instance().error() << fmt::format("Invalid opcode: 0x{:02X} at PC={}", opcode, cpu.get_pc()) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+                fmt::format("Invalid opcode: 0x{:02X} at PC={}", opcode, cpu.get_pc()), Logging::DebugLevel::CRITICAL);
             running = false;
             return;
         }
@@ -49,7 +50,8 @@ void dispatch_opcode_unified(CPU& cpu, const std::vector<uint8_t>& program, bool
     // Invalid opcode handler
     op_invalid: {
         uint8_t opcode = program[cpu.get_pc()];
-        Logger::instance().error() << fmt::format("Invalid opcode: 0x{:02X} at PC={}", opcode, cpu.get_pc()) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("Invalid opcode: 0x{:02X} at PC={}", opcode, cpu.get_pc()), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -71,7 +73,8 @@ init_dispatch_table:
         }
         
         initialized = true;
-        Logger::instance().debug() << "Unified threaded dispatcher initialized" << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            "Unified threaded dispatcher initialized", Logging::DebugLevel::DETAIL);
     }
 
     // Jump to main dispatch loop
@@ -113,7 +116,8 @@ void dispatch_opcode_unified_fallback(CPU& cpu, const std::vector<uint8_t>& prog
     if (handler) {
         handler(cpu, program, running);
     } else {
-        Logger::instance().error() << fmt::format("Invalid opcode: 0x{:02X} at PC={}", opcode, cpu.get_pc()) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("Invalid opcode: 0x{:02X} at PC={}", opcode, cpu.get_pc()), Logging::DebugLevel::CRITICAL);
         running = false;
     }
 }

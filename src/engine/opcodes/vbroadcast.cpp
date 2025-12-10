@@ -1,6 +1,6 @@
 #include "vbroadcast.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include "../cpu_registers.hpp"
 #include <fmt/format.h>
 
@@ -8,7 +8,8 @@ using namespace DemiEngine_Registers;
 
 void handle_VBROADCAST(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 >= program.size()) {
-        Logger::instance().error() << "VBROADCAST: Insufficient instruction bytes" << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            "VBROADCAST: Insufficient instruction bytes", Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -23,7 +24,8 @@ void handle_VBROADCAST(CPU& cpu, const std::vector<uint8_t>& program, bool& runn
     regs[static_cast<uint8_t>(R6)] = value;
     regs[static_cast<uint8_t>(R7)] = value;
     
-    Logger::instance().debug() << fmt::format("VBROADCAST: Broadcasting {} to R4,R5,R6,R7", value) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("VBROADCAST: Broadcasting {} to R4,R5,R6,R7", value), Logging::DebugLevel::DETAIL);
     
     cpu.set_pc(cpu.get_pc() + 1);
 }

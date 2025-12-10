@@ -13,7 +13,7 @@
 #include "../engine/cpu_flags.hpp"
 #include "../engine/device_factory.hpp"
 #include "../config.hpp"
-#include "../debug/logger.hpp"
+#include "../debug/debug_handler.hpp"
 #include "../assembler/demi_assembler.hpp"
 #include "../assembler/lexer.hpp"
 #include "../assembler/parser.hpp" 
@@ -324,7 +324,7 @@ public:
     
     // Assert register value in mode-aware manner (applies 32-bit mask in 32-bit mode)
     void assert_register_mode_aware(int reg, uint64_t expected) {
-        uint64_t actual = cpu.read_register_mode_aware(reg);
+        uint64_t actual = cpu.get_register_mode_aware(static_cast<Register>(reg));
         uint64_t mask = cpu.get_operand_mask();
         uint64_t masked_expected = expected & mask;
         if (actual != masked_expected) {
@@ -368,7 +368,7 @@ public:
     
     // Assert register overflow behavior (value wrapped around mask)
     void assert_register_wrapped(int reg, uint64_t original_value, uint64_t expected_wrapped) {
-        uint64_t actual = cpu.read_register_mode_aware(reg);
+        uint64_t actual = cpu.get_register_mode_aware(static_cast<Register>(reg));
         if (actual != expected_wrapped) {
             throw AssertionFailure(fmt::format(
                 "Register R{} wrap assertion failed: original value 0x{:X} should wrap to 0x{:X}, but got 0x{:X}",
@@ -895,6 +895,11 @@ private:
     TestResult run_test(const TestCase& test) {
         auto start = std::chrono::high_resolution_clock::now();
 
+        // Suppress debug output if error is expected
+        if (test.expect_error) {
+            Logging::DebugHandler::instance().set_suppress_output(true);
+        }
+
         // Save original buffers
         auto cout_buf = std::cout.rdbuf();
         auto cerr_buf = std::cerr.rdbuf();
@@ -902,7 +907,7 @@ private:
         try {
             // Show which test is currently running using logger (skip in quiet mode)
             if (!Config::quiet) {
-                Logger::instance().running() << fmt::format("Unit Test: {} ({})", test.name, test.category) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, fmt::format("Unit Test: {} ({})", test.name, test.category), Logging::DebugLevel::INFO);
             }
 
             // Track if test produces output
@@ -963,6 +968,7 @@ private:
 
             // Check if we expected an error but didn't get one
             if (test.expect_error && Config::error_count == 0) {
+                Logging::DebugHandler::instance().set_suppress_output(false);
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
                 return TestResult(test.name, test.category, false,
@@ -970,6 +976,9 @@ private:
             }
 
             // Test passed
+            if (test.expect_error) {
+                Logging::DebugHandler::instance().set_suppress_output(false);
+            }
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
             return TestResult(test.name, test.category, true, "", duration.count() / 1000.0);
@@ -978,6 +987,10 @@ private:
             // Restore buffers
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
+            
+            if (test.expect_error) {
+                Logging::DebugHandler::instance().set_suppress_output(false);
+            }
             
             // If we expected an error and got an assertion failure, that might be OK
             if (test.expect_error) {
@@ -995,6 +1008,10 @@ private:
             // Restore buffers
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
+            
+            if (test.expect_error) {
+                Logging::DebugHandler::instance().set_suppress_output(false);
+            }
             
             // If we expected an error and got a standard exception, that's probably OK
             if (test.expect_error) {
@@ -1014,6 +1031,10 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
+            if (test.expect_error) {
+                Logging::DebugHandler::instance().set_suppress_output(false);
+            }
+
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
             return TestResult(test.name, test.category, false,

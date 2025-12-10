@@ -1,6 +1,6 @@
 #include "opcode_registry.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/format.h>
 
 // External handler function declarations
@@ -151,53 +151,53 @@ void OpcodeRegistry::initialize_handlers() {
     handlers_.fill(nullptr);
     
     // Register all opcodes - this is the ONLY place opcode mappings are defined
-    REGISTER_OPCODE(0x00, handle_nop);        // NOP
-    REGISTER_OPCODE(0x01, handle_load_imm);   // LOAD_IMM
-    REGISTER_OPCODE(0x02, handle_add);        // ADD
-    REGISTER_OPCODE(0x03, handle_sub);        // SUB
-    REGISTER_OPCODE(0x04, handle_mov);        // MOV
-    REGISTER_OPCODE(0x05, handle_jmp);        // JMP
-    REGISTER_OPCODE(0x06, handle_load);       // LOAD
-    REGISTER_OPCODE(0x07, handle_store);      // STORE
-    REGISTER_OPCODE(0x08, handle_push);       // PUSH
-    REGISTER_OPCODE(0x09, handle_pop);        // POP
-    REGISTER_OPCODE(0x0A, handle_cmp);        // CMP
-    REGISTER_OPCODE(0x0B, handle_jz);         // JZ (JE)
-    REGISTER_OPCODE(0x0C, handle_jnz);        // JNZ (JNE)
-    REGISTER_OPCODE(0x0D, handle_jl);         // JL
-    REGISTER_OPCODE(0x0E, handle_jg);         // JG
-    REGISTER_OPCODE(0x0F, handle_jle);        // JLE
-    REGISTER_OPCODE(0x10, handle_jge);        // JGE
-    REGISTER_OPCODE(0x11, handle_inc);        // INC
-    REGISTER_OPCODE(0x12, handle_dec);        // DEC
-    REGISTER_OPCODE(0x13, handle_mul);        // MUL
-    REGISTER_OPCODE(0x14, handle_div);        // DIV
-    REGISTER_OPCODE(0x15, handle_mod);        // MOD
-    REGISTER_OPCODE(0x16, handle_and);        // AND
-    REGISTER_OPCODE(0x17, handle_or);         // OR
-    REGISTER_OPCODE(0x18, handle_xor);        // XOR
-    REGISTER_OPCODE(0x19, handle_not);        // NOT
-    REGISTER_OPCODE(0x1A, handle_shl);        // SHL
-    REGISTER_OPCODE(0x1B, handle_call);       // CALL
-    REGISTER_OPCODE(0x1C, handle_ret);        // RET
-    REGISTER_OPCODE(0x1D, handle_push_arg);   // PUSH_ARG
-    REGISTER_OPCODE(0x1E, handle_pop_arg);    // POP_ARG
-    REGISTER_OPCODE(0x1F, handle_push_flag);  // PUSH_FLAG
-    REGISTER_OPCODE(0x20, handle_pop_flag);   // POP_FLAG
-    REGISTER_OPCODE(0x21, handle_lea);        // LEA
-    REGISTER_OPCODE(0x22, handle_swap);       // SWAP
-    REGISTER_OPCODE(0x23, handle_shr);        // SHR
-    REGISTER_OPCODE(0x24, handle_js);         // JS
-    REGISTER_OPCODE(0x25, handle_jns);        // JNS
-    REGISTER_OPCODE(0x26, handle_jc);         // JC
-    REGISTER_OPCODE(0x27, handle_jnc);        // JNC
-    REGISTER_OPCODE(0x28, handle_jo);         // JO
-    REGISTER_OPCODE(0x29, handle_jno);        // JNO
-    REGISTER_OPCODE(0x2A, handle_in);         // IN
-    REGISTER_OPCODE(0x2B, handle_inb);        // INB
-    REGISTER_OPCODE(0x2C, handle_inw);        // INW
-    REGISTER_OPCODE(0x2D, handle_inl);        // INL
-    REGISTER_OPCODE(0x2E, handle_instr);      // INSTR
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::NOP), handle_nop);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::LOAD_IMM), handle_load_imm);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::ADD), handle_add);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::SUB), handle_sub);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::MOV), handle_mov);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JMP), handle_jmp);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::LOAD), handle_load);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::STORE), handle_store);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::PUSH), handle_push);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::POP), handle_pop);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::CMP), handle_cmp);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JZ), handle_jz);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JNZ), handle_jnz);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JS), handle_js);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JNS), handle_jns);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JC), handle_jc);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JNC), handle_jnc);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JO), handle_jo);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JNO), handle_jno);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JG), handle_jg);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JL), handle_jl);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JGE), handle_jge);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::JLE), handle_jle);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::INC), handle_inc);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::DEC), handle_dec);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::MUL), handle_mul);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::DIV), handle_div);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::MOD), handle_mod);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::AND), handle_and);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::OR), handle_or);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::XOR), handle_xor);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::NOT), handle_not);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::SHL), handle_shl);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::SHR), handle_shr);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::CALL), handle_call);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::RET), handle_ret);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::PUSH_ARG), handle_push_arg);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::POP_ARG), handle_pop_arg);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::PUSH_FLAG), handle_push_flag);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::POP_FLAG), handle_pop_flag);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::LEA), handle_lea);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::SWAP), handle_swap);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::IN), handle_in);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::INB), handle_inb);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::INW), handle_inw);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::INL), handle_inl);
+    REGISTER_OPCODE(static_cast<uint8_t>(Opcode::INSTR), handle_instr);
     REGISTER_OPCODE(static_cast<uint8_t>(Opcode::OUTB), handle_outb);       // OUTB
     REGISTER_OPCODE(0x30, handle_outw);       // OUTW
     REGISTER_OPCODE(0x31, handle_outl);       // OUTL
@@ -283,8 +283,8 @@ void OpcodeRegistry::initialize_handlers() {
     
     initialized_ = true;
     
-    Logger::instance().info() << "Opcode registry initialized with " 
-                              << std::count_if(handlers_.begin(), handlers_.end(), 
-                                   [](const OpcodeHandler& h) { return h != nullptr; })
-                              << " registered opcodes" << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("Opcode registry initialized with {} registered opcodes", 
+            std::count_if(handlers_.begin(), handlers_.end(), 
+                [](const OpcodeHandler& h) { return h != nullptr; })), Logging::DebugLevel::INFO);
 }

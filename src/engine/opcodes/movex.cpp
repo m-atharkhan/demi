@@ -1,10 +1,8 @@
 #include "movex.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/core.h>
 #include <iomanip>
-
-using Logging::Logger;
 
 void handle_movex(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
@@ -14,9 +12,7 @@ void handle_movex(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         uint8_t reg2 = program[pc + 2];
 
         // Debug output for operation
-        Logger::instance().debug() << fmt::format(
-            "[PC=0x{:04X}] [MOVEX] Moving value between extended registers {} and {}",
-            pc, reg1, reg2) << std::endl;
+        DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [MOVEX] Moving value between extended registers {} and {}", pc, reg1, reg2);
 
         // Get the source register value in 64-bit mode
         uint64_t src_value = cpu.get_register_64(static_cast<Register>(reg2));
@@ -25,9 +21,7 @@ void handle_movex(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         cpu.set_register_64(static_cast<Register>(reg1), src_value);
 
         // Debug output for completed operation
-        Logger::instance().debug() << fmt::format(
-            "[PC=0x{:04X}] [MOVEX] Moved value 0x{:016X} from R{} to R{}",
-            pc, src_value, reg2, reg1) << std::endl;
+        DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [MOVEX] Moved value 0x{:016X} from R{} to R{}", pc, src_value, reg2, reg1);
 
         cpu.set_pc(pc + 3); // Advance past opcode and two register operands
     } else {

@@ -1,6 +1,6 @@
 #pragma once
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <cmath>
 #include <fmt/format.h>
 
@@ -18,10 +18,9 @@ inline void handle_FCOS(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& p
     cpu.fpu_pop();
     cpu.fpu_push(result);
     
-    Logger::instance().debug() << fmt::format(
-        "[PC={:#06x}] [FCOS] cos({}) = {}", 
-        cpu.get_pc(), value, result
-    ) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC={:#06x}] [FCOS] cos({}) = {}", 
+        cpu.get_pc(), value, result), Logging::DebugLevel::DETAIL);
     
     // Increment program counter
     cpu.set_pc(cpu.get_pc() + 1);

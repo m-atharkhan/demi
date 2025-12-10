@@ -3,6 +3,7 @@
 #include "../assembler/parser.hpp"
 #include "../debug/error_handler.hpp"
 #include "../debug/debug_handler.hpp"
+#include "../debug/hexdumper.hpp"
 #include <chrono>
 #include <fstream>
 #include <sstream>
@@ -120,6 +121,7 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         std::cout << test_case.name << " ";
         std::cout.flush();
     }
+
     
     try {
         // First, assemble test code to process .memory directive
@@ -150,6 +152,21 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         // Execute the test code
         bool expect_error = false;
         bool error_occurred = false;
+
+        // Check if we expect an error beforehand to suppress logging
+        for (const auto& stmt : test_case.body) {
+            if (stmt->type == Assembler::ASTNodeType::TEST_ASSERTION) {
+                const auto* assertion = static_cast<const Assembler::TestAssertion*>(stmt.get());
+                if (assertion->assertion_type == Assembler::TestAssertionType::EXPECT_ERROR) {
+                    expect_error = true;
+                    break;
+                }
+            }
+        }
+
+        if (expect_error) {
+            Logging::DebugHandler::instance().set_suppress_output(true);
+        }
         
         try {
             cpu.reset();
@@ -187,18 +204,34 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
             // IMPORTANT: Sync legacy registers to new register system
             // The opcodes write to legacy_registers but get_register() reads from registers array
             cpu.sync_from_legacy_registers();
-        } catch (const std::exception& e) {
-            error_occurred = true;
-            // Check if we expected an error
-            for (const auto& stmt : test_case.body) {
-                if (stmt->type == Assembler::ASTNodeType::TEST_ASSERTION) {
-                    const auto* assertion = static_cast<const Assembler::TestAssertion*>(stmt.get());
-                    if (assertion->assertion_type == Assembler::TestAssertionType::EXPECT_ERROR) {
-                        expect_error = true;
-                        break;
-                    }
+
+            if (Config::memdump) {
+                DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Post-execution: printing memory...");
+                size_t mem_size = cpu.get_memory().size();
+                if (mem_size > 0) {
+                    // Print first 256 bytes or full memory if smaller
+                    cpu.print_memory(0, std::min<size_t>(mem_size, 256));
                 }
             }
+
+            if (expect_error) {
+                Logging::DebugHandler::instance().set_suppress_output(false);
+            }
+        } catch (const std::exception& e) {
+            if (expect_error) {
+                Logging::DebugHandler::instance().set_suppress_output(false);
+            }
+            
+            // Print memory dump on error if requested
+            if (Config::memdump) {
+                DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Error occurred: printing memory...");
+                size_t mem_size = cpu.get_memory().size();
+                if (mem_size > 0) {
+                    cpu.print_memory(0, std::min<size_t>(mem_size, 256));
+                }
+            }
+            
+            error_occurred = true;
             
             if (!expect_error) {
                 result.set_error(fmt::format("Unexpected error during execution: {}", e.what()));
@@ -260,7 +293,9 @@ AssertionResult TestExecutor::evaluate_assertion(const Assembler::TestAssertion&
                 actual = actual & 0xFF;
             }
             
-            Logger::instance().debug() << fmt::format("Reading R{}: expected={}, actual={}", reg_num, expected, actual) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, 
+                fmt::format("Reading R{}: expected={}, actual={}", reg_num, expected, actual), 
+                Logging::DebugLevel::DETAIL);
             
             bool passed = (actual == expected);
             return AssertionResult(passed, "assert_reg", 
@@ -386,8 +421,9 @@ AssertionResult TestExecutor::evaluate_assertion(const Assembler::TestAssertion&
 
 std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::unique_ptr<Assembler::Statement>>& statements) {
     // Debug: Log test name and statement count
-    Logger::instance().debug() << fmt::format("Assembling test '{}' with {} statements", 
-                                              current_test_name, statements.size()) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, 
+        fmt::format("Assembling test '{}' with {} statements", current_test_name, statements.size()), 
+        Logging::DebugLevel::DETAIL);
     // Extract source lines for the test body
     std::stringstream source;
     std::vector<std::string> source_lines;
@@ -568,7 +604,9 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
         }
         
         if (test_start == -1) {
-            Logger::instance().error() << "Could not find test: " << current_test_name << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, 
+                "Could not find test: " + current_test_name, 
+                Logging::DebugLevel::CRITICAL);
             return {};
         }
         
@@ -583,7 +621,9 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
         }
         
         if (brace_line == -1) {
-            Logger::instance().error() << "Could not find opening brace for test: " << current_test_name << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, 
+                "Could not find opening brace for test: " + current_test_name, 
+                Logging::DebugLevel::CRITICAL);
             return {};
         }
         
@@ -651,7 +691,9 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
     std::string asm_code = source.str();
     
     // Debug output
-    Logger::instance().debug() << "=== Generated Assembly ===\n" << asm_code << "=========================\n" << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, 
+        "=== Generated Assembly ===\n" + asm_code + "=========================\n", 
+        Logging::DebugLevel::DETAIL);
     
     assembler.clear_errors();
     
@@ -664,11 +706,18 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
     
     // Disable quiet mode after assembly
     Logging::ErrorHandler::instance().set_quiet_mode(false);
+
+    if (!bytecode.empty() && (Logging::HexDumper::is_enabled() || Config::verbose)) {
+         std::string dump = Logging::HexDumper::format_bytecode(bytecode);
+         Logging::DebugHandler::instance().report(Logging::DebugCategory::ASM_HEXDUMP, 
+             "=== Bytecode Hexdump ===\n" + dump + "\n", 
+             Logging::DebugLevel::DETAIL);
+    }
     
     if (assembler.has_errors()) {
-        Logger::instance().error() << "Assembly errors:\n";
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::ASM_PARSING, "Assembly errors:", Logging::DebugLevel::CRITICAL);
         for (const auto& err : assembler.get_errors()) {
-            Logger::instance().error() << "  " << err << "\n";
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::ASM_PARSING, "  " + err, Logging::DebugLevel::CRITICAL);
         }
     }
     

@@ -5,14 +5,13 @@
 #include <stdexcept>
 
 #include "../config.hpp"
-#include "../debug/logger.hpp"
+#include "../debug/debug_handler.hpp"
 #include "cpu_registers.hpp"  // New extended register architecture
 #include "device_manager.hpp"
 #include "branch_prediction.hpp"  // Branch prediction support
 #include "interrupt_controller.hpp"  // Interrupt system support
 // #include "speculative_execution.hpp"  // Speculative execution support (temporarily disabled)
 
-using Logging::Logger;
 using DemiEngine_Registers::Register;
 using DemiEngine_Registers::RegisterNames;
 using DemiEngine_Registers::TOTAL_REGISTERS;
@@ -203,8 +202,9 @@ enum class Opcode : uint8_t {
     VADDPD = 0xCA,      // AVX Add Packed Double
     VSUBPD = 0xCB,      // AVX Subtract Packed Double
     VMULPD = 0xCC,      // AVX Multiply Packed Double
-    VDIVPD = 0xCD,      // AVX Divide Packed Double
-    VSQRTPD = 0xCE,     // AVX Square Root Packed Double
+    INT = 0xCD,         // Software interrupt (syscall)
+    VDIVPD = 0xCE,      // AVX Divide Packed Double (moved from 0xCD)
+    VSQRTPD = 0xCF,     // AVX Square Root Packed Double (moved from 0xCE)
     VMAXPD = 0xCF,      // AVX Maximum Packed Double
     VMINPD = 0xD0,      // AVX Minimum Packed Double
     VANDPD = 0xD1,      // AVX Bitwise AND Packed Double
@@ -233,12 +233,6 @@ enum class Opcode : uint8_t {
     PCMPEQW = 0xE8,     // Compare Packed Words for Equality
     PCMPEQD = 0xE9,     // Compare Packed Doublewords for Equality
     EMMS = 0xEA,        // Empty MMX State
-
-    // Interrupt operations
-    INT = 0xCD,         // Software interrupt
-    IRET = 0xCF,        // Interrupt return
-    CLI = 0xFA,         // Clear interrupt flag (disable interrupts)
-    STI = 0xFB,         // Set interrupt flag (enable interrupts)
 
     HALT = 0xFF         // Halt execution
 };
@@ -272,9 +266,9 @@ public:
         cpu_mode = mode;
         // Only log mode switch if not in quiet assembly test mode
         if (!Config::quiet_assembly_test) {
-            Logger::instance().info() << fmt::format(
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format(
                 "CPU mode switched to {}-bit",
-                (mode == CPUMode::MODE_64BIT) ? 64 : 32) << std::endl;
+                (mode == CPUMode::MODE_64BIT) ? 64 : 32), Logging::DebugLevel::INFO);
         }
     }
     bool is_64bit_mode() const { return cpu_mode == CPUMode::MODE_64BIT; }
@@ -301,95 +295,18 @@ public:
         return is_64bit_mode() ? 8 : 4; // 8 bytes for 64-bit, 4 bytes for 32-bit
     }
 
-    // Get effective address size based on current mode
+    // Address size helper
     size_t get_address_size() const {
-        return is_64bit_mode() ? 8 : 4; // 8 bytes for 64-bit, 4 bytes for 32-bit
+        return is_64bit_mode() ? 8 : 4;
     }
 
-    // Read address from program at given offset based on current mode
-    uint64_t read_address_from_program(const std::vector<uint8_t>& program, uint32_t offset) const {
-        if (is_64bit_mode()) {
-            // Read 8 bytes (64-bit address) in little-endian
-            if (offset + 7 >= program.size()) return 0;
-            return static_cast<uint64_t>(program[offset]) |
-                   (static_cast<uint64_t>(program[offset + 1]) << 8) |
-                   (static_cast<uint64_t>(program[offset + 2]) << 16) |
-                   (static_cast<uint64_t>(program[offset + 3]) << 24) |
-                   (static_cast<uint64_t>(program[offset + 4]) << 32) |
-                   (static_cast<uint64_t>(program[offset + 5]) << 40) |
-                   (static_cast<uint64_t>(program[offset + 6]) << 48) |
-                   (static_cast<uint64_t>(program[offset + 7]) << 56);
-        } else {
-            // Read 4 bytes (32-bit address) in little-endian
-            if (offset + 3 >= program.size()) return 0;
-            return static_cast<uint32_t>(program[offset]) |
-                   (static_cast<uint32_t>(program[offset + 1]) << 8) |
-                   (static_cast<uint32_t>(program[offset + 2]) << 16) |
-                   (static_cast<uint32_t>(program[offset + 3]) << 24);
-        }
-    }
-
-    // Read mode-aware immediate value (same as address for now)
-    uint64_t read_immediate_from_program(const std::vector<uint8_t>& program, uint32_t offset) const {
-        return read_address_from_program(program, offset);
-    }
-
-    // Mode-aware register read - returns value based on current CPU mode
-    // In 32-bit mode: uses legacy 32-bit registers
-    // In 64-bit mode: uses full 64-bit registers
-    uint64_t read_register_mode_aware(uint8_t reg) const {
-        if (reg >= registers.size()) return 0;
-        if (is_64bit_mode()) {
-            return registers[reg];
-        } else {
-            // In 32-bit mode, return only lower 32 bits
-            return registers[reg] & 0xFFFFFFFF;
-        }
-    }
-
-    // Mode-aware register write - writes value based on current CPU mode
-    // In 32-bit mode: writes only lower 32 bits, keeps upper bits for legacy_registers sync
-    // In 64-bit mode: writes full 64-bit value
-    void write_register_mode_aware(uint8_t reg, uint64_t value) {
-        if (reg >= registers.size()) return;
-        if (is_64bit_mode()) {
-            registers[reg] = value;
-        } else {
-            // In 32-bit mode, write only lower 32 bits
-            registers[reg] = value & 0xFFFFFFFF;
-        }
-        // Sync legacy registers for compatibility (R0-R7 / RAX-RDI)
-        if (reg < 8) {
-            legacy_registers[reg] = static_cast<uint32_t>(registers[reg] & 0xFFFFFFFF);
-        }
-    }
-
-    // Get operand mask based on current mode
+    // Operand mask helper
     uint64_t get_operand_mask() const {
-        return is_64bit_mode() ? 0xFFFFFFFFFFFFFFFFULL : 0xFFFFFFFFULL;
+        return is_64bit_mode() ? 0xFFFFFFFFFFFFFFFF : 0xFFFFFFFF;
     }
 
-    // Read fixed 32-bit value from program (for opcodes that always use 32-bit)
-    static uint32_t read_dword_from_program(const std::vector<uint8_t>& program, uint32_t offset) {
-        if (offset + 3 >= program.size()) return 0;
-        return static_cast<uint32_t>(program[offset]) |
-               (static_cast<uint32_t>(program[offset + 1]) << 8) |
-               (static_cast<uint32_t>(program[offset + 2]) << 16) |
-               (static_cast<uint32_t>(program[offset + 3]) << 24);
-    }
-
-    // Read fixed 64-bit value from program
-    static uint64_t read_qword_from_program(const std::vector<uint8_t>& program, uint32_t offset) {
-        if (offset + 7 >= program.size()) return 0;
-        return static_cast<uint64_t>(program[offset]) |
-               (static_cast<uint64_t>(program[offset + 1]) << 8) |
-               (static_cast<uint64_t>(program[offset + 2]) << 16) |
-               (static_cast<uint64_t>(program[offset + 3]) << 24) |
-               (static_cast<uint64_t>(program[offset + 4]) << 32) |
-               (static_cast<uint64_t>(program[offset + 5]) << 40) |
-               (static_cast<uint64_t>(program[offset + 6]) << 48) |
-               (static_cast<uint64_t>(program[offset + 7]) << 56);
-    }
+    // Helper to read address from program stream
+    uint64_t read_address_from_program(const std::vector<uint8_t>& program, uint64_t offset) const;
 
     // Extended register access (64-bit registers)
     uint64_t get_register(Register reg) const;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../device.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 
 #include <fmt/format.h>
 #include <cstdint>
@@ -15,8 +15,6 @@
 #include <limits.h>
 #include <stdexcept>
 #include <algorithm>
-
-using Logging::Logger;
 
 namespace fs = std::filesystem;
 namespace vhw {
@@ -53,27 +51,20 @@ public:
 
         // Additional safety check: ensure buffer is not empty
         if (fileBuffer.empty()) {
-            Logger::instance().warn() << fmt::format(
-                "File device buffer is empty, cannot read"
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, "File device buffer is empty, cannot read", Logging::DebugLevel::IMPORTANT);
             return 0;
         }
 
         // Validate position before incrementing to prevent overflow
         if (position == SIZE_MAX) {
-            Logger::instance().warn() << fmt::format(
-                "File device position overflow at maximum value, resetting to 0"
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, "File device position overflow at maximum value, resetting to 0", Logging::DebugLevel::IMPORTANT);
             position = 0;
             return 0;
         }
 
         // Double-check bounds before accessing (defense in depth)
         if (position >= fileBuffer.size()) {
-            Logger::instance().warn() << fmt::format(
-                "File device position {} is beyond buffer size {}, returning 0",
-                position, fileBuffer.size()
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File device position {} is beyond buffer size {}, returning 0", position, fileBuffer.size()), Logging::DebugLevel::IMPORTANT);
             return 0;
         }
 
@@ -88,9 +79,7 @@ public:
 
         // Check for position overflow before any operations
         if (position == SIZE_MAX) {
-            Logger::instance().error() << fmt::format(
-                "File device position overflow at maximum value, cannot write"
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, "File device position overflow at maximum value, cannot write", Logging::DebugLevel::CRITICAL);
             return;
         }
 
@@ -99,10 +88,10 @@ public:
             // Check for reasonable buffer size limits to prevent memory exhaustion
             constexpr size_t MAX_BUFFER_SIZE = 100 * 1024 * 1024; // 100MB limit
             if (fileBuffer.size() >= MAX_BUFFER_SIZE) {
-                Logger::instance().error() << fmt::format(
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format(
                     "File device buffer size limit reached ({}), cannot append",
                     MAX_BUFFER_SIZE
-                ) << std::endl;
+                ), Logging::DebugLevel::CRITICAL);
                 return;
             }
 
@@ -111,10 +100,7 @@ public:
         } else {
             // Double-check bounds before accessing (defense in depth)
             if (position >= fileBuffer.size()) {
-                Logger::instance().error() << fmt::format(
-                    "File device position {} is beyond buffer size {}, cannot write",
-                    position, fileBuffer.size()
-                ) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File device position {} is beyond buffer size {}, cannot write", position, fileBuffer.size()), Logging::DebugLevel::CRITICAL);
                 return;
             }
 
@@ -166,17 +152,13 @@ private:
     bool validateFilePath(const std::string& path) {
         // Check if path is empty or too long
         if (path.empty() || path.length() >= PATH_MAX) {
-            Logger::instance().error() << fmt::format(
-                "File path is empty or too long: '{}'", path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path is empty or too long: '{}'", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
         // Check for path traversal attempts
         if (path.find("..") != std::string::npos) {
-            Logger::instance().error() << fmt::format(
-                "File path contains path traversal: '{}'", path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path contains path traversal: '{}'", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
@@ -193,9 +175,7 @@ private:
 
         for (const auto& forbidden : forbiddenPaths) {
             if (path.find(forbidden) == 0) {
-                Logger::instance().error() << fmt::format(
-                    "File path accesses forbidden directory: '{}'", path
-                ) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path accesses forbidden directory: '{}'", path), Logging::DebugLevel::CRITICAL);
                 return false;
             }
         }
@@ -210,10 +190,7 @@ private:
             std::string parentPathStr = parentPath.string(); // Convert to string to avoid use-after-free
             if (lstat(parentPathStr.c_str(), &st) == 0) {
                 if (S_ISLNK(st.st_mode)) {
-                    Logger::instance().error() << fmt::format(
-                        "File path parent directory is a symbolic link (security risk): '{}'",
-                        parentPath.string()
-                    ) << std::endl;
+                    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path parent directory is a symbolic link (security risk): '{}'", parentPath.string()), Logging::DebugLevel::CRITICAL);
                     return false;
                 }
             }
@@ -225,17 +202,13 @@ private:
             std::string fullPathStr = fullPath.string(); // Convert to string to avoid use-after-free
             if (lstat(fullPathStr.c_str(), &st) == 0) {
                 if (S_ISLNK(st.st_mode)) {
-                    Logger::instance().error() << fmt::format(
-                        "File path is a symbolic link (security risk): '{}'", path
-                    ) << std::endl;
+                    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path is a symbolic link (security risk): '{}'", path), Logging::DebugLevel::CRITICAL);
                     return false;
                 }
 
                 // Only allow regular files
                 if (!S_ISREG(st.st_mode)) {
-                    Logger::instance().error() << fmt::format(
-                        "File path is not a regular file: '{}'", path
-                    ) << std::endl;
+                    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path is not a regular file: '{}'", path), Logging::DebugLevel::CRITICAL);
                     return false;
                 }
             }
@@ -249,9 +222,7 @@ private:
 
         // Validate file path for security
         if (!validateFilePath(filepath)) {
-            Logger::instance().error() << fmt::format(
-                "Invalid or unsafe file path: '{}'", filepath
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Invalid or unsafe file path: '{}'", filepath), Logging::DebugLevel::CRITICAL);
             return;
         }
 
@@ -265,9 +236,7 @@ private:
 
             // Validate file size to prevent excessive memory allocation
             if (fileSizePos < 0) {
-                Logger::instance().error() << fmt::format(
-                    "Error getting file size for '{}'", filepath
-                ) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Error getting file size for '{}'", filepath), Logging::DebugLevel::CRITICAL);
                 return;
             }
 
@@ -276,10 +245,7 @@ private:
             // Limit maximum file size to prevent memory exhaustion (e.g., 100MB)
             constexpr size_t MAX_FILE_SIZE = 100 * 1024 * 1024;
             if (fileSize > MAX_FILE_SIZE) {
-                Logger::instance().error() << fmt::format(
-                    "File '{}' is too large ({} bytes, max: {} bytes)",
-                    filepath, fileSize, MAX_FILE_SIZE
-                ) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File '{}' is too large ({} bytes, max: {} bytes)", filepath, fileSize, MAX_FILE_SIZE), Logging::DebugLevel::CRITICAL);
                 return;
             }
 
@@ -295,18 +261,13 @@ private:
                 std::streamsize bytesRead = file.gcount();
                 if (!file && !file.eof()) {
                     // Read error occurred (not just EOF)
-                    Logger::instance().error() << fmt::format(
-                        "Error reading file '{}': {}", filepath, "I/O error during read"
-                    ) << std::endl;
+                    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Error reading file '{}': {}", filepath, "I/O error during read"), Logging::DebugLevel::CRITICAL);
                     fileBuffer.clear();
                     return;
                 }
 
                 if (bytesRead != static_cast<std::streamsize>(fileSize)) {
-                    Logger::instance().warn() << fmt::format(
-                        "File '{}': expected {} bytes, read {} bytes (file may have changed during read)",
-                        filepath, fileSize, bytesRead
-                    ) << std::endl;
+                    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File '{}': expected {} bytes, read {} bytes (file may have changed during read)", filepath, fileSize, bytesRead), Logging::DebugLevel::IMPORTANT);
 
                     // Resize buffer to actual bytes read to prevent access to uninitialized memory
                     if (bytesRead > 0 && bytesRead < static_cast<std::streamsize>(fileSize)) {
@@ -318,24 +279,16 @@ private:
                 }
             }
 
-            Logger::instance().info() << fmt::format(
-                "Loaded {} bytes from file '{}'",
-                fileSize, filepath
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Loaded {} bytes from file '{}'", fileSize, filepath), Logging::DebugLevel::INFO);
         } else {
-            Logger::instance().info() << fmt::format(
-                "Creating new file '{}'",
-                filepath
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Creating new file '{}'", filepath), Logging::DebugLevel::INFO);
         }
     }
 
     void saveToFile() {
         // Validate file path for security before writing
         if (!validateFilePath(filepath)) {
-            Logger::instance().error() << fmt::format(
-                "Invalid or unsafe file path for writing: '{}'", filepath
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Invalid or unsafe file path for writing: '{}'", filepath), Logging::DebugLevel::CRITICAL);
             return;
         }
 
@@ -345,9 +298,7 @@ private:
             try {
                 fs::create_directories(path.parent_path());
             } catch (const fs::filesystem_error& e) {
-                Logger::instance().error() << fmt::format(
-                    "Failed to create directories for '{}': {}", filepath, e.what()
-                ) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("Failed to create directories for '{}': {}", filepath, e.what()), Logging::DebugLevel::CRITICAL);
                 return;
             }
         }
@@ -356,15 +307,9 @@ private:
         std::ofstream file(filepath, std::ios::binary);
         if (file) {
             file.write(reinterpret_cast<const char*>(fileBuffer.data()), fileBuffer.size());
-            Logger::instance().debug() << fmt::format(
-            "{:22}  Wrote {} bytes to file '{}'",
-            "", fileBuffer.size(), filepath
-            ) << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::IO_FILE, "{:22}  Wrote {} bytes to file '{}'", "", fileBuffer.size(), filepath);
         } else {
-            Logger::instance().error() << fmt::format(
-            "{:22}  Failed to write to file '{}'",
-            "", filepath
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("{:22}  Failed to write to file '{}'", "", filepath), Logging::DebugLevel::CRITICAL);
         }
     }
 

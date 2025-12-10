@@ -1,6 +1,6 @@
 #include "opcode_dispatcher_threaded.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/format.h>
 
 // Disable all warnings for this file to avoid clutter during implementation
@@ -27,7 +27,7 @@ void dispatch_opcode_threaded(CPU& cpu, const std::vector<uint8_t>& program, boo
     // All instruction label definitions come first
     op_nop: {
         // Inline NOP implementation for maximum speed
-        Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [NOP] PC={}", cpu.get_pc(), cpu.get_pc()) << std::endl;
+        DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [NOP] PC={}", cpu.get_pc(), cpu.get_pc());
         cpu.set_pc(cpu.get_pc() + 1);
         cpu.print_state("NOP");
         
@@ -176,7 +176,7 @@ void dispatch_opcode_threaded(CPU& cpu, const std::vector<uint8_t>& program, boo
 
     // Invalid opcode handler
     op_invalid: {
-        Logger::instance().error() << fmt::format("Invalid opcode: 0x{:02X} at PC={}", program[cpu.get_pc()], cpu.get_pc()) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_DISPATCHER, fmt::format("Invalid opcode: 0x{:02X} at PC={}", program[cpu.get_pc()], cpu.get_pc()), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }

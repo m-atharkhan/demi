@@ -2,7 +2,7 @@
 #include "../cpu.hpp"
 #include "../cpu_registers.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/format.h>
 
 // FSTSW: Store FPU status word to memory or register
@@ -35,10 +35,10 @@ void handle_FSTSW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         
         // Check bounds - we need to write 2 bytes
         if (addr + 1 >= cpu.get_memory_size()) {
-            Logger::instance().error() << fmt::format(
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format(
                 "[PC={:#06x}] [FSTSW] Memory access violation: address {:#010x} out of bounds (memory size: {})",
                 cpu.get_pc(), addr + 1, cpu.get_memory_size()
-            ) << std::endl;
+            ), Logging::DebugLevel::CRITICAL);
             running = false;
             return;
         }
@@ -47,10 +47,10 @@ void handle_FSTSW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         cpu.get_memory()[addr] = static_cast<uint8_t>(status_word & 0xFF);
         cpu.get_memory()[addr + 1] = static_cast<uint8_t>((status_word >> 8) & 0xFF);
         
-        Logger::instance().debug() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format(
             "[PC={:#06x}] [FSTSW] stored status word {:#06x} to address {:#010x}", 
             cpu.get_pc(), status_word, addr
-        ) << std::endl;
+        ), Logging::DebugLevel::DETAIL);
         
         // Increment program counter (opcode + operand_type + mode-aware address)
         cpu.set_pc(cpu.get_pc() + instr_size);
@@ -58,18 +58,18 @@ void handle_FSTSW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         // Store to AX register (RAX in our case)
         cpu.set_register(Register::RAX, static_cast<uint32_t>(status_word));
         
-        Logger::instance().debug() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format(
             "[PC={:#06x}] [FSTSW] stored status word {:#06x} to AX (R0)", 
             cpu.get_pc(), status_word
-        ) << std::endl;
+        ), Logging::DebugLevel::DETAIL);
         
         // Increment program counter (opcode + operand_type)
         cpu.set_pc(cpu.get_pc() + 2);
     } else {
-        Logger::instance().error() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format(
             "[PC={:#06x}] [FSTSW] invalid operand type {:#04x}",
             cpu.get_pc(), operand_type
-        ) << std::endl;
+        ), Logging::DebugLevel::CRITICAL);
         running = false;
     }
 }

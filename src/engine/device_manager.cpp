@@ -13,10 +13,10 @@ void DeviceManager::writePortByte(uint8_t port, uint8_t value) {
 uint16_t DeviceManager::readPortWord(uint8_t port) {
     // Check for port overflow
     if (port > 254) {
-        Logger::instance().warn() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
             "Port overflow in readPortWord: port {} would access port {}, returning 0",
             port, port + 1
-        ) << std::endl;
+        ), Logging::DebugLevel::IMPORTANT);
         return 0;
     }
 
@@ -28,10 +28,10 @@ uint16_t DeviceManager::readPortWord(uint8_t port) {
 void DeviceManager::writePortWord(uint8_t port, uint16_t value) {
     // Check for port overflow
     if (port > 254) {
-        Logger::instance().warn() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
             "Port overflow in writePortWord: port {} would access port {}, ignoring write",
             port, port + 1
-        ) << std::endl;
+        ), Logging::DebugLevel::IMPORTANT);
         return;
     }
 
@@ -42,10 +42,10 @@ void DeviceManager::writePortWord(uint8_t port, uint16_t value) {
 uint32_t DeviceManager::readPortDWord(uint8_t port) {
     // Check for port overflow
     if (port > 252) {
-        Logger::instance().warn() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
             "Port overflow in readPortDWord: port {} would access ports up to {}, returning 0",
             port, port + 3
-        ) << std::endl;
+        ), Logging::DebugLevel::IMPORTANT);
         return 0;
     }
 
@@ -58,10 +58,10 @@ uint32_t DeviceManager::readPortDWord(uint8_t port) {
 void DeviceManager::writePortDWord(uint8_t port, uint32_t value) {
     // Check for port overflow
     if (port > 252) {
-        Logger::instance().warn() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
             "Port overflow in writePortDWord: port {} would access ports up to {}, ignoring write",
             port, port + 3
-        ) << std::endl;
+        ), Logging::DebugLevel::IMPORTANT);
         return;
     }
 
@@ -72,10 +72,10 @@ void DeviceManager::writePortDWord(uint8_t port, uint32_t value) {
 std::string DeviceManager::readPortString(uint8_t port, uint8_t maxLength) {
     // Validate maxLength to prevent overflow and excessive memory usage
     if (maxLength == 0) {
-        Logger::instance().warn() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
             "readPortString called with maxLength=0 for port {}, returning empty string",
             port
-        ) << std::endl;
+        ), Logging::DebugLevel::IMPORTANT);
         return "";
     }
 
@@ -92,19 +92,19 @@ std::string DeviceManager::readPortString(uint8_t port, uint8_t maxLength) {
         result.push_back(static_cast<char>(byte));
     }
 
-    Logger::instance().debug() << fmt::format(
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
         "String input from port {}: \"{}\" ({} bytes)",
         port, result, result.length()
-    ) << std::endl;
+    ), Logging::DebugLevel::DETAIL);
 
     return result;
 }
 
 void DeviceManager::writePortString(uint8_t port, const std::string& str) {
-    Logger::instance().debug() << fmt::format(
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
         "String output to port {}: \"{}\" ({} bytes)",
         port, str, str.length()
-    ) << std::endl;
+    ), Logging::DebugLevel::DETAIL);
 
     try {
         for (char c : str) {
@@ -113,7 +113,7 @@ void DeviceManager::writePortString(uint8_t port, const std::string& str) {
         // Write null terminator
         writePort(port, 0);
     } catch (const std::exception& e) {
-        Logger::instance().error() << "Exception in writePortString: " << e.what() << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Exception in writePortString: {}", e.what()), Logging::DebugLevel::CRITICAL);
     }
 }
 

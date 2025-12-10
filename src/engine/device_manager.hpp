@@ -1,7 +1,7 @@
 #pragma once
 
 #include "device.hpp"
-#include "../debug/logger.hpp"
+#include "../debug/debug_handler.hpp"
 
 #include <fmt/format.h>
 #include <cstdint>
@@ -10,8 +10,6 @@
 #include <string>
 #include <stdexcept>
 #include <vector>
-
-using Logging::Logger;
 
 namespace vhw {
 
@@ -40,10 +38,10 @@ public:
         }
 
         devices[port] = device;
-        Logger::instance().info() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
             "Device '{}' registered at port {}",
             device->getName(), port
-        ) << std::endl;
+        ), Logging::DebugLevel::INFO);
     }
 
     /**
@@ -57,10 +55,10 @@ public:
             return false;
         }
 
-        Logger::instance().info() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
             "Device '{}' unregistered from port {}",
             it->second->getName(), port
-        ) << std::endl;
+        ), Logging::DebugLevel::INFO);
 
         // If it's a real device, make sure to disconnect it
         auto realDevice = std::dynamic_pointer_cast<RealDevice>(it->second);
@@ -93,28 +91,28 @@ public:
     uint8_t readPort(uint8_t port) {
         auto device = getDevice(port);
         if (!device) {
-            Logger::instance().warn() << fmt::format(
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
                 "Attempted to read from unregistered port {}, returning 0",
                 port
-            ) << std::endl;
+            ), Logging::DebugLevel::IMPORTANT);
             return 0;
         }
 
         // For real devices, check if they're connected
         auto realDevice = std::dynamic_pointer_cast<RealDevice>(device);
         if (realDevice && !realDevice->isConnected()) {
-            Logger::instance().warn() << fmt::format(
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
                 "Real device '{}' at port {} is not connected, returning 0",
                 realDevice->getName(), port
-            ) << std::endl;
+            ), Logging::DebugLevel::IMPORTANT);
             return 0;
         }
 
         uint8_t value = device->read();
-        Logger::instance().debug() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
             " Input from port {} ({}): {}",
             port, device->getName(), value
-        ) << std::endl;
+        ), Logging::DebugLevel::DETAIL);
 
         return value;
     }
@@ -127,27 +125,27 @@ public:
     void writePort(uint8_t port, uint8_t value) {
         auto device = getDevice(port);
         if (!device) {
-            Logger::instance().warn() << fmt::format(
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
                 "Attempted to write to unregistered port {}, value: {}",
                 port, value
-            ) << std::endl;
+            ), Logging::DebugLevel::IMPORTANT);
             return;
         }
 
         // For real devices, check if they're connected
         auto realDevice = std::dynamic_pointer_cast<RealDevice>(device);
         if (realDevice && !realDevice->isConnected()) {
-            Logger::instance().warn() << fmt::format(
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
                 "Real device '{}' at port {} is not connected, ignoring write of value {}",
                 realDevice->getName(), port, value
-            ) << std::endl;
+            ), Logging::DebugLevel::IMPORTANT);
             return;
         }
 
-        Logger::instance().debug() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format(
             " Output to port {} ({}): {}",
             port, device->getName(), value
-        ) << std::endl;
+        ), Logging::DebugLevel::DETAIL);
 
         device->write(value);
     }
@@ -156,7 +154,7 @@ public:
      * Reset all registered devices
      */
     void resetAllDevices() {
-        Logger::instance().info() << "Resetting all devices..." << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, "Resetting all devices...", Logging::DebugLevel::INFO);
         for (auto& [port, device] : devices) {
             device->reset();
         }
@@ -175,10 +173,10 @@ public:
     }
 
     void reset() {
-        Logger::instance().info() << "Resetting DeviceManager..." << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, "Resetting DeviceManager...", Logging::DebugLevel::INFO);
         resetAllDevices();
         devices.clear();
-        Logger::instance().info() << "DeviceManager reset complete." << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, "DeviceManager reset complete.", Logging::DebugLevel::INFO);
     }
 
     // Port read/write methods for different data sizes

@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <cstddef>
 
 // DemiEngine Version Information
 #define DEMI_VERSION_MAJOR 1
@@ -17,6 +18,11 @@
 #define DEMI_INCLUDE_SUPPORT 1
 #define DEMI_FUSION_SUPPORT 1
 
+// Memory constants
+constexpr size_t DEMI_DEFAULT_MEMORY_SIZE = 1024 * 1024;           // 1MB default
+constexpr size_t DEMI_MIN_MEMORY_SIZE = 256;                        // 256 bytes minimum (for tests)
+constexpr size_t DEMI_MAX_MEMORY_SIZE = 4ULL * 1024 * 1024 * 1024;  // 4GB maximum
+
 // Enum for test filtering modes
 enum class TestShowMode {
     ALL,      // Show all tests (default)
@@ -28,6 +34,13 @@ enum class Architecture {
     AUTO,
     X86,
     X64
+};
+
+// Memory size mode
+enum class MemorySizeMode {
+    DEFAULT,    // Use default 1MB
+    FIXED,      // Use a fixed size specified by user
+    AUTO        // Auto-detect based on system memory
 };
 
 class Config {
@@ -46,7 +59,7 @@ public:
     inline static bool show_test_metadata = false;  // Show test metadata (description, author, category, tags)
     inline static TestShowMode test_show_mode = TestShowMode::ALL;  // Test filtering mode
     inline static std::string debug_file = "debug.log";
-    // Removed: program_file (hex file input no longer supported)
+    inline static std::string program_file = "";  // Hex file input
     inline static std::string assembly_file = "";  // Assembly source file
     inline static std::string output_name = "";  // Output name for compiled executable
     inline static std::string entry_point_symbol = "_start";  // Entry point symbol name
@@ -56,6 +69,11 @@ public:
     inline static Architecture architecture = Architecture::AUTO;
     inline static bool arch_warn_silenced = false;
     inline static bool arch_warn_printed = false;
+
+    // Memory configuration
+    inline static MemorySizeMode memory_mode = MemorySizeMode::DEFAULT;
+    inline static size_t memory_size = DEMI_DEFAULT_MEMORY_SIZE;  // Configured memory size
+    inline static std::string memory_size_str = "";  // Original memory size string for display
 };
 
 // Declare device initialization for use in tests and main

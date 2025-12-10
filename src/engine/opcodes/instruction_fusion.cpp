@@ -2,7 +2,7 @@
 #include "../cpu.hpp"
 #include "../cpu_flags.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include "../../config.hpp"
 #include <fmt/core.h>
 
@@ -17,7 +17,7 @@ static inline bool is_valid_legacy_register(uint8_t reg) {
 bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (!enabled) {
         if (Config::debug && stats.total_attempts == 0) {
-            Logger::instance().debug() << "[FUSION] Engine disabled!" << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::PERF_OPTIMIZATION, "[FUSION] Engine disabled!");
         }
         return false;
     }
@@ -32,7 +32,7 @@ bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& pr
     switch (current_op) {
         case Opcode::CMP:
             if (Config::debug) {
-                Logger::instance().debug() << fmt::format("[FUSION] Attempting CMP fusion at PC=0x{:04X}", cpu.get_pc()) << std::endl;
+                DEBUG_INFO(Logging::DebugCategory::PERF_OPTIMIZATION, "[FUSION] Attempting CMP fusion at PC=0x{:04X}", cpu.get_pc());
             }
             return fuse_cmp_branch(cpu, program, running);
             
@@ -55,8 +55,8 @@ bool FusionEngine::fuse_cmp_branch(CPU& cpu, const std::vector<uint8_t>& program
     uint32_t pc = cpu.get_pc();
     
     // CMP format: opcode (1) + reg1 (1) + reg2 (1) = 3 bytes
-    // Jump format: opcode (1) + addr (1) = 2 bytes
-    if (!can_lookahead(cpu, program, 5)) return false;
+    // Jump format: opcode (1) + addr (4) = 5 bytes
+    if (!can_lookahead(cpu, program, 8)) return false;
     
     // Read CMP operands
     uint8_t reg1 = program[pc + 1];
@@ -113,8 +113,11 @@ bool FusionEngine::fuse_cmp_branch(CPU& cpu, const std::vector<uint8_t>& program
     bool zero = (result == 0);
     bool sign = (static_cast<int32_t>(result) < 0);
     
-    // Get jump target address
-    uint8_t target_addr = program[pc + 4];
+    // Get jump target address (32-bit little endian)
+    uint32_t target_addr = static_cast<uint32_t>(program[pc + 4]) |
+                           (static_cast<uint32_t>(program[pc + 5]) << 8) |
+                           (static_cast<uint32_t>(program[pc + 6]) << 16) |
+                           (static_cast<uint32_t>(program[pc + 7]) << 24);
     
     // Determine if branch should be taken
     bool take_branch = false;
@@ -140,17 +143,14 @@ bool FusionEngine::fuse_cmp_branch(CPU& cpu, const std::vector<uint8_t>& program
         std::string decision = take_branch ? 
             fmt::format("JUMP to 0x{:04X}", target_addr) : "CONT";
             
-        Logger::instance().debug() << fmt::format(
-            "[FUSION] CMP+{} at PC=0x{:04X}: R{}({}) vs R{}({}) -> {}",
-            branch_name, pc, reg1, val1, reg2, val2, decision
-        ) << std::endl;
+        DEBUG_INFO(Logging::DebugCategory::PERF_OPTIMIZATION, "[FUSION] CMP+{} at PC=0x{:04X}: R{}({}) vs R{}({}) -> {}", branch_name, pc, reg1, val1, reg2, val2, decision);
     }
     
     // Execute fused operation
     if (take_branch) {
         cpu.set_pc(target_addr);
     } else {
-        cpu.set_pc(pc + 5);  // Skip both CMP and jump
+        cpu.set_pc(pc + 8);  // Skip both CMP (3) and jump (5)
     }
     
     // Set CPU flags based on comparison result
