@@ -8,13 +8,10 @@
 #include <cstring>
 #include "assembler.hpp"
 #include "opcodes.hpp"
-#include "../debug/logger.hpp"
 #include "../debug/error_handler.hpp"
 #include "../debug/debug_handler.hpp"
 #include "../config.hpp"
 #include "../../extern/fmt/include/fmt/format.h"
-
-using Logging::Logger;
 
 namespace Assembler {
 uint32_t AssemblerEngine::db_next_addr = 0x100;
@@ -422,7 +419,7 @@ void Assembler::AssemblerEngine::process_directive(const Assembler::Directive& d
     } else if (directive.name == ".text") {
         handle_text_section();
     } else if (directive.name == ".org") {
-    Logging::Logger::instance().debug() << "Processing .org directive, args: ";
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::ASM_DIRECTIVE, "Processing .org directive", Logging::DebugLevel::DETAIL);
         [[maybe_unused]] for (const auto& arg : directive.arguments) {
             // Print argument type/value (currently unused)
         }
@@ -476,8 +473,7 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
     while (bytecode.size() < current_address) {
         bytecode.push_back(0);
     }
-    Logging::Logger::instance().debug() << "Emitting instruction '" << mnemonic << "' at address: 0x" 
-        << std::setw(4) << std::setfill('0') << std::hex << std::uppercase << current_address << std::dec << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::ASM_ENCODING, fmt::format("Emitting instruction '{}' at address: 0x{:04X}", mnemonic, current_address), Logging::DebugLevel::DETAIL);
     
     // Handle DB pseudo-instruction (no opcode emission, just raw bytes)
     if (mnemonic == "DB") {
@@ -564,7 +560,10 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         return;
     }
 
-    emit_byte(opcode);
+    // Don't emit opcode for instructions that handle it themselves (like MOV which can be LOAD_IMM/LOAD/etc)
+    if (mnemonic != "MOV" && mnemonic != "MOV64" && mnemonic != "MOVEX") {
+        emit_byte(opcode);
+    }
     // Handle different instruction formats
     if (mnemonic == "DEBUG") {
         // Format: DEBUG sub_opcode, [operands...]
@@ -809,16 +808,123 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                 emit_byte(static_cast<uint8_t>((value >> (8 * i)) & 0xFF));
             }
         }
+    } else if (mnemonic == "MOV" || mnemonic == "MOV64" || mnemonic == "MOVEX") {
+        if (instruction.operands.size() != 2) {
+            add_error(mnemonic + " requires 2 operands", instruction.line, instruction.column);
+            return;
+        }
+
+        auto dst = instruction.operands[0].get();
+        auto src = instruction.operands[1].get();
+
+        if (auto dst_reg = dynamic_cast<const Assembler::RegisterExpression*>(dst)) {
+            uint8_t dst_reg_num = get_register_number(dst_reg->name);
+            bool is_extended = (dst_reg_num >= 8 && dst_reg_num <= 15);
+            
+            if (auto src_reg = dynamic_cast<const Assembler::RegisterExpression*>(src)) {
+                uint8_t src_reg_num = get_register_number(src_reg->name);
+                bool src_extended = (src_reg_num >= 8 && src_reg_num <= 15);
+                
+                if (is_extended || src_extended) {
+                    emit_byte(static_cast<uint8_t>(Opcode::MOVEX));
+                } else if (register_sizes[dst_reg->name] == 64 || register_sizes[src_reg->name] == 64) {
+                    emit_byte(static_cast<uint8_t>(Opcode::MOV64));
+                } else {
+                    emit_byte(static_cast<uint8_t>(Opcode::MOV));
+                }
+                emit_byte(dst_reg_num);
+                emit_byte(src_reg_num);
+            } else if (dynamic_cast<const Assembler::ImmediateExpression*>(src) || 
+                       dynamic_cast<const Assembler::IdentifierExpression*>(src)) {
+                
+                int reg_size = register_sizes[dst_reg->name];
+                // DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "MOV dst={} size={}", dst_reg->name, reg_size);
+                
+                if (reg_size >= 32) { // Use LOAD_IMM64 for 32-bit and 64-bit registers
+                    emit_byte(static_cast<uint8_t>(Opcode::LOAD_IMM64));
+                    emit_byte(dst_reg_num);
+                    bool is_symbol;
+                    std::string symbol_name;
+                    int64_t val = evaluate_expression(*src, is_symbol, symbol_name);
+                    if (is_symbol) emit_forward_ref(symbol_name, 8);
+                    else for(int i=0; i<8; ++i) emit_byte((uint8_t)((val >> (i*8)) & 0xFF));
+                } else {
+                    // 8-bit register
+                    emit_byte(static_cast<uint8_t>(Opcode::LOAD_IMM));
+                    emit_byte(dst_reg_num);
+                    bool is_symbol;
+                    std::string symbol_name;
+                    int64_t val = evaluate_expression(*src, is_symbol, symbol_name);
+                    if (is_symbol) emit_forward_ref(symbol_name, 1);
+                    else emit_byte((uint8_t)val);
+                }
+            } else if (auto mem_expr = dynamic_cast<const Assembler::MemoryReferenceExpression*>(src)) {
+                if (dynamic_cast<const Assembler::RegisterExpression*>(mem_expr->base.get())) {
+                    emit_byte(static_cast<uint8_t>(Opcode::LOADR));
+                    emit_byte(dst_reg_num);
+                    auto base_reg = static_cast<const Assembler::RegisterExpression*>(mem_expr->base.get());
+                    emit_byte(get_register_number(base_reg->name));
+                } else {
+                    if (is_extended) emit_byte(static_cast<uint8_t>(Opcode::LOADEX));
+                    else emit_byte(static_cast<uint8_t>(Opcode::LOAD));
+                    emit_byte(dst_reg_num);
+                    bool is_symbol;
+                    std::string symbol_name;
+                    int64_t val = evaluate_expression(*mem_expr->base, is_symbol, symbol_name);
+                    if (is_extended) {
+                        if (is_symbol) emit_forward_ref(symbol_name, 8);
+                        else for(int i=0; i<8; ++i) emit_byte((uint8_t)((val >> (i*8)) & 0xFF));
+                    } else {
+                        if (is_symbol) emit_forward_ref(symbol_name, 4);
+                        else emit_dword((uint32_t)val);
+                    }
+                }
+            } else {
+                add_error("Invalid source operand for MOV", instruction.line, instruction.column);
+                return;
+            }
+        } else if (auto dst_mem = dynamic_cast<const Assembler::MemoryReferenceExpression*>(dst)) {
+             if (auto src_reg = dynamic_cast<const Assembler::RegisterExpression*>(src)) {
+                 uint8_t src_reg_num = get_register_number(src_reg->name);
+                 bool is_extended = (src_reg_num >= 8 && src_reg_num <= 15);
+                 if (dynamic_cast<const Assembler::RegisterExpression*>(dst_mem->base.get())) {
+                     emit_byte(static_cast<uint8_t>(Opcode::STORER));
+                     emit_byte(src_reg_num);
+                     auto base_reg = static_cast<const Assembler::RegisterExpression*>(dst_mem->base.get());
+                     emit_byte(get_register_number(base_reg->name));
+                 } else {
+                     if (is_extended) emit_byte(static_cast<uint8_t>(Opcode::STOREX));
+                     else emit_byte(static_cast<uint8_t>(Opcode::STORE));
+                     emit_byte(src_reg_num);
+                     bool is_symbol;
+                     std::string symbol_name;
+                     int64_t val = evaluate_expression(*dst_mem->base, is_symbol, symbol_name);
+                     if (is_extended) {
+                         if (is_symbol) emit_forward_ref(symbol_name, 8);
+                         else for(int i=0; i<8; ++i) emit_byte((uint8_t)((val >> (i*8)) & 0xFF));
+                     } else {
+                         if (is_symbol) emit_forward_ref(symbol_name, 4);
+                         else emit_dword((uint32_t)val);
+                     }
+                 }
+             } else {
+                 add_error("MOV to memory requires register source", instruction.line, instruction.column);
+                 return;
+             }
+        } else {
+            add_error("Invalid destination operand for MOV", instruction.line, instruction.column);
+            return;
+        }
     } else if (mnemonic == "ADD" || mnemonic == "SUB" ||
-               mnemonic == "MOV" || mnemonic == "CMP" ||
+               mnemonic == "CMP" ||
                mnemonic == "MUL" || mnemonic == "DIV" ||
                mnemonic == "MOD" || mnemonic == "AND" ||
                mnemonic == "OR" || mnemonic == "XOR" ||
                mnemonic == "ADD64" || mnemonic == "SUB64" ||
-               mnemonic == "MOV64" || mnemonic == "CMP64" || mnemonic == "MODECMP" ||
+               mnemonic == "CMP64" || mnemonic == "MODECMP" ||
                mnemonic == "MUL64" || mnemonic == "DIV64" || mnemonic == "MOD64" ||
                mnemonic == "AND64" || mnemonic == "OR64" || mnemonic == "XOR64" ||
-               mnemonic == "MOVEX" || mnemonic == "ADDEX" ||
+               mnemonic == "ADDEX" ||
                mnemonic == "SUBEX" || mnemonic == "CMPEX") {
         // Format: INSTRUCTION reg1, reg2
         if (instruction.operands.size() != 2) {
@@ -859,7 +965,7 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                mnemonic == "JNO" || mnemonic == "JG" ||
                mnemonic == "JL" || mnemonic == "JGE" ||
                mnemonic == "JLE" || mnemonic == "CALL") {
-        // Format: JUMP address (mode-aware: 32-bit or 64-bit address)
+        // Format: JUMP address
         if (instruction.operands.size() != 1) {
             add_error(mnemonic + " requires 1 operand", instruction.line, instruction.column);
             return;
@@ -870,9 +976,9 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         int64_t value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address size
+            emit_forward_ref(symbol_name, 4); // DemiEngine uses 32-bit addresses for jumps
         } else {
-            emit_mode_aware_address(value); // Mode-aware address emission
+            emit_dword(static_cast<uint32_t>(value));
         }
     } else if (mnemonic == "PUSH" || mnemonic == "POP" ||
                mnemonic == "INC" || mnemonic == "DEC" ||
@@ -946,15 +1052,15 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                 return;
             }
         } else {
-            // Address operand - emit mode-aware address (32-bit or 64-bit based on architecture)
+            // Address operand
             bool is_symbol;
             std::string symbol_name;
             int64_t addr_value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
 
             if (is_symbol) {
-                emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address size
+                emit_forward_ref(symbol_name, 4); // Use 32-bit addresses
             } else {
-                emit_mode_aware_address(addr_value);
+                emit_dword(static_cast<uint32_t>(addr_value));
             }
         }
     } else if (mnemonic == "LOADEX" || mnemonic == "STOREX") {
@@ -1079,15 +1185,19 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         // Operand type 0x01 = memory address (64-bit double)
         emit_byte(0x01);
         
-        // Memory address operand - mode-aware
+        // Memory address operand
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
+            emit_forward_ref(symbol_name, 4); // 32-bit address
         } else {
-            emit_mode_aware_address(addr_value);
+            // Emit 32-bit address
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
         }
     } else if (mnemonic == "FADD" || mnemonic == "FSUB" || 
                mnemonic == "FMUL" || mnemonic == "FDIV") {
@@ -1120,15 +1230,19 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         // Operand type 0x01 = memory address (64-bit double)
         emit_byte(0x01);
         
-        // Memory address operand - mode-aware
+        // Memory address operand
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
+            emit_forward_ref(symbol_name, 4); // 32-bit address
         } else {
-            emit_mode_aware_address(addr_value);
+            // Emit 32-bit address
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
         }
     } else if (instruction.mnemonic == "FILD") {
         // FILD - Load integer as floating point
@@ -1158,15 +1272,19 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         // Operand type 0x01 = memory address (32-bit integer)
         emit_byte(0x01);
         
-        // Memory address operand - mode-aware
+        // Memory address operand
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
+            emit_forward_ref(symbol_name, 4); // 32-bit address
         } else {
-            emit_mode_aware_address(addr_value);
+            // Emit 32-bit address
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
         }
     } else if (instruction.mnemonic == "FIST" || instruction.mnemonic == "FISTP") {
         // FIST/FISTP - Store floating point as integer
@@ -1180,15 +1298,19 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         // Operand type 0x01 = memory address (32-bit integer)
         emit_byte(0x01);
         
-        // Memory address operand - mode-aware
+        // Memory address operand
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
+            emit_forward_ref(symbol_name, 4); // 32-bit address
         } else {
-            emit_mode_aware_address(addr_value);
+            // Emit 32-bit address
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
         }
     } else if (instruction.mnemonic == "FSTCW" || instruction.mnemonic == "FLDCW") {
         // FSTCW/FLDCW - Store/Load FPU control word
@@ -1198,15 +1320,19 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             return;
         }
 
-        // Memory address operand (no operand type byte for these) - mode-aware
+        // Memory address operand (no operand type byte for these)
         bool is_symbol;
         std::string symbol_name;
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
+            emit_forward_ref(symbol_name, 4); // 32-bit address
         } else {
-            emit_mode_aware_address(addr_value);
+            // Emit 32-bit address directly
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
         }
     } else if (instruction.mnemonic == "FSTSW") {
         // FSTSW - Store FPU status word
@@ -1233,9 +1359,13 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
 
         if (is_symbol) {
-            emit_forward_ref(symbol_name, get_address_size()); // Mode-aware address
+            emit_forward_ref(symbol_name, 4); // 32-bit address
         } else {
-            emit_mode_aware_address(addr_value);
+            // Emit 32-bit address
+            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
+            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
         }
     } else if (instruction.mnemonic == "NOP" || instruction.mnemonic == "HALT" || 
                instruction.mnemonic == "RET" || instruction.mnemonic == "PUSH_FLAG" || 
@@ -1376,24 +1506,6 @@ void Assembler::AssemblerEngine::emit_qword(uint64_t qword) {
     emit_byte((qword >> 56) & 0xFF);
 }
 
-size_t Assembler::AssemblerEngine::get_address_size() const {
-    // Return address size based on current architecture setting
-    if (Config::architecture == Architecture::X64) {
-        return 8;  // 64-bit addresses
-    }
-    return 4;  // Default to 32-bit addresses (X86 or AUTO)
-}
-
-void Assembler::AssemblerEngine::emit_mode_aware_address(int64_t address) {
-    // Emit address based on current architecture mode
-    size_t addr_size = get_address_size();
-    if (addr_size == 8) {
-        emit_qword(static_cast<uint64_t>(address));
-    } else {
-        emit_dword(static_cast<uint32_t>(address));
-    }
-}
-
 void Assembler::AssemblerEngine::emit_forward_ref(const std::string& symbol, size_t size, bool relative) {
     forward_refs.push_back({current_address, symbol, size, relative});
         DEBUG_DETAIL(Logging::DebugCategory::ASM_FORWARD_REF, "emit_forward_ref: symbol='{}', address=0x{:04X}, size={}, relative={}", symbol, current_address, size, relative);
@@ -1421,7 +1533,9 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
         // Size depends on register type: 1-byte for 8-bit regs, 4-byte for 32-bit regs
         if (operands.size() >= 1) {
             if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(operands[0].get())) {
-                bool is_32bit_reg = (reg_expr->name.length() == 3 && reg_expr->name[0] == 'E');
+                // Use register_sizes map to correctly identify 32-bit registers
+                bool is_32bit_reg = (register_sizes.find(reg_expr->name) != register_sizes.end() && 
+                                     register_sizes[reg_expr->name] == 32);
                 return is_32bit_reg ? 6 : 3; // opcode + register + (4 or 1)-byte immediate
             }
         }
@@ -1444,8 +1558,7 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
                mnemonic == "JNC" || mnemonic == "JO" || mnemonic == "JNO" ||
                mnemonic == "JG" || mnemonic == "JL" || mnemonic == "JGE" ||
                mnemonic == "JLE" || mnemonic == "CALL") {
-        // Mode-aware address size: 5 bytes in 32-bit mode, 9 bytes in 64-bit mode
-        return 1 + get_address_size(); // opcode + address
+        return 5; // opcode + 4-byte address
     } else if (mnemonic == "PUSH" || mnemonic == "POP" || mnemonic == "INC" ||
                mnemonic == "DEC" || mnemonic == "NOT" || mnemonic == "INC64" ||
                mnemonic == "DEC64" || mnemonic == "NOT64") {
@@ -1453,16 +1566,11 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
     } else if (mnemonic == "OUT" || mnemonic == "IN" || mnemonic == "OUTB" ||
                mnemonic == "INB" || mnemonic == "OUTW" || mnemonic == "INW" ||
                mnemonic == "OUTL" || mnemonic == "INL" || mnemonic == "OUTSTR" ||
-               mnemonic == "INSTR" || mnemonic == "LOADR" ||
-               mnemonic == "STORER" || mnemonic == "SHL" ||
+               mnemonic == "INSTR" || mnemonic == "LOAD" || mnemonic == "LOADR" ||
+               mnemonic == "STORER" || mnemonic == "STORE" ||
+               mnemonic == "LEA" || mnemonic == "SWAP" || mnemonic == "SHL" ||
                mnemonic == "SHR") {
-        return 3; // opcode + register + register/port/immediate
-    } else if (mnemonic == "SWAP") {
-        // Mode-aware address size: 6 bytes in 32-bit mode, 10 bytes in 64-bit mode
-        return 2 + get_address_size(); // opcode + register + address
-    } else if (mnemonic == "LOAD" || mnemonic == "STORE" || mnemonic == "LEA") {
-        // Mode-aware address size: 6 bytes in 32-bit mode, 10 bytes in 64-bit mode
-        return 2 + get_address_size(); // opcode + register + address
+        return 3; // opcode + register + address/port/immediate/register
     } else if (mnemonic == "LOADEX" || mnemonic == "STOREX") {
         return 10; // opcode + register + 8-byte address
     }
@@ -1781,8 +1889,8 @@ void Assembler::AssemblerEngine::handle_memory_directive(const std::vector<std::
     memory_size = static_cast<size_t>(size);
     
     if (!Config::test_mode) {
-        Logger::instance().info() << fmt::format("Memory size set to {} bytes ({:.1f} KB)", 
-                                                 memory_size, memory_size / 1024.0) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::ASM_DIRECTIVE, fmt::format("Memory size set to {} bytes ({:.1f} KB)", 
+                                                 memory_size, memory_size / 1024.0), Logging::DebugLevel::INFO);
     }
 }
 
