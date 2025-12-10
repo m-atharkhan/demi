@@ -21,7 +21,8 @@ _start:
     STORE EBX, [EDX]     ; Store F1
     INC EDX              ; Increment pointer
     
-    SUB ECX, 2           ; Decrement counter by 2
+    LOAD_IMM ESI, 2      ; Load 2 for subtraction
+    SUB ECX, ESI         ; Decrement counter by 2
 
 loop:
     ; Calculate next number: F(n) = F(n-1) + F(n-2)

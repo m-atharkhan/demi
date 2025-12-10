@@ -140,7 +140,7 @@ Debugging:
 - **94+ Opcode Instruction Set**: Arithmetic, logic, memory, I/O, control flow, **SIMD foundation operations**, and **FPU floating-point arithmetic**
 - **SIMD Foundation**: 8 fundamental vector instructions for parallel computation (VADD, VMUL, VDOT, VMAX, etc.)
 - **FPU Arithmetic Operations**: 23+ floating-point instructions (FADD, FSIN, FSQRT, etc.) with full mathematical support
-- **1MB Memory**: Expandable to 64MB with paging framework
+- **Dynamic Memory System**: 1MB default, auto-scales up to 4GB based on system resources
 - **Device I/O System**: Modular devices (console, file, counter, RAM disk) with port-based communication
 - **Professional Debugging**: ImGui-based visual debugger with real-time inspection
 
@@ -216,7 +216,7 @@ Debugging:
 | Component | Status | Description |
 |-----------|--------|-------------|
 | **CPU Engine** | ✅ Complete | 134 registers, 63 implemented opcodes |
-| **Memory System** | ✅ Complete | 1MB default, expandable to 64MB |
+| **Memory System** | ✅ Complete | 1MB default, auto-scales up to 4GB |
 | **Device Manager** | ✅ Complete | Console, File, Counter, RAM Disk devices |
 | **Assembly Tools** | ✅ Complete | Full lexer → parser → assembler pipeline |
 | **Debug Interface** | ✅ Complete | ImGui-based visual debugger |

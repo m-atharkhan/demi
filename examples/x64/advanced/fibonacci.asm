@@ -21,7 +21,8 @@ _start:
     STORE RBX, [RDX]     ; Store F1
     INC RDX              ; Increment pointer
     
-    SUB RCX, 2           ; Decrement counter by 2
+    LOAD_IMM RSI, 2      ; Load 2 for subtraction
+    SUB RCX, RSI         ; Decrement counter by 2
 
 loop:
     ; Calculate next number: F(n) = F(n-1) + F(n-2)

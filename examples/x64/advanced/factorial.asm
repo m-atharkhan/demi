@@ -11,6 +11,7 @@ _start:
     LOAD_IMM RAX, 5     ; Number to calculate factorial of
     LOAD_IMM RBX, 1     ; Result accumulator (factorial)
     LOAD_IMM RCX, 1     ; Counter (starts at 1)
+    LOAD_IMM RBP, 0     ; Zero constant for comparisons
     
 factorial_loop:
     ; Check if counter > number
@@ -24,7 +25,7 @@ factorial_loop:
     
 multiply_loop:
     ; Manual multiplication: RBX = RBX * RCX
-    CMP RDI, 0
+    CMP RDI, RBP        ; Compare with zero
     JE multiply_done
     ADD RSI, RDX        ; Add original result
     DEC RDI

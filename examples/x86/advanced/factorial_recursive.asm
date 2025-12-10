@@ -12,7 +12,7 @@ _start:
     LOAD_IMM EAX, 5         ; Calculate 5!
     PUSH EAX                ; Push argument
     CALL factorial
-    ADD ESP, 4              ; Clean up stack
+    POP EBX                 ; Clean up stack (pop into unused register)
     
     ; Result is in EAX
     HALT
@@ -21,23 +21,29 @@ factorial:
     ; Prologue
     PUSH EBP                ; Save frame pointer
     MOV EBP, ESP            ; Set new frame pointer
+    PUSH EBX                ; Save EBX
     
-    ; Get argument
-    MOV EAX, [EBP + 8]      ; Load argument into EAX
+    ; Get argument from stack (skip saved EBP and return address)
+    MOV EAX, ESP            ; Get stack pointer
+    LOAD_IMM EBX, 8         ; Offset to argument
+    ADD EAX, EBX            ; Calculate address
+    LOAD EAX, [EAX]         ; Load argument into EAX
     
     ; Base case: if n <= 1, return 1
-    CMP EAX, 1
+    LOAD_IMM EBX, 1         ; Load 1 for comparison
+    CMP EAX, EBX
     JLE base_case
     
     ; Recursive case: n * factorial(n-1)
+    PUSH EAX                ; Save n
     DEC EAX                 ; n-1
     PUSH EAX                ; Push n-1
     CALL factorial
-    ADD ESP, 4              ; Clean up stack
+    POP EBX                 ; Clean up argument
+    POP EBX                 ; Restore n
     
-    ; EAX has factorial(n-1)
-    ; Multiply by n (original argument)
-    MOV EBX, [EBP + 8]      ; Reload n
+    ; EAX has factorial(n-1), EBX has n
+    ; Multiply by n (EBX now has original n)
     MUL EAX, EBX            ; EAX = EAX * EBX
     
     JMP end_factorial
@@ -47,6 +53,7 @@ base_case:
 
 end_factorial:
     ; Epilogue
+    POP EBX                 ; Restore EBX
     MOV ESP, EBP            ; Restore stack pointer
-    POP EBP                 ; Restore old frame pointer
+    POP EBP                 ; Restore frame pointer
     RET
