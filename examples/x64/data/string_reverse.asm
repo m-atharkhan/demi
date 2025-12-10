@@ -26,15 +26,15 @@ found_end:
     DEC EBX
 
 reverse_loop:
-    CMP EAX, EBX
+    CMP RAX, RBX
     JGE done
     
-    LOADR ECX, EAX      ; Load character from start
-    LOADR EDX, EBX      ; Load character from end
+    LOADR RCX, RAX      ; Load character from start
+    LOADR RDX, RBX      ; Load character from end
     
-    ; Swap using STORER (store indirect)
-    STORER EDX, EAX     ; Store end char at start position
-    STORER ECX, EBX     ; Store start char at end position
+    ; Swap using STORE (direct addressing)
+    STORE RDX, [RAX]    ; Store end char at start position
+    STORE RCX, [RBX]    ; Store start char at end position
     
     INC EAX
     DEC EBX

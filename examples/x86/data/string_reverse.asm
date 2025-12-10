@@ -32,9 +32,9 @@ reverse_loop:
     LOADR ECX, EAX      ; Load character from start
     LOADR EDX, EBX      ; Load character from end
     
-    ; Swap using STORER (store indirect)
-    STORER EDX, EAX     ; Store end char at start position
-    STORER ECX, EBX     ; Store start char at end position
+    ; Swap using STORE (direct addressing)
+    STORE EDX, [EAX]    ; Store end char at start position
+    STORE ECX, [EBX]    ; Store start char at end position
     
     INC EAX
     DEC EBX

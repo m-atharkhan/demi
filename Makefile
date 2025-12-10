@@ -159,6 +159,7 @@ $(TEST_TARGET): $(LIB_OBJS) $(TEST_OBJS) $(FMT_OBJS) $(IMGUI_OBJS) | $(BIN_DIR)
 
 # Assembler test (lightweight)
 $(ASSEMBLER_TEST_TARGET): $(filter $(BUILD_DIR)/assembler/%,$(LIB_OBJS)) \
+                          $(filter $(BUILD_DIR)/debug/%,$(LIB_OBJS)) \
                           $(filter $(BUILD_DIR)/test/test_assembler%,$(TEST_OBJS)) \
                           $(FMT_OBJS) | $(BIN_DIR)
 	@echo "🔗 Linking assembler test..."

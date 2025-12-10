@@ -12,6 +12,7 @@ DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionar
 ### 🌟 Current Status: Mode-Aware Architecture Complete ✅
 
 **Recent Achievements (December 2025):**
+- ✅ **Dynamic Memory System**: Auto-scales up to 4GB based on system resources (`--memory`, `.memory auto`)
 - ✅ **Mode-Aware Operations**: Full x86 (32-bit) and x64 (64-bit) architecture support
 - ✅ **Architecture Selection**: `--architecture`, `-x86`, `-x64` CLI flags for mode selection
 - ✅ **x86 Register Naming**: EAX, EBX, ECX, EDX, ESI, EDI, ESP, EBP support

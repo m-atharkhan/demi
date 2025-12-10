@@ -9,7 +9,8 @@
 _start:
     ; Store value 42 at memory address 100
     LOAD_IMM RAX, 42
-    STORE RAX, 100
+    LOAD_IMM RBX, 100    ; Load address into register
+    STORE RAX, [RBX]     ; Store using bracket notation
 
     ; Store address 100 in register RCX
     LOAD_IMM RCX, 100

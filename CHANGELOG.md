@@ -5,7 +5,7 @@ All notable changes to DemiEngine will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-11-10
+## [1.0.0] - 2025-12-10
 
 ### ✨ Features
 
@@ -48,24 +48,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implement comprehensive FPU operations (0e47007) - Owen Boreham
 - Implement multi-provider AI system for auto growth scripts (dd342c1) - Owen Boreham
 - Complete automated community growth system with AI integration (ca2a8b9) - Owen Boreham
-- implement MOD instruction and fix assembly test issues (d1db886) - Owen Boreham
-- implement FINIT instruction and fix register synchronization (8fa12ce) - Owen Boreham
-- implement FLD, FST, and FSTP floating point instructions (6b6bae7) - Owen Boreham
-- implement FPU arithmetic instructions (FADD, FSUB, FMUL, FDIV) (a28d5ba) - Owen Boreham
-- implement FPU integer conversion instructions (FILD, FIST, FISTP) (9ff950e) - Owen Boreham
-- implement FPU math functions (FABS, FCHS, FSQRT) (b6fabb7) - Owen Boreham
-- implement FPU transcendental functions (FSIN, FCOS, FTAN) (2134118) - Owen Boreham
-- implement final FPU opcodes (FCOMPP, FUCOMPP, FCLEX, FSTCW, FLDCW, FSTSW) (f419ce3) - Owen Boreham
-- add comprehensive test suite for future implementations (f5053b4) - Owen Boreham
-- add test filtering and enhanced summary (6c6a656) - Owen Boreham
-- implement instruction fusion optimization system (d46ac39) - Owen Boreham
-- Implement comprehensive preprocessor system (b2dde49) - Owen Boreham
-- Add SIMD vector operation foundation (8a40692) - Owen Boreham
+- implement MOD instruction and fix assembly test issues (3cad9b4) - Owen Boreham
+- implement FINIT instruction and fix register synchronization (322e76d) - Owen Boreham
+- implement FLD, FST, and FSTP floating point instructions (9de18d3) - Owen Boreham
+- implement FPU arithmetic instructions (FADD, FSUB, FMUL, FDIV) (0cfd1cc) - Owen Boreham
+- implement FPU integer conversion instructions (FILD, FIST, FISTP) (1df7099) - Owen Boreham
+- implement FPU math functions (FABS, FCHS, FSQRT) (20233ac) - Owen Boreham
+- implement FPU transcendental functions (FSIN, FCOS, FTAN) (e5f24ed) - Owen Boreham
+- implement final FPU opcodes (FCOMPP, FUCOMPP, FCLEX, FSTCW, FLDCW, FSTSW) (a24005d) - Owen Boreham
+- add comprehensive test suite for future implementations (18f508a) - Owen Boreham
+- add test filtering and enhanced summary (b46f614) - Owen Boreham
+- implement instruction fusion optimization system (f57111a) - Owen Boreham
+- Implement comprehensive preprocessor system (9e7e367) - Owen Boreham
+- Add SIMD vector operation foundation (fda150a) - Owen Boreham
+- Add comprehensive error handling and debug system (e102428) - Owen Boreham
+- Add 64-bit operations and branch prediction (c9cb9e2) - Owen Boreham
+- Add optimized opcode dispatchers (7a376b3) - Owen Boreham
+- Add cleaned test files and 64-bit test suite (b225cab) - Owen Boreham
+- Enhance assembler with advanced features (3e7fcf2) - Owen Boreham
+- Enhance test framework and CPU integration (249b5d6) - Owen Boreham
+- Update test files with enhanced error handling (ea5f350) - Owen Boreham
+- Enhance build system for production (321b05d) - Owen Boreham
+- Add skipped test count to test summaries (edfadb0) - Owen Boreham
+- Add test metadata directives and structure tests (50358a3) - Owen Boreham
+- add interrupt controller and syscall infrastructure (3dbe3d5) - Owen Boreham
+- add hexdumper utility for bytecode visualization (08c4d13) - Owen Boreham
+- add mode-aware execution with x86/x64 register support (a7531e6) - Owen Boreham
+- add MODE32/MODE64 directive support (1473066) - Owen Boreham
+- improve debug handler with mode-aware output (617844c) - Owen Boreham
 
 ### ⚡ Performance Improvements
 
 - Enhance CPU functionality with additional instructions and debugging support (a2af336) - Owen Boreham
-- Enhance CPU engine with SIMD and opcode improvements (8709e49) - Owen Boreham
+- Enhance CPU engine with SIMD and opcode improvements (939aa2f) - Owen Boreham
 
 ### 🐛 Bug Fixes
 
@@ -79,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - correct typo in header comment and clean up whitespace in output section (0c7ada8) - Bobrossrtx
 - Add missing implementations for extended opcodes (679cc01) - Bobrossrtx
 - Resolve integration test failures and enhance examples (c7c16d3) - Owen Boreham
-- Fix argument parsing and include directive processing (8cea1ff) - Owen Boreham
+- Fix argument parsing and include directive processing (d6cd95e) - Owen Boreham
+- update LOAD_IMM to 6-byte format and fix FPU handlers (0886f42) - Owen Boreham
 
 ### 🧪 Tests
 
@@ -96,14 +112,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add comprehensive SIMD/FPU register architecture unit tests (31e6660) - Bobrossrtx
 - implement in-assembly test framework with metadata support (75e8e23) - Owen Boreham
 - Add FPU test suite for floating-point operations (2673c9d) - Owen Boreham
-- Enhance instruction fusion test suite (a1495f3) - Owen Boreham
-- Add include system and shared library tests (854aaea) - Owen Boreham
-- Add comprehensive core instruction test suites (13d2bf8) - Owen Boreham
-- Add advanced algorithm and specialized test suites (6f2d0b1) - Owen Boreham
-- Add test framework feature and error handling suites (cd3caa7) - Owen Boreham
-- Add comprehensive preprocessor and macro testing suites (ca1c554) - Owen Boreham
-- Add specialized instruction and benchmark test suites (1465af9) - Owen Boreham
-- Enhance test framework with advanced features (065dd7d) - Owen Boreham
+- Enhance instruction fusion test suite (9b23c62) - Owen Boreham
+- Add include system and shared library tests (533fdec) - Owen Boreham
+- Add comprehensive core instruction test suites (8f16873) - Owen Boreham
+- Add advanced algorithm and specialized test suites (4dadd8d) - Owen Boreham
+- Add test framework feature and error handling suites (ff93eca) - Owen Boreham
+- Add comprehensive preprocessor and macro testing suites (2ae4634) - Owen Boreham
+- Add specialized instruction and benchmark test suites (a9988be) - Owen Boreham
+- Enhance test framework with advanced features (9222713) - Owen Boreham
+- add mode-awareness tests and update test framework (7ac11c4) - Owen Boreham
 
 ### 📚 Documentation
 
@@ -141,9 +158,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - update roadmap priorities - assembly expansion before frontend (fbdb963) - Owen Boreham
 - reorganize documentation into logical structure (56c4f66) - Owen Boreham
 - remove duplicate files after reorganization (b633641) - Owen Boreham
-- add comprehensive future features roadmap (674bbf2) - Owen Boreham
-- add comprehensive website documentation datasets (JSON) (c5336af) - Owen Boreham
-- Update project configuration and documentation (ce3b80b) - Owen Boreham
+- add comprehensive future features roadmap (c3b129e) - Owen Boreham
+- add comprehensive website documentation datasets (JSON) (b7c2e73) - Owen Boreham
+- Update project configuration and documentation (f371531) - Owen Boreham
+- Comprehensive documentation update and reorganization (74a1af4) - Owen Boreham
+- Update roadmap to reflect production-ready backend status (ffdb5d8) - Owen Boreham
+- reorganize documentation structure and verify against codebase (94105fe) - Owen Boreham
+- Update documentation structure and roadmap (00c7ecc) - Owen Boreham
+- update documentation for mode-aware execution (4c5efb2) - Owen Boreham
+- update README, roadmap, and remove run_tests.sh (9af33c6) - Owen Boreham
 
 ### ♻️ Code Refactoring
 
@@ -157,7 +180,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve logging during device initialization and update test runner path (7dc4220) - Bobrossrtx
 - Remove GUI system and simplify build (e98cb19) - Owen Boreham
 - Improve device management and logging (f3f2677) - Owen Boreham
-- update SIMD tests to use actual opcodes (87895fe) - Owen Boreham
+- update SIMD tests to use actual opcodes (0cff333) - Owen Boreham
+- Eliminate compilation warnings (400+ → 0) (c7c929f) - Owen Boreham
+- Reorganize examples and remove debug tests (1d1384c) - Owen Boreham
+- reorganize examples into x86 and x64 directories (da207be) - Owen Boreham
+- remove hex file input support, improve help output (ffcc717) - Owen Boreham
 
 ### 💅 Code Style
 
@@ -171,7 +198,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 👷 Continuous Integration
 
-- disable autogrowth workflow until properly configured (bd0a4d2) - Owen Boreham
+- disable autogrowth workflow until properly configured (0c7ec34) - Owen Boreham
 
 ### 🔨 Chores
 
@@ -193,8 +220,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add project pitch to .gitignore (c511423) - Bobrossrtx
 - Update .gitignore to exclude development tools and documentation (ac68b61) - Bobrossrtx
 - update documentation links and development environment (2cf4aff) - Owen Boreham
-- remove obsolete hex test files (695ee4a) - Owen Boreham
-- Clean up legacy test files and add comprehensive documentation (1a1af16) - Owen Boreham
+- remove obsolete hex test files (9ed13dc) - Owen Boreham
+- Clean up legacy test files and add comprehensive documentation (dc9d4d4) - Owen Boreham
+- Repository cleanup and maintenance (6d87ce0) - Owen Boreham
+- remove automated community growth scripts (c5c0ceb) - Owen Boreham
 
 ### 🔄 Other Changes
 
@@ -253,9 +282,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integrate 20 comprehensive features into development roadmap (5e254ce) - Owen Boreham
 - Fix GitHub Actions workflow for Gemini AI and Twitter-only mode (107f966) - Owen Boreham
 - Remove OpenAI dependency from daily post generator (18a8225) - Owen Boreham
-- Add packed byte manipulation instructions (011a77f) - Owen Boreham
-- Add LOADR indirect addressing instruction (0e4b1ea) - Owen Boreham
-- Add example programs and include demonstrations (2376cda) - Owen Boreham
-- Enhance core assembler with preprocessor integration (a970591) - Owen Boreham
+- Fix formatting and update test results in README (6dcab54) - Owen Boreham
+- Add packed byte manipulation instructions (3e653e1) - Owen Boreham
+- Add LOADR indirect addressing instruction (3eb1189) - Owen Boreham
+- Add example programs and include demonstrations (9e4adf5) - Owen Boreham
+- Enhance core assembler with preprocessor integration (970836a) - Owen Boreham
+- Add comprehensive version management system (f6c21a2) - Owen Boreham
+- Add version management documentation (cd8df4a) - Owen Boreham
+- Update issue #3 with implementation notes (97bf729) - Owen Boreham
+- Add Contributor Covenant Code of Conduct (f7dbc02) - Owen Boreham
+- Revise and expand security policy documentation (8b082a0) - Owen Boreham
+- Update issue templates (4020a6e) - Owen Boreham
+- Add issue template configuration for security reports (1c4d8f2) - Owen Boreham
+- Refactor Makefile to production-ready build system (67bbbce) - Owen Boreham
 
 

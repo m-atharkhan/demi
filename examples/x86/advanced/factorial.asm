@@ -11,6 +11,7 @@ _start:
     LOAD_IMM EAX, 5     ; Number to calculate factorial of
     LOAD_IMM EBX, 1     ; Result accumulator (factorial)
     LOAD_IMM ECX, 1     ; Counter (starts at 1)
+    LOAD_IMM EBP, 0     ; Zero constant for comparisons
     
 factorial_loop:
     ; Check if counter > number
@@ -24,10 +25,10 @@ factorial_loop:
     
 multiply_loop:
     ; Manual multiplication: EBX = EBX * ECX
-    CMP EDI, 0
+    CMP EDI, EBP        ; Compare counter with zero
     JE multiply_done
     ADD ESI, EDX        ; Add original result
-    DEC EDI
+    DEC EDI             ; Decrement counter
     JMP multiply_loop
     
 multiply_done:
