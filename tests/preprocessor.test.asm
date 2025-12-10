@@ -5,7 +5,7 @@
 
 .test "preprocessor_basic_macros" {
     .description "Tests basic macro expansion and simple defines"
-    .author "Preprocessor Team"
+    .author "bobrossrtx"
     .category "Preprocessor Tests"
     .tag "macros"
     .tag "define"
@@ -23,7 +23,7 @@
 
 .test "preprocessor_conditional_compilation" {
     .description "Tests ifdef/ifndef conditional compilation"
-    .author "Preprocessor Team"
+    .author "bobrossrtx"
     .category "Preprocessor Tests"
     .tag "conditional"
     .tag "ifdef"
@@ -52,7 +52,7 @@
 
 .test "preprocessor_function_macros" {
     .description "Tests function-like macros with parameters"
-    .author "Preprocessor Team"
+    .author "bobrossrtx"
     .category "Preprocessor Tests"
     .tag "macros"
     .tag "function-macros"
@@ -70,7 +70,7 @@
 
 .test "preprocessor_advanced_conditionals" {
     .description "Tests complex conditional compilation with elif/else"
-    .author "Preprocessor Team"
+    .author "bobrossrtx"
     .category "Preprocessor Tests"
     .tag "conditional"
     .tag "elif"
@@ -92,7 +92,7 @@
 
 .test "preprocessor_nested_includes" {
     .description "Tests nested file inclusion and macro resolution"
-    .author "Preprocessor Team"
+    .author "bobrossrtx"
     .category "Preprocessor Tests"
     .tag "include"
     .tag "nested"
@@ -112,7 +112,7 @@
 # Benchmark test using preprocessor macros
 .test "preprocessor_benchmark" {
     .description "Benchmark test using preprocessor-generated code"
-    .author "Preprocessor Team"
+    .author "bobrossrtx"
     .category "Benchmarks"
     .tag "benchmark"
     .tag "preprocessor"

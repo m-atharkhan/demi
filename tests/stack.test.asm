@@ -3,7 +3,7 @@
 
 .test "push and pop single value" {
     .description "Tests basic PUSH and POP stack operations with single value"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Stack"
     .tag "basic"
     .tag "push"
@@ -17,7 +17,7 @@
 
 .test "push and pop multiple values" {
     .description "Tests pushing and popping multiple values maintains correct order"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Stack"
     .tag "push"
     .tag "pop"
@@ -41,7 +41,7 @@
 
 .test "stack LIFO order" {
     .description "Tests that stack follows Last-In-First-Out ordering"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Stack"
     .tag "push"
     .tag "pop"
@@ -62,7 +62,7 @@
 
 .test "push and pop flags" {
     .description "Tests PUSH_FLAG and POP_FLAG instructions for saving/restoring CPU flags"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Stack"
     .tag "flags"
     .tag "push"
@@ -88,7 +88,7 @@ end:
 
 .test "call and return" {
     .description "Tests CALL and RET instructions for subroutine functionality"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Stack Operations"
     .tag "call"
     .tag "return"

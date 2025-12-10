@@ -3,6 +3,7 @@
 
 .test "default 32-bit mode" {
     .description "Test that CPU starts in 32-bit mode by default"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "default"
@@ -16,6 +17,7 @@
 
 .test "explicit 32-bit mode" {
     .description "Test explicit MODE32 instruction"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     
@@ -28,6 +30,7 @@
 
 .test "switch to 64-bit mode" {
     .description "Test switching from 32-bit to 64-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode64"
     .tag "switch"
@@ -42,6 +45,7 @@
 
 .test "switch back to 32-bit" {
     .description "Test switching from 64-bit back to 32-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "switch"
@@ -56,6 +60,7 @@
 
 .test "32-bit add with overflow" {
     .description "Test 32-bit addition overflow wraps correctly"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "overflow"
@@ -73,6 +78,7 @@
 
 .test "32-bit sub with underflow" {
     .description "Test 32-bit subtraction underflow wraps correctly"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "underflow"
@@ -90,6 +96,7 @@
 
 .test "32-bit max positive value" {
     .description "Test loading max positive 32-bit signed value"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "boundary"
@@ -103,6 +110,7 @@
 
 .test "32-bit min negative value" {
     .description "Test loading min negative 32-bit signed value"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "boundary"
@@ -116,6 +124,7 @@
 
 .test "32-bit shift left boundary" {
     .description "Test shift left to sign bit position"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "shift"
@@ -131,6 +140,7 @@
 
 .test "32-bit shift right boundary" {
     .description "Test shift right from sign bit position"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "shift"
@@ -146,6 +156,7 @@
 
 .test "64-bit large value load" {
     .description "Test loading large 64-bit values"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode64"
     .tag "large_value"
@@ -159,6 +170,7 @@
 
 .test "64-bit addition no wrap" {
     .description "Test 64-bit addition without 32-bit wrap"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode64"
     .tag "arithmetic"
@@ -175,6 +187,7 @@
 
 .test "mode switch preserves lower bits" {
     .description "Test that mode switching preserves register lower bits"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "mode64"
@@ -192,6 +205,7 @@
 
 .test "multiple mode switches" {
     .description "Test multiple consecutive mode switches"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "mode64"
@@ -215,6 +229,7 @@
 
 .test "32-bit AND operation" {
     .description "Test bitwise AND in 32-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "bitwise"
@@ -230,6 +245,7 @@
 
 .test "32-bit OR operation" {
     .description "Test bitwise OR in 32-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "bitwise"
@@ -245,6 +261,7 @@
 
 .test "32-bit XOR self zeroing" {
     .description "Test XOR register with itself to zero"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "bitwise"
@@ -259,6 +276,7 @@
 
 .test "32-bit NOT operation" {
     .description "Test bitwise NOT in 32-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "bitwise"
@@ -273,6 +291,7 @@
 
 .test "32-bit INC at boundary" {
     .description "Test INC at 32-bit maximum boundary"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "boundary"
@@ -288,6 +307,7 @@
 
 .test "32-bit DEC at zero" {
     .description "Test DEC at zero (underflow)"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "boundary"
@@ -303,6 +323,7 @@
 
 .test "32-bit division" {
     .description "Test integer division in 32-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "arithmetic"
@@ -318,6 +339,7 @@
 
 .test "32-bit modulo" {
     .description "Test modulo operation in 32-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "arithmetic"
@@ -333,6 +355,7 @@
 
 .test "32-bit multiplication" {
     .description "Test multiplication in 32-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "arithmetic"
@@ -348,6 +371,7 @@
 
 .test "32-bit multiplication overflow" {
     .description "Test multiplication overflow in 32-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "overflow"
@@ -365,6 +389,7 @@
 
 .test "compare equal values 32-bit" {
     .description "Test CMP with equal values in 32-bit mode"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode32"
     .tag "compare"
@@ -382,6 +407,7 @@
 
 .test "64-bit boundary values" {
     .description "Test 64-bit mode with boundary values"
+    .author "bobrossrtx"
     .category "Mode Awareness"
     .tag "mode64"
     .tag "boundary"

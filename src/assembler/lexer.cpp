@@ -46,7 +46,6 @@ void Lexer::init_tables() {
     keywords[".test"] = TokenType::TEST_DIRECTIVE;
     keywords[".assert_mem"] = TokenType::ASSERT_MEM;
     keywords[".assert_reg"] = TokenType::ASSERT_REG;
-    keywords[".assert_fpu"] = TokenType::ASSERT_FPU;
     keywords[".assert_output"] = TokenType::ASSERT_OUTPUT;
     keywords[".expect_error"] = TokenType::EXPECT_ERROR;
     keywords[".entry_point"] = TokenType::ENTRY_POINT;
@@ -58,18 +57,6 @@ void Lexer::init_tables() {
     keywords[".maxcalldepth"] = TokenType::MAXCALLDEPTH;
     keywords[".timeout"] = TokenType::TIMEOUT;
     keywords[".skip"] = TokenType::SKIP;
-    
-    // Legacy #-prefixed test directives (for backward compatibility)
-    keywords["#test"] = TokenType::TEST_DIRECTIVE;
-    keywords["#assert_mem"] = TokenType::ASSERT_MEM;
-    keywords["#assert_reg"] = TokenType::ASSERT_REG;
-    keywords["#assert_fpu"] = TokenType::ASSERT_FPU;
-    keywords["#assert_output"] = TokenType::ASSERT_OUTPUT;
-    keywords["#expect_error"] = TokenType::EXPECT_ERROR;
-    keywords["#description"] = TokenType::DESCRIPTION;
-    keywords["#author"] = TokenType::AUTHOR;
-    keywords["#category"] = TokenType::CATEGORY;
-    keywords["#tag"] = TokenType::TAG;
     
     // Benchmark directives
     keywords[".benchmark"] = TokenType::BENCHMARK;
@@ -297,36 +284,8 @@ std::vector<Token> Lexer::tokenize() {
         
         char c = current_char();
         
-        // Handle # - could be a legacy test directive or a comment
-        if (c == '#') {
-            // Check if this is a legacy #test, #assert_*, etc. directive
-            size_t start_pos = pos;
-            size_t start_col = column;
-            std::string potential_keyword = "#";
-            advance();
-            
-            // Collect identifier characters after #
-            while (pos < source.length() && (is_identifier_part(current_char()) || current_char() == '_')) {
-                potential_keyword += current_char();
-                advance();
-            }
-            
-            // Check if this is a known keyword
-            auto it = keywords.find(potential_keyword);
-            if (it != keywords.end()) {
-                tokens.emplace_back(it->second, potential_keyword, line, start_col);
-                continue;
-            }
-            
-            // Not a known keyword - reset and treat as comment
-            pos = start_pos;
-            column = start_col;
-            skip_comment();
-            continue;
-        }
-        
-        // Handle comments starting with ;
-        if (c == ';') {
+        // Handle comments starting with # or ;
+        if (c == '#' || c == ';') {
             skip_comment();
             continue;
         }
@@ -464,7 +423,7 @@ Token Lexer::parse_number() {
     uint64_t value = 0;
     int base = 10;
     
-    // Check for hex (0x) or binary (0b) prefix
+    // Check for hex (0x), binary (0b), or octal (0o) prefix
     if (current_char() == '0' && pos + 1 < source.length()) {
         char next = peek_char();
         if (next == 'x' || next == 'X') {
@@ -475,6 +434,10 @@ Token Lexer::parse_number() {
             base = 2;
             text += current_char(); advance(); // '0'
             text += current_char(); advance(); // 'b'
+        } else if (next == 'o' || next == 'O') {
+            base = 8;
+            text += current_char(); advance(); // '0'
+            text += current_char(); advance(); // 'o'
         }
     }
     
@@ -486,6 +449,8 @@ Token Lexer::parse_number() {
         if (base == 16 && is_hex_digit(c)) {
             valid_digit = true;
         } else if (base == 2 && is_binary_digit(c)) {
+            valid_digit = true;
+        } else if (base == 8 && c >= '0' && c <= '7') {
             valid_digit = true;
         } else if (base == 10 && is_digit(c)) {
             valid_digit = true;
@@ -500,6 +465,8 @@ Token Lexer::parse_number() {
             value = value * 16 + (is_digit(c) ? (c - '0') : (std::toupper(c) - 'A' + 10));
         } else if (base == 2) {
             value = value * 2 + (c - '0');
+        } else if (base == 8) {
+            value = value * 8 + (c - '0');
         } else {
             value = value * 10 + (c - '0');
         }

@@ -3,7 +3,7 @@
 
 .test "and64 basic bitwise and" {
     .description "Basic 64-bit bitwise AND test"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "and64"
     
@@ -17,7 +17,7 @@
 
 .test "and64 all bits set" {
     .description "Test AND with all bits set"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "and64"
     .tag "all-bits"
@@ -32,7 +32,7 @@
 
 .test "and64 with zero" {
     .description "Test AND with zero (should always be zero)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "and64"
     .tag "zero"
@@ -47,7 +47,7 @@
 
 .test "and64 mask operation" {
     .description "Test AND as bit mask operation"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "and64"
     .tag "mask"
@@ -62,7 +62,7 @@
 
 .test "and64 partial mask" {
     .description "Test AND with partial bit mask"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "and64"
     .tag "partial-mask"
@@ -77,7 +77,7 @@
 
 .test "and64 large numbers" {
     .description "Test AND with large 64-bit numbers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "and64"
     .tag "large-values"

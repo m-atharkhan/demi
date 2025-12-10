@@ -5,7 +5,7 @@
 
 .test "combined mul64 and storex" {
     .description "Test multiplication followed by extended store"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "combined"
     .tag "mul64"
@@ -23,7 +23,7 @@
 
 .test "combined div64 and loadex" {
     .description "Test division followed by extended load operations"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "combined"
     .tag "div64"
@@ -44,7 +44,7 @@
 
 .test "combined and64 with memory ops" {
     .description "Test bitwise AND with memory operations"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "combined"
     .tag "and64"
@@ -65,7 +65,7 @@
 
 .test "64bit arithmetic chain" {
     .description "Test chained 64-bit arithmetic operations"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "combined"
     .tag "chain"
@@ -85,7 +85,7 @@
 
 .test "64bit memory stress test" {
     .description "Store and load multiple 64-bit values"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "combined"
     .tag "stress"
@@ -108,7 +108,7 @@
 
 .test "64bit boundary test" {
     .description "Test operations near reasonable value boundaries"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "combined"
     .tag "boundary"

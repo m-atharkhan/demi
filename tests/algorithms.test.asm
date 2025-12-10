@@ -3,7 +3,7 @@
 
 .test "fibonacci calculation" {
     .description "Calculates the 5th Fibonacci number using iterative approach"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Algorithms"
     .tag "fibonacci"
     .tag "iterative"
@@ -31,7 +31,7 @@ fib_done:
 
 .test "factorial calculation" {
     .description "Calculates factorial of 5 (5!) using iterative multiplication"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Algorithms"
     .tag "factorial"
     .tag "iterative"
@@ -55,7 +55,7 @@ fact_done:
 
 .test "maximum of three numbers" {
     .description "Finds the maximum value among three numbers using comparisons"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Algorithms"
     .tag "max"
     .tag "comparison"
@@ -85,7 +85,7 @@ max_found:
 
 .test "sum array of numbers" {
     .description "Calculates the sum of multiple values stored in registers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Algorithms"
     .tag "accumulator"
     .tag "sum"
@@ -111,7 +111,7 @@ max_found:
 
 .test "binary search simulation" {
     .description "Simulates binary search algorithm"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Algorithms"
     .tag "search"
     .tag "binary"

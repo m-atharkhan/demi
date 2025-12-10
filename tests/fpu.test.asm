@@ -3,7 +3,7 @@
 
 .test "basic FPU load and store" {
     .description "Test basic FLD and FST operations"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "FPU"
     .tag "basic"
     .tag "load"
@@ -25,7 +25,7 @@
 
 .test "floating-point addition" {
     .description "Test floating-point addition using FADD"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "FPU"
     .tag "arithmetic"
     .tag "addition"
@@ -45,7 +45,7 @@
 
 .test "floating-point subtraction" {
     .description "Test floating-point subtraction using FSUB"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "FPU"
     .tag "arithmetic"
     .tag "subtraction"
@@ -65,7 +65,7 @@
 
 .test "floating-point multiplication" {
     .description "Test floating-point multiplication using FMUL"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "FPU"
     .tag "arithmetic"
     .tag "multiplication"
@@ -85,7 +85,7 @@
 
 .test "floating-point division" {
     .description "Test floating-point division using FDIV"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "FPU"
     .tag "arithmetic"
     .tag "division"
@@ -105,7 +105,7 @@
 
 .test "trigonometric functions" {
     .description "Test trigonometric functions FSIN and FCOS"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "FPU"
     .tag "trigonometry"
     .tag "transcendental"
@@ -131,7 +131,7 @@
 
 .test "square root function" {
     .description "Test square root function using FSQRT"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "FPU"
     .tag "mathematical"
     .tag "sqrt"

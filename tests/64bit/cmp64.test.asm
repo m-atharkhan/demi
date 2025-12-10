@@ -3,7 +3,7 @@
 
 .test "cmp64 equal values" {
     .description "Test 64-bit comparison of equal values"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "cmp64"
     .tag "equal"
@@ -21,7 +21,7 @@
 
 .test "cmp64 first greater" {
     .description "Test 64-bit comparison where first value is greater"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "cmp64"
     .tag "greater"
@@ -36,7 +36,7 @@
 
 .test "cmp64 first smaller" {
     .description "Test 64-bit comparison where first value is smaller"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "cmp64"
     .tag "smaller"
@@ -51,7 +51,7 @@
 
 .test "cmp64 zero comparison" {
     .description "Test 64-bit comparison with zero"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "cmp64"
     .tag "zero"
@@ -66,7 +66,7 @@
 
 .test "cmp64 large numbers" {
     .description "Test 64-bit comparison with large numbers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "cmp64"
     .tag "large-values"
@@ -81,7 +81,7 @@
 
 .test "cmp64 mixed sign comparison" {
     .description "Test 64-bit comparison with different signs"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "cmp64"
     .tag "mixed-sign"

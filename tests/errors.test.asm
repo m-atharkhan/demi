@@ -3,7 +3,7 @@
 
 .test "division by zero" {
     .description "Tests that division by zero triggers an error"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Error Handling"
     .tag "error"
     .tag "division"
@@ -15,7 +15,7 @@
 
 .test "invalid opcode" {
     .description "Tests that executing an undefined opcode triggers an error"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Error Handling"
     .tag "error"
     .tag "opcode"
@@ -28,7 +28,7 @@
 
 .test "stack overflow" {
     .description "Tests that excessive stack pushes trigger a stack overflow error"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Error Handling"
     .tag "error"
     .tag "stack"
@@ -111,7 +111,7 @@
 
 .test "jump out of bounds" {
     .description "Tests that jumping to an invalid address triggers an error"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Error Handling"
     .tag "error"
     .tag "jump"
@@ -121,7 +121,7 @@
 
 .test "return without call" {
     .description "Tests that RET without a matching CALL triggers an error"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Error Handling"
     .tag "error"
     .tag "call-stack"

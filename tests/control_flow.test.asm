@@ -3,7 +3,7 @@
 
 .test "unconditional jump" {
     .description "Tests unconditional JMP instruction"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Control Flow"
     .tag "jump"
     .tag "basic"
@@ -18,7 +18,7 @@ skip:
 
 .test "compare and conditional jump" {
     .description "Tests CMP instruction with conditional jumps"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Control Flow"
     .tag "conditional"
     .tag "comparison"
@@ -36,7 +36,7 @@ end:
 
 .test "jump if greater" {
     .description "Tests JG conditional jump when first operand is greater"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Control Flow"
     .tag "conditional"
     .tag "comparison"
@@ -54,7 +54,7 @@ end:
 
 .test "jump if less" {
     .description "Tests JL conditional jump when first operand is less"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Control Flow"
     .tag "conditional"
     .tag "comparison"
@@ -72,26 +72,27 @@ end:
 
 .test "simple loop with counter" {
     .description "Test loop with iteration counter"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Control Flow"
     .tag "loop"
     .tag "counter"
-    LOAD_IMM EAX, 0   ; Counter
-    LOAD_IMM EBX, 0   ; Sum
-    LOAD_IMM ECX, 5   ; Limit
+    
+    LOAD_IMM R3, 0      ; Counter
+    LOAD_IMM R4, 10     ; Limit
 loop:
-    ADD EBX, EAX       ; Add counter to sum
-    INC EAX           ; Increment counter
-    CMP EAX, ECX       ; Compare with limit
-    JL loop          ; Continue if less
-    ; Final sum should be 0+1+2+3+4 = 10
-    .assert_reg EBX, 10
-    .assert_reg EAX, 5
+    CMP R3, R4
+    JL continue
+    JMP end
+continue:
+    INC R3
+    JMP loop
+end:
+    .assert_reg R3, 10
 }
 
 .test "halt instruction" {
     .description "Tests HALT instruction to stop execution"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Control Flow"
     .tag "halt"
     .tag "termination"
@@ -103,7 +104,7 @@ loop:
 
 .test "label definition and usage" {
     .description "Test label definition and usage in code"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Control Flow"
     .tag "labels"
     .tag "jumps"

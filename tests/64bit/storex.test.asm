@@ -5,7 +5,7 @@
 
 .test "storex basic store" {
     .description "Basic 64-bit extended store test"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "storex"
     
@@ -19,7 +19,7 @@
 
 .test "storex zero value" {
     .description "Test extended store of zero value"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "storex"
     .tag "zero"
@@ -34,7 +34,7 @@
 
 .test "storex large value" {
     .description "Test extended store of large 64-bit value"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "storex"
     .tag "large-values"
@@ -49,7 +49,7 @@
 
 .test "storex multiple addresses" {
     .description "Test storing to multiple different addresses"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "storex"
     .tag "multiple"
@@ -71,7 +71,7 @@
 
 .test "storex overwrite test" {
     .description "Test overwriting previously stored value"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "storex"
     .tag "overwrite"
@@ -93,7 +93,7 @@
 
 .test "storex signed value" {
     .description "Test extended store of signed value"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "storex"
     .tag "signed"

@@ -3,7 +3,7 @@
 
 .test "bitwise AND" {
     .description "Tests bitwise AND operation"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Logical Operations"
     .tag "bitwise"
     .tag "basic"
@@ -15,7 +15,7 @@
 
 .test "bitwise OR" {
     .description "Tests bitwise OR operation"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Logical Operations"
     .tag "bitwise"
     .tag "basic"
@@ -27,7 +27,7 @@
 
 .test "bitwise XOR" {
     .description "Tests bitwise XOR operation"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Logical Operations"
     .tag "bitwise"
     .tag "basic"
@@ -39,7 +39,7 @@
 
 .test "bitwise NOT" {
     .description "Tests bitwise NOT unary operation"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Logical Operations"
     .tag "bitwise"
     .tag "unary"
@@ -50,7 +50,7 @@
 
 .test "shift left" {
     .description "Tests left shift operation (multiply by power of 2)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Logical Operations"
     .tag "shift"
     .tag "basic"
@@ -61,7 +61,7 @@
 
 .test "shift right" {
     .description "Tests right shift operation (divide by power of 2)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Logical Operations"
     .tag "shift"
     .tag "basic"
@@ -72,7 +72,7 @@
 
 .test "XOR swap trick" {
     .description "Tests XOR swap for swapping values without temp register"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Logical Operations"
     .tag "bitwise"
     .tag "xor-swap"

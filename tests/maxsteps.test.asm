@@ -3,7 +3,7 @@
 
 .test "default maxsteps (10000)" {
     .description "Test that runs with the default 10,000 step limit for loop execution"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Test Framework"
     .tag "maxsteps"
     .tag "loop"
@@ -22,7 +22,7 @@ loop_start:
 
 .test "custom maxsteps (500)" {
     .description "Test with custom .maxsteps directive set to 500 steps"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Test Framework"
     .tag "maxsteps"
     .tag "metadata"
@@ -43,7 +43,7 @@ repeat:
 
 .test "infinite loop caught by limit" {
     .description "Test that infinite loops are caught by maxsteps timeout"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Test Framework"
     .tag "maxsteps"
     .tag "error-handling"

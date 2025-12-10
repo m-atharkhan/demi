@@ -2,6 +2,7 @@
 
 .test "entry_point_default" {
     .description "Test default entry point (_start)"
+    .author "bobrossrtx"
     .category "Assembler"
     
     section .text
@@ -19,6 +20,7 @@
 
 .test "entry_point_explicit" {
     .description "Entry point should be first instruction if _start doesn't exist"
+    .author "bobrossrtx"
     .category "Assembler"
     
     LOAD_IMM R0, 123
@@ -29,6 +31,7 @@
 
 .test "entry_point_directive_label" {
     .description "Test .entry_point directive with label"
+    .author "bobrossrtx"
     .category "Assembler"
     .entry_point custom_start
     
@@ -45,6 +48,7 @@
 
 .test "entry_point_directive_address" {
     .description "Test .entry_point directive with numeric address"
+    .author "bobrossrtx"
     .category "Assembler"
     .entry_point 0x10
     

@@ -2,6 +2,8 @@
 
 .test "basic_add" {
     .description "Test basic ADD operation"
+    .author "bobrossrtx"
+    .category "Arithmetic"
     LOAD_IMM EAX, 5
     LOAD_IMM EBX, 3
     ADD EAX, EBX
@@ -9,7 +11,9 @@
 }
 
 .test "basic_mul" {
-    .description "Test basic MUL operation" 
+    .description "Test basic MUL operation"
+    .author "bobrossrtx"
+    .category "Arithmetic"
     LOAD_IMM EAX, 4
     LOAD_IMM EBX, 3
     MUL EAX, EBX

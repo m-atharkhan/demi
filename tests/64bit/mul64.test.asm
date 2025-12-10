@@ -3,7 +3,7 @@
 
 .test "mul64 basic multiplication" {
     .description "Basic 64-bit multiplication test"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "mul64"
     
@@ -17,7 +17,7 @@
 
 .test "mul64 edge case small values" {
     .description "Test multiplication of small values"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "mul64"
     .tag "edge-case"
@@ -32,7 +32,7 @@
 
 .test "mul64 zero multiplication" {
     .description "Test multiplication by zero"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "mul64"
     .tag "zero"
@@ -47,7 +47,7 @@
 
 .test "mul64 large numbers" {
     .description "Test multiplication of large numbers (within 64-bit range)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "mul64"
     .tag "large-values"
@@ -62,7 +62,7 @@
 
 .test "mul64 signed numbers" {
     .description "Test multiplication with signed numbers (positive result)"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "64-bit Operations"
     .tag "mul64"
     .tag "signed"

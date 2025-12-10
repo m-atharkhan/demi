@@ -3,7 +3,7 @@
 
 .test "addition" {
     .description "Tests basic addition of two numbers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Arithmetic"
     .tag "basic"
     .tag "addition"
@@ -15,7 +15,7 @@
 
 .test "subtraction" {
     .description "Tests basic subtraction of two numbers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Arithmetic"
     .tag "basic"
     .tag "subtraction"
@@ -27,7 +27,7 @@
 
 .test "multiplication" {
     .description "Tests basic multiplication of two numbers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Arithmetic"
     .tag "basic"
     .tag "multiplication"
@@ -39,7 +39,7 @@
 
 .test "division" {
     .description "Tests basic division of two numbers"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Arithmetic"
     .tag "basic"
     .tag "division"
@@ -51,7 +51,7 @@
 
 .test "modulo operation" {
     .description "Tests modulo (remainder) operation"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Arithmetic"
     .tag "modulo"
     .tag "division"
@@ -63,7 +63,7 @@
 
 .test "increment operation" {
     .description "Tests increment operation"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Arithmetic"
     .tag "increment"
     LOAD_IMM EAX, 42
@@ -73,7 +73,7 @@
 
 .test "decrement operation" {
     .description "Tests decrement operation"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Arithmetic"
     .tag "decrement"
     LOAD_IMM EAX, 42
@@ -83,7 +83,7 @@
 
 .test "overflow handling" {
     .description "Tests arithmetic overflow behavior"
-    .author "DemiEngine Team"
+    .author "bobrossrtx"
     .category "Arithmetic"
     .tag "overflow"
     .tag "boundary"
