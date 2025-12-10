@@ -1,7 +1,7 @@
 #pragma once
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <cstring>
 
 void handle_FSTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
@@ -17,7 +17,7 @@ void handle_FSTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint8_t operand_type = program[cpu.get_pc() + 1];
     cpu.set_pc(cpu.get_pc() + 2); // Skip opcode and operand type
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FSTP] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
+    DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [FSTP] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type);
     
     // Get and pop value from ST(0)
     double value = cpu.fpu_pop();
@@ -43,7 +43,7 @@ void handle_FSTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             
             // Write to memory
             cpu.write_mem32(addr, raw_float);
-            Logger::instance().debug() << fmt::format("[FSTP] Stored and popped float {} to addr 0x{:04X}", float_val, addr) << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[FSTP] Stored and popped float {} to addr 0x{:04X}", float_val, addr);
             break;
         }
         
@@ -64,7 +64,7 @@ void handle_FSTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             // Write to memory (little-endian)
             cpu.write_mem32(addr, static_cast<uint32_t>(raw_double & 0xFFFFFFFF));
             cpu.write_mem32(addr + 4, static_cast<uint32_t>(raw_double >> 32));
-            Logger::instance().debug() << fmt::format("[FSTP] Stored and popped double {} to addr 0x{:04X}", value, addr) << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[FSTP] Stored and popped double {} to addr 0x{:04X}", value, addr);
             break;
         }
         
@@ -79,7 +79,7 @@ void handle_FSTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             cpu.set_pc(cpu.get_pc() + 1);
             
             if (st_index > 7) {
-                Logger::instance().error() << fmt::format("[FSTP] Invalid ST register index: {}", st_index) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FSTP] Invalid ST register index: {}", st_index), Logging::DebugLevel::CRITICAL);
                 running = false;
                 return;
             }
@@ -88,13 +88,13 @@ void handle_FSTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             if (st_index != 0) {
                 cpu.fpu_store(st_index, value);
             }
-            Logger::instance().debug() << fmt::format("[FSTP] Moved ST(0) = {} to ST({}) and popped", value, st_index) << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[FSTP] Moved ST(0) = {} to ST({}) and popped", value, st_index);
             // Stack already popped above
             break;
         }
         
         default:
-            Logger::instance().error() << fmt::format("[FSTP] Unknown operand type: 0x{:02X}", operand_type) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FSTP] Unknown operand type: 0x{:02X}", operand_type), Logging::DebugLevel::CRITICAL);
             running = false;
             break;
     }

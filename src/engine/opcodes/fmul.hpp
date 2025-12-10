@@ -1,7 +1,7 @@
 #pragma once
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <cstring>
 
 void handle_FMUL(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
@@ -23,7 +23,7 @@ void handle_FMUL(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // Mode-aware address size
     size_t addr_size = cpu.get_address_size();
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FMUL] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
+    DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [FMUL] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type);
     
     switch (operand_type) {
         case 0x00: {
@@ -46,7 +46,7 @@ void handle_FMUL(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double result = st0_val * static_cast<double>(float_val);
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FMUL] {} * {} = {}", st0_val, static_cast<double>(float_val), result) << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[FMUL] {} * {} = {}", st0_val, static_cast<double>(float_val), result);
             break;
         }
         
@@ -71,7 +71,7 @@ void handle_FMUL(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double result = st0_val * double_val;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FMUL] {} * {} = {}", st0_val, double_val, result) << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[FMUL] {} * {} = {}", st0_val, double_val, result);
             break;
         }
         
@@ -100,12 +100,12 @@ void handle_FMUL(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double result = st0_val * immediate_val;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FMUL] {} * {} = {}", st0_val, immediate_val, result) << std::endl;
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[FMUL] {} * {} = {}", st0_val, immediate_val, result);
             break;
         }
         
         default:
-            Logger::instance().error() << fmt::format("[FMUL] Invalid operand type 0x{:02X}", operand_type) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FMUL] Invalid operand type 0x{:02X}", operand_type), Logging::DebugLevel::CRITICAL);
             running = false;
             break;
     }

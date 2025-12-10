@@ -1,7 +1,8 @@
 #pragma once
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
+#include <fmt/format.h>
 
 void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // FISTP - Store floating point as integer and pop
@@ -22,7 +23,7 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     // Mode-aware address size
     size_t addr_size = cpu.get_address_size();
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FISTP] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[PC=0x{:04X}] [FISTP] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type), Logging::DebugLevel::DETAIL);
     
     switch (operand_type) {
         case 0x01: { // Memory address - store as 32-bit integer
@@ -41,7 +42,7 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             // Store 32-bit integer to memory
             cpu.write_mem32(addr, static_cast<uint32_t>(int_value));
             
-            Logger::instance().debug() << fmt::format("[FISTP] Popped ST(0)={} as int32 {} to addr 0x{:04X}", float_value, int_value, addr) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FISTP] Popped ST(0)={} as int32 {} to addr 0x{:04X}", float_value, int_value, addr), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -63,7 +64,7 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             uint32_t new_value = (existing & 0xFFFF0000) | (static_cast<uint16_t>(int_value) & 0xFFFF);
             cpu.write_mem32(addr, new_value);
             
-            Logger::instance().debug() << fmt::format("[FISTP] Popped ST(0)={} as int16 {} to addr 0x{:04X}", float_value, int_value, addr) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FISTP] Popped ST(0)={} as int16 {} to addr 0x{:04X}", float_value, int_value, addr), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -86,12 +87,12 @@ void handle_FISTP(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             cpu.write_mem32(addr, low);
             cpu.write_mem32(addr + 4, high);
             
-            Logger::instance().debug() << fmt::format("[FISTP] Popped ST(0)={} as int64 {} to addr 0x{:04X}", float_value, int_value, addr) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FISTP] Popped ST(0)={} as int64 {} to addr 0x{:04X}", float_value, int_value, addr), Logging::DebugLevel::DETAIL);
             break;
         }
         
         default:
-            Logger::instance().error() << fmt::format("[FISTP] Invalid operand type 0x{:02X}", operand_type) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FISTP] Invalid operand type 0x{:02X}", operand_type), Logging::DebugLevel::CRITICAL);
             running = false;
             break;
     }

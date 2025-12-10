@@ -1,6 +1,6 @@
 #pragma once
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/format.h>
 
 // FCLEX: Clear FPU exceptions
@@ -22,10 +22,9 @@ inline void handle_FCLEX(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& 
     // Update status word
     cpu.set_fpu_status_word(status);
     
-    Logger::instance().debug() << fmt::format(
-        "[PC={:#06x}] [FCLEX] cleared FPU exceptions, status={:#06x}", 
-        cpu.get_pc(), status
-    ) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC={:#06x}] [FCLEX] cleared FPU exceptions, status={:#06x}", 
+        cpu.get_pc(), status), Logging::DebugLevel::DETAIL);
     
     // Increment program counter
     cpu.set_pc(cpu.get_pc() + 1);

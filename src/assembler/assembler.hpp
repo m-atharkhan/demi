@@ -64,6 +64,10 @@ private:
     // DB format detection
     bool use_simple_db_format = false; // True for multiple DBs or with .org
     
+    // One-time directive tracking (directives that can only be used once)
+    bool memory_directive_used = false;     // .memory
+    bool trace_directive_used = false;      // .trace
+    
     // Forward reference tracking
     struct ForwardRef {
         uint32_t address;      // Where to patch

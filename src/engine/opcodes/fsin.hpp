@@ -1,6 +1,6 @@
 #pragma once
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <cmath>
 #include <fmt/format.h>
 
@@ -18,10 +18,7 @@ inline void handle_FSIN(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& p
     cpu.fpu_pop();
     cpu.fpu_push(result);
     
-    Logger::instance().debug() << fmt::format(
-        "[PC={:#06x}] [FSIN] sin({}) = {}", 
-        cpu.get_pc(), value, result
-    ) << std::endl;
+    DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[PC={:#06x}] [FSIN] sin({}) = {}", cpu.get_pc(), value, result);
     
     // Increment program counter
     cpu.set_pc(cpu.get_pc() + 1);

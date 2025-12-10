@@ -23,6 +23,7 @@ DebugHandler::DebugHandler()
     , session_recording_enabled_(false)
     , max_recorded_entries_(10000)
     , force_next_(false)
+    , suppress_output_(false)
     , next_pc_(0)
     , next_cycle_(0)
     , next_line_(0) {
@@ -501,7 +502,17 @@ void DebugHandler::reset_to_defaults() {
     clear();
 }
 
+void DebugHandler::set_suppress_output(bool suppress) {
+    std::lock_guard<std::mutex> lock(debug_mutex_);
+    suppress_output_ = suppress;
+}
+
 bool DebugHandler::should_filter_message(const DebugContext& debug) {
+    // Check suppression first - this overrides everything including critical messages
+    if (suppress_output_) {
+        return true;
+    }
+
     // Check if debug mode is enabled first (avoid processing if not needed)
     if (!Config::debug && !force_next_ && debug.level != DebugLevel::CRITICAL) {
         return true;  // Filter out when debug is disabled

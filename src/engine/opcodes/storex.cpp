@@ -1,16 +1,13 @@
 #include "storex.hpp"
 #include "../cpu_flags.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/core.h>
-
-using Logging::Logger;
 
 void handle_storex(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
     
     if (pc + 9 >= program.size()) { // 1 + 1 + 8 bytes for opcode + reg + address
-        Logger::instance().error() << fmt::format(
-            "[PC=0x{:04X}] STOREX: Not enough bytes for instruction", pc) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[PC=0x{:04X}] STOREX: Not enough bytes for instruction", pc), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -26,15 +23,11 @@ void handle_storex(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
     // Get value from the 64-bit register array (not the legacy 32-bit array)
     uint64_t value = cpu.get_registers_64()[reg_id];
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [STOREX] Storing 0x{:016X} from register {} to address 0x{:016X}", 
-        pc, value, reg_id, address) << std::endl;
+    DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [STOREX] Storing 0x{:016X} from register {} to address 0x{:016X}", pc, value, reg_id, address);
 
     // Validate memory address bounds
     if (address + 7 >= cpu.get_memory_size()) {
-        Logger::instance().error() << fmt::format(
-            "[PC=0x{:04X}] STOREX: Memory address 0x{:016X} out of bounds (memory size: 0x{:016X})", 
-            pc, address, cpu.get_memory_size()) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::MEM_ACCESS, fmt::format("[PC=0x{:04X}] STOREX: Memory address 0x{:016X} out of bounds (memory size: 0x{:016X})", pc, address, cpu.get_memory_size()), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -60,11 +53,10 @@ void handle_storex(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
 
     cpu.set_flags(flags);
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [STOREX] Stored 0x{:016X} from register {} to address 0x{:016X} (Flags: S={} Z={})",
+    DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [STOREX] Stored 0x{:016X} from register {} to address 0x{:016X} (Flags: S={} Z={})",
         pc, value, reg_id, address,
         (flags & FLAG_SIGN) ? 1 : 0,
-        (flags & FLAG_ZERO) ? 1 : 0) << std::endl;
+        (flags & FLAG_ZERO) ? 1 : 0);
 
     // Move to next instruction (1 opcode + 1 reg + 8 address bytes)
     cpu.set_pc(pc + 10);

@@ -13,20 +13,15 @@ void dispatch_opcode_with_prediction(CPU& cpu,
     
     // Use predictive dispatcher if branch prediction is enabled
     if (cpu.get_branch_predictor().is_enabled()) {
-        Logger::instance().debug() << fmt::format("[DISPATCH_WITH_PREDICTION] Using predictive dispatcher") << std::endl;
         dispatch_opcode_predictive(cpu, program, running);
-        Logger::instance().debug() << fmt::format("[DISPATCH_WITH_PREDICTION] Returned from predictive dispatcher") << std::endl;
     } else {
-        Logger::instance().debug() << fmt::format("[DISPATCH_WITH_PREDICTION] Using optimized inlined dispatcher") << std::endl;
         // Fall back to standard optimized dispatcher
         dispatch_opcode_inlined_optimized(cpu, program, running);
-        Logger::instance().debug() << fmt::format("[DISPATCH_WITH_PREDICTION] Returned from inlined dispatcher") << std::endl;
     }
 }
 #include "../cpu.hpp"
 #include "../cpu_flags.hpp"
 #include "../../config.hpp"
-#include "../../debug/logger.hpp"
 #include <fmt/format.h>
 
 // External handler declarations for non-inlined operations
@@ -44,39 +39,31 @@ extern void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool&
 
 void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] ENTRY: PC=0x{:04X}", pc) << std::endl;
     
     // Bounds checking
     if (__builtin_expect(pc >= program.size(), 0)) {
-        Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] PC out of bounds") << std::endl;
+        DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_PREDICTIVE] PC out of bounds");
         running = false;
         return;
     }
     
     uint8_t opcode = program[pc];
-    Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] Processing opcode 0x{:02X}", opcode) << std::endl;
     
     // Check if this is a branch instruction that should be predicted
     if (BranchPrediction::BranchPredictor::is_branch_instruction(opcode)) {
-        Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] Handling as branch instruction") << std::endl;
         if (handle_predictive_branch(cpu, program, running, opcode)) {
-            Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] Branch handled predictively") << std::endl;
             return; // Branch handled predictively
         }
         // Fall through to standard handling if prediction failed
-        Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] Branch prediction failed, falling through") << std::endl;
-    } else {
-        Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] Not a branch instruction, processing normally") << std::endl;
     }
     
-    Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] Using switch case for opcode 0x{:02X}", opcode) << std::endl;
     // Execute instruction using optimized inlined dispatcher
     // This maintains the performance benefits of inlining while adding prediction
     switch (opcode) {
         case static_cast<uint8_t>(Opcode::NOP): {
             #ifndef NDEBUG
             if (Config::debug) {
-                Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [NOP] PC={}", pc, pc) << std::endl;
+                DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[PC=0x{:04X}] [NOP] PC={}", pc, pc);
                 cpu.print_state("NOP");
             }
             #endif
@@ -88,7 +75,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             #ifndef NDEBUG
             if (__builtin_expect(pc + 5 >= program.size(), 0)) {
                 #ifdef VM_DEBUG_BOUNDS
-                Logger::instance().error() << fmt::format("[LOAD_IMM] Out of bounds at PC={}", pc) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+                    fmt::format("[LOAD_IMM] Out of bounds at PC={}", pc), Logging::DebugLevel::CRITICAL);
                 #endif
                 running = false;
                 return;
@@ -104,9 +92,10 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             value |= static_cast<uint32_t>(program[pc + 5]) << 24;
             
             #ifndef NDEBUG
-            if (__builtin_expect(reg >= cpu.get_registers_64().size(), 0)) {
+            if (__builtin_expect(reg >= cpu.get_registers().size(), 0)) {
                 #ifdef VM_DEBUG_BOUNDS
-                Logger::instance().error() << fmt::format("[LOAD_IMM] Invalid register R{}", reg) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+                    fmt::format("[LOAD_IMM] Invalid register R{}", reg), Logging::DebugLevel::CRITICAL);
                 #endif
                 running = false;
                 return;
@@ -115,13 +104,16 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             
             #ifndef NDEBUG
             if (Config::debug) {
-                Logger::instance().debug() << fmt::format(
-                    "[PC=0x{:04X}] [LOAD_IMM] R{} = {}", pc, reg, value) << std::endl;
+                DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, 
+                    "[PC=0x{:04X}] [LOAD_IMM] R{} = {}", pc, reg, value);
             }
             #endif
             
-            // Mode-aware register write
-            cpu.write_register_mode_aware(reg, static_cast<uint64_t>(value));
+            cpu.get_registers()[reg] = value;
+            // Also update the 64-bit register array to maintain consistency
+            if (reg < cpu.get_registers_64().size()) {
+                cpu.get_registers_64()[reg] = static_cast<uint64_t>(value);
+            }
             cpu.set_pc(pc + 6);
             break;
         }
@@ -138,18 +130,15 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             uint8_t reg2 = program[pc + 2];
             
             #ifndef NDEBUG
-            if (__builtin_expect(reg1 >= cpu.get_registers_64().size() || 
-                                 reg2 >= cpu.get_registers_64().size(), 0)) {
+            if (__builtin_expect(reg1 >= cpu.get_registers().size() || 
+                                 reg2 >= cpu.get_registers().size(), 0)) {
                 running = false;
                 return;
             }
             #endif
             
-            // Mode-aware addition
-            uint64_t old_value = cpu.read_register_mode_aware(reg1);
-            uint64_t val2 = cpu.read_register_mode_aware(reg2);
-            uint64_t mask = cpu.get_operand_mask();
-            uint64_t result = (old_value + val2) & mask;
+            uint64_t old_value = cpu.get_registers()[reg1];
+            uint64_t result = old_value + cpu.get_registers()[reg2];
             
             // Set flags for overflow and carry
             uint32_t flags = cpu.get_flags();
@@ -159,9 +148,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
                 flags &= ~FLAG_CARRY;
             }
             
-            uint64_t sign_bit = cpu.is_64bit_mode() ? 0x8000000000000000ULL : 0x80000000ULL;
-            if ((old_value & sign_bit) == (val2 & sign_bit) &&
-                (result & sign_bit) != (old_value & sign_bit)) {
+            if ((old_value & 0x80000000) == (cpu.get_registers()[reg2] & 0x80000000) &&
+                (result & 0x80000000) != (old_value & 0x80000000)) {
                 flags |= FLAG_OVERFLOW;
             } else {
                 flags &= ~FLAG_OVERFLOW;
@@ -174,13 +162,18 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             }
             
             cpu.set_flags(flags);
-            cpu.write_register_mode_aware(reg1, result);
+            cpu.get_registers()[reg1] = result;
+            
+            // Also update the 64-bit register array to maintain consistency
+            if (reg1 < cpu.get_registers_64().size()) {
+                cpu.get_registers_64()[reg1] = static_cast<uint64_t>(result);
+            }
             
             #ifndef NDEBUG
             if (Config::debug) {
-                Logger::instance().debug() << fmt::format(
+                DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, 
                     "[PC=0x{:04X}] [ADD] R{} = {} + {} = {}", 
-                    pc, reg1, old_value, val2, result) << std::endl;
+                    pc, reg1, old_value, cpu.get_registers()[reg2], result);
             }
             #endif
             
@@ -200,22 +193,27 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             uint8_t reg2 = program[pc + 2];
             
             #ifndef NDEBUG
-            if (__builtin_expect(reg1 >= cpu.get_registers_64().size() || 
-                                 reg2 >= cpu.get_registers_64().size(), 0)) {
+            if (__builtin_expect(reg1 >= cpu.get_registers().size() || 
+                                 reg2 >= cpu.get_registers().size(), 0)) {
                 running = false;
                 return;
             }
             #endif
             
-            // Mode-aware register move
-            uint64_t value = cpu.read_register_mode_aware(reg2);
-            cpu.write_register_mode_aware(reg1, value);
+            // Use mode-aware register access to ensure consistency between legacy and 64-bit registers
+            uint64_t val = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), val);
+            
+            // Also update legacy registers directly if needed
+            if (reg1 < cpu.get_registers().size()) {
+                cpu.get_registers()[reg1] = static_cast<uint32_t>(val);
+            }
             
             #ifndef NDEBUG
             if (Config::debug) {
-                Logger::instance().debug() << fmt::format(
+                DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, 
                     "[PC=0x{:04X}] [MOV] R{} = R{} ({})", 
-                    pc, reg1, reg2, value) << std::endl;
+                    pc, reg1, reg2, val);
             }
             #endif
             
@@ -224,35 +222,21 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
         }
         
         case static_cast<uint8_t>(Opcode::HALT): {
-            // DEBUG: Add simple output to see if we reach HALT
-            if (Config::debug) {
-                printf("DEBUG: HALT instruction reached, PC=0x%04X\n", cpu.get_pc());
-            }
-            fflush(stdout);
-            
             #ifndef NDEBUG
             if (Config::debug) {
-                // FIXED: Remove Logger call to prevent deadlock
-                // Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [HALT]", pc) << std::endl;
+                DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[PC=0x{:04X}] [HALT]", cpu.get_pc());
             }
             #endif
             
             running = false;
             cpu.set_pc(cpu.get_pc() + 1);  // Advance PC past HALT instruction
-            if (Config::debug) {
-                printf("DEBUG: HALT processed, running=false, PC=0x%04X\n", cpu.get_pc());
-            }
-            fflush(stdout);
             break;
         }
         
         // For complex operations, delegate to external handlers
         default: {
-            // FIXED: Remove Logger calls to prevent hanging
-            // Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] Falling back to inlined dispatcher for opcode 0x{:02X}", opcode) << std::endl;
             // Fall back to inlined dispatcher for complex operations (including 64-bit instructions)
             dispatch_opcode_inlined_optimized(cpu, program, running);
-            // Logger::instance().debug() << fmt::format("[DISPATCH_PREDICTIVE] Returned from inlined dispatcher") << std::endl;
             break;
         }
     }
@@ -302,6 +286,7 @@ bool handle_predictive_branch(CPU& cpu, const std::vector<uint8_t>& program,
     
     // Evaluate branch condition
     uint32_t flags = cpu.get_flags();
+    DEBUG_TRACE(Logging::DebugCategory::CPU_PREDICTION, "handle_predictive_branch called for opcode 0x{:02X} at PC=0x{:04X}", opcode, pc);
     switch (static_cast<Opcode>(opcode)) {
         case Opcode::JZ:
             condition_met = (flags & FLAG_ZERO) != 0;
@@ -361,10 +346,9 @@ bool handle_predictive_branch(CPU& cpu, const std::vector<uint8_t>& program,
     
     #ifndef NDEBUG
     if (Config::debug) {
-        Logger::instance().debug() << fmt::format(
-            "[BRANCH_PREDICTION] PC=0x{:04X}, opcode=0x{:02X}, predicted={}, actual={}, correct={}",
-            pc, opcode, prediction.predicted_taken, condition_met, prediction_correct
-        ) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[BRANCH_PREDICTION] PC=0x{:04X}, opcode=0x{:02X}, predicted={}, actual={}, correct={}",
+            pc, opcode, prediction.predicted_taken, condition_met, prediction_correct), Logging::DebugLevel::DETAIL);
     }
     #endif
     

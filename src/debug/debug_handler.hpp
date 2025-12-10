@@ -147,6 +147,12 @@ public:
      * @param debug Debug context structure
      */
     void report(const DebugContext& debug);
+
+    /**
+     * @brief Suppress all output (useful for expected errors in tests)
+     * @param suppress Whether to suppress output
+     */
+    void set_suppress_output(bool suppress);
     
     /**
      * @brief Report debug with minimal information
@@ -368,6 +374,7 @@ private:
     bool session_recording_enabled_;
     size_t max_recorded_entries_;
     bool force_next_;
+    bool suppress_output_;
     
     // Context for next message
     std::unordered_map<std::string, std::string> next_metadata_;

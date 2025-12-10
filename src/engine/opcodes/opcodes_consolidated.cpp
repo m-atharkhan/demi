@@ -3,16 +3,15 @@
 // to reduce compilation time for standalone executables
 
 #include "opcode_dispatcher.hpp"
+#include <iostream>
 #include "../cpu.hpp"
 #include "../cpu_flags.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
 #include "../../debug/debug_handler.hpp"
 #include "../../debug/error_handler.hpp"
 #include <fmt/core.h>
 #include <iomanip>
 
-using Logging::Logger;
 using Logging::DebugHandler;
 using Logging::DebugCategory;
 using Logging::DebugLevel;
@@ -131,73 +130,107 @@ using Logging::ErrorCode;
 
 // Consolidated implementations of all opcodes
 
-// Implementation from add.cpp - MODE-AWARE
+// Implementation from add.cpp
 void handle_add(CPU& cpu, const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
         
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range (max: R{})", reg1, reg2, cpu.get_registers_64().size() - 1);
-            std::string message = "Invalid register access in ADD instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 3);
-            cpu.print_state("ADD");
-            return;
+        // For regular ADD, validate against legacy register bounds (0-7)
+        // Extended operations should use their own handlers (ADDEX, ADD64, etc.)
+        const size_t MAX_LEGACY_REG = 7;
+        if (reg1 > MAX_LEGACY_REG || reg2 > MAX_LEGACY_REG) {
+            // Check if this might be an extended register operation that should use a different handler
+            DebugHandler::instance().report(DebugCategory::CPU_REGISTERS, fmt::format(
+                "[PC=0x{:04X}] [ADD] Register access beyond legacy range: R{}, R{} (max for ADD: R{}). Consider using ADDEX for extended registers.", 
+                cpu.get_pc(), reg1, reg2, MAX_LEGACY_REG
+            ), DebugLevel::IMPORTANT);
+            
+            // For backward compatibility, allow access to the full register array but warn
+            // This prevents crashes while highlighting that extended operations should be used
+            if (reg1 >= cpu.get_registers().size() || reg2 >= cpu.get_registers().size()) {
+                std::string context = fmt::format("Register R{} or R{} out of range (max: R{})", reg1, reg2, cpu.get_registers().size() - 1);
+                std::string message = "Invalid register access in ADD instruction";
+                ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
+                cpu.set_pc(cpu.get_pc() + 3);
+                cpu.print_state("ADD");
+                return;
+            }
         }
         
         DEBUG_INSTRUCTION("ADD", cpu.get_pc(), fmt::format("R{} += R{}", reg1, reg2), "");
 
-        // Mode-aware arithmetic
-        uint64_t value1 = cpu.read_register_mode_aware(reg1);
-        uint64_t value2 = cpu.read_register_mode_aware(reg2);
+        uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
+        uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+        
+        uint64_t result = val1 + val2;
         uint64_t mask = cpu.get_operand_mask();
-        uint64_t result = (value1 + value2) & mask;
+        uint64_t masked_result = result & mask;
 
-        // Update flags based on mode
-        uint32_t flags = cpu.get_flags();
-        
-        // Carry flag - check for overflow beyond operand size
-        if (cpu.is_64bit_mode()) {
-            if (result < value1) flags |= FLAG_CARRY;
-            else flags &= ~FLAG_CARRY;
+        uint32_t current_flags = cpu.get_flags();
+
+        // Zero Flag
+        if (masked_result == 0) {
+            current_flags |= FLAG_ZERO;
         } else {
-            uint64_t sum = value1 + value2;
-            if (sum > 0xFFFFFFFF) flags |= FLAG_CARRY;
-            else flags &= ~FLAG_CARRY;
+            current_flags &= ~FLAG_ZERO;
         }
 
-        // Overflow flag for signed arithmetic
-        bool sign1 = cpu.is_64bit_mode() ? ((value1 >> 63) & 1) : ((value1 >> 31) & 1);
-        bool sign2 = cpu.is_64bit_mode() ? ((value2 >> 63) & 1) : ((value2 >> 31) & 1);
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        
-        if ((sign1 == sign2) && (sign1 != signr)) {
-            flags |= FLAG_OVERFLOW;
+        // Carry Flag
+        bool carry = false;
+        if (cpu.is_32bit_mode()) {
+            carry = (result > 0xFFFFFFFF);
         } else {
-            flags &= ~FLAG_OVERFLOW;
+            carry = (result < val1); // Overflow check for 64-bit
         }
 
-        // Zero flag
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
+        if (carry) {
+            current_flags |= FLAG_CARRY;
+        } else {
+            current_flags &= ~FLAG_CARRY;
+        }
 
-        // Sign flag
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
+        // Overflow Flag (Signed)
+        bool sign1, sign2, signR;
+        if (cpu.is_32bit_mode()) {
+            sign1 = (val1 & 0x80000000) != 0;
+            sign2 = (val2 & 0x80000000) != 0;
+            signR = (masked_result & 0x80000000) != 0;
+        } else {
+            sign1 = (val1 & 0x8000000000000000ULL) != 0;
+            sign2 = (val2 & 0x8000000000000000ULL) != 0;
+            signR = (masked_result & 0x8000000000000000ULL) != 0;
+        }
 
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg1, result);
+        if ((sign1 == sign2) && (sign1 != signR)) {
+            current_flags |= FLAG_OVERFLOW;
+        } else {
+            current_flags &= ~FLAG_OVERFLOW;
+        }
         
-        DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: 0x{:X} + 0x{:X} = 0x{:X}", 
-                    reg1, value1, value2, result);
+        // Sign Flag
+        if (cpu.is_32bit_mode()) {
+             if ((masked_result & 0x80000000) != 0) current_flags |= FLAG_SIGN; else current_flags &= ~FLAG_SIGN;
+        } else {
+             if ((masked_result & 0x8000000000000000ULL) != 0) current_flags |= FLAG_SIGN; else current_flags &= ~FLAG_SIGN;
+        }
+
+        cpu.set_flags(current_flags);
+        cpu.set_register_mode_aware(static_cast<Register>(reg1), result);
+        
+        DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} + {} = {} (carry={}, overflow={})", 
+                    reg1, val1, val2, masked_result, (current_flags & FLAG_CARRY) ? 1 : 0, 
+                    (current_flags & FLAG_OVERFLOW) ? 1 : 0);
+        
+        DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} + {} = {} (carry={}, overflow={})", 
+                    reg1, val1, val2, masked_result, (current_flags & FLAG_CARRY) ? 1 : 0, 
+                    (current_flags & FLAG_OVERFLOW) ? 1 : 0);
     }
     cpu.set_pc(cpu.get_pc() + 3);
     cpu.print_state("ADD");
 }
 
-// Implementation from and.cpp - MODE-AWARE
+// Implementation from and.cpp
 void handle_and(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -205,34 +238,27 @@ void handle_and(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg1 = program[pc + 1];
         uint8_t reg2 = program[pc + 2];
 
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range", reg1, reg2);
-            std::string message = "Invalid register access in AND instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("AND");
-            return;
-        }
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
+            uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+            uint64_t result = val1 & val2;
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t masked_result = result & mask;
 
-        // Mode-aware register operations
-        uint64_t value1 = cpu.read_register_mode_aware(reg1);
-        uint64_t value2 = cpu.read_register_mode_aware(reg2);
-        uint64_t result = value1 & value2;
-        
-        // Update flags
-        uint32_t flags = cpu.get_flags();
-        flags &= ~(FLAG_CARRY | FLAG_OVERFLOW);  // AND clears these
-        
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg1, result);
+            // Flags
+            uint32_t current_flags = cpu.get_flags();
+            if (masked_result == 0) {
+                current_flags |= FLAG_ZERO;
+            } else {
+                current_flags &= ~FLAG_ZERO;
+            }
+            // AND clears Carry and Overflow
+            current_flags &= ~FLAG_CARRY;
+            current_flags &= ~FLAG_OVERFLOW;
+            
+            cpu.set_flags(current_flags);
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), result);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -259,16 +285,17 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // Reset offset at each call
     cpu.set_arg_offset(8);
 
-    // Read mode-aware address
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
-    
-    if (pc + addr_size >= program.size()) {
+    // Read 4-byte address
+    uint32_t addr = 0;
+    if (pc + 4 < program.size()) {
+        addr = static_cast<uint32_t>(program[pc + 1]) |
+               (static_cast<uint32_t>(program[pc + 2]) << 8) |
+               (static_cast<uint32_t>(program[pc + 3]) << 16) |
+               (static_cast<uint32_t>(program[pc + 4]) << 24);
+    } else {
         running = false;
         return;
     }
-    
-    uint64_t addr = cpu.read_address_from_program(program, pc + 1);
 
     // Push old FP
     uint32_t sp = cpu.get_sp() - 4;
@@ -276,11 +303,11 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.get_registers()[4] = sp;
     cpu.write_mem32(sp, cpu.get_fp());
 
-    // Push return address (pc + instr_size for mode-aware CALL instruction)
+    // Push return address (pc + 5 for 5-byte CALL instruction)
     sp -= 4;
     cpu.set_sp(sp);
     cpu.get_registers()[4] = sp;
-    cpu.write_mem32(sp, pc + instr_size);
+    cpu.write_mem32(sp, pc + 5);
 
     // Set new FP
     cpu.set_fp(sp);
@@ -289,63 +316,84 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.increment_call_depth();
     
     cpu.print_stack_frame("CALL");
-    cpu.set_pc(static_cast<uint32_t>(addr));
+    cpu.set_pc(addr);
     cpu.print_state("CALL");
 }
 
-// Implementation from cmp.cpp - MODE-AWARE
+// Implementation from cmp.cpp
 void handle_cmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range", reg1, reg2);
-            std::string message = "Invalid register access in CMP instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 3);
-            cpu.print_state("CMP");
-            return;
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
+            uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+            
+            uint64_t result = val1 - val2;
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t masked_result = result & mask;
+            
+            uint32_t flags = cpu.get_flags();
+            
+            // Zero Flag
+            if (masked_result == 0) {
+                flags |= FLAG_ZERO;
+            } else {
+                flags &= ~FLAG_ZERO;
+            }
+            
+            // Sign Flag (MSB)
+            bool sign = false;
+            if (cpu.is_32bit_mode()) {
+                sign = (masked_result & 0x80000000) != 0;
+            } else {
+                sign = (masked_result & 0x8000000000000000ULL) != 0;
+            }
+            
+            if (sign) {
+                flags |= FLAG_SIGN;
+            } else {
+                flags &= ~FLAG_SIGN;
+            }
+            
+            // Carry Flag (Borrow)
+            bool borrow = false;
+            if (cpu.is_32bit_mode()) {
+                borrow = (static_cast<uint32_t>(val1) < static_cast<uint32_t>(val2));
+            } else {
+                borrow = (val1 < val2);
+            }
+            
+            if (borrow) {
+                flags |= FLAG_CARRY;
+            } else {
+                flags &= ~FLAG_CARRY;
+            }
+            
+            // Overflow Flag (Signed)
+            bool sign1, sign2, signR;
+            if (cpu.is_32bit_mode()) {
+                sign1 = (val1 & 0x80000000) != 0;
+                sign2 = (val2 & 0x80000000) != 0;
+                signR = (masked_result & 0x80000000) != 0;
+            } else {
+                sign1 = (val1 & 0x8000000000000000) != 0;
+                sign2 = (val2 & 0x8000000000000000) != 0;
+                signR = (masked_result & 0x8000000000000000) != 0;
+            }
+            
+            if ((sign1 != sign2) && (sign1 != signR)) {
+                flags |= FLAG_OVERFLOW;
+            } else {
+                flags &= ~FLAG_OVERFLOW;
+            }
+            
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_FLAGS, "CMP R{}={} R{}={} Result={} SF={} ZF={} OF={}", 
+                (int)reg1, val1, (int)reg2, val2, (int64_t)masked_result,
+                ((flags & FLAG_SIGN) ? 1 : 0), ((flags & FLAG_ZERO) ? 1 : 0), ((flags & FLAG_OVERFLOW) ? 1 : 0));
+
+            cpu.set_flags(flags);
         }
-        
-        // Mode-aware register operations
-        uint64_t value1 = cpu.read_register_mode_aware(reg1);
-        uint64_t value2 = cpu.read_register_mode_aware(reg2);
-        
-        uint32_t flags = cpu.get_flags();
-        
-        if (cpu.is_64bit_mode()) {
-            int64_t result = static_cast<int64_t>(value1) - static_cast<int64_t>(value2);
-            
-            // Clear and update zero flag
-            flags &= ~FLAG_ZERO;
-            if (result == 0) flags |= FLAG_ZERO;
-            
-            // Clear and update sign flag
-            flags &= ~FLAG_SIGN;
-            if (result < 0) flags |= FLAG_SIGN;
-            
-            // Update carry flag (unsigned comparison)
-            flags &= ~FLAG_CARRY;
-            if (value1 < value2) flags |= FLAG_CARRY;
-        } else {
-            int32_t result = static_cast<int32_t>(value1) - static_cast<int32_t>(value2);
-            
-            // Clear and update zero flag
-            flags &= ~FLAG_ZERO;
-            if (result == 0) flags |= FLAG_ZERO;
-            
-            // Clear and update sign flag
-            flags &= ~FLAG_SIGN;
-            if (result < 0) flags |= FLAG_SIGN;
-            
-            // Update carry flag (unsigned comparison)
-            flags &= ~FLAG_CARRY;
-            if (static_cast<uint32_t>(value1) < static_cast<uint32_t>(value2)) flags |= FLAG_CARRY;
-        }
-        
-        cpu.set_flags(flags);
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
         running = false;
@@ -386,51 +434,44 @@ void handle_db(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("DB");
 }
 
-// Implementation from dec.cpp - MODE-AWARE
+// Implementation from dec.cpp
 void handle_dec(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         DEBUG_INSTRUCTION("DEC", cpu.get_pc(), fmt::format("R{}", static_cast<int>(reg)), "");
-        
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in DEC instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 2);
-            cpu.print_state("DEC");
-            return;
+        if (reg < cpu.get_registers().size()) {
+            uint64_t val = cpu.get_register_mode_aware(static_cast<Register>(reg));
+            uint64_t result = val - 1;
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t masked_result = result & mask;
+            
+            // Flags
+            uint32_t current_flags = cpu.get_flags();
+            if (masked_result == 0) {
+                current_flags |= FLAG_ZERO;
+            } else {
+                current_flags &= ~FLAG_ZERO;
+            }
+            
+            // Overflow (Signed)
+            bool overflow = false;
+            if (cpu.is_32bit_mode()) {
+                overflow = (val == 0x80000000);
+            } else {
+                overflow = (val == 0x8000000000000000ULL);
+            }
+            
+            if (overflow) {
+                current_flags |= FLAG_OVERFLOW;
+            } else {
+                current_flags &= ~FLAG_OVERFLOW;
+            }
+            
+            cpu.set_flags(current_flags);
+            cpu.set_register_mode_aware(static_cast<Register>(reg), result);
+            
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} - 1 = {}", static_cast<int>(reg), val, masked_result);
         }
-        
-        // Mode-aware register operations
-        uint64_t value = cpu.read_register_mode_aware(reg);
-        uint64_t result = value - 1;
-        uint64_t mask = cpu.get_operand_mask();
-        result &= mask;
-        
-        // Update flags
-        uint32_t flags = cpu.get_flags();
-        
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        // Overflow when decrementing from MIN_VALUE (for signed arithmetic)
-        if (cpu.is_64bit_mode()) {
-            if (value == 0x8000000000000000ULL) flags |= FLAG_OVERFLOW;
-            else flags &= ~FLAG_OVERFLOW;
-        } else {
-            if (static_cast<uint32_t>(value) == 0x80000000U) flags |= FLAG_OVERFLOW;
-            else flags &= ~FLAG_OVERFLOW;
-        }
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg, result);
-        
-        DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: 0x{:X} - 1 = 0x{:X}", static_cast<int>(reg), value, result);
         cpu.set_pc(cpu.get_pc() + 2);
     } else {
         running = false;
@@ -438,53 +479,29 @@ void handle_dec(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("DEC");
 }
 
-// Implementation from div.cpp - MODE-AWARE
+// Implementation from div.cpp
 void handle_div(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range", reg1, reg2);
-            std::string message = "Invalid register access in DIV instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 3);
-            cpu.print_state("DIV");
-            return;
-        }
-        
         DEBUG_INSTRUCTION("DIV", cpu.get_pc(), fmt::format("R{} /= R{}", reg1, reg2), "");
-        
-        // Mode-aware register operations
-        uint64_t value1 = cpu.read_register_mode_aware(reg1);
-        uint64_t value2 = cpu.read_register_mode_aware(reg2);
-        
-        if (value2 == 0) {
-            std::string context = fmt::format("R{} = 0x{:X}, R{} = 0", reg1, value1, reg2);
-            std::string message = "Division by zero: attempted to divide by register with value 0";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_DIVISION_BY_ZERO, message, cpu.get_pc(), context);
-            running = false;
-            throw CPUException(message);
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
+            uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+
+            if (val2 == 0) {
+                std::string context = fmt::format("R{} = {}, R{} = 0", reg1, val1, reg2);
+                std::string message = "Division by zero: attempted to divide by register with value 0";
+                ErrorHandler::instance().report_runtime(ErrorCode::CPU_DIVISION_BY_ZERO, message, cpu.get_pc(), context);
+                running = false;
+                throw CPUException(message);
+            }
+            
+            uint64_t result = val1 / val2;
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), result);
+            
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} / {} = {}", reg1, val1, val2, result);
         }
-        
-        uint64_t result = value1 / value2;
-        
-        // Update flags
-        uint32_t flags = cpu.get_flags();
-        flags &= ~(FLAG_CARRY | FLAG_OVERFLOW);  // DIV typically clears these
-        
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg1, result);
-        
-        DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: 0x{:X} / 0x{:X} = 0x{:X}", reg1, value1, value2, result);
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
         running = false;
@@ -492,53 +509,29 @@ void handle_div(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("DIV");
 }
 
-// Implementation for MOD - MODE-AWARE
+// Implementation for MOD
 void handle_mod(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range", reg1, reg2);
-            std::string message = "Invalid register access in MOD instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 3);
-            cpu.print_state("MOD");
-            return;
-        }
-        
         DEBUG_INSTRUCTION("MOD", cpu.get_pc(), fmt::format("R{} %= R{}", reg1, reg2), "");
-        
-        // Mode-aware register operations
-        uint64_t value1 = cpu.read_register_mode_aware(reg1);
-        uint64_t value2 = cpu.read_register_mode_aware(reg2);
-        
-        if (value2 == 0) {
-            std::string context = fmt::format("R{} = 0x{:X}, R{} = 0", reg1, value1, reg2);
-            std::string message = "Modulo by zero: attempted to compute modulo with divisor of 0";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_MODULO_BY_ZERO, message, cpu.get_pc(), context);
-            running = false;
-            throw CPUException(message);
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
+            uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+
+            if (val2 == 0) {
+                std::string context = fmt::format("R{} = {}, R{} = 0", reg1, val1, reg2);
+                std::string message = "Modulo by zero: attempted to compute modulo with divisor of 0";
+                ErrorHandler::instance().report_runtime(ErrorCode::CPU_MODULO_BY_ZERO, message, cpu.get_pc(), context);
+                running = false;
+                throw CPUException(message);
+            }
+            
+            uint64_t result = val1 % val2;
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), result);
+            
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} % {} = {}", reg1, val1, val2, result);
         }
-        
-        uint64_t result = value1 % value2;
-        
-        // Update flags
-        uint32_t flags = cpu.get_flags();
-        flags &= ~(FLAG_CARRY | FLAG_OVERFLOW);  // MOD typically clears these
-        
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg1, result);
-        
-        DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: 0x{:X} % 0x{:X} = 0x{:X}", reg1, value1, value2, result);
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
         running = false;
@@ -549,9 +542,6 @@ void handle_mod(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation from halt.cpp
 void handle_halt(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     // FIXED: Remove Logger call to prevent deadlock
-    // Logger::instance().debug() << fmt::format(
-    //     "[PC=0x{:04X}] [HALT] PC={}",
-    //     cpu.get_pc(), cpu.get_pc()
     // ) << std::endl;
     running = false;
     cpu.set_pc(cpu.get_pc() + 1);
@@ -648,28 +638,20 @@ void handle_inb(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg = program[pc + 1];
         uint8_t port = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in INB instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("INB");
-            return;
-        }
-
         DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
             "[PC=0x{:04X}] [INB] PC={} R{} <- port {}",
             pc, pc, reg, port
         ), DebugLevel::DETAIL);
 
-        uint8_t value = cpu.read_port(port);
-        cpu.write_register_mode_aware(reg, value);
+        if (reg < cpu.get_registers().size()) {
+            uint8_t value = cpu.read_port(port);
+            cpu.get_registers()[reg] = value;
 
-        DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
-            "[PC=0x{:04X}] [INB] R{} = {}",
-            pc, reg, value
-        ), DebugLevel::DETAIL);
+            DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
+                "[PC=0x{:04X}] [INB] R{} = {}",
+                pc, reg, value
+            ), DebugLevel::DETAIL);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -679,51 +661,44 @@ void handle_inb(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("INB");
 }
 
-// Implementation from inc.cpp - MODE-AWARE
+// Implementation from inc.cpp
 void handle_inc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         DEBUG_INSTRUCTION("INC", cpu.get_pc(), fmt::format("R{}", static_cast<int>(reg)), "");
-        
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in INC instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 2);
-            cpu.print_state("INC");
-            return;
+        if (reg < cpu.get_registers().size()) {
+            uint64_t val = cpu.get_register_mode_aware(static_cast<Register>(reg));
+            uint64_t result = val + 1;
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t masked_result = result & mask;
+            
+            // Flags
+            uint32_t current_flags = cpu.get_flags();
+            if (masked_result == 0) {
+                current_flags |= FLAG_ZERO;
+            } else {
+                current_flags &= ~FLAG_ZERO;
+            }
+            
+            // Overflow (Signed)
+            bool overflow = false;
+            if (cpu.is_32bit_mode()) {
+                overflow = (val == 0x7FFFFFFF);
+            } else {
+                overflow = (val == 0x7FFFFFFFFFFFFFFFULL);
+            }
+            
+            if (overflow) {
+                current_flags |= FLAG_OVERFLOW;
+            } else {
+                current_flags &= ~FLAG_OVERFLOW;
+            }
+            
+            cpu.set_flags(current_flags);
+            cpu.set_register_mode_aware(static_cast<Register>(reg), result);
+            
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} + 1 = {}", static_cast<int>(reg), val, masked_result);
         }
-        
-        // Mode-aware register operations
-        uint64_t value = cpu.read_register_mode_aware(reg);
-        uint64_t result = value + 1;
-        uint64_t mask = cpu.get_operand_mask();
-        result &= mask;
-        
-        // Update flags
-        uint32_t flags = cpu.get_flags();
-        
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        // Overflow when incrementing from MAX_VALUE (for signed arithmetic)
-        if (cpu.is_64bit_mode()) {
-            if (value == 0x7FFFFFFFFFFFFFFFULL) flags |= FLAG_OVERFLOW;
-            else flags &= ~FLAG_OVERFLOW;
-        } else {
-            if (static_cast<uint32_t>(value) == 0x7FFFFFFFU) flags |= FLAG_OVERFLOW;
-            else flags &= ~FLAG_OVERFLOW;
-        }
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg, result);
-        
-        DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: 0x{:X} + 1 = 0x{:X}", static_cast<int>(reg), value, result);
         cpu.set_pc(cpu.get_pc() + 2);
     } else {
         running = false;
@@ -731,7 +706,7 @@ void handle_inc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("INC");
 }
 
-// Implementation from in.cpp - MODE-AWARE
+// Implementation from in.cpp
 void handle_in(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -739,28 +714,20 @@ void handle_in(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg = program[pc + 1];
         uint8_t port = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in IN instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("IN");
-            return;
-        }
-
         DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
             "[PC=0x{:04X}] [IN] PC={} R{} <- port {}",
             pc, pc, reg, port
         ), DebugLevel::DETAIL);
 
-        uint8_t value = cpu.read_port(port);
-        cpu.write_register_mode_aware(reg, value);
+        if (reg < cpu.get_registers().size()) {
+            uint8_t value = cpu.read_port(port);
+            cpu.get_registers()[reg] = value;
 
-        DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
-            "[PC=0x{:04X}] [IN] R{} = {}",
-            pc, reg, value
-        ), DebugLevel::DETAIL);
+            DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
+                "[PC=0x{:04X}] [IN] R{} = {}",
+                pc, reg, value
+            ), DebugLevel::DETAIL);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -770,7 +737,7 @@ void handle_in(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("IN");
 }
 
-// Implementation from inl.cpp - MODE-AWARE
+// Implementation from inl.cpp
 void handle_inl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -778,24 +745,18 @@ void handle_inl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg = program[pc + 1];
         uint8_t port = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in INL instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("INL");
-            return;
-        }
-
         DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
             "[PC=0x{:04X}] [INL] PC={} R{} <- port {} (dword)",
             pc, pc, reg, port
         ), DebugLevel::DETAIL);
 
-        uint32_t value = cpu.read_port_dword(port);
-        // In mode-aware fashion, store the full dword in the register
-        cpu.write_register_mode_aware(reg, value);
+        if (reg < cpu.get_registers().size()) {
+            uint32_t value = cpu.read_port_dword(port);
+            // Store bytes in reg, reg+1, reg+2, reg+3 if available
+            for (size_t i = 0; i < 4 && (reg + i) < cpu.get_registers().size(); ++i) {
+                cpu.get_registers()[reg + i] = static_cast<uint8_t>((value >> (8 * i)) & 0xFF);
+            }
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -805,7 +766,7 @@ void handle_inl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("INL");
 }
 
-// Implementation from instr.cpp - MODE-AWARE
+// Implementation from instr.cpp
 void handle_instr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -813,31 +774,23 @@ void handle_instr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         uint8_t reg = program[pc + 1];
         uint8_t port = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in INSTR instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("INSTR");
-            return;
-        }
-
         DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
             "[PC=0x{:04X}] [INSTR] PC={} R{} <- port {} (string)",
             pc, pc, reg, port
         ), DebugLevel::DETAIL);
 
-        uint64_t maxLength = cpu.read_register_mode_aware(reg); // Use register value as max length
-        std::string value = cpu.read_port_string(port, static_cast<uint8_t>(maxLength & 0xFF));
+        if (reg < cpu.get_registers().size()) {
+            uint8_t maxLength = cpu.get_registers()[reg]; // Use register value as max length
+            std::string value = cpu.read_port_string(port, maxLength);
 
-        DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
-            "[PC=0x{:04X}] [INSTR] Read string: '{}'",
-            pc, value
-        ), DebugLevel::DETAIL);
+            DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
+                "[PC=0x{:04X}] [INSTR] Read string: '{}'",
+                pc, value
+            ), DebugLevel::DETAIL);
 
-        // Store string length in register
-        cpu.write_register_mode_aware(reg, value.length());
+            // Store string length in register
+            cpu.get_registers()[reg] = static_cast<uint8_t>(value.length());
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -847,7 +800,7 @@ void handle_instr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     cpu.print_state("INSTR");
 }
 
-// Implementation from inw.cpp - MODE-AWARE
+// Implementation from inw.cpp
 void handle_inw(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -855,29 +808,25 @@ void handle_inw(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg = program[pc + 1];
         uint8_t port = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in INW instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("INW");
-            return;
-        }
-
         DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
             "[PC=0x{:04X}] [INW] PC={} R{} <- port {} (word)",
             pc, pc, reg, port
         ), DebugLevel::DETAIL);
 
-        uint16_t value = cpu.read_port_word(port);
-        // In mode-aware fashion, store the full word in the register
-        cpu.write_register_mode_aware(reg, value);
+        if (reg < cpu.get_registers().size()) {
+            uint16_t value = cpu.read_port_word(port);
+            // Store lower 8 bits in reg, upper 8 bits in next reg (if exists)
+            cpu.get_registers()[reg] = static_cast<uint8_t>(value & 0xFF);
+            if (static_cast<size_t>(reg + 1) < cpu.get_registers().size()) {
+                cpu.get_registers()[reg + 1] = static_cast<uint8_t>((value >> 8) & 0xFF);
+            }
 
-        DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
-            "[PC=0x{:04X}] [INW] R{} = 0x{:04X}",
-            pc, reg, value
-        ), DebugLevel::DETAIL);
+            DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
+                "[PC=0x{:04X}] [INW] R{} = {}, R{} = {}",
+                pc, reg, cpu.get_registers()[reg], reg + 1,
+                (static_cast<size_t>(reg + 1) < cpu.get_registers().size() ? cpu.get_registers()[reg + 1] : 0)
+            ), DebugLevel::DETAIL);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -889,11 +838,11 @@ void handle_inw(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Implementation from jmp.cpp
 void handle_jmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
-    
-    if (cpu.get_pc() + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 1);
+    if (cpu.get_pc() + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[cpu.get_pc() + 1]) |
+                       (static_cast<uint32_t>(program[cpu.get_pc() + 2]) << 8) |
+                       (static_cast<uint32_t>(program[cpu.get_pc() + 3]) << 16) |
+                       (static_cast<uint32_t>(program[cpu.get_pc() + 4]) << 24);
         
         // Simple validation - check if address is within program bounds
         if (addr >= program.size()) {
@@ -903,7 +852,7 @@ void handle_jmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             running = false;
             throw CPUException(message);
         }
-        cpu.set_pc(static_cast<uint32_t>(addr));
+        cpu.set_pc(addr);
     } else {
         running = false;
     }
@@ -913,16 +862,18 @@ void handle_jmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation from jns.cpp
 void handle_jns(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
 
         if (!(cpu.get_flags() & FLAG_SIGN)) {
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            // TODO: Add valid instruction start validation
+            cpu.set_pc(addr);
         } else {
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -934,16 +885,18 @@ void handle_jns(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation from jnz.cpp
 void handle_jnz(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
 
         if (!(cpu.get_flags() & FLAG_ZERO)) {
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            // TODO: Add valid instruction start validation
+            cpu.set_pc(addr);
         } else {
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -955,11 +908,12 @@ void handle_jnz(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation from js.cpp
 void handle_js(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
 
         if (cpu.get_flags() & FLAG_SIGN) {
             // Simple validation - check if address is within program bounds
@@ -970,9 +924,9 @@ void handle_js(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 running = false;
                 throw CPUException(message);
             }
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -983,11 +937,11 @@ void handle_js(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Implementation from jz.cpp
 void handle_jz(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
-    
-    if (cpu.get_pc() + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 1);
+    if (cpu.get_pc() + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[cpu.get_pc() + 1]) |
+                       (static_cast<uint32_t>(program[cpu.get_pc() + 2]) << 8) |
+                       (static_cast<uint32_t>(program[cpu.get_pc() + 3]) << 16) |
+                       (static_cast<uint32_t>(program[cpu.get_pc() + 4]) << 24);
         
         if (cpu.get_flags() & FLAG_ZERO) {
             // Simple validation - check if address is within program bounds
@@ -998,9 +952,9 @@ void handle_jz(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 running = false;
                 throw CPUException(message);
             }
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
-            cpu.set_pc(cpu.get_pc() + instr_size);
+            cpu.set_pc(cpu.get_pc() + 5);
         }
     } else {
         running = false;
@@ -1010,43 +964,48 @@ void handle_jz(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Implementation from load.cpp
 void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // LOAD reg, addr (mode-aware address size)
-    // Format: OPCODE(1) REG(1) ADDR(4 or 8 bytes depending on mode)
-    // 32-bit mode: 6 bytes total, 64-bit mode: 10 bytes total
+    // LOAD reg, addr
+    // Supports variable address size based on CPU mode (4 bytes for 32-bit, 8 bytes for 64-bit)
     size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 2 + addr_size;  // opcode + reg + address
     
-    if (cpu.get_pc() + instr_size - 1 < program.size()) {
+    if (cpu.get_pc() + 1 + addr_size < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
-        // Read address based on current CPU mode
+        
+        // Read address using helper that respects CPU mode
         uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
         
-        // Check bounds - use mode-aware register count
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers_64().size() - 1);
+        // Check bounds
+        if (reg >= cpu.get_registers().size()) {
+            std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid register in LOAD instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         if (addr >= cpu.get_memory().size()) {
             std::string context = fmt::format("Attempted access at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
             std::string message = "Memory read out of bounds in LOAD instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         
-        // Mode-aware register write
-        cpu.write_register_mode_aware(reg, cpu.get_memory()[addr]);
-        cpu.set_pc(cpu.get_pc() + instr_size);
+        // Load value from memory address into destination register
+        // Note: LOAD reads a byte from memory. For word/dword loads, use other instructions or multiple LOADs
+        // But wait, the implementation was reading a byte.
+        // "cpu.get_registers()[reg] = cpu.get_memory()[addr];"
+        // This implies LOAD loads a single byte into the register.
+        
+        cpu.set_register_mode_aware(static_cast<Register>(reg), cpu.get_memory()[addr]);
+        
+        cpu.set_pc(cpu.get_pc() + 2 + addr_size);
     } else {
         running = false;
     }
     cpu.print_state("LOAD");
 }
 
-// Implementation of LOADR - Load value from memory to register (indirect addressing) - MODE-AWARE
+// Implementation of LOADR - Load value from memory to register (indirect addressing)
 void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // LOADR dest_reg, addr_reg
     // Load value from memory address stored in addr_reg into dest_reg
@@ -1054,26 +1013,26 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         uint8_t dest_reg = program[cpu.get_pc() + 1];
         uint8_t addr_reg = program[cpu.get_pc() + 2];
         
-        // Check destination register bounds - mode-aware
-        if (dest_reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range (0-{})", dest_reg, cpu.get_registers_64().size() - 1);
+        // Check destination register bounds
+        if (dest_reg >= cpu.get_registers().size()) {
+            std::string context = fmt::format("Register R{} out of range (0-{})", dest_reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid destination register in LOADR instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
             throw CPUException(message);
         }
         
-        // Check address register bounds - mode-aware
-        if (addr_reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range (0-{})", addr_reg, cpu.get_registers_64().size() - 1);
+        // Check address register bounds
+        if (addr_reg >= cpu.get_registers().size()) {
+            std::string context = fmt::format("Register R{} out of range (0-{})", addr_reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid address register in LOADR instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
             throw CPUException(message);
         }
         
-        // Get the address from the address register - mode-aware
-        uint64_t addr = cpu.read_register_mode_aware(addr_reg);
+        // Get the address from the address register
+        uint32_t addr = cpu.get_registers()[addr_reg];
         
         // Check memory bounds
         if (addr >= cpu.get_memory().size()) {
@@ -1084,8 +1043,8 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             throw CPUException(message);
         }
         
-        // Load value from memory address into destination register - mode-aware
-        cpu.write_register_mode_aware(dest_reg, cpu.get_memory()[addr]);
+        // Load value from memory address into destination register
+        cpu.get_registers()[dest_reg] = cpu.get_memory()[addr];
         cpu.set_pc(cpu.get_pc() + 3);
         
         DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
@@ -1098,7 +1057,7 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     cpu.print_state("LOADR");
 }
 
-// Implementation of STORER - Store value from register to memory (indirect addressing) - MODE-AWARE
+// Implementation of STORER - Store value from register to memory (indirect addressing)
 void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // STORER value_reg, addr_reg
     // Store value from value_reg into memory address stored in addr_reg
@@ -1106,26 +1065,26 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
         uint8_t value_reg = program[cpu.get_pc() + 1];
         uint8_t addr_reg = program[cpu.get_pc() + 2];
         
-        // Check value register bounds - mode-aware
-        if (value_reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range (0-{})", value_reg, cpu.get_registers_64().size() - 1);
+        // Check value register bounds
+        if (value_reg >= cpu.get_registers().size()) {
+            std::string context = fmt::format("Register R{} out of range (0-{})", value_reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid value register in STORER instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
             throw CPUException(message);
         }
         
-        // Check address register bounds - mode-aware
-        if (addr_reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range (0-{})", addr_reg, cpu.get_registers_64().size() - 1);
+        // Check address register bounds
+        if (addr_reg >= cpu.get_registers().size()) {
+            std::string context = fmt::format("Register R{} out of range (0-{})", addr_reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid address register in STORER instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
             throw CPUException(message);
         }
         
-        // Get the address from the address register - mode-aware
-        uint64_t addr = cpu.read_register_mode_aware(addr_reg);
+        // Get the address from the address register
+        uint32_t addr = cpu.get_registers()[addr_reg];
         
         // Check memory bounds
         if (addr >= cpu.get_memory().size()) {
@@ -1136,9 +1095,8 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
             throw CPUException(message);
         }
         
-        // Store value from value_reg into memory address - mode-aware read
-        uint64_t value = cpu.read_register_mode_aware(value_reg);
-        cpu.get_memory()[addr] = static_cast<uint8_t>(value & 0xFF);
+        // Store value from value_reg into memory address
+        cpu.get_memory()[addr] = static_cast<uint8_t>(cpu.get_registers()[value_reg]);
         cpu.set_pc(cpu.get_pc() + 3);
         
         DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
@@ -1151,60 +1109,32 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
     cpu.print_state("STORER");
 }
 
-// Implementation from load_imm.cpp - MODE-AWARE
+// Implementation from load_imm.cpp
 void handle_load_imm(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // LOAD_IMM is mode-aware:
-    // - 32-bit mode: opcode + reg + imm32 (6 bytes total)
-    // - 64-bit mode: opcode + reg + imm64 (10 bytes total)
-    // For backward compatibility, 8-bit immediates still supported
+    // LOAD_IMM supports variable-length immediates based on register:
+    // - 4-byte immediate for legacy registers (R0-R7)
+    // - 1-byte immediate for extended registers (R8-R15) - matching Assembler behavior
     
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in LOAD_IMM instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 3);
-            cpu.print_state("LOAD_IMM");
-            return;
-        }
+        // Determine immediate size based on register
+        // R0-R7 (0-7) are legacy 32-bit registers -> 4 byte immediate
+        bool is_32bit_reg = (reg < 8);
         
-        uint64_t value;
-        size_t pc_increment;
-        
-        if (cpu.is_64bit_mode()) {
-            // 64-bit mode: read 8-byte immediate
-            if (cpu.get_pc() + 9 < program.size()) {
-                value = static_cast<uint64_t>(program[cpu.get_pc() + 2]) |
-                       (static_cast<uint64_t>(program[cpu.get_pc() + 3]) << 8) |
-                       (static_cast<uint64_t>(program[cpu.get_pc() + 4]) << 16) |
-                       (static_cast<uint64_t>(program[cpu.get_pc() + 5]) << 24) |
-                       (static_cast<uint64_t>(program[cpu.get_pc() + 6]) << 32) |
-                       (static_cast<uint64_t>(program[cpu.get_pc() + 7]) << 40) |
-                       (static_cast<uint64_t>(program[cpu.get_pc() + 8]) << 48) |
-                       (static_cast<uint64_t>(program[cpu.get_pc() + 9]) << 56);
-                pc_increment = 10;
-                DEBUG_INSTRUCTION("LOAD_IMM", cpu.get_pc(), fmt::format("R{}, 0x{:016X} (64-bit)", reg, value), "");
-            } else if (cpu.get_pc() + 5 < program.size()) {
-                // Fallback to 32-bit if not enough bytes for 64-bit
-                value = static_cast<uint32_t>(program[cpu.get_pc() + 2]) |
-                       (static_cast<uint32_t>(program[cpu.get_pc() + 3]) << 8) |
-                       (static_cast<uint32_t>(program[cpu.get_pc() + 4]) << 16) |
-                       (static_cast<uint32_t>(program[cpu.get_pc() + 5]) << 24);
-                pc_increment = 6;
-                DEBUG_INSTRUCTION("LOAD_IMM", cpu.get_pc(), fmt::format("R{}, 0x{:08X} (32-bit fallback)", reg, value), "");
-            } else {
-                // Minimal fallback: 8-bit
-                value = program[cpu.get_pc() + 2];
-                pc_increment = 3;
-                DEBUG_INSTRUCTION("LOAD_IMM", cpu.get_pc(), fmt::format("R{}, 0x{:02X} (8-bit)", reg, value), "");
-            }
-        } else {
-            // 32-bit mode
-            if (cpu.get_pc() + 5 < program.size()) {
-                // Read 4-byte little-endian immediate
+        if (reg < cpu.get_registers().size()) {
+            uint32_t value;
+            size_t pc_increment;
+            
+            if (is_32bit_reg) {
+                // Expect 4-byte immediate
+                if (cpu.get_pc() + 5 >= program.size()) {
+                     // Error: not enough bytes
+                     std::string message = "Unexpected end of program reading LOAD_IMM 32-bit immediate";
+                     ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), "");
+                     running = false;
+                     return;
+                }
                 value = static_cast<uint32_t>(program[cpu.get_pc() + 2]) |
                        (static_cast<uint32_t>(program[cpu.get_pc() + 3]) << 8) |
                        (static_cast<uint32_t>(program[cpu.get_pc() + 4]) << 16) |
@@ -1212,82 +1142,60 @@ void handle_load_imm(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
                 pc_increment = 6;
                 DEBUG_INSTRUCTION("LOAD_IMM", cpu.get_pc(), fmt::format("R{}, 0x{:08X} (32-bit)", reg, value), "");
             } else {
-                // Read 1-byte immediate
+                // Expect 1-byte immediate
                 value = program[cpu.get_pc() + 2];
                 pc_increment = 3;
                 DEBUG_INSTRUCTION("LOAD_IMM", cpu.get_pc(), fmt::format("R{}, 0x{:02X} (8-bit)", reg, value), "");
             }
+            
+            cpu.set_register_mode_aware(static_cast<Register>(reg), value);
+            cpu.sync_legacy_registers();
+            
+            cpu.set_pc(cpu.get_pc() + pc_increment);
+        } else {
+            cpu.set_pc(cpu.get_pc() + 3);
         }
-        
-        cpu.write_register_mode_aware(reg, value);
-        DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "Set R{} = 0x{:X}", reg, value);
-        cpu.set_pc(cpu.get_pc() + pc_increment);
     } else {
         running = false;
     }
     cpu.print_state("LOAD_IMM");
 }
 
-// Implementation for LEA (Load Effective Address) - MODE-AWARE
+// Implementation for LEA (Load Effective Address)
 void handle_lea(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // Mode-aware: opcode + reg + address (4 or 8 bytes)
     size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + 1 + addr_size;  // opcode + register + address
     
-    if (cpu.get_pc() + instr_size - 1 < program.size()) {
+    if (cpu.get_pc() + 1 + addr_size < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
         
-        // Validate register bounds - mode-aware
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in LEA instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + instr_size);
-            cpu.print_state("LEA");
-            return;
-        }
-        
         DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
-            "[PC=0x{:04X}] [LEA] PC={} Loading address 0x{:X} into R{}",
+            "[PC=0x{:04X}] [LEA] PC={} Loading address {} into R{}",
             cpu.get_pc(), cpu.get_pc(), addr, reg
         ), DebugLevel::DETAIL);
         
-        // Mode-aware register write - load the address itself, not the value at the address
-        cpu.write_register_mode_aware(reg, addr);
-        
-        DebugHandler::instance().report(DebugCategory::CPU_REGISTERS, fmt::format(
-            "[PC=0x{:04X}] [LEA] R{} = 0x{:X} (address)",
-            cpu.get_pc(), reg, addr
-        ), DebugLevel::DETAIL);
-        
-        cpu.set_pc(cpu.get_pc() + instr_size);
+        if (reg < cpu.get_registers().size()) {
+            cpu.set_register_mode_aware(static_cast<Register>(reg), addr);  // Load the address itself
+            DebugHandler::instance().report(DebugCategory::CPU_REGISTERS, fmt::format(
+                "[PC=0x{:04X}] [LEA] R{} = 0x{:02X} (address)",
+                cpu.get_pc(), reg, addr
+            ), DebugLevel::DETAIL);
+        }
+        cpu.set_pc(cpu.get_pc() + 2 + addr_size);
     } else {
         running = false;
     }
     cpu.print_state("LEA");
 }
 
-// Implementation from mov.cpp - MODE-AWARE
+// Implementation from mov.cpp
 void handle_mov(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range", reg1, reg2);
-            std::string message = "Invalid register access in MOV instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 3);
-            cpu.print_state("MOV");
-            return;
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            cpu.get_registers()[reg1] = cpu.get_registers()[reg2];
         }
-        
-        // Mode-aware register move
-        uint64_t value = cpu.read_register_mode_aware(reg2);
-        cpu.write_register_mode_aware(reg1, value);
-        
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
         running = false;
@@ -1295,78 +1203,57 @@ void handle_mov(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("MOV");
 }
 
-// Implementation from mul.cpp - MODE-AWARE
+// Implementation from mul.cpp
 void handle_mul(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range", reg1, reg2);
-            std::string message = "Invalid register access in MUL instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 3);
-            cpu.print_state("MUL");
-            return;
-        }
-        
         DEBUG_INSTRUCTION("MUL", cpu.get_pc(), fmt::format("R{} *= R{}", reg1, reg2), "");
-        
-        // Mode-aware arithmetic
-        uint64_t value1 = cpu.read_register_mode_aware(reg1);
-        uint64_t value2 = cpu.read_register_mode_aware(reg2);
-        uint64_t mask = cpu.get_operand_mask();
-        
-        uint32_t flags = cpu.get_flags();
-        uint64_t result;
-        
-        if (cpu.is_64bit_mode()) {
-            // 64-bit multiplication - use __uint128_t for overflow detection if available
-            result = value1 * value2;
-            // Simplified overflow check for 64-bit
-            if (value2 != 0 && result / value2 != value1) {
-                flags |= FLAG_CARRY | FLAG_OVERFLOW;
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
+            uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+
+            // Use 128-bit arithmetic for full precision
+            unsigned __int128 result128 = static_cast<unsigned __int128>(val1) * static_cast<unsigned __int128>(val2);
+            uint64_t result = static_cast<uint64_t>(result128);
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t masked_result = result & mask;
+
+            uint32_t current_flags = cpu.get_flags();
+
+            // Zero Flag
+            if (masked_result == 0) {
+                current_flags |= FLAG_ZERO;
             } else {
-                flags &= ~(FLAG_CARRY | FLAG_OVERFLOW);
+                current_flags &= ~FLAG_ZERO;
             }
-        } else {
-            // 32-bit multiplication
-            uint64_t result64 = value1 * value2;
-            result = result64 & mask;
-            
-            if (result64 > 0xFFFFFFFF) {
-                flags |= FLAG_CARRY;
+
+            // Carry and Overflow Flags
+            // MUL sets CF and OF if the upper half of the result is non-zero
+            bool overflow = false;
+            if (cpu.is_32bit_mode()) {
+                overflow = (result128 > 0xFFFFFFFF);
             } else {
-                flags &= ~FLAG_CARRY;
+                overflow = (result128 > 0xFFFFFFFFFFFFFFFFULL);
             }
-            
-            // Signed overflow check
-            int64_t signed_result = static_cast<int64_t>(static_cast<int32_t>(value1)) * 
-                                    static_cast<int64_t>(static_cast<int32_t>(value2));
-            if (signed_result < INT32_MIN || signed_result > INT32_MAX) {
-                flags |= FLAG_OVERFLOW;
+
+            if (overflow) {
+                current_flags |= FLAG_CARRY;
+                current_flags |= FLAG_OVERFLOW;
             } else {
-                flags &= ~FLAG_OVERFLOW;
+                current_flags &= ~FLAG_CARRY;
+                current_flags &= ~FLAG_OVERFLOW;
             }
+
+            cpu.set_flags(current_flags);
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), result);
+            DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
+                "[PC=0x{:04X}] [MUL] R{}: {} * {} = {} (carry={}, overflow={})",
+                cpu.get_pc(), reg1, val1, val2, result,
+                (cpu.get_flags() & FLAG_CARRY) ? 1 : 0,
+                (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0
+            ), DebugLevel::DETAIL);
         }
-
-        // Zero and sign flags
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg1, result);
-        
-        DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
-            "[PC=0x{:04X}] [MUL] R{}: 0x{:X} * 0x{:X} = 0x{:X}",
-            cpu.get_pc(), reg1, value1, value2, result
-        ), DebugLevel::DETAIL);
-        
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
         running = false;
@@ -1384,41 +1271,18 @@ void handle_nop(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, 
     cpu.print_state("NOP");
 }
 
-// Implementation from not.cpp - MODE-AWARE
+// Implementation from not.cpp
 void handle_not(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
     if (pc + 1 < program.size()) {
         uint8_t reg = program[pc + 1];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in NOT instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 2);
-            cpu.print_state("NOT");
-            return;
+        if (reg < cpu.get_registers().size()) {
+            uint64_t val = cpu.get_register_mode_aware(static_cast<Register>(reg));
+            uint64_t result = ~val;
+            cpu.set_register_mode_aware(static_cast<Register>(reg), result);
         }
-
-        // Mode-aware register operations
-        uint64_t value = cpu.read_register_mode_aware(reg);
-        uint64_t result = ~value;
-        uint64_t mask = cpu.get_operand_mask();
-        result &= mask;
-        
-        // Update flags (NOT doesn't affect carry/overflow)
-        uint32_t flags = cpu.get_flags();
-        
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg, result);
 
         cpu.set_pc(pc + 2);
     } else {
@@ -1428,7 +1292,7 @@ void handle_not(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("NOT");
 }
 
-// Implementation from or.cpp - MODE-AWARE
+// Implementation from or.cpp
 void handle_or(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -1436,34 +1300,27 @@ void handle_or(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg1 = program[pc + 1];
         uint8_t reg2 = program[pc + 2];
 
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range", reg1, reg2);
-            std::string message = "Invalid register access in OR instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("OR");
-            return;
-        }
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
+            uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+            uint64_t result = val1 | val2;
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t masked_result = result & mask;
 
-        // Mode-aware register operations
-        uint64_t value1 = cpu.read_register_mode_aware(reg1);
-        uint64_t value2 = cpu.read_register_mode_aware(reg2);
-        uint64_t result = value1 | value2;
-        
-        // Update flags
-        uint32_t flags = cpu.get_flags();
-        flags &= ~(FLAG_CARRY | FLAG_OVERFLOW);  // OR clears these
-        
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg1, result);
+            // Flags
+            uint32_t current_flags = cpu.get_flags();
+            if (masked_result == 0) {
+                current_flags |= FLAG_ZERO;
+            } else {
+                current_flags &= ~FLAG_ZERO;
+            }
+            // OR clears Carry and Overflow
+            current_flags &= ~FLAG_CARRY;
+            current_flags &= ~FLAG_OVERFLOW;
+            
+            cpu.set_flags(current_flags);
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), result);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -1474,7 +1331,6 @@ void handle_or(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 }
 
 // Implementation from outb.cpp
-// Implementation from outb.cpp - MODE-AWARE
 void handle_outb(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -1482,23 +1338,14 @@ void handle_outb(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg = program[pc + 1];
         uint8_t port = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in OUTB instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("OUTB");
-            return;
-        }
-
-        uint64_t value = cpu.read_register_mode_aware(reg);
         DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
-            "[PC=0x{:04X}] [OUTB] PC={} port {} <- R{}=0x{:X}",
-            pc, pc, port, reg, value
+            "[PC=0x{:04X}] [OUTB] PC={} port {} <- R{}={}",
+            pc, pc, port, reg, cpu.get_registers()[reg]
         ), DebugLevel::DETAIL);
 
-        cpu.write_port(port, static_cast<uint8_t>(value & 0xFF));
+        if (reg < cpu.get_registers().size()) {
+            cpu.write_port(port, cpu.get_registers()[reg]);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -1508,7 +1355,7 @@ void handle_outb(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("OUTB");
 }
 
-// Implementation from out.cpp - MODE-AWARE
+// Implementation from out.cpp
 void handle_out(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -1516,23 +1363,14 @@ void handle_out(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg = program[pc + 1];
         uint8_t port = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in OUT instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("OUT");
-            return;
-        }
-
-        uint64_t value = cpu.read_register_mode_aware(reg);
         DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
-            "[PC=0x{:04X}] [OUT] PC={} port {} <- R{}=0x{:X}",
-            pc, pc, port, reg, value
+            "[PC=0x{:04X}] [OUT] PC={} port {} <- R{}={}",
+            pc, pc, port, reg, cpu.get_registers()[reg]
         ), DebugLevel::DETAIL);
 
-        cpu.write_port(port, static_cast<uint8_t>(value & 0xFF));
+        if (reg < cpu.get_registers().size()) {
+            cpu.write_port(port, cpu.get_registers()[reg]);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -1542,7 +1380,7 @@ void handle_out(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("OUT");
 }
 
-// Implementation from outl.cpp - MODE-AWARE
+// Implementation from outl.cpp
 void handle_outl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -1550,24 +1388,18 @@ void handle_outl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg = program[pc + 1];
         uint8_t port = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in OUTL instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("OUTL");
-            return;
-        }
-
         DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
             "[PC=0x{:04X}] [OUTL] PC={} port {} <- R{} (dword)",
             pc, pc, port, reg
         ), DebugLevel::DETAIL);
 
-        // Mode-aware: read full register value and output as dword
-        uint64_t value = cpu.read_register_mode_aware(reg);
-        cpu.write_port_dword(port, static_cast<uint32_t>(value & 0xFFFFFFFF));
+        if (reg < cpu.get_registers().size()) {
+            uint32_t value = 0;
+            for (size_t i = 0; i < 4 && (reg + i) < cpu.get_registers().size(); ++i) {
+                value |= (static_cast<uint32_t>(cpu.get_registers()[reg + i]) << (8 * i));
+            }
+            cpu.write_port_dword(port, value);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -1614,7 +1446,7 @@ void handle_outstr(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
     cpu.print_state("OUTSTR");
 }
 
-// Implementation from outw.cpp - MODE-AWARE
+// Implementation from outw.cpp
 void handle_outw(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -1622,24 +1454,18 @@ void handle_outw(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg = program[pc + 1];
         uint8_t port = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in OUTW instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("OUTW");
-            return;
-        }
-
         DebugHandler::instance().report(DebugCategory::IO_DEVICE, fmt::format(
             "[PC=0x{:04X}] [OUTW] PC={} port {} <- R{} (word)",
             pc, pc, port, reg
         ), DebugLevel::DETAIL);
 
-        // Mode-aware: read full register value and output as word
-        uint64_t value = cpu.read_register_mode_aware(reg);
-        cpu.write_port_word(port, static_cast<uint16_t>(value & 0xFFFF));
+        if (reg < cpu.get_registers().size()) {
+            uint16_t value = cpu.get_registers()[reg];
+            if (static_cast<size_t>(reg + 1) < cpu.get_registers().size()) {
+                value |= (static_cast<uint16_t>(cpu.get_registers()[reg + 1]) << 8);
+            }
+            cpu.write_port_word(port, value);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -1649,32 +1475,22 @@ void handle_outw(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("OUTW");
 }
 
-// Implementation from pop_arg.cpp - MODE-AWARE
+// Implementation from pop_arg.cpp
 void handle_pop_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     uint32_t pc = cpu.get_pc();
     uint8_t reg = cpu.fetch_operand();
-
-    // Validate register bounds
-    if (reg >= cpu.get_registers_64().size()) {
-        std::string context = fmt::format("Register R{} out of range", reg);
-        std::string message = "Invalid register access in POP_ARG instruction";
-        ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-        cpu.print_state("POP_ARG");
-        return;
-    }
 
     // Check if we're in a function call context by checking if arg_offset has been set
     // In function context, arg_offset is set to 8 by CALL
     // In standalone context, arg_offset remains 0 (initialized value)
     if (cpu.get_arg_offset() > 0) {
         // Function context: use frame pointer + offset
-        uint32_t value = cpu.read_mem32(cpu.get_fp() + cpu.get_arg_offset());
-        cpu.write_register_mode_aware(reg, value);
+        cpu.get_registers()[reg] = cpu.read_mem32(cpu.get_fp() + cpu.get_arg_offset());
 
         DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
             "[PC=0x{:04X}] [POP_ARG] Function context: FP={} arg_offset={} addr={} value={}",
             pc, cpu.get_fp(), cpu.get_arg_offset(),
-            (cpu.get_fp() + cpu.get_arg_offset()), value
+            (cpu.get_fp() + cpu.get_arg_offset()), cpu.get_registers()[reg]
         ), DebugLevel::DETAIL);
 
         cpu.set_arg_offset(cpu.get_arg_offset() + 4);
@@ -1689,13 +1505,12 @@ void handle_pop_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& progr
             throw CPUException(message);
         }
         
-        uint32_t value = cpu.read_mem32(cpu.get_sp());
-        cpu.write_register_mode_aware(reg, value);
+        cpu.get_registers()[reg] = cpu.read_mem32(cpu.get_sp());
         cpu.set_sp(cpu.get_sp() + 4);
 
         DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
             "[PC=0x{:04X}] [POP_ARG] Standalone context: popped from SP={} value={}",
-            pc, cpu.get_sp() - 4, value
+            pc, cpu.get_sp() - 4, cpu.get_registers()[reg]
         ), DebugLevel::DETAIL);
     }
 
@@ -1703,20 +1518,10 @@ void handle_pop_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& progr
     cpu.print_state("POP_ARG");
 }
 
-// Implementation from pop.cpp - MODE-AWARE
+// Implementation from pop.cpp
 void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
-        
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in POP instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 2);
-            cpu.print_state("POP");
-            return;
-        }
         
         // Check for stack underflow (SP at or beyond initial position)
         // Stack starts at memory.size() - 4, so if SP >= memory.size(), stack is empty
@@ -1729,13 +1534,12 @@ void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         }
         
         uint32_t value = cpu.read_mem32(cpu.get_sp());
-        cpu.write_register_mode_aware(reg, value);
+        cpu.get_registers()[reg] = value;
         DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
             "[PC=0x{:04X}] [POP] PC={} Popping to R{}={}",
             cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), value
         ), DebugLevel::DETAIL);
         cpu.set_sp(cpu.get_sp() + 4);
-        // Sync SP to legacy R4 for compatibility
         cpu.get_registers()[4] = cpu.get_sp();
         cpu.set_pc(cpu.get_pc() + 2);
     } else {
@@ -1765,55 +1569,32 @@ void handle_pop_flag(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& prog
     cpu.print_state("POPF");
 }
 
-// Implementation from push_arg.cpp - MODE-AWARE
+// Implementation from push_arg.cpp
 void handle_push_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
     uint32_t pc = cpu.get_pc();
     uint8_t reg = cpu.fetch_operand();
 
-    // Validate register bounds
-    if (reg >= cpu.get_registers_64().size()) {
-        std::string context = fmt::format("Register R{} out of range", reg);
-        std::string message = "Invalid register access in PUSH_ARG instruction";
-        ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-        cpu.print_state("PUSH_ARG");
-        return;
-    }
-
-    uint64_t value = cpu.read_register_mode_aware(reg);
     DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
-        "[PC=0x{:04X}] [PUSH_ARG] SP={} Pushing R{}=0x{:X}",
-        pc, cpu.get_sp(), static_cast<int>(reg), value
+        "[PC=0x{:04X}] [PUSH_ARG] SP={} Pushing R{}={}",
+        pc, cpu.get_sp(), static_cast<int>(reg), cpu.get_registers()[reg]
     ), DebugLevel::DETAIL);
 
     uint32_t sp = cpu.get_sp() - 4;
     cpu.set_sp(sp);
-    // Sync SP to legacy R4 for compatibility
     cpu.get_registers()[4] = sp;
-    cpu.write_mem32(sp, static_cast<uint32_t>(value & 0xFFFFFFFF));
+    cpu.write_mem32(sp, cpu.get_registers()[reg]);
 
     // Don't set PC - fetch_operand already advanced it
     cpu.print_state("PUSH_ARG");
 }
 
-// Implementation from push.cpp - MODE-AWARE
+// Implementation from push.cpp
 void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
-        
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in PUSH instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 2);
-            cpu.print_state("PUSH");
-            return;
-        }
-        
-        uint64_t value = cpu.read_register_mode_aware(reg);
         DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
-            "[PC=0x{:04X}] [PUSH] PC={} Pushing R{}=0x{:X}",
-            cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), value
+            "[PC=0x{:04X}] [PUSH] PC={} Pushing R{}={}",
+            cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), cpu.get_registers()[reg]
         ), DebugLevel::DETAIL);
         
         // Check for stack overflow (SP going below reasonable minimum)
@@ -1828,7 +1609,7 @@ void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         cpu.set_sp(cpu.get_sp() - 4);
         // Sync only SP to legacy R4 (don't overwrite other legacy registers)
         cpu.get_registers()[4] = cpu.get_sp();
-        cpu.write_mem32(cpu.get_sp(), static_cast<uint32_t>(value & 0xFFFFFFFF));
+        cpu.write_mem32(cpu.get_sp(), cpu.get_registers()[reg]);
         cpu.set_pc(cpu.get_pc() + 2);
     } else {
         running = false;
@@ -1892,61 +1673,67 @@ void handle_ret(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, 
     cpu.print_state("RET");
 }
 
-// Implementation from shl.cpp - MODE-AWARE
+// Implementation from shl.cpp
 void handle_shl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
     if (pc + 2 < program.size()) {
         uint8_t reg = program[pc + 1];
-        uint8_t shift_amount = program[pc + 2];
+        uint8_t imm = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in SHL instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("SHL");
-            return;
-        }
-
-        // Mode-aware shift
-        uint64_t value = cpu.read_register_mode_aware(reg);
-        uint64_t result;
-        uint32_t flags = cpu.get_flags();
-        
-        if (cpu.is_64bit_mode()) {
-            // Limit shift to 63 bits
-            shift_amount &= 0x3F;
-            // Set carry flag to last bit shifted out (if shifting > 0)
-            if (shift_amount > 0) {
-                bool last_bit_out = (value >> (64 - shift_amount)) & 1;
-                if (last_bit_out) flags |= FLAG_CARRY;
-                else flags &= ~FLAG_CARRY;
+        if (reg < cpu.get_registers().size()) {
+            uint64_t val = cpu.get_register_mode_aware(static_cast<Register>(reg));
+            uint64_t result = val << imm;
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t masked_result = result & mask;
+            
+            // Flags
+            uint32_t current_flags = cpu.get_flags();
+            if (masked_result == 0) {
+                current_flags |= FLAG_ZERO;
+            } else {
+                current_flags &= ~FLAG_ZERO;
             }
-            result = value << shift_amount;
-        } else {
-            // Limit shift to 31 bits
-            shift_amount &= 0x1F;
-            // Set carry flag to last bit shifted out (if shifting > 0)
-            if (shift_amount > 0) {
-                bool last_bit_out = (value >> (32 - shift_amount)) & 1;
-                if (last_bit_out) flags |= FLAG_CARRY;
-                else flags &= ~FLAG_CARRY;
+            
+            // Carry Flag (last bit shifted out)
+            if (imm > 0) {
+                bool carry = false;
+                if (cpu.is_32bit_mode()) {
+                    if (imm <= 32) {
+                        carry = (val & (1ULL << (32 - imm))) != 0;
+                    }
+                } else {
+                    if (imm <= 64) {
+                        carry = (val & (1ULL << (64 - imm))) != 0;
+                    }
+                }
+                if (carry) {
+                    current_flags |= FLAG_CARRY;
+                } else {
+                    current_flags &= ~FLAG_CARRY;
+                }
             }
-            result = (static_cast<uint32_t>(value) << shift_amount);
+            
+            // Overflow Flag (only for 1-bit shifts)
+            if (imm == 1) {
+                bool msb_before, msb_after;
+                if (cpu.is_32bit_mode()) {
+                    msb_before = (val & 0x80000000) != 0;
+                    msb_after = (masked_result & 0x80000000) != 0;
+                } else {
+                    msb_before = (val & 0x8000000000000000ULL) != 0;
+                    msb_after = (masked_result & 0x8000000000000000ULL) != 0;
+                }
+                if (msb_before != msb_after) {
+                    current_flags |= FLAG_OVERFLOW;
+                } else {
+                    current_flags &= ~FLAG_OVERFLOW;
+                }
+            }
+            
+            cpu.set_flags(current_flags);
+            cpu.set_register_mode_aware(static_cast<Register>(reg), result);
         }
-        
-        // Update flags
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg, result);
 
         cpu.set_pc(pc + 3);
     } else {
@@ -1956,61 +1743,54 @@ void handle_shl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("SHL");
 }
 
-// Implementation from shr.cpp - MODE-AWARE
+// Implementation from shr.cpp
 void handle_shr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
     if (pc + 2 < program.size()) {
         uint8_t reg = program[pc + 1];
-        uint8_t shift_amount = program[pc + 2];
+        uint8_t imm = program[pc + 2];
 
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in SHR instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("SHR");
-            return;
-        }
-
-        // Mode-aware shift
-        uint64_t value = cpu.read_register_mode_aware(reg);
-        uint64_t result;
-        uint32_t flags = cpu.get_flags();
-        
-        if (cpu.is_64bit_mode()) {
-            // Limit shift to 63 bits
-            shift_amount &= 0x3F;
-            // Set carry flag to last bit shifted out (if shifting > 0)
-            if (shift_amount > 0) {
-                bool last_bit_out = (value >> (shift_amount - 1)) & 1;
-                if (last_bit_out) flags |= FLAG_CARRY;
-                else flags &= ~FLAG_CARRY;
+        if (reg < cpu.get_registers().size()) {
+            uint64_t val = cpu.get_register_mode_aware(static_cast<Register>(reg));
+            uint64_t result = val >> imm;
+            
+            // Flags
+            uint32_t current_flags = cpu.get_flags();
+            if (result == 0) {
+                current_flags |= FLAG_ZERO;
+            } else {
+                current_flags &= ~FLAG_ZERO;
             }
-            result = value >> shift_amount;
-        } else {
-            // Limit shift to 31 bits
-            shift_amount &= 0x1F;
-            // Set carry flag to last bit shifted out (if shifting > 0)
-            if (shift_amount > 0) {
-                bool last_bit_out = (value >> (shift_amount - 1)) & 1;
-                if (last_bit_out) flags |= FLAG_CARRY;
-                else flags &= ~FLAG_CARRY;
+            
+            // Carry Flag (last bit shifted out)
+            if (imm > 0) {
+                bool carry = (val & (1ULL << (imm - 1))) != 0;
+                if (carry) {
+                    current_flags |= FLAG_CARRY;
+                } else {
+                    current_flags &= ~FLAG_CARRY;
+                }
             }
-            result = static_cast<uint32_t>(value) >> shift_amount;
+            
+            // Overflow Flag (only for 1-bit shifts)
+            if (imm == 1) {
+                bool msb;
+                if (cpu.is_32bit_mode()) {
+                    msb = (val & 0x80000000) != 0;
+                } else {
+                    msb = (val & 0x8000000000000000ULL) != 0;
+                }
+                if (msb) {
+                    current_flags |= FLAG_OVERFLOW;
+                } else {
+                    current_flags &= ~FLAG_OVERFLOW;
+                }
+            }
+            
+            cpu.set_flags(current_flags);
+            cpu.set_register_mode_aware(static_cast<Register>(reg), result);
         }
-        
-        // Update flags
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg, result);
 
         cpu.set_pc(pc + 3);
     } else {
@@ -2022,105 +1802,108 @@ void handle_shr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Implementation from store.cpp
 void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // STORE reg, addr (mode-aware address size)
-    // Format: OPCODE(1) REG(1) ADDR(4 or 8 bytes depending on mode)
-    // 32-bit mode: 6 bytes total, 64-bit mode: 10 bytes total
+    // STORE reg, addr
     size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 2 + addr_size;  // opcode + reg + address
     
-    if (cpu.get_pc() + instr_size - 1 < program.size()) {
+    if (cpu.get_pc() + 1 + addr_size < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
-        // Read address based on current CPU mode
         uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
         
-        // Check bounds - mode-aware register count
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers_64().size() - 1);
+        // Check bounds
+        if (reg >= cpu.get_registers().size()) {
+            std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid register in STORE instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         if (addr >= cpu.get_memory().size()) {
             std::string context = fmt::format("Attempted write at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
             std::string message = "Memory write out of bounds in STORE instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         
-        // Mode-aware register read
-        uint64_t value = cpu.read_register_mode_aware(reg);
-        cpu.get_memory()[addr] = static_cast<uint8_t>(value & 0xFF);
-        cpu.set_pc(cpu.get_pc() + instr_size);
+        // STORE writes the lower byte of the register to memory
+        cpu.get_memory()[addr] = static_cast<uint8_t>(cpu.get_register_mode_aware(static_cast<Register>(reg)) & 0xFF);
+        cpu.set_pc(cpu.get_pc() + 2 + addr_size);
     } else {
         running = false;
     }
     cpu.print_state("STORE");
 }
 
-// Implementation from sub.cpp - MODE-AWARE
+// Implementation from sub.cpp
 void handle_sub(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range", reg1, reg2);
-            std::string message = "Invalid register access in SUB instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + 3);
-            cpu.print_state("SUB");
-            return;
-        }
-
         DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
-            "[PC=0x{:04X}] [SUB] R{} -= R{}",
-            cpu.get_pc(), reg1, reg2
+            "[PC=0x{:04X}] [SUB] PC={} R{} -= R{}",
+            cpu.get_pc(), cpu.get_pc(), reg1, reg2
         ), DebugLevel::DETAIL);
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
+            uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+            uint64_t result = val1 - val2;
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t masked_result = result & mask;
 
-        // Mode-aware arithmetic
-        uint64_t value1 = cpu.read_register_mode_aware(reg1);
-        uint64_t value2 = cpu.read_register_mode_aware(reg2);
-        uint64_t mask = cpu.get_operand_mask();
-        uint64_t result = (value1 - value2) & mask;
+            uint32_t current_flags = cpu.get_flags();
 
-        // Update flags based on mode
-        uint32_t flags = cpu.get_flags();
-        
-        // Carry flag - set if underflow (borrow needed)
-        if (value1 < value2) flags |= FLAG_CARRY;
-        else flags &= ~FLAG_CARRY;
+            // Zero Flag
+            if (masked_result == 0) {
+                current_flags |= FLAG_ZERO;
+            } else {
+                current_flags &= ~FLAG_ZERO;
+            }
 
-        // Overflow flag for signed arithmetic
-        bool sign1 = cpu.is_64bit_mode() ? ((value1 >> 63) & 1) : ((value1 >> 31) & 1);
-        bool sign2 = cpu.is_64bit_mode() ? ((value2 >> 63) & 1) : ((value2 >> 31) & 1);
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        
-        // Overflow: pos - neg = neg, or neg - pos = pos
-        if ((sign1 != sign2) && (sign1 != signr)) {
-            flags |= FLAG_OVERFLOW;
-        } else {
-            flags &= ~FLAG_OVERFLOW;
+            // Carry Flag (Borrow)
+            bool borrow = false;
+            if (cpu.is_32bit_mode()) {
+                // In 32-bit mode, we compare the 32-bit values
+                borrow = (static_cast<uint32_t>(val1) < static_cast<uint32_t>(val2));
+            } else {
+                borrow = (val1 < val2);
+            }
+
+            if (borrow) {
+                current_flags |= FLAG_CARRY;
+            } else {
+                current_flags &= ~FLAG_CARRY;
+            }
+
+            // Overflow Flag (Signed)
+            bool sign1, sign2, signR;
+            if (cpu.is_32bit_mode()) {
+                sign1 = (val1 & 0x80000000) != 0;
+                sign2 = (val2 & 0x80000000) != 0;
+                signR = (masked_result & 0x80000000) != 0;
+            } else {
+                sign1 = (val1 & 0x8000000000000000) != 0;
+                sign2 = (val2 & 0x8000000000000000) != 0;
+                signR = (masked_result & 0x8000000000000000) != 0;
+            }
+
+            // Overflow occurs when subtracting a positive from a negative yields a positive
+            // or subtracting a negative from a positive yields a negative
+            // i.e. sign1 != sign2 AND sign1 != signR
+            if ((sign1 != sign2) && (sign1 != signR)) {
+                current_flags |= FLAG_OVERFLOW;
+            } else {
+                current_flags &= ~FLAG_OVERFLOW;
+            }
+
+            cpu.set_flags(current_flags);
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), result);
+            DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
+                "[PC=0x{:04X}] [SUB] R{}: {} - {} = {} (carry={}, overflow={})",
+                cpu.get_pc(), reg1, val1, val2, result,
+                (cpu.get_flags() & FLAG_CARRY) ? 1 : 0,
+                (cpu.get_flags() & FLAG_OVERFLOW) ? 1 : 0
+            ), DebugLevel::DETAIL);
         }
-
-        // Zero flag
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-
-        // Sign flag
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg1, result);
-        
-        DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
-            "[PC=0x{:04X}] [SUB] R{}: 0x{:X} - 0x{:X} = 0x{:X}",
-            cpu.get_pc(), reg1, value1, value2, result
-        ), DebugLevel::DETAIL);
-        
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
         running = false;
@@ -2128,60 +1911,40 @@ void handle_sub(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     cpu.print_state("SUB");
 }
 
-// Implementation for SWAP - MODE-AWARE
+// Implementation for SWAP
 void handle_swap(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // Mode-aware: opcode + reg + address (4 or 8 bytes)
     size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + 1 + addr_size;  // opcode + register + address
     
-    if (cpu.get_pc() + instr_size - 1 < program.size()) {
+    if (cpu.get_pc() + 1 + addr_size < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
         uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
         
-        // Validate register bounds
-        if (reg >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} out of range", reg);
-            std::string message = "Invalid register access in SWAP instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + instr_size);
-            cpu.print_state("SWAP");
-            return;
-        }
-        
-        // Validate memory bounds
-        if (addr >= cpu.get_memory().size()) {
-            std::string context = fmt::format("Attempted access at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
-            std::string message = "Memory access out of bounds in SWAP instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
-            cpu.set_pc(cpu.get_pc() + instr_size);
-            cpu.print_state("SWAP");
-            return;
-        }
-        
         DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
-            "[PC=0x{:04X}] [SWAP] PC={} Swapping R{} with memory[0x{:X}]",
+            "[PC=0x{:04X}] [SWAP] PC={} Swapping R{} with memory[{}]",
             cpu.get_pc(), cpu.get_pc(), reg, addr
         ), DebugLevel::DETAIL);
 
-        // Mode-aware swap
-        uint64_t reg_value = cpu.read_register_mode_aware(reg);
-        uint8_t mem_value = cpu.get_memory()[addr];
-        cpu.write_register_mode_aware(reg, mem_value);
-        cpu.get_memory()[addr] = static_cast<uint8_t>(reg_value & 0xFF);
-        
-        DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
-            "[PC=0x{:04X}] [SWAP] R{} = 0x{:X}, memory[0x{:X}] = 0x{:X}",
-            cpu.get_pc(), reg, mem_value, addr, static_cast<uint8_t>(reg_value & 0xFF)
-        ), DebugLevel::DETAIL);
-        
-        cpu.set_pc(cpu.get_pc() + instr_size);
+        if (reg < cpu.get_registers().size() && addr < cpu.get_memory().size()) {
+            uint64_t reg_val = cpu.get_register_mode_aware(static_cast<Register>(reg));
+            uint8_t mem_val = cpu.get_memory()[addr];
+            
+            // Swap: reg gets mem byte, mem gets reg lower byte
+            cpu.set_register_mode_aware(static_cast<Register>(reg), static_cast<uint64_t>(mem_val));
+            cpu.get_memory()[addr] = static_cast<uint8_t>(reg_val & 0xFF);
+            
+            DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
+                "[PC=0x{:04X}] [SWAP] R{} = {}, memory[{}] = {}",
+                cpu.get_pc(), reg, mem_val, addr, static_cast<uint8_t>(reg_val & 0xFF)
+            ), DebugLevel::DETAIL);
+        }
+        cpu.set_pc(cpu.get_pc() + 2 + addr_size);
     } else {
         running = false;
     }
     cpu.print_state("SWAP");
 }
 
-// Implementation from xor.cpp - MODE-AWARE
+// Implementation from xor.cpp
 void handle_xor(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
@@ -2189,34 +1952,27 @@ void handle_xor(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         uint8_t reg1 = program[pc + 1];
         uint8_t reg2 = program[pc + 2];
 
-        // Validate register bounds
-        if (reg1 >= cpu.get_registers_64().size() || reg2 >= cpu.get_registers_64().size()) {
-            std::string context = fmt::format("Register R{} or R{} out of range", reg1, reg2);
-            std::string message = "Invalid register access in XOR instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, pc, context);
-            cpu.set_pc(pc + 3);
-            cpu.print_state("XOR");
-            return;
-        }
+        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
+            uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
+            uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+            uint64_t result = val1 ^ val2;
+            uint64_t mask = cpu.get_operand_mask();
+            uint64_t masked_result = result & mask;
 
-        // Mode-aware register operations
-        uint64_t value1 = cpu.read_register_mode_aware(reg1);
-        uint64_t value2 = cpu.read_register_mode_aware(reg2);
-        uint64_t result = value1 ^ value2;
-        
-        // Update flags
-        uint32_t flags = cpu.get_flags();
-        flags &= ~(FLAG_CARRY | FLAG_OVERFLOW);  // XOR clears these
-        
-        if (result == 0) flags |= FLAG_ZERO;
-        else flags &= ~FLAG_ZERO;
-        
-        bool signr = cpu.is_64bit_mode() ? ((result >> 63) & 1) : ((result >> 31) & 1);
-        if (signr) flags |= FLAG_SIGN;
-        else flags &= ~FLAG_SIGN;
-        
-        cpu.set_flags(flags);
-        cpu.write_register_mode_aware(reg1, result);
+            // Flags
+            uint32_t current_flags = cpu.get_flags();
+            if (masked_result == 0) {
+                current_flags |= FLAG_ZERO;
+            } else {
+                current_flags &= ~FLAG_ZERO;
+            }
+            // XOR clears Carry and Overflow
+            current_flags &= ~FLAG_CARRY;
+            current_flags &= ~FLAG_OVERFLOW;
+            
+            cpu.set_flags(current_flags);
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), result);
+        }
 
         cpu.set_pc(pc + 3);
     } else {
@@ -2230,11 +1986,11 @@ void handle_xor(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 void handle_jc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
 
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
-
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
         DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
             "[PC=0x{:04X}] [JC] PC={} Checking carry flag",
             pc, pc
@@ -2245,13 +2001,13 @@ void handle_jc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 "[PC=0x{:04X}] [JC] Carry flag set, jumping to address {}",
                 pc, addr
             ), DebugLevel::DETAIL);
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
             DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
                 "[PC=0x{:04X}] [JC] Carry flag clear, continuing",
                 pc, pc
             ), DebugLevel::DETAIL);
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -2263,11 +2019,12 @@ void handle_jc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation for JNC (Jump if No Carry)
 void handle_jnc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
         DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
             "[PC=0x{:04X}] [JNC] PC={} Checking carry flag",
             pc, pc
@@ -2278,13 +2035,13 @@ void handle_jnc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 "[PC=0x{:04X}] [JNC] Carry flag clear, jumping to address {}",
                 pc, addr
             ), DebugLevel::DETAIL);
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
             DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
                 "[PC=0x{:04X}] [JNC] Carry flag set, continuing",
                 pc, pc
             ), DebugLevel::DETAIL);
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -2296,11 +2053,12 @@ void handle_jnc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation from jo.cpp
 void handle_jo(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
         DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
             "[PC=0x{:04X}] [JO] PC={} Checking overflow flag",
             pc, pc
@@ -2311,13 +2069,13 @@ void handle_jo(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 "[PC=0x{:04X}] [JO] Overflow flag set, jumping to address {}",
                 pc, addr
             ), DebugLevel::DETAIL);
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
             DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
                 "[PC=0x{:04X}] [JO] Overflow flag clear, continuing",
                 pc, pc
             ), DebugLevel::DETAIL);
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -2329,11 +2087,12 @@ void handle_jo(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation from jno.cpp
 void handle_jno(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
         DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
             "[PC=0x{:04X}] [JNO] PC={} Checking overflow flag",
             pc, pc
@@ -2344,13 +2103,13 @@ void handle_jno(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 "[PC=0x{:04X}] [JNO] Overflow flag clear, jumping to address {}",
                 pc, addr
             ), DebugLevel::DETAIL);
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
             DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
                 "[PC=0x{:04X}] [JNO] Overflow flag set, continuing",
                 pc, pc
             ), DebugLevel::DETAIL);
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -2362,11 +2121,12 @@ void handle_jno(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation for JG (Jump if Greater)
 void handle_jg(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
         DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
             "[PC=0x{:04X}] [JG] PC={} Checking flags for greater",
             pc, pc
@@ -2378,13 +2138,13 @@ void handle_jg(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 "[PC=0x{:04X}] [JG] Greater condition met, jumping to address {}",
                 pc, addr
             ), DebugLevel::DETAIL);
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
             DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
                 "[PC=0x{:04X}] [JG] Greater condition not met, continuing",
                 pc, pc
             ), DebugLevel::DETAIL);
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -2396,11 +2156,12 @@ void handle_jg(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation for JL (Jump if Less)
 void handle_jl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
         DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
             "[PC=0x{:04X}] [JL] PC={} Checking flags for less",
             pc, pc
@@ -2408,17 +2169,19 @@ void handle_jl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
         // JL: Jump if less (sign set and not zero)
         if ((cpu.get_flags() & FLAG_SIGN) && !(cpu.get_flags() & FLAG_ZERO)) {
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_JUMP, "JL jumping to {} from PC={}", addr, pc);
+            
             DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
                 "[PC=0x{:04X}] [JL] Less condition met, jumping to address {}",
                 pc, addr
             ), DebugLevel::DETAIL);
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
             DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
                 "[PC=0x{:04X}] [JL] Less condition not met, continuing",
                 pc, pc
             ), DebugLevel::DETAIL);
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -2430,11 +2193,12 @@ void handle_jl(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation for JGE (Jump if Greater or Equal)
 void handle_jge(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
         DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
             "[PC=0x{:04X}] [JGE] PC={} Checking flags for greater or equal",
             pc, pc
@@ -2446,13 +2210,13 @@ void handle_jge(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 "[PC=0x{:04X}] [JGE] Greater or equal condition met, jumping to address {}",
                 pc, addr
             ), DebugLevel::DETAIL);
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
             DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
                 "[PC=0x{:04X}] [JGE] Greater or equal condition not met, continuing",
                 pc, pc
             ), DebugLevel::DETAIL);
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -2464,11 +2228,12 @@ void handle_jge(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // Implementation for JLE (Jump if Less or Equal)
 void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
-    size_t addr_size = cpu.get_address_size();
-    size_t instr_size = 1 + addr_size;  // opcode + address
 
-    if (pc + addr_size < program.size()) {
-        uint64_t addr = cpu.read_address_from_program(program, pc + 1);
+    if (pc + 4 < program.size()) {
+        uint32_t addr = static_cast<uint32_t>(program[pc + 1]) |
+                       (static_cast<uint32_t>(program[pc + 2]) << 8) |
+                       (static_cast<uint32_t>(program[pc + 3]) << 16) |
+                       (static_cast<uint32_t>(program[pc + 4]) << 24);
         DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
             "[PC=0x{:04X}] [JLE] PC={} Checking flags for less or equal",
             pc, pc
@@ -2480,13 +2245,13 @@ void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 "[PC=0x{:04X}] [JLE] Less or equal condition met, jumping to address {}",
                 pc, addr
             ), DebugLevel::DETAIL);
-            cpu.set_pc(static_cast<uint32_t>(addr));
+            cpu.set_pc(addr);
         } else {
             DebugHandler::instance().report(DebugCategory::CPU_JUMP, fmt::format(
                 "[PC=0x{:04X}] [JLE] Less or equal condition not met, continuing",
                 pc, pc
             ), DebugLevel::DETAIL);
-            cpu.set_pc(pc + instr_size);
+            cpu.set_pc(pc + 5);
         }
     } else {
         running = false;
@@ -2840,6 +2605,12 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
         case Opcode::UNPACKB:
             handle_UNPACKB(cpu, program, running);
+            break;
+        case Opcode::STORER:
+            handle_storer(cpu, program, running);
+            break;
+        case Opcode::INT:
+            handle_int(cpu, program, running);
             break;
 
         default:

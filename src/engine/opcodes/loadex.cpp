@@ -1,16 +1,14 @@
 #include "loadex.hpp"
 #include "../cpu_flags.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/core.h>
-
-using Logging::Logger;
 
 void handle_loadex(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
     
     if (pc + 9 >= program.size()) { // 1 + 1 + 8 bytes for opcode + reg + address
-        Logger::instance().error() << fmt::format(
-            "[PC=0x{:04X}] LOADEX: Not enough bytes for instruction", pc) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] LOADEX: Not enough bytes for instruction", pc), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -23,15 +21,15 @@ void handle_loadex(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
         address |= static_cast<uint64_t>(program[pc + 2 + i]) << (i * 8);
     }
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [LOADEX] Loading from address 0x{:016X} into extended register {}", 
-        pc, address, reg_id) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::MEM_ACCESS,
+        fmt::format("[PC=0x{:04X}] [LOADEX] Loading from address 0x{:016X} into extended register {}", 
+        pc, address, reg_id), Logging::DebugLevel::DETAIL);
 
     // Validate memory address bounds
     if (address >= cpu.get_memory_size()) {
-        Logger::instance().error() << fmt::format(
-            "[PC=0x{:04X}] LOADEX: Memory address 0x{:016X} out of bounds (memory size: 0x{:016X})", 
-            pc, address, cpu.get_memory_size()) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::MEM_ACCESS,
+            fmt::format("[PC=0x{:04X}] LOADEX: Memory address 0x{:016X} out of bounds (memory size: 0x{:016X})", 
+            pc, address, cpu.get_memory_size()), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -65,11 +63,11 @@ void handle_loadex(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
 
     cpu.set_flags(flags);
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [LOADEX] Loaded 0x{:016X} from address 0x{:016X} into register {} (Flags: S={} Z={})",
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::MEM_ACCESS,
+        fmt::format("[PC=0x{:04X}] [LOADEX] Loaded 0x{:016X} from address 0x{:016X} into register {} (Flags: S={} Z={})",
         pc, value, address, reg_id,
         (flags & FLAG_SIGN) ? 1 : 0,
-        (flags & FLAG_ZERO) ? 1 : 0) << std::endl;
+        (flags & FLAG_ZERO) ? 1 : 0), Logging::DebugLevel::DETAIL);
 
     // Move to next instruction (1 opcode + 1 reg + 8 address bytes)
     cpu.set_pc(pc + 10);

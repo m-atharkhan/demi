@@ -1,9 +1,10 @@
 #pragma once
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <cstring>
 #include <cmath>
+#include <fmt/format.h>
 
 void handle_FDIV(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // FDIV - Floating point division
@@ -24,7 +25,7 @@ void handle_FDIV(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // Mode-aware address size
     size_t addr_size = cpu.get_address_size();
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FDIV] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[PC=0x{:04X}] [FDIV] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type), Logging::DebugLevel::DETAIL);
     
     switch (operand_type) {
         case 0x00: {
@@ -46,7 +47,7 @@ void handle_FDIV(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             
             // Check for divide by zero
             if (std::abs(divisor) < 1e-15) {
-                Logger::instance().error() << "[FDIV] Division by zero" << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, "[FDIV] Division by zero", Logging::DebugLevel::CRITICAL);
                 running = false;
                 return;
             }
@@ -56,7 +57,7 @@ void handle_FDIV(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double result = st0_val / divisor;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FDIV] {} / {} = {}", st0_val, divisor, result) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FDIV] {} / {} = {}", st0_val, divisor, result), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -78,7 +79,7 @@ void handle_FDIV(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             
             // Check for divide by zero
             if (std::abs(double_val) < 1e-15) {
-                Logger::instance().error() << "[FDIV] Division by zero" << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, "[FDIV] Division by zero", Logging::DebugLevel::CRITICAL);
                 running = false;
                 return;
             }
@@ -88,7 +89,7 @@ void handle_FDIV(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double result = st0_val / double_val;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FDIV] {} / {} = {}", st0_val, double_val, result) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FDIV] {} / {} = {}", st0_val, double_val, result), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -114,7 +115,7 @@ void handle_FDIV(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             
             // Check for divide by zero
             if (std::abs(immediate_val) < 1e-15) {
-                Logger::instance().error() << "[FDIV] Division by zero" << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, "[FDIV] Division by zero", Logging::DebugLevel::CRITICAL);
                 running = false;
                 return;
             }
@@ -124,12 +125,12 @@ void handle_FDIV(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double result = st0_val / immediate_val;
             cpu.fpu_store(0, result);
             
-            Logger::instance().debug() << fmt::format("[FDIV] {} / {} = {}", st0_val, immediate_val, result) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FDIV] {} / {} = {}", st0_val, immediate_val, result), Logging::DebugLevel::DETAIL);
             break;
         }
         
         default:
-            Logger::instance().error() << fmt::format("[FDIV] Invalid operand type 0x{:02X}", operand_type) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FDIV] Invalid operand type 0x{:02X}", operand_type), Logging::DebugLevel::CRITICAL);
             running = false;
             break;
     }

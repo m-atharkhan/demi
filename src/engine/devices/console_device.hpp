@@ -1,15 +1,13 @@
 #pragma once
 
 #include "../device.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 
 #include <fmt/format.h>
 #include <iostream>
 #include <cstdint>
 #include <string>
 #include <deque>
-
-using Logging::Logger;
 
 namespace vhw {
 
@@ -41,21 +39,12 @@ public:
             // Output the character to stdout
             std::cout << static_cast<char>(value) << std::flush;
 
-            // Track if this character is not a newline, meaning subsequent logs might need a newline
-            if (value != '\n') {
-                Logger::set_console_needs_newline(true);
-            } else {
-                Logger::set_console_needs_newline(false);
-            }
-
             // Also log it
-            Logger::instance().debug() << fmt::format(
-                "Console output: {} ('{}')",
+            DEBUG_INFO(Logging::DebugCategory::IO_CONSOLE, "Console output: {} ('{}')",
                 value,
-                value >= 32 && value < 127 ? fmt::format("{}", static_cast<char>(value)) : "."
-            ) << std::endl;
+                value >= 32 && value < 127 ? fmt::format("{}", static_cast<char>(value)) : ".");
         } catch (const std::exception& e) {
-            Logger::instance().error() << "Exception in ConsoleDevice::write: " << e.what() << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_CONSOLE, fmt::format("Exception in ConsoleDevice::write: {}", e.what()), Logging::DebugLevel::CRITICAL);
         }
     }
 

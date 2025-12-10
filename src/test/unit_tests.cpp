@@ -48,9 +48,9 @@ TEST_CASE(load_immediate, "instructions") {
     // Check that other registers have expected values
     ctx.assert_register_eq(2, 0);  // ECX should be 0
     ctx.assert_register_eq(3, 0);  // EDX should be 0
-    // ESI (RSP) and EDI (RBP) are stack pointers, initialized to memory size
-    ctx.assert_register_eq(4, ctx.cpu.get_memory_size()); // RSP = stack top
-    ctx.assert_register_eq(5, ctx.cpu.get_memory_size()); // RBP = stack top
+    // ESI (RSP) and EDI (RBP) are stack pointers, initialized to memory size - 4 (reserved)
+    ctx.assert_register_eq(4, ctx.cpu.get_memory_size() - 4); // RSP = stack top - 4
+    ctx.assert_register_eq(5, ctx.cpu.get_memory_size() - 4); // RBP = stack top - 4
     ctx.assert_register_eq(6, 0);  // ESP should be 0
     ctx.assert_register_eq(7, 0);  // EBP should be 0
 }

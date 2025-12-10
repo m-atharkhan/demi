@@ -1,7 +1,7 @@
 #pragma once
 #include "../cpu.hpp"
 #include "../cpu_flags.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <cmath>
 #include <fmt/format.h>
 
@@ -39,12 +39,11 @@ inline void handle_FCOMPP(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>&
     cpu.fpu_pop();
     cpu.fpu_pop();
     
-    Logger::instance().debug() << fmt::format(
-        "[PC={:#06x}] [FCOMPP] compare {} vs {} -> ZF={} CF={}", 
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC={:#06x}] [FCOMPP] compare {} vs {} -> ZF={} CF={}", 
         cpu.get_pc(), st0, st1,
         (flags & FLAG_ZERO) ? 1 : 0,
-        (flags & FLAG_CARRY) ? 1 : 0
-    ) << std::endl;
+        (flags & FLAG_CARRY) ? 1 : 0), Logging::DebugLevel::DETAIL);
     
     // Increment program counter
     cpu.set_pc(cpu.get_pc() + 1);

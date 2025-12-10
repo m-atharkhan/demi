@@ -385,6 +385,24 @@ uint8_t CPU::fetch_operand() {
     return operand;
 }
 
+// Helper to read address from program stream
+uint64_t CPU::read_address_from_program(const std::vector<uint8_t>& program, uint64_t offset) const {
+    if (offset >= program.size()) {
+        throw CPUException("Program counter out of bounds reading address");
+    }
+
+    size_t addr_size = get_address_size();
+    if (offset + addr_size > program.size()) {
+        throw CPUException("Program counter out of bounds reading address bytes");
+    }
+
+    uint64_t addr = 0;
+    for (size_t i = 0; i < addr_size; ++i) {
+        addr |= static_cast<uint64_t>(program[offset + i]) << (i * 8);
+    }
+    return addr;
+}
+
 // Reads a 32-bit value from memory at the given address (little-endian)
 uint32_t CPU::read_mem32(uint32_t addr) const {
     if (addr + 3 >= memory.size()) {
@@ -420,12 +438,13 @@ void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address, s
     
     // Copy program into memory
     std::copy(program.begin(), program.end(), memory.begin());
+    
     // Debug: Print entry address and PC before setting
     DEBUG_CPU("Starting execution at entry address 0x{:04X}, initial PC was 0x{:04X}", entry_address, get_pc());
     // Use entry address if provided, otherwise default to 0
     set_pc(entry_address);
     DEBUG_CPU("PC set to entry address: 0x{:04X}", get_pc());
-    registers[static_cast<size_t>(Register::RSP)] = memory.size() - 4; // Stack pointer starts at the end of memory
+    registers[static_cast<size_t>(Register::RSP)] = memory.size(); // Stack pointer starts at the end of memory
     registers[static_cast<size_t>(Register::RBP)] = get_sp();
     bool running = true;
     size_t step_count = 0;
@@ -522,30 +541,51 @@ void CPU::print_extended_registers() const {
 
 void CPU::print_memory(std::size_t start, std::size_t end) const {
     std::ostringstream oss;
-    oss << "Memory:" << std::endl;
-    for (std::size_t i = start; i < end && i < memory.size(); ++i) {
-        // Print address at the start of each row
-        if (i % 16 == 0) {
-            if (i > start) oss << std::endl;
-            oss << "0x" << std::setw(8) << std::setfill('0') << std::hex << std::uppercase << i << ": ";
+    oss << "Memory Dump:" << std::endl;
+    
+    // Align start to 16 bytes
+    std::size_t aligned_start = start & ~0xF;
+    
+    for (std::size_t i = aligned_start; i < end && i < memory.size(); i += 16) {
+        // Address
+        oss << "0x" << std::setw(8) << std::setfill('0') << std::hex << std::uppercase << i << ": ";
+        
+        // Hex bytes
+        std::string ascii_repr;
+        for (std::size_t j = 0; j < 16; ++j) {
+            std::size_t current_addr = i + j;
+            
+            if (current_addr < start) {
+                oss << "   "; // Padding for alignment before start
+                ascii_repr += ' ';
+                continue;
+            }
+            
+            if (current_addr < end && current_addr < memory.size()) {
+                uint8_t val = memory[current_addr];
+                
+                // Highlight accessed/modified
+                if (current_addr == last_modified_addr) {
+                    oss << "\033[1;31m" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(val) << "\033[0m ";
+                } else if (current_addr == last_accessed_addr) {
+                    oss << "\033[1;32m" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(val) << "\033[0m ";
+                } else {
+                    oss << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(val) << " ";
+                }
+                
+                // Build ASCII string
+                if (val >= 32 && val <= 126) {
+                    ascii_repr += static_cast<char>(val);
+                } else {
+                    ascii_repr += '.';
+                }
+            } else {
+                oss << "   "; // Padding for missing bytes
+            }
         }
-
-        // Bounds check for memory access
-        uint8_t value = 0;
-        if (i < memory.size()) {
-            value = memory[i];
-        } else {
-            oss << "[??] ";
-            continue;
-        }
-
-        // Print memory value with appropriate highlight
-        if (i == last_accessed_addr)
-            oss << "[A:" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(value) << "] ";
-        else if (i == last_modified_addr)
-            oss << "[M:" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(value) << "] ";
-        else
-            oss << "[" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << static_cast<int>(value) << "] ";
+        
+        // ASCII representation
+        oss << " |" << ascii_repr << "|" << std::endl;
     }
 
     Logging::DebugHandler::instance().report(

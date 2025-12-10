@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../device.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 
 #include <fmt/format.h>
 #include <cstdint>
@@ -23,8 +23,6 @@
 #include <limits.h>
 #include <libgen.h>
 #endif
-
-using Logging::Logger;
 
 namespace vhw {
 
@@ -48,14 +46,12 @@ public:
     bool connect() override {
         #ifdef _WIN32
         // Windows implementation would use CreateFile, SetupComm, etc.
-        Logger::instance().error() << "Windows serial port support not implemented yet" << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, "Windows serial port support not implemented yet", Logging::DebugLevel::CRITICAL);
         return false;
         #else
         // Validate the port path for security
         if (!validateSerialPortPath(portName)) {
-            Logger::instance().error() << fmt::format(
-                "Invalid or unsafe serial port path: '{}'", portName
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Invalid or unsafe serial port path: '{}'", portName), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
@@ -63,20 +59,14 @@ public:
         // Open port with secure flags (O_NOFOLLOW prevents symlink attacks)
         fd = ::open(portName.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
         if (fd < 0) {
-            Logger::instance().error() << fmt::format(
-                "Failed to open serial port '{}': {}",
-                portName, strerror(errno)
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Failed to open serial port '{}': {}", portName, strerror(errno)), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
         // CRITICAL: Re-validate after opening to prevent TOCTOU race conditions
         // An attacker could have changed the file between validation and opening
         if (!validateOpenedSerialPort(fd, portName)) {
-            Logger::instance().error() << fmt::format(
-                "Serial port validation failed after opening (possible TOCTOU attack): '{}'",
-                portName
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Serial port validation failed after opening (possible TOCTOU attack): '{}'", portName), Logging::DebugLevel::CRITICAL);
             ::close(fd);
             fd = -1;
             return false;
@@ -86,10 +76,7 @@ public:
         struct termios tty;
         memset(&tty, 0, sizeof(tty));
         if (tcgetattr(fd, &tty) != 0) {
-            Logger::instance().error() << fmt::format(
-                "Failed to get serial port attributes: {}",
-                strerror(errno)
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Failed to get serial port attributes: {}", strerror(errno)), Logging::DebugLevel::CRITICAL);
             ::close(fd);
             fd = -1;
             return false;
@@ -115,10 +102,7 @@ public:
 
         // Set attributes
         if (tcsetattr(fd, TCSANOW, &tty) != 0) {
-            Logger::instance().error() << fmt::format(
-                "Failed to set serial port attributes: {}",
-                strerror(errno)
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Failed to set serial port attributes: {}", strerror(errno)), Logging::DebugLevel::CRITICAL);
             ::close(fd);
             fd = -1;
             return false;
@@ -129,10 +113,7 @@ public:
         readThread = std::make_unique<std::thread>(&SerialPortDevice::readLoop, this);
 
         connected = true;
-        Logger::instance().info() << fmt::format(
-            "Connected to serial port '{}'",
-            portName
-        ) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Connected to serial port '{}'", portName), Logging::DebugLevel::INFO);
         return true;
         #endif
     }
@@ -156,10 +137,7 @@ public:
         #endif
 
         connected = false;
-        Logger::instance().info() << fmt::format(
-            "Disconnected from serial port '{}'",
-            portName
-        ) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Disconnected from serial port '{}'", portName), Logging::DebugLevel::INFO);
     }
 
     bool isConnected() const override {
@@ -179,10 +157,7 @@ public:
 
     void write(uint8_t value) override {
         if (!isConnected()) {
-            Logger::instance().warn() << fmt::format(
-                "Attempted to write to disconnected serial port: {}",
-                value
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Attempted to write to disconnected serial port: {}", value), Logging::DebugLevel::IMPORTANT);
             return;
         }
 
@@ -192,10 +167,7 @@ public:
         // Unix implementation using write
         ssize_t written = ::write(fd, &value, 1);
         if (written != 1) {
-            Logger::instance().error() << fmt::format(
-                "Failed to write to serial port: {} (written: {})",
-                strerror(errno), written
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Failed to write to serial port: {} (written: {})", strerror(errno), written), Logging::DebugLevel::CRITICAL);
         }
         #endif
     }
@@ -222,19 +194,13 @@ private:
         // Use fstat on the opened file descriptor (not the path)
         // This eliminates TOCTOU race conditions
         if (fstat(fd, &st) != 0) {
-            Logger::instance().error() << fmt::format(
-                "Failed to stat opened serial port '{}': {}",
-                path, strerror(errno)
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Failed to stat opened serial port '{}': {}", path, strerror(errno)), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
         // Verify it's still a character device
         if (!S_ISCHR(st.st_mode)) {
-            Logger::instance().error() << fmt::format(
-                "Opened file '{}' is not a character device (possible TOCTOU attack)",
-                path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Opened file '{}' is not a character device (possible TOCTOU attack)", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
@@ -244,24 +210,18 @@ private:
         // Most serial devices should be readable/writable by owner or group
         mode_t perms = st.st_mode & 0777;
         if ((perms & 0600) == 0) {  // At least owner read/write
-            Logger::instance().warn() << fmt::format(
-                "Serial port '{}' has unusual permissions: {:o}", path, perms
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Serial port '{}' has unusual permissions: {:o}", path, perms), Logging::DebugLevel::IMPORTANT);
         }
 
         // Check if the device is a block device (which would be suspicious)
         if (S_ISBLK(st.st_mode)) {
-            Logger::instance().error() << fmt::format(
-                "Opened file '{}' is a block device (not allowed for serial ports)", path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Opened file '{}' is a block device (not allowed for serial ports)", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
         // Check if it's a regular file (which would be suspicious for a serial port)
         if (S_ISREG(st.st_mode)) {
-            Logger::instance().error() << fmt::format(
-                "Opened file '{}' is a regular file (not allowed for serial ports)", path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Opened file '{}' is a regular file (not allowed for serial ports)", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
@@ -284,9 +244,7 @@ private:
         #ifndef _WIN32
         // Check if path is empty or too long
         if (path.empty() || path.length() >= PATH_MAX) {
-            Logger::instance().error() << fmt::format(
-                "Serial port path is empty or too long: '{}'", path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Serial port path is empty or too long: '{}'", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
@@ -310,42 +268,32 @@ private:
         }
 
         if (!isAllowed) {
-            Logger::instance().error() << fmt::format(
-                "Serial port path not in allowed list: '{}'", path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Serial port path not in allowed list: '{}'", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
         // Check for path traversal attempts
         if (path.find("..") != std::string::npos) {
-            Logger::instance().error() << fmt::format(
-                "Serial port path contains path traversal: '{}'", path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Serial port path contains path traversal: '{}'", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
         // Use lstat to detect symlinks (more secure than stat)
         struct stat st;
         if (lstat(path.c_str(), &st) != 0) {
-            Logger::instance().error() << fmt::format(
-                "Cannot stat serial port path '{}': {}", path, strerror(errno)
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Cannot stat serial port path '{}': {}", path, strerror(errno)), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
         // Reject symbolic links for security
         if (S_ISLNK(st.st_mode)) {
-            Logger::instance().error() << fmt::format(
-                "Serial port path is a symbolic link (security risk): '{}'", path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Serial port path is a symbolic link (security risk): '{}'", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
         // Must be a character device
         if (!S_ISCHR(st.st_mode)) {
-            Logger::instance().error() << fmt::format(
-                "Serial port path is not a character device: '{}'", path
-            ) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Serial port path is not a character device: '{}'", path), Logging::DebugLevel::CRITICAL);
             return false;
         }
 
@@ -370,19 +318,13 @@ private:
                 for (ssize_t i = 0; i < bytesRead; ++i) {
                     if (rxBuffer.size() >= MAX_RX_BUFFER_SIZE) {
                         // Buffer full, drop oldest data to make room
-                        Logger::instance().warn() << fmt::format(
-                            "Serial port RX buffer full ({} bytes), dropping oldest data",
-                            MAX_RX_BUFFER_SIZE
-                        ) << std::endl;
+                        Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Serial port RX buffer full ({} bytes), dropping oldest data", MAX_RX_BUFFER_SIZE), Logging::DebugLevel::IMPORTANT);
                         rxBuffer.pop_front();
                     }
                     rxBuffer.push_back(buffer[i]);
                 }
             } else if (bytesRead < 0 && errno != EAGAIN) {
-                Logger::instance().error() << fmt::format(
-                    "Error reading from serial port: {}",
-                    strerror(errno)
-                ) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, fmt::format("Error reading from serial port: {}", strerror(errno)), Logging::DebugLevel::CRITICAL);
             }
 
             // Sleep a bit to prevent 100% CPU usage

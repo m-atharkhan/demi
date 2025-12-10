@@ -7,6 +7,7 @@
 #include <fstream>
 #include <fmt/core.h>
 #include "../engine/cpu.hpp"
+#include "../debug/debug_handler.hpp"
 
 class TestRunner {
 public:
@@ -30,15 +31,14 @@ public:
                 }
             }
         } catch (const std::exception& e) {
-            Logger::instance().error() << fmt::format("Error iterating directory {}: {}", test_dir_, e.what()) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_FRAMEWORK, fmt::format("Error iterating directory {}: {}", test_dir_, e.what()), Logging::DebugLevel::CRITICAL);
             return results;
         }
         
         // Now process each file
         for (const auto& file_path : hex_files) {
             std::string test_name = file_path.filename().string();
-            Logger::instance().running()
-                << fmt::format("[RUN]  {}", test_name) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, fmt::format("[RUN]  {}", test_name), Logging::DebugLevel::INFO);
             TestResult result = run_test(file_path);
             std::ostringstream oss;
 
@@ -46,9 +46,9 @@ public:
             if (!result.passed && !result.message.empty())
                 oss << " ── " << result.message;
             if (result.passed) {
-                Logger::instance().success() << oss.str() << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, oss.str(), Logging::DebugLevel::IMPORTANT);
             } else {
-                Logger::instance().error() << oss.str() << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, oss.str(), Logging::DebugLevel::CRITICAL);
             }
 
             results.push_back(result);
@@ -92,7 +92,7 @@ private:
         }
 
         if (!comment.empty()) {
-            Logger::instance().info() << fmt::format("[COMMENT] {}", comment) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, fmt::format("[COMMENT] {}", comment), Logging::DebugLevel::INFO);
         }
 
         // Check for empty program

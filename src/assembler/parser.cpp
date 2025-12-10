@@ -504,7 +504,9 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
         if (current_token().type == TokenType::DESCRIPTION) {
             advance();
             if (current_token().type == TokenType::STRING) {
-                test_case->set_description(current_token().as_string());
+                if (!test_case->set_description(current_token().as_string())) {
+                    add_error(".description directive can only be used once per test", current_token());
+                }
                 advance();
                 skip_newlines();
             } else {
@@ -514,7 +516,9 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
         } else if (current_token().type == TokenType::AUTHOR) {
             advance();
             if (current_token().type == TokenType::STRING) {
-                test_case->set_author(current_token().as_string());
+                if (!test_case->set_author(current_token().as_string())) {
+                    add_error(".author directive can only be used once per test", current_token());
+                }
                 advance();
                 skip_newlines();
             } else {
@@ -524,7 +528,9 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
         } else if (current_token().type == TokenType::CATEGORY) {
             advance();
             if (current_token().type == TokenType::STRING) {
-                test_case->set_category(current_token().as_string());
+                if (!test_case->set_category(current_token().as_string())) {
+                    add_error(".category directive can only be used once per test", current_token());
+                }
                 advance();
                 skip_newlines();
             } else {
@@ -544,10 +550,14 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
         } else if (current_token().type == TokenType::ENTRY_POINT) {
             advance();
             if (current_token().type == TokenType::STRING || current_token().type == TokenType::MNEMONIC || current_token().type == TokenType::NUMBER || current_token().type == TokenType::IDENTIFIER) {
+                std::string ep_value;
                 if (current_token().type == TokenType::NUMBER) {
-                    test_case->set_entry_point(std::to_string(current_token().as_uint()));
+                    ep_value = std::to_string(current_token().as_uint());
                 } else {
-                    test_case->set_entry_point(current_token().as_string());
+                    ep_value = current_token().as_string();
+                }
+                if (!test_case->set_entry_point(ep_value)) {
+                    add_error(".entry_point directive can only be used once per test", current_token());
                 }
                 advance();
             } else {
@@ -557,7 +567,9 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
         } else if (current_token().type == TokenType::MAXSTEPS) {
             advance();
             if (current_token().type == TokenType::NUMBER) {
-                test_case->set_max_steps(static_cast<size_t>(current_token().as_uint()));
+                if (!test_case->set_max_steps(static_cast<size_t>(current_token().as_uint()))) {
+                    add_error(".maxsteps directive can only be used once per test", current_token());
+                }
                 advance();
                 skip_newlines();
             } else {
@@ -567,7 +579,9 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
         } else if (current_token().type == TokenType::MAXCALLDEPTH) {
             advance();
             if (current_token().type == TokenType::NUMBER) {
-                test_case->set_max_call_depth(static_cast<size_t>(current_token().as_uint()));
+                if (!test_case->set_max_call_depth(static_cast<size_t>(current_token().as_uint()))) {
+                    add_error(".maxcalldepth directive can only be used once per test", current_token());
+                }
                 advance();
                 skip_newlines();  // Skip any newlines after the number
             } else {
@@ -577,7 +591,9 @@ std::unique_ptr<TestCase> Parser::parse_test_case(size_t line, size_t col) {
         } else if (current_token().type == TokenType::TIMEOUT) {
             advance();
             if (current_token().type == TokenType::NUMBER) {
-                test_case->set_timeout(static_cast<size_t>(current_token().as_uint()));
+                if (!test_case->set_timeout(static_cast<size_t>(current_token().as_uint()))) {
+                    add_error(".timeout directive can only be used once per test", current_token());
+                }
                 advance();
                 skip_newlines();  // Skip any newlines after the number
             } else {

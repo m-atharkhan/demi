@@ -1,7 +1,7 @@
 #pragma once
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/format.h>
 
 // FLDCW: Load FPU control word from memory
@@ -26,10 +26,10 @@ void handle_FLDCW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     
     // Check bounds - we need to read 2 bytes
     if (addr + 1 >= cpu.get_memory_size()) {
-        Logger::instance().error() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format(
             "[PC={:#06x}] [FLDCW] Memory access violation: address {:#010x} out of bounds (memory size: {})",
             cpu.get_pc(), addr + 1, cpu.get_memory_size()
-        ) << std::endl;
+        ), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -42,10 +42,10 @@ void handle_FLDCW(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     // Set control word
     cpu.set_fpu_control_word(control_word);
     
-    Logger::instance().debug() << fmt::format(
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format(
         "[PC={:#06x}] [FLDCW] loaded control word {:#06x} from address {:#010x}", 
         cpu.get_pc(), control_word, addr
-    ) << std::endl;
+    ), Logging::DebugLevel::DETAIL);
     
     // Increment program counter (opcode + mode-aware address)
     cpu.set_pc(cpu.get_pc() + instr_size);

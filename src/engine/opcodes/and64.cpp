@@ -1,17 +1,15 @@
 #include "and64.hpp"
 #include "../cpu_flags.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/core.h>
-
-using Logging::Logger;
 
 void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
     
     // Check bounds for 3-operand instruction (opcode + 3 registers)
     if (pc + 3 >= program.size()) {
-        Logger::instance().error() << fmt::format(
-            "[PC=0x{:04X}] AND64: Not enough bytes for instruction", pc) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] AND64: Not enough bytes for instruction", pc), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -20,16 +18,16 @@ void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     uint8_t src1_reg = program[pc + 2];   // Source register 1
     uint8_t src2_reg = program[pc + 3];   // Source register 2
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [AND64] R{} = R{} & R{}", 
-        pc, dest_reg, src1_reg, src2_reg) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [AND64] R{} = R{} & R{}", 
+        pc, dest_reg, src1_reg, src2_reg), Logging::DebugLevel::DETAIL);
 
     // Check register bounds before accessing
     if (dest_reg >= cpu.get_registers_64().size() || 
         src1_reg >= cpu.get_registers_64().size() || 
         src2_reg >= cpu.get_registers_64().size()) {
-        Logger::instance().error() << fmt::format(
-            "[PC=0x{:04X}] AND64: Register index out of bounds", pc) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] AND64: Register index out of bounds", pc), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -38,9 +36,9 @@ void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     uint64_t operand1 = cpu.get_registers_64()[src1_reg];
     uint64_t operand2 = cpu.get_registers_64()[src2_reg];
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [AND64] Values: {} & {}", 
-        pc, operand1, operand2) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [AND64] Values: {} & {}", 
+        pc, operand1, operand2), Logging::DebugLevel::DETAIL);
 
     // Perform bitwise AND
     uint64_t result = operand1 & operand2;
@@ -67,13 +65,10 @@ void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
 
     cpu.set_flags(flags);
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [AND64] Result: R{} = {} (Flags: C={} O={} S={} Z={})",
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [AND64] Result: R{} = {} (Flags: C={} O={} S={} Z={})",
         pc, dest_reg, result,
-        (flags & FLAG_CARRY) ? 1 : 0,
-        (flags & FLAG_OVERFLOW) ? 1 : 0,
-        (flags & FLAG_SIGN) ? 1 : 0,
-        (flags & FLAG_ZERO) ? 1 : 0) << std::endl;
+        0, 0, sign ? 1 : 0, zero ? 1 : 0), Logging::DebugLevel::DETAIL);
 
     // Move to next instruction (opcode + 3 operands = 4 bytes)
     cpu.set_pc(pc + 4);

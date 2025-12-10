@@ -1,6 +1,6 @@
 #include "branch_prediction.hpp"
 #include "cpu.hpp"  // Include full CPU definition
-#include "../debug/logger.hpp"
+#include "../debug/debug_handler.hpp"
 #include "../config.hpp"
 #include <fmt/format.h>
 #include <algorithm>
@@ -28,10 +28,10 @@ BranchPredictor::BranchPredictor()
     // Only log initialization if not in test mode
     static bool logged_initialization = false;
     if (!Config::test_mode && !logged_initialization) {
-        Logger::instance().info() << fmt::format(
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format(
             "BranchPredictor initialized: BHT_SIZE={}, BTB_SIZE={}, PHT_SIZE={}",
             BHT_SIZE, BTB_SIZE, PHT_SIZE
-        ) << std::endl;
+        ), Logging::DebugLevel::INFO);
         logged_initialization = true;
     }
 }

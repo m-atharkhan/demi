@@ -1,7 +1,8 @@
 #pragma once
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
+#include <fmt/format.h>
 
 void handle_FILD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // FILD - Load integer as floating point
@@ -23,7 +24,7 @@ void handle_FILD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // Mode-aware address size
     size_t addr_size = cpu.get_address_size();
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FILD] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[PC=0x{:04X}] [FILD] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type), Logging::DebugLevel::DETAIL);
     
     switch (operand_type) {
         case 0x00: { // Immediate 32-bit integer
@@ -40,7 +41,7 @@ void handle_FILD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double float_value = static_cast<double>(int_value);
             cpu.fpu_push(float_value);
             
-            Logger::instance().debug() << fmt::format("[FILD] Loaded immediate int32 {} as double {}", int_value, float_value) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FILD] Loaded immediate int32 {} as double {}", int_value, float_value), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -58,7 +59,7 @@ void handle_FILD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double float_value = static_cast<double>(int_value);
             cpu.fpu_push(float_value);
             
-            Logger::instance().debug() << fmt::format("[FILD] Loaded int32 {} from addr 0x{:04X} as double {}", int_value, addr, float_value) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FILD] Loaded int32 {} from addr 0x{:04X} as double {}", int_value, addr, float_value), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -77,7 +78,7 @@ void handle_FILD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double float_value = static_cast<double>(int_value);
             cpu.fpu_push(float_value);
             
-            Logger::instance().debug() << fmt::format("[FILD] Loaded int16 {} from addr 0x{:04X} as double {}", int_value, addr, float_value) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FILD] Loaded int16 {} from addr 0x{:04X} as double {}", int_value, addr, float_value), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -97,12 +98,12 @@ void handle_FILD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             double float_value = static_cast<double>(int_value);
             cpu.fpu_push(float_value);
             
-            Logger::instance().debug() << fmt::format("[FILD] Loaded int64 {} from addr 0x{:04X} as double {}", int_value, addr, float_value) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FILD] Loaded int64 {} from addr 0x{:04X} as double {}", int_value, addr, float_value), Logging::DebugLevel::DETAIL);
             break;
         }
         
         default:
-            Logger::instance().error() << fmt::format("[FILD] Invalid operand type 0x{:02X}", operand_type) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FILD] Invalid operand type 0x{:02X}", operand_type), Logging::DebugLevel::CRITICAL);
             running = false;
             break;
     }

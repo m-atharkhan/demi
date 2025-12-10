@@ -1,18 +1,16 @@
 #include "div64.hpp"
 #include "../cpu_flags.hpp"
 #include "../cpu.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/core.h>
-
-using Logging::Logger;
 
 void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
     
     // Check bounds for 3-operand instruction (opcode + 3 registers)
     if (pc + 3 >= program.size()) {
-        Logger::instance().error() << fmt::format(
-            "[PC=0x{:04X}] DIV64: Not enough bytes for instruction", pc) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] DIV64: Not enough bytes for instruction", pc), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -21,16 +19,16 @@ void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     uint8_t src1_reg = program[pc + 2];   // Source register 1 (dividend)
     uint8_t src2_reg = program[pc + 3];   // Source register 2 (divisor)
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [DIV64] R{} = R{} / R{}", 
-        pc, dest_reg, src1_reg, src2_reg) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [DIV64] R{} = R{} / R{}", 
+        pc, dest_reg, src1_reg, src2_reg), Logging::DebugLevel::DETAIL);
 
     // Check register bounds before accessing
     if (dest_reg >= cpu.get_registers_64().size() || 
         src1_reg >= cpu.get_registers_64().size() || 
         src2_reg >= cpu.get_registers_64().size()) {
-        Logger::instance().error() << fmt::format(
-            "[PC=0x{:04X}] DIV64: Register index out of bounds", pc) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] DIV64: Register index out of bounds", pc), Logging::DebugLevel::CRITICAL);
         running = false;
         return;
     }
@@ -39,14 +37,14 @@ void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     uint64_t dividend = cpu.get_registers_64()[src1_reg];
     uint64_t divisor = cpu.get_registers_64()[src2_reg];
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [DIV64] Values: {} / {}", 
-        pc, dividend, divisor) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [DIV64] Values: {} / {}", 
+        pc, dividend, divisor), Logging::DebugLevel::DETAIL);
 
     // Check for division by zero
     if (divisor == 0) {
         std::string error_msg = fmt::format("[PC=0x{:04X}] DIV64: Division by zero", pc);
-        Logger::instance().error() << error_msg << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, error_msg, Logging::DebugLevel::CRITICAL);
         
         // Set error flags 
         uint32_t flags = cpu.get_flags();
@@ -82,13 +80,13 @@ void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
 
     cpu.set_flags(flags);
 
-    Logger::instance().debug() << fmt::format(
-        "[PC=0x{:04X}] [DIV64] Result: R{} = 0x{:016X} (Flags: C={} O={} S={} Z={})",
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [DIV64] Result: R{} = 0x{:016X} (Flags: C={} O={} S={} Z={})",
         pc, dest_reg, result,
         (flags & FLAG_CARRY) ? 1 : 0,
         (flags & FLAG_OVERFLOW) ? 1 : 0,
         (flags & FLAG_SIGN) ? 1 : 0,
-        (flags & FLAG_ZERO) ? 1 : 0) << std::endl;
+        (flags & FLAG_ZERO) ? 1 : 0), Logging::DebugLevel::DETAIL);
 
     // Move to next instruction (opcode + 3 operands = 4 bytes)
     cpu.set_pc(pc + 4);

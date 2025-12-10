@@ -1,8 +1,9 @@
 #pragma once
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <cstring>
+#include <fmt/format.h>
 
 void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // FLD - Load floating point value onto FPU stack
@@ -17,7 +18,7 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint8_t operand_type = program[cpu.get_pc() + 1];
     cpu.set_pc(cpu.get_pc() + 2); // Skip opcode and operand type
     
-    Logger::instance().debug() << fmt::format("[PC=0x{:04X}] [FLD] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type) << std::endl;
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[PC=0x{:04X}] [FLD] operand_type=0x{:02X}", cpu.get_pc() - 2, operand_type), Logging::DebugLevel::DETAIL);
     
     // Mode-aware address size
     size_t addr_size = cpu.get_address_size();
@@ -40,7 +41,7 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             
             // Push onto FPU stack as double
             cpu.fpu_push(static_cast<double>(float_val));
-            Logger::instance().debug() << fmt::format("[FLD] Loaded float {} from addr 0x{:04X}", float_val, addr) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FLD] Loaded float {} from addr 0x{:04X}", float_val, addr), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -61,7 +62,7 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             std::memcpy(&double_val, &raw_double, sizeof(double));
             
             cpu.fpu_push(double_val);
-            Logger::instance().debug() << fmt::format("[FLD] Loaded double {} from addr 0x{:04X}", double_val, addr) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FLD] Loaded double {} from addr 0x{:04X}", double_val, addr), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -86,7 +87,7 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             std::memcpy(&double_val, &raw_double, sizeof(double));
             
             cpu.fpu_push(double_val);
-            Logger::instance().debug() << fmt::format("[FLD] Loaded immediate double {}", double_val) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FLD] Loaded immediate double {}", double_val), Logging::DebugLevel::DETAIL);
             break;
         }
         
@@ -101,19 +102,19 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             cpu.set_pc(cpu.get_pc() + 1);
             
             if (st_index > 7) {
-                Logger::instance().error() << fmt::format("[FLD] Invalid ST register index: {}", st_index) << std::endl;
+                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FLD] Invalid ST register index: {}", st_index), Logging::DebugLevel::CRITICAL);
                 running = false;
                 return;
             }
             
             double value = cpu.fpu_peek(st_index);
             cpu.fpu_push(value);
-            Logger::instance().debug() << fmt::format("[FLD] Duplicated ST({}) = {}", st_index, value) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FLD] Duplicated ST({}) = {}", st_index, value), Logging::DebugLevel::DETAIL);
             break;
         }
         
         default:
-            Logger::instance().error() << fmt::format("[FLD] Unknown operand type: 0x{:02X}", operand_type) << std::endl;
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FLD] Unknown operand type: 0x{:02X}", operand_type), Logging::DebugLevel::CRITICAL);
             running = false;
             break;
     }

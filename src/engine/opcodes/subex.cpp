@@ -1,10 +1,8 @@
 #include "subex.hpp"
 #include "../cpu.hpp"
 #include "../cpu_flags.hpp"
-#include "../../debug/logger.hpp"
+#include "../../debug/debug_handler.hpp"
 #include <fmt/core.h>
-
-using Logging::Logger;
 
 void handle_subex(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     uint32_t pc = cpu.get_pc();
@@ -14,9 +12,9 @@ void handle_subex(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         uint8_t reg2 = program[pc + 2];
 
         // Debug output for operation
-        Logger::instance().debug() << fmt::format(
-            "[PC=0x{:04X}] [SUBEX] Subtracting extended registers {} and {}",
-            pc, reg1, reg2) << std::endl;
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] [SUBEX] Subtracting extended registers {} and {}",
+            pc, reg1, reg2), Logging::DebugLevel::DETAIL);
 
         // Get register values in 64-bit mode
         uint64_t value1 = cpu.get_register_64(static_cast<Register>(reg1));
@@ -63,13 +61,13 @@ void handle_subex(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         cpu.set_register_64(static_cast<Register>(reg1), result);
 
         // Debug output for completed operation with flags
-        Logger::instance().debug() << fmt::format(
-            "[PC=0x{:04X}] [SUBEX] Result: 0x{:016X} = 0x{:016X} - 0x{:016X} (Flags: C={} O={} S={} Z={})",
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] [SUBEX] Result: 0x{:016X} = 0x{:016X} - 0x{:016X} (Flags: C={} O={} S={} Z={})",
             pc, result, value1, value2,
             (flags & FLAG_CARRY) ? 1 : 0,
             (flags & FLAG_OVERFLOW) ? 1 : 0,
             (flags & FLAG_SIGN) ? 1 : 0,
-            (flags & FLAG_ZERO) ? 1 : 0) << std::endl;
+            (flags & FLAG_ZERO) ? 1 : 0), Logging::DebugLevel::DETAIL);
 
         cpu.set_pc(pc + 3); // Advance past opcode and two register operands
     } else {

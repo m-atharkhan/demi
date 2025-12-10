@@ -1,5 +1,6 @@
 #include "error_handler.hpp"
 #include "logger.hpp"
+#include "debug_handler.hpp"
 #include "../config.hpp"
 #include <iostream>
 
@@ -212,14 +213,14 @@ void ErrorHandler::log_error(const ErrorContext& error) {
     
     std::string formatted = format_error(error);
     
-    // Log through Logger based on severity
+    // Log through DebugHandler based on severity
     switch (error.severity) {
         case ErrorSeverity::WARNING:
-            Logger::instance().warn() << formatted << std::endl;
+            DebugHandler::instance().report(DebugCategory::DEBUG_GENERIC, formatted, DebugLevel::IMPORTANT);
             break;
         case ErrorSeverity::ERROR:
         case ErrorSeverity::FATAL:
-            Logger::instance().error() << formatted << std::endl;
+            DebugHandler::instance().report(DebugCategory::DEBUG_GENERIC, formatted, DebugLevel::CRITICAL);
             break;
     }
 }
