@@ -15,18 +15,21 @@ Thank you for your interest in contributing to DemiEngine! This guide explains h
 ## Ways to Contribute
 
 ### Code Contributions
+
 - **Bug fixes**: Fix issues in CPU emulation, device drivers, or GUI
 - **New features**: Add instructions, devices, or debugging capabilities
 - **Performance improvements**: Optimize execution speed or memory usage
 - **Platform support**: Add support for new operating systems
 
 ### Documentation
+
 - **API documentation**: Improve /** comments **/ and technical docs
 - **User guides**: Create tutorials and programming examples
 - **Code examples**: Add well-commented example programs
 - **Troubleshooting**: Document solutions to common problems
 
 ### Testing
+
 - **Test programs**: Create comprehensive hex programs for testing
 - **Edge cases**: Test boundary conditions and error scenarios
 - **Platform testing**: Verify functionality on different systems
@@ -37,21 +40,25 @@ Thank you for your interest in contributing to DemiEngine! This guide explains h
 ### Prerequisites
 
 **Required Tools**:
+
 - C++17 compatible compiler (GCC 7+, Clang 6+)
 - Make build system
 - Git for version control
 
 **Required Libraries**:
+
 - fmt library for string formatting
 - OpenGL and GLFW for GUI (optional, for debug mode)
 
 **Installation on Ubuntu/Debian**:
+
 ```bash
 sudo apt update
 sudo apt install g++ make git libfmt-dev libgl1-mesa-dev libglfw3-dev
 ```
 
 **Installation on other platforms**:
+
 - **macOS**: Use Homebrew to install dependencies
 - **Windows**: Use vcpkg or manual installation
 - **Other Linux**: Use your distribution's package manager
@@ -151,7 +158,7 @@ void long_function_name(int parameter1, int parameter2,
 
 ### Documentation Comments
 
-Use /** */ style comments for API documentation:
+Use /\*\* \*/ style comments for API documentation:
 
 ```cpp
 /**
@@ -197,7 +204,7 @@ void set_register(Register reg, uint32_t value) {
 
 ### Code Documentation
 
-- **Public APIs**: Must have /** */ documentation comments
+- **Public APIs**: Must have /\*\* \*/ documentation comments
 - **Complex algorithms**: Include inline comments explaining logic
 - **Magic numbers**: Define as named constants with explanations
 - **File headers**: Include purpose, author, and license information
@@ -211,7 +218,7 @@ void set_register(Register reg, uint32_t value) {
 
 ### Example Documentation Format
 
-```cpp
+````cpp
 /**
  * @file cpu.hpp
  * @brief CPU emulation for DemiEngine virtual computer
@@ -246,20 +253,22 @@ void set_register(Register reg, uint32_t value) {
 class CPU {
     // ...
 };
-```
+````
 
 ## Testing Requirements
 
 ### 🏆 Current Test Status: PERFECT COVERAGE ACHIEVED!
 
 DemiEngine has achieved **100% test coverage** with a comprehensive testing framework:
+
 - **✅ 59/59 Unit Tests Passing** (100% success rate)
-- **✅ 41/41 Integration Tests Passing** (100% success rate)  
+- **✅ 41/41 Integration Tests Passing** (100% success rate)
 - **✅ 100/100 Total Tests Passing** (Perfect coverage)
 
 ### Test Framework Features
 
 The implemented testing framework provides:
+
 - **Rich Assertion System**: Register, memory, flag, device, and state validation
 - **Component Testing**: Individual testing of CPU, opcodes, devices, and assembler
 - **Integration Testing**: Full system validation with real programs
@@ -323,6 +332,7 @@ FF                  # HALT
 When adding new features, please:
 
 1. **Add Unit Tests**: Test individual components with the existing framework
+
 ```cpp
 TEST_CASE("your_feature_test", "category") {
     // Your test code here
@@ -359,12 +369,14 @@ TEST_CASE("your_feature_test", "category") {
 **Title Format**: `[Component] Brief description of change`
 
 Examples:
+
 - `[CPU] Add support for floating-point arithmetic`
 - `[Device] Implement network device for TCP communication`
 - `[GUI] Add memory search functionality`
 - `[Docs] Update instruction set reference`
 
 **Description Should Include**:
+
 - **What**: Summary of changes made
 - **Why**: Motivation and use case
 - **How**: Brief explanation of implementation approach
@@ -372,6 +384,7 @@ Examples:
 - **Breaking changes**: Any backwards compatibility issues
 
 **Example Pull Request Description**:
+
 ```
 [CPU] Add floating-point arithmetic instructions
 
@@ -472,6 +485,7 @@ Breaking Changes:
 ### Development Questions
 
 When asking for help:
+
 1. **Search existing issues** and documentation first
 2. **Provide context**: What you're trying to achieve
 3. **Include details**: Platform, compiler, error messages
