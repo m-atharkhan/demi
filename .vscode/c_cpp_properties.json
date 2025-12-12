@@ -1,32 +1,32 @@
 {
-    "configurations": [
-        {
-            "name": "WSL-GCC",
-            "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/src",
-                "${workspaceFolder}/src/assembler",
-                "${workspaceFolder}/src/engine",
-                "${workspaceFolder}/src/test",
-                "${workspaceFolder}/src/debug",
-                "${workspaceFolder}/src/codegen",
-                "${workspaceFolder}/extern",
-                "${workspaceFolder}/extern/fmt/include"
-            ],
-            "browse": {
-                "path": [
-                    "${workspaceFolder}",
-                    "${workspaceFolder}/src",
-                    "${workspaceFolder}/extern"
-                ],
-                "limitSymbolsToIncludedHeaders": true
-            },
-            "defines": [],
-            "compilerPath": "/usr/bin/g++",
-            "cStandard": "c11",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "linux-gcc-x64"
-        }
-    ],
-    "version": 4
+  "configurations": [
+    {
+      "name": "WSL-GCC",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "${workspaceFolder}/src",
+        "${workspaceFolder}/src/assembler",
+        "${workspaceFolder}/src/engine",
+        "${workspaceFolder}/src/test",
+        "${workspaceFolder}/src/debug",
+        "${workspaceFolder}/src/codegen",
+        "${workspaceFolder}/extern",
+        "${workspaceFolder}/extern/fmt/include"
+      ],
+      "browse": {
+        "path": [
+          "${workspaceFolder}",
+          "${workspaceFolder}/src",
+          "${workspaceFolder}/extern"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "defines": [],
+      "compilerPath": "/usr/bin/g++",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "linux-gcc-x64"
+    }
+  ],
+  "version": 4
 }
