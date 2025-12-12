@@ -299,5 +299,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update issue templates (4020a6e) - Owen Boreham
 - Add issue template configuration for security reports (1c4d8f2) - Owen Boreham
 - Refactor Makefile to production-ready build system (67bbbce) - Owen Boreham
-
-

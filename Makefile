@@ -80,21 +80,8 @@ FMT_OBJS := $(patsubst $(FMT_DIR)/src/%.cc,$(BUILD_DIR)/fmt/%.o,$(FMT_SRCS))
 FMT_DEPS := $(FMT_OBJS:.o=.d)
 CXXFLAGS += -I$(FMT_DIR)/include
 
-# ImGui library  
-IMGUI_DIR := $(EXTERN_DIR)/imgui
-IMGUI_BACKEND_DIR := $(IMGUI_DIR)/backends
-IMGUI_SRCS := $(wildcard $(IMGUI_DIR)/*.cpp) \
-              $(IMGUI_BACKEND_DIR)/imgui_impl_glfw.cpp \
-              $(IMGUI_BACKEND_DIR)/imgui_impl_opengl3.cpp
-IMGUI_OBJS := $(patsubst $(EXTERN_DIR)/%.cpp,$(BUILD_DIR)/extern/%.o,$(IMGUI_SRCS))
-IMGUI_DEPS := $(IMGUI_OBJS:.o=.d)
-CXXFLAGS += -I$(IMGUI_DIR) -I$(IMGUI_BACKEND_DIR)
-
-# System libraries for ImGui
-LDFLAGS += -lglfw -lGL -lGLEW
-
 # =============================================================================
-# Source File Discovery and Object Generation  
+# Source File Discovery and Object Generation
 # =============================================================================
 
 # Find all source files (cached for performance)
@@ -108,7 +95,7 @@ TEST_OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(TEST_SRCS))
 ALL_OBJS := $(MAIN_OBJS) $(TEST_OBJS)
 
 # Dependency files
-ALL_DEPS := $(ALL_OBJS:.o=.d) $(FMT_DEPS) $(IMGUI_DEPS)
+ALL_DEPS := $(ALL_OBJS:.o=.d) $(FMT_DEPS)
 
 # =============================================================================
 # Target Definitions
@@ -134,6 +121,9 @@ LIB_OBJS := $(filter-out $(BUILD_DIR)/main.o $(BUILD_DIR)/test/test_assembler.o,
 .PHONY: debug release profile sanitize prereqs help version info
 .PHONY: test-all test-assembler force-rebuild check-deps
 .PHONY: benchmark-binaries docs lint format
+.PHONY: debug-symbols debug-dependencies debug-linking debug-undefined
+.PHONY: debug-undefined-detailed debug-problematic-objects debug-minimal-link
+.PHONY: debug-analysis debug-clean debug-recommendations
 
 # =============================================================================
 # Main Build Targets
@@ -142,17 +132,17 @@ LIB_OBJS := $(filter-out $(BUILD_DIR)/main.o $(BUILD_DIR)/test/test_assembler.o,
 # Default build (all configurations)
 all: $(TARGET)
 
-# Quick build shorthand  
+# Quick build shorthand
 build: all
 
 # Main executable
-$(TARGET): $(MAIN_TARGET_OBJS) $(FMT_OBJS) $(IMGUI_OBJS) | $(BIN_DIR)
+$(TARGET): $(MAIN_TARGET_OBJS) $(FMT_OBJS) | $(BIN_DIR)
 	@echo "🔗 Linking $(notdir $@)..."
 	@$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 	@echo "✅ Build complete: $@"
 
 # Test runner
-$(TEST_TARGET): $(LIB_OBJS) $(TEST_OBJS) $(FMT_OBJS) $(IMGUI_OBJS) | $(BIN_DIR)
+$(TEST_TARGET): $(LIB_OBJS) $(TEST_OBJS) $(FMT_OBJS) | $(BIN_DIR)
 	@echo "🔗 Linking test runner..."
 	@$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 	@echo "✅ Test runner built: $@"
@@ -182,17 +172,6 @@ $(BUILD_DIR)/fmt/%.o: $(FMT_DIR)/src/%.cc
 	@echo "🔨 Compiling FMT $(notdir $<)..."
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# ImGui compilation
-$(BUILD_DIR)/extern/imgui/%.o: $(IMGUI_DIR)/%.cpp
-	@mkdir -p $(dir $@)
-	@echo "🔨 Compiling ImGui $(notdir $<)..."
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/extern/imgui/backends/%.o: $(IMGUI_BACKEND_DIR)/%.cpp
-	@mkdir -p $(dir $@)
-	@echo "🔨 Compiling ImGui backend $(notdir $<)..."
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
-
 # =============================================================================
 # Directory Creation
 # =============================================================================
@@ -210,7 +189,7 @@ debug:
 	@echo "BUILD_TYPE=debug" > $(CONFIG_FILE)
 
 release:
-	@$(MAKE) BUILD_TYPE=release all  
+	@$(MAKE) BUILD_TYPE=release all
 	@echo "BUILD_TYPE=release" > $(CONFIG_FILE)
 
 profile:
@@ -247,7 +226,7 @@ test-assembler: $(ASSEMBLER_TEST_TARGET)
 test: unit-test
 
 # =============================================================================
-# Development and Maintenance Targets  
+# Development and Maintenance Targets
 # =============================================================================
 
 # Clean build artifacts
@@ -320,7 +299,7 @@ $(BENCHMARK_BUILD_DIR)/threaded/%.o: $(SRC_DIR)/%.cpp
 	@$(CXX) -Wall -Wextra -std=c++17 -O3 -DNDEBUG -flto -march=native \
 		-I$(FMT_DIR)/include -MMD -MP -c $< -o $@
 
-$(BENCHMARK_BUILD_DIR)/threaded/fmt/%.o: $(FMT_DIR)/src/%.cc  
+$(BENCHMARK_BUILD_DIR)/threaded/fmt/%.o: $(FMT_DIR)/src/%.cc
 	@mkdir -p $(dir $@)
 	@echo "⚡ Compiling threaded FMT $(notdir $<)..."
 	@$(CXX) -Wall -Wextra -std=c++17 -O3 -DNDEBUG -flto -march=native \
@@ -339,7 +318,7 @@ $(BENCHMARK_BUILD_DIR)/fallback/%.o: $(SRC_DIR)/%.cpp
 		-I$(FMT_DIR)/include -MMD -MP -c $< -o $@
 
 $(BENCHMARK_BUILD_DIR)/fallback/fmt/%.o: $(FMT_DIR)/src/%.cc
-	@mkdir -p $(dir $@)  
+	@mkdir -p $(dir $@)
 	@echo "🔍 Compiling fallback FMT $(notdir $<)..."
 	@$(CXX) -Wall -Wextra -std=c++17 -O2 -g -fsanitize=address \
 		-I$(FMT_DIR)/include -MMD -MP -c $< -o $@
@@ -434,12 +413,12 @@ info:
 	@echo "🏗️  Build type: $(BUILD_TYPE)"
 	@echo "🔧 Compiler: $(CXX)"
 	@echo "⚙️  Flags: $(CXXFLAGS)"
-	@echo "🔗 Linker flags: $(LDFLAGS)"  
+	@echo "🔗 Linker flags: $(LDFLAGS)"
 	@echo "📁 Source files: $(words $(ALL_SRCS))"
 	@echo "🎯 Main target: $(TARGET)"
 	@echo "🧪 Test target: $(TEST_TARGET)"
 	@echo "🚀 CPU cores: $(NPROCS)"
-	@echo "📦 External libs: FMT, ImGui"
+	@echo "📦 External libs: FMT"
 
 # Version information (if VERSION file exists)
 version:
@@ -483,11 +462,235 @@ help:
 		echo "  make format       - Format source code"; \
 		echo "  make lint         - Static analysis"; \
 		echo ""; \
+		echo "🔍 Debugging:"; \
+		echo "  make debug-symbols         - Analyze symbol tables"; \
+		echo "  make debug-dependencies    - Check library dependencies"; \
+		echo "  make debug-linking         - Verbose linking with map"; \
+		echo "  make debug-undefined       - Find undefined symbols"; \
+		echo "  make debug-undefined-detailed - Detailed undefined analysis"; \
+		echo "  make debug-problematic-objects - Find problematic object files"; \
+		echo "  make debug-minimal-link    - Test minimal linking"; \
+		echo "  make debug-analysis        - Comprehensive debug analysis"; \
+		echo "  make debug-recommendations - Get actionable fix recommendations"; \
+		echo "  make debug-clean           - Clean debug files"; \
+		echo ""; \
 		echo "ℹ️  Information:"; \
 		echo "  make info         - Build configuration info"; \
 		echo "  make version      - Version information"; \
 		echo "  make help         - This help message"; \
 	} 2>/dev/null || true
+
+# =============================================================================
+# Debugging and Analysis Targets
+# =============================================================================
+
+# Examine symbol tables in object files
+debug-symbols:
+	@echo "🔍 Analyzing symbol tables..."
+	@if [ -d $(BUILD_DIR) ] && [ $$(find $(BUILD_DIR) -name "*.o" | wc -l) -gt 0 ]; then \
+		echo "📄 Generating symbols.txt..."; \
+		nm -C $(BUILD_DIR)/**/*.o > symbols.txt 2>/dev/null || \
+		find $(BUILD_DIR) -name "*.o" -exec nm -C {} \; > symbols.txt; \
+		echo "✅ Symbol analysis saved to symbols.txt"; \
+		echo "📊 Symbol summary:"; \
+		echo "  🔤 Total symbols: $$(wc -l < symbols.txt)"; \
+		echo "  🔧 Defined symbols: $$(grep -c ' [TtDdRrBb] ' symbols.txt || echo 0)"; \
+		echo "  ❓ Undefined symbols: $$(grep -c ' U ' symbols.txt || echo 0)"; \
+	else \
+		echo "❌ No object files found. Build first with 'make all'"; \
+		exit 1; \
+	fi
+
+# Check shared library dependencies
+debug-dependencies:
+	@echo "🔗 Analyzing library dependencies..."
+	@if [ -f $(TARGET) ]; then \
+		echo "📋 Dependencies for $(TARGET):"; \
+		ldd $(TARGET) || echo "⚠️  ldd failed - static binary or not built yet"; \
+		echo ""; \
+		echo "🔍 Dynamic symbol analysis:"; \
+		readelf -d $(TARGET) 2>/dev/null | grep NEEDED || echo "  No dynamic dependencies"; \
+	else \
+		echo "❌ Target $(TARGET) not found. Build first with 'make all'"; \
+		exit 1; \
+	fi
+
+# Verbose linking with map file generation
+debug-linking:
+	@echo "🔗 Debug linking with verbose output..."
+	@echo "🗺️  Generating link map..."
+	@$(MAKE) clean >/dev/null 2>&1 || true
+	@$(CXX) $(CXXFLAGS) -Wl,--verbose -Wl,-Map=link.map -o $(TARGET) $(MAIN_TARGET_OBJS) $(FMT_OBJS) $(LDFLAGS) 2>&1 | \
+		grep -E "(attempt to open|succeeded|failed|undefined reference)" || true
+	@if [ -f link.map ]; then \
+		echo "✅ Link map generated: link.map"; \
+		echo "📊 Link summary:"; \
+		echo "  📄 Sections: $$(grep -c '^\.' link.map || echo 0)"; \
+		echo "  🏗️  Objects linked: $$(grep -c '\.o)' link.map || echo 0)"; \
+		echo "  📚 Libraries: $$(grep -c '\.so' link.map || echo 0)"; \
+	else \
+		echo "⚠️  Link map not generated"; \
+	fi
+
+# Analyze undefined symbols specifically
+debug-undefined:
+	@echo "❓ Analyzing undefined symbols..."
+	@if [ -d $(BUILD_DIR) ] && [ $$(find $(BUILD_DIR) -name "*.o" | wc -l) -gt 0 ]; then \
+		echo "🔍 Searching for undefined symbols in object files..."; \
+		UNDEFINED=$$(find $(BUILD_DIR) -name "*.o" -exec nm -u {} \; 2>/dev/null | grep -v "^$$" | sort | uniq); \
+		if [ -n "$$UNDEFINED" ]; then \
+			echo "📄 Undefined symbols found:"; \
+			echo "$$UNDEFINED" | head -20; \
+			if [ $$(echo "$$UNDEFINED" | wc -l) -gt 20 ]; then \
+				echo "  ... and $$(echo "$$UNDEFINED" | wc -l | awk '{print $$1-20}') more"; \
+			fi; \
+			echo "$$UNDEFINED" > undefined_symbols.txt; \
+			echo "✅ Full list saved to undefined_symbols.txt"; \
+		else \
+			echo "✅ No undefined symbols found"; \
+		fi; \
+	else \
+		echo "❌ No object files found. Build first with 'make all'"; \
+		exit 1; \
+	fi
+
+# Enhanced undefined symbol analysis with demangling and categorization
+debug-undefined-detailed:
+	@echo "🔍 Detailed undefined symbol analysis..."
+	@if [ -d $(BUILD_DIR) ] && [ $$(find $(BUILD_DIR) -name "*.o" | wc -l) -gt 0 ]; then \
+		echo "📊 Generating detailed symbol analysis..."; \
+		find $(BUILD_DIR) -name "*.o" -exec nm -u {} + 2>/dev/null | \
+			grep -v "^$$" | sort | uniq > undefined_symbols_raw.txt; \
+		echo "🔤 Demangling C++ symbols..."; \
+		grep "_Z" undefined_symbols_raw.txt | c++filt > undefined_symbols_demangled.txt; \
+		echo "📈 Symbol categories:"; \
+		echo "  🏗️  Total undefined: $$(wc -l < undefined_symbols_raw.txt)"; \
+		echo "  🔧 C++ mangled: $$(grep -c "_Z" undefined_symbols_raw.txt)"; \
+		echo "  📚 Standard library: $$(grep -c "__" undefined_symbols_raw.txt)"; \
+		echo "  🎯 Handle functions: $$(grep -c "handle_" undefined_symbols_demangled.txt || echo 0)"; \
+		echo "  ⚙️  System symbols: $$(grep -c "_GLOBAL_OFFSET_TABLE_\|_Unwind_Resume" undefined_symbols_raw.txt)"; \
+		if [ -s undefined_symbols_demangled.txt ]; then \
+			echo "🔍 Sample demangled symbols:"; \
+			head -10 undefined_symbols_demangled.txt | sed 's/^/    /'; \
+		fi; \
+		echo "📄 Files generated:"; \
+		echo "  📋 undefined_symbols_raw.txt - Raw symbol names"; \
+		echo "  🔤 undefined_symbols_demangled.txt - Human-readable names"; \
+	else \
+		echo "❌ No object files found. Build first with 'make all'"; \
+		exit 1; \
+	fi
+
+# Comprehensive debugging analysis
+debug-analysis: debug-symbols debug-dependencies debug-undefined
+	@echo "📋 Comprehensive Debug Analysis Complete"
+	@echo "═══════════════════════════════════════"
+	@echo "📄 Generated files:"
+	@[ -f symbols.txt ] && echo "  🔤 symbols.txt - All symbol tables" || true
+	@[ -f undefined_symbols.txt ] && echo "  ❓ undefined_symbols.txt - Undefined symbols" || true
+	@[ -f link.map ] && echo "  🗺️  link.map - Linker map file" || true
+	@echo "🔧 Use these files to debug linking and symbol issues"
+
+# Find problematic object files that reference undefined symbols
+debug-problematic-objects:
+	@echo "🔍 Finding problematic object files..."
+	@if [ -d $(BUILD_DIR) ] && [ $$(find $(BUILD_DIR) -name "*.o" | wc -l) -gt 0 ]; then \
+		echo "📊 Analyzing object files for undefined references..."; \
+		for obj in $$(find $(BUILD_DIR) -name "*.o"); do \
+			UNDEF_COUNT=$$(nm -u "$$obj" 2>/dev/null | grep -v "^$$" | grep -c "handle_"); \
+			if [ "$$UNDEF_COUNT" -gt 0 ] 2>/dev/null; then \
+				echo "⚠️  $$obj: $$UNDEF_COUNT undefined handle_ symbols"; \
+				nm -u "$$obj" 2>/dev/null | grep "handle_" | head -3 | c++filt | sed 's/^/    /'; \
+				if [ "$$UNDEF_COUNT" -gt 3 ] 2>/dev/null; then \
+					echo "    ... and $$((UNDEF_COUNT - 3)) more"; \
+				fi; \
+			fi; \
+		done; \
+		echo "🔍 Objects with most undefined symbols:"; \
+		for obj in $$(find $(BUILD_DIR) -name "*.o"); do \
+			UNDEF_COUNT=$$(nm -u "$$obj" 2>/dev/null | grep -v "^$$" | wc -l); \
+			echo "$$UNDEF_COUNT $$obj"; \
+		done | sort -nr | head -5 | while read count file; do \
+			echo "  📄 $$(basename $$file): $$count undefined symbols"; \
+		done; \
+	else \
+		echo "❌ No object files found. Build first with 'make all'"; \
+		exit 1; \
+	fi
+
+# Test linking without specific problematic files
+debug-minimal-link:
+	@echo "🔗 Testing minimal linking..."
+	@echo "🧪 Attempting to link core components only..."
+	@CORE_OBJS="$(BUILD_DIR)/main.o $(BUILD_DIR)/engine/cpu.o $(BUILD_DIR)/engine/opcodes/opcodes_consolidated.o"; \
+	AVAILABLE_OBJS=""; \
+	for obj in $$CORE_OBJS; do \
+		if [ -f "$$obj" ]; then \
+			AVAILABLE_OBJS="$$AVAILABLE_OBJS $$obj"; \
+		else \
+			echo "⚠️  Missing core object: $$obj"; \
+		fi; \
+	done; \
+	if [ -n "$$AVAILABLE_OBJS" ]; then \
+		echo "🔗 Linking with: $$AVAILABLE_OBJS"; \
+		$(CXX) $(CXXFLAGS) -o test_minimal $$AVAILABLE_OBJS $(FMT_OBJS) $(LDFLAGS) 2>&1 || \
+		echo "❌ Minimal linking failed - check error messages above"; \
+		if [ -f test_minimal ]; then \
+			echo "✅ Minimal executable created: test_minimal"; \
+			rm -f test_minimal; \
+		fi; \
+	else \
+		echo "❌ No core objects available for testing"; \
+	fi
+
+# Clean debug files
+debug-clean:
+	@echo "🧹 Cleaning debug analysis files..."
+	@rm -f symbols.txt undefined_symbols.txt undefined_symbols_raw.txt
+	@rm -f undefined_symbols_demangled.txt link.map test_minimal
+	@echo "✅ Debug files cleaned"
+
+# Detailed analysis of linking issues with actionable recommendations
+debug-recommendations:
+	@echo "📋 DEMI Engine Linking Analysis & Recommendations"
+	@echo "═══════════════════════════════════════════════"
+	@if [ ! -f undefined_symbols_demangled.txt ]; then \
+		echo "⚠️  Running detailed analysis first..."; \
+		$(MAKE) debug-undefined-detailed >/dev/null 2>&1; \
+	fi
+	@echo "🔍 Build Health Check:"
+	@echo ""
+	@if [ -f $(TARGET) ]; then \
+		echo "✅ EXECUTABLE BUILD: Success"; \
+		echo "   📄 Target: $(TARGET)"; \
+		echo "   📊 Size: $$(stat -c%s $(TARGET) 2>/dev/null || echo 'unknown') bytes"; \
+		echo "   🧪 Basic test: $$(timeout 5s $(TARGET) --version >/dev/null 2>&1 && echo 'PASS' || echo 'FAIL')"; \
+	else \
+		echo "❌ EXECUTABLE BUILD: Failed"; \
+		echo "   🎯 Target missing: $(TARGET)"; \
+		echo "   🔧 Run 'make all' to rebuild"; \
+	fi
+	@echo ""
+	@echo "📊 Symbol Analysis Summary:"
+	@echo "   � Individual object undefined symbols: $$(grep -c 'handle_.*(' undefined_symbols_demangled.txt) (NORMAL)"
+	@echo "   🔗 These resolve during final linking phase"
+	@echo "   � Only investigate if build/execution fails"
+	@echo ""
+	@echo "🛠️  DEBUGGING WORKFLOW:"
+	@echo ""
+	@echo "  🎯 1. For Build Failures:"
+	@echo "     make debug-linking        # Verbose linker output"
+	@echo "     make debug-minimal-link   # Test minimal core components"
+	@echo ""
+	@echo "  🎯 2. For Runtime Issues:"
+	@echo "     ./$(TARGET) --debug --verbose  # Run with debug output"
+	@echo "     valgrind ./$(TARGET) [args]    # Memory debugging"
+	@echo ""
+	@echo "  🎯 3. For Performance Analysis:"
+	@echo "     make benchmark             # Run performance tests"
+	@echo "     perf record ./$(TARGET) [args]  # Profile execution"
+	@echo ""
+	@echo "✨ BUILD STATUS: $$([ -f $(TARGET) ] && echo "HEALTHY ✅" || echo "BROKEN ❌")"
 
 # =============================================================================
 # Dependency Management
@@ -511,6 +714,14 @@ install: $(TARGET)
 	@echo "📦 Installing DEMI Engine..."
 	@sudo install -D $(TARGET) /usr/local/bin/demi-engine
 	@echo "✅ Installed to /usr/local/bin/demi-engine"
+
+# Generate compile_commands.json for clangd IntelliSense
+compile_commands.json: Makefile generate_compile_commands.py
+	@python3 generate_compile_commands.py
+
+# Phony targets
+.PHONY: clangd-setup compile_commands.json
+clangd-setup: compile_commands.json
 
 # Prevent make from deleting intermediate files
 .PRECIOUS: $(BUILD_DIR)/%.o $(BUILD_DIR)/%.d
