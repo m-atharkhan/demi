@@ -3,6 +3,7 @@
 This document provides a comprehensive overview of all major features implemented in DemiEngine.
 
 ## Table of Contents
+
 1. [Core Instruction Set](#core-instruction-set)
 2. [Floating Point Unit (FPU)](#floating-point-unit-fpu)
 3. [SIMD Vector Operations](#simd-vector-operations)
@@ -16,19 +17,23 @@ This document provides a comprehensive overview of all major features implemente
 ## Core Instruction Set
 
 ### Basic Operations (63 opcodes)
+
 DemiEngine implements a complete set of core CPU instructions modeled after x86 architecture:
 
 #### Arithmetic
+
 - **Integer Operations**: ADD, SUB, MUL, DIV, INC, DEC
 - **64-bit Support**: ADD64, SUB64, MOV64, LOAD_IMM64
 - **Comparison**: CMP (sets flags for conditional jumps)
 
 #### Memory Operations
+
 - **Load/Store**: LOAD, STORE (direct memory access)
 - **Immediate Loading**: LOAD_IMM (8-bit immediates)
 - **Address Operations**: LEA (Load Effective Address), SWAP
 
 #### Control Flow
+
 - **Unconditional**: JMP, CALL, RET
 - **Conditional Jumps**:
   - JZ/JNZ (zero flag)
@@ -38,15 +43,18 @@ DemiEngine implements a complete set of core CPU instructions modeled after x86 
   - JG/JGE/JL/JLE (signed comparisons)
 
 #### Stack Operations
+
 - **Basic**: PUSH, POP
 - **Function Support**: PUSH_ARG, POP_ARG, CALL, RET
 - **Flags**: PUSH_FLAG, POP_FLAG (save/restore flags)
 
 #### Bitwise Operations
+
 - **Logical**: AND, OR, XOR, NOT
 - **Shift**: SHL, SHR (with immediate amounts)
 
 #### I/O Operations
+
 - **Port Access**: IN, OUT (various sizes: byte, word, long)
 - **String I/O**: INSTR, OUTSTR (null-terminated strings)
 
@@ -57,12 +65,14 @@ DemiEngine implements a complete set of core CPU instructions modeled after x86 
 ## Floating Point Unit (FPU)
 
 ### Overview
+
 DemiEngine includes a complete x87-style FPU with 23 instructions supporting both 32-bit float and 64-bit double precision arithmetic.
 
 **Current Status**: ✅ 23 FPU opcodes implemented (0xA0-0xB6)  
 **Roadmap**: Additional FPU instructions and features planned before moving to SSE/AVX/MMX
 
 ### Architecture
+
 - **Stack-Based**: 8-level register stack (ST(0) through ST(7))
 - **Data Types**: 32-bit float, 64-bit double
 - **Precision**: Full IEEE 754 floating-point support
@@ -71,6 +81,7 @@ DemiEngine includes a complete x87-style FPU with 23 instructions supporting bot
 ### Instruction Categories
 
 #### Arithmetic (4 opcodes)
+
 ```assembly
 FADD    ; ST(0) = ST(0) + operand
 FSUB    ; ST(0) = ST(0) - operand
@@ -79,6 +90,7 @@ FDIV    ; ST(0) = ST(0) / operand
 ```
 
 #### Transcendental Functions (4 opcodes)
+
 ```assembly
 FSIN    ; ST(0) = sin(ST(0))
 FCOS    ; ST(0) = cos(ST(0))
@@ -87,12 +99,14 @@ FSQRT   ; ST(0) = sqrt(ST(0))
 ```
 
 #### Sign Operations (2 opcodes)
+
 ```assembly
 FABS    ; ST(0) = |ST(0)|
 FCHS    ; ST(0) = -ST(0)
 ```
 
 #### Load/Store - Floating Point (3 opcodes)
+
 ```assembly
 FLD     ; Load float/double to ST(0)
 FST     ; Store ST(0) without popping
@@ -100,6 +114,7 @@ FSTP    ; Store ST(0) and pop stack
 ```
 
 #### Load/Store - Integer (3 opcodes)
+
 ```assembly
 FILD    ; Load integer, convert to float
 FIST    ; Store as integer without popping
@@ -107,12 +122,14 @@ FISTP   ; Store as integer and pop
 ```
 
 #### Comparison (2 opcodes)
+
 ```assembly
 FCOMPP  ; Compare ST(0) and ST(1), pop twice
 FUCOMPP ; Unordered compare, pop twice
 ```
 
 #### Control (5 opcodes)
+
 ```assembly
 FINIT   ; Initialize FPU
 FCLEX   ; Clear exceptions
@@ -122,6 +139,7 @@ FSTSW   ; Store status word
 ```
 
 ### Operand Format System
+
 ```
 Format Byte Structure:
   Bits 0-1: Data type
@@ -129,7 +147,7 @@ Format Byte Structure:
     01 = 64-bit double
     10 = 16-bit integer (FILD/FIST only)
     11 = 32-bit integer (FILD/FIST only)
-  
+
   Bits 2-4: Addressing mode
     000 = ST(0) (stack top)
     001 = ST(i) (stack register)
@@ -139,6 +157,7 @@ Format Byte Structure:
 ```
 
 ### Example Usage
+
 ```assembly
 ; Calculate circle area: A = π * r²
 FLD 0x00 radius_addr    ; Load radius (32-bit float)
@@ -150,6 +169,7 @@ FSTP 0x00 area_addr     ; Store result
 ```
 
 ### FPU Status Word
+
 ```
 Bit 15: Busy (B)
 Bit 14: Condition Code 3 (C3)
@@ -167,12 +187,14 @@ Bits 0-5: Exception flags (Invalid, Denormal, Zero Divide, Overflow, Underflow, 
 ## SIMD Vector Operations
 
 ### Overview
+
 DemiEngine provides 8 foundational SIMD instructions for parallel data processing using XMM registers.
 
 **Current Status**: ✅ 8 SIMD opcodes implemented (0xD4-0xDB)  
 **Roadmap**: Additional SIMD vector operations planned before implementing SSE/AVX/MMX instruction sets
 
 ### Architecture
+
 - **Registers**: 16 XMM registers (XMM0-XMM15)
 - **Width**: 128-bit per register (4 × 32-bit components)
 - **Data Types**: Primarily 32-bit integers/floats
@@ -181,34 +203,40 @@ DemiEngine provides 8 foundational SIMD instructions for parallel data processin
 ### Instruction Set
 
 #### Vector Arithmetic (2 opcodes)
+
 ```assembly
 VADD <xmm_dst>, <xmm_src>   ; Element-wise addition
 VMUL <xmm_dst>, <xmm_src>   ; Element-wise multiplication
 ```
 
 #### Vector Reduction (1 opcode)
+
 ```assembly
 VDOT <xmm_dst>, <xmm_src>   ; Dot product (result in component 0)
 ```
 
 #### Vector Comparison (1 opcode)
+
 ```assembly
 VCMPGT <xmm_dst>, <xmm_src> ; Element-wise greater-than comparison
 ```
 
 #### Vector Operations (2 opcodes)
+
 ```assembly
 VMAX <xmm_dst>, <xmm_src>       ; Element-wise maximum
 VBROADCAST <xmm_dst>, <scalar>  ; Broadcast scalar to all components
 ```
 
 #### Data Manipulation (2 opcodes)
+
 ```assembly
 PACKB <xmm_dst>, <xmm_src>      ; Pack bytes with saturation
 UNPACKB <xmm_dst>, <xmm_src>    ; Unpack bytes
 ```
 
 ### Register Access
+
 ```assembly
 ; Direct component access
 LOAD_IMM XMM0_0, 10    ; XMM0 component 0
@@ -218,6 +246,7 @@ LOAD_IMM XMM0_3, 40    ; XMM0 component 3
 ```
 
 ### Example Usage
+
 ```assembly
 ; Vector scaling: v * scalar
 ; v = [1, 2, 3, 4], scalar = 10
@@ -238,6 +267,7 @@ VMUL XMM0, XMM1
 ```
 
 ### Use Cases
+
 - Graphics processing (vertices, normals, colors)
 - Physics simulations (particles, forces)
 - Signal processing (filters)
@@ -251,22 +281,26 @@ VMUL XMM0, XMM1
 ## Testing Framework
 
 ### Overview
+
 DemiEngine includes a comprehensive testing framework with **219 total tests** supporting unit tests, integration tests, and in-assembly tests.
 
 ### Test Types
 
 #### 1. Unit Tests (101 tests)
+
 - C++ unit tests using custom test framework
 - Tests for individual components (assembler, CPU, devices)
 - Located in `src/test/`
 
-#### 2. Assembly Tests (118 tests) 
+#### 2. Assembly Tests (118 tests)
+
 - In-assembly test definitions with self-documenting syntax
 - Category and tag organization for easy filtering
 - Located in `tests/*.test.asm`
 - Comprehensive coverage of all instruction sets
 
 ### Test Execution
+
 ```bash
 # Run all tests (219 total)
 make test
@@ -274,7 +308,7 @@ make test
 # Run only unit tests
 make test-unit
 
-# Run only assembly tests  
+# Run only assembly tests
 make test-asm
 
 # Run with verbose output
@@ -282,36 +316,40 @@ make test-verbose
 ```
 
 ### In-Assembly Test Format
+
 ```assembly
 .test "test_name" {
     .description "What this test validates"
     .author "DemiEngine Team"
     .category "Test Category"
     .tag "tag1", "tag2"
-    
+
     ; Test code
     LOAD_IMM R0, 5
     LOAD_IMM R1, 10
     ADD R0, R1
-    
+
     ; Assertions
     .assert_reg R0, 15
 }
 ```
 
 ### Test Metadata
+
 - **`.description`**: Brief explanation (recommended)
 - **`.author`**: Test author/team (optional)
 - **`.category`**: Group/category (optional)
 - **`.tag`**: Comma-separated tags (optional)
 
 ### Assertion Commands
+
 - **`.assert_reg <reg>, <value>`**: Register equals value
 - **`.assert_ne <reg>, <value>`**: Register not equals value
 - **`.assert_lt <reg>, <value>`**: Register less than value
 - **`.assert_gt <reg>, <value>`**: Register greater than value
 
 ### CLI Test Commands
+
 ```bash
 # Run all tests
 ./bin/demi-engine -t
@@ -330,7 +368,9 @@ make test-verbose
 ```
 
 ### Test Categories
+
 Current test coverage includes:
+
 - **Arithmetic**: Basic math operations
 - **Bitwise**: Logical and shift operations
 - **Control Flow**: Jumps and conditionals
@@ -343,6 +383,7 @@ Current test coverage includes:
 - **Stack**: Stack management
 
 ### Test Output Features
+
 - Category grouping
 - Color-coded results (pass/fail)
 - Timing information (per-test and total)
@@ -356,9 +397,11 @@ Current test coverage includes:
 ## I/O Subsystem
 
 ### Device Architecture
+
 DemiEngine uses a port-based I/O system with pluggable devices.
 
 ### Port Mapping
+
 - **Port 1**: Console Device (text I/O)
 - **Port 2**: File Device (file operations)
 - **Port 3**: Counter Device (timing/counting)
@@ -366,6 +409,7 @@ DemiEngine uses a port-based I/O system with pluggable devices.
 - **Ports 5-255**: Available for custom devices
 
 ### I/O Instructions
+
 ```assembly
 IN <dst>, <port>        ; Read from port
 OUT <port>, <src>       ; Write to port
@@ -376,6 +420,7 @@ INSTR/OUTSTR           ; String operations
 ```
 
 ### Console Device (Port 1)
+
 ```assembly
 ; Output string
 LOAD_IMM R0, string_addr
@@ -387,6 +432,7 @@ OUTB 1, R0
 ```
 
 ### File Device (Port 2)
+
 ```assembly
 ; Open file
 LOAD_IMM R0, filename_addr
@@ -401,6 +447,7 @@ OUT 2, R0               ; Close command
 ```
 
 ### Counter Device (Port 3)
+
 ```assembly
 ; Read counter value
 IN R0, 3                ; Get current count
@@ -411,6 +458,7 @@ OUT 3, R1               ; Reset to zero
 ```
 
 ### Device Manager
+
 - Dynamic device registration
 - Port mapping and routing
 - Error handling for invalid ports
@@ -423,9 +471,11 @@ OUT 3, R1               ; Reset to zero
 ## Assembly Language
 
 ### Syntax Overview
+
 DemiEngine assembly supports both hex and mnemonic formats with modern features.
 
 ### Entry Point Behavior
+
 **Important**: DemiEngine assembly does NOT require a `main:` label or specific entry point. Execution begins at the first instruction in the file (address 0x00).
 
 - The `main:` label in example files is purely for readability and convention
@@ -433,6 +483,7 @@ DemiEngine assembly supports both hex and mnemonic formats with modern features.
 - Test files (`.test` blocks) have special handling and don't need entry labels
 
 **Examples**:
+
 ```assembly
 ; This works - starts immediately
 LOAD_IMM R0, 42
@@ -447,6 +498,7 @@ main:
 ```
 
 ### Basic Syntax
+
 ```assembly
 ; Comments start with semicolon
 LOAD_IMM R0, 42         ; Load immediate value
@@ -455,6 +507,7 @@ STORE 0x100, R1         ; Store to memory
 ```
 
 ### Data Directives
+
 ```assembly
 .data
     message: .string "Hello, World!"
@@ -466,21 +519,23 @@ STORE 0x100, R1         ; Store to memory
 ```
 
 ### Labels and Jumps
+
 ```assembly
 start:
     LOAD_IMM R0, 10
-    
+
 loop:
     DEC R0
     JNZ loop            ; Jump to label
-    
+
     JMP end
-    
+
 end:
     HALT
 ```
 
 ### String Definitions
+
 ```assembly
 ; Null-terminated strings
 .string "Hello"         ; Automatically adds \0
@@ -490,19 +545,21 @@ end:
 ```
 
 ### In-Assembly Tests
+
 ```assembly
 .test "addition test" {
     .description "Test basic addition"
-    
+
     LOAD_IMM R0, 5
     LOAD_IMM R1, 10
     ADD R0, R1
-    
+
     .assert_reg R0, 15
 }
 ```
 
 ### Comments and Documentation
+
 ```assembly
 ; Single-line comment
 
@@ -515,6 +572,7 @@ end:
 ```
 
 ### Assembler Features
+
 - Two-pass assembly
 - Label resolution
 - Macro support (planned)
@@ -528,12 +586,14 @@ end:
 ## Debugging Tools
 
 ### GUI Debugger
+
 DemiEngine includes an ImGui-based visual debugger with structured error reporting.
 
 #### Features
+
 - **CPU State Viewer**: Real-time register values
 - **Memory Inspector**: View and edit memory
-- **Stack Viewer**: Monitor stack operations  
+- **Stack Viewer**: Monitor stack operations
 - **Disassembly**: View program instructions
 - **Breakpoints**: Set execution breakpoints
 - **Step Execution**: Single-step through code
@@ -541,6 +601,7 @@ DemiEngine includes an ImGui-based visual debugger with structured error reporti
 - **Debug Log**: Categorized debug messages with error codes
 
 #### Usage
+
 ```bash
 # Start with GUI debugger
 ./bin/demi-engine -g program.hex
@@ -550,6 +611,7 @@ DemiEngine includes an ImGui-based visual debugger with structured error reporti
 ```
 
 ### Structured Error Handling
+
 DemiEngine provides comprehensive error handling with categorized error codes:
 
 - **Error Codes**: Structured system (0x001-0x5FF) for precise error identification
@@ -559,7 +621,8 @@ DemiEngine provides comprehensive error handling with categorized error codes:
 
 **Documentation**: See [Error Handling Implementation](ERROR_HANDLING_IMPLEMENTATION.md) for complete reference
 
-### Command-Line Debugging  
+### Command-Line Debugging
+
 ```bash
 # Verbose execution with structured output
 ./bin/demi-engine -v program.hex
@@ -573,6 +636,7 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ```
 
 ### Logging System
+
 - **Structured Levels**: ERROR, WARNING, INFO, DEBUG with error codes
 - **Colored Output**: Terminal colors for log levels and categories
 - **Timestamps**: Optional timestamp prefixes
@@ -586,6 +650,7 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ## Feature Roadmap
 
 ### Completed ✅
+
 - Core instruction set (63 opcodes)
 - FPU (23 opcodes)
 - SIMD foundation (8 opcodes)
@@ -595,11 +660,13 @@ export DEBUG_CATEGORY=CPU,MEMORY
 - GUI debugger
 
 ### In Progress 🔄
+
 - Extended 64-bit operations (4/22 opcodes)
 - Documentation updates
 - Performance optimization
 
 ### Planned 📋
+
 - Additional FPU operations (transcendental functions, extended precision)
 - Additional SIMD vector operations (more data types, wider operations)
 - SSE/SSE2 operations (26 opcodes) - after core FPU/SIMD expansion
@@ -617,18 +684,21 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ## Performance Characteristics
 
 ### Execution Speed
+
 - Typical instruction: ~10-100 CPU cycles
 - FPU operations: ~50-200 CPU cycles
 - SIMD operations: ~20-80 CPU cycles (parallelized)
 - Memory access: ~30-50 CPU cycles
 
 ### Memory Usage
+
 - Default memory: 64KB
 - Configurable up to 1MB
 - Stack size: Configurable (default 4KB)
 - Virtual storage: Disk-backed (configurable size)
 
 ### Optimization Features
+
 - Register allocation
 - Instruction pipelining (planned)
 - Branch prediction (planned)
@@ -639,6 +709,7 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ## Integration Examples
 
 ### FPU + SIMD Integration
+
 ```assembly
 ; Compute vector magnitude using both FPU and SIMD
 ; magnitude = sqrt(x² + y² + z² + w²)
@@ -664,6 +735,7 @@ FSTP 0x01 result_addr   ; Store result
 ```
 
 ### Complex I/O with FPU
+
 ```assembly
 ; Read floating-point values from file, process, and display
 

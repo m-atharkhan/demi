@@ -5,6 +5,7 @@ This directory contains assembly examples targeting **x64 64-bit architecture**.
 ## Register Usage
 
 x64 64-bit uses the following general-purpose registers:
+
 - **RAX** - Accumulator register (64-bit)
 - **RBX** - Base register (64-bit)
 - **RCX** - Counter register (64-bit)
@@ -18,44 +19,60 @@ x64 64-bit uses the following general-purpose registers:
 ## Directory Structure
 
 ### basic/
+
 Fundamental assembly operations and concepts:
+
 - **simple_addition.asm** - Basic arithmetic operations
 - **hello_world.asm** - String output using DB directive
 - **simple_digit.asm** - Number to ASCII conversion and output
 - **stack_operations.asm** - PUSH and POP demonstrations
 
 ### control_flow/
+
 Branching and loop constructs:
+
 - **counting_loop.asm** - Loop demonstration with output
 - **conditional_jumps.asm** - Conditional branching (JE, JNE, JG, JL)
 
 ### data/
+
 Data storage and manipulation:
+
 - **data_storage.asm** - DB directive and string operations
 - **data_labels.asm** - Multiple labeled data blocks
 - **indirect_addressing.asm** - LOADR instruction demonstration
 - **string_reverse.asm** - In-place string reversal algorithm
 
 ### io/
+
 Input/output operations:
+
 - **char_output.asm** - Single character output test
 - **decimal_output.asm** - Number to decimal string conversion
 
 ### features/
+
 Feature demonstrations:
+
 - **core_instructions.asm** - All basic instruction demonstrations
 
 ### interrupts/
+
 Interrupt handling:
+
 - **cli_sti.asm** - Interrupt enable/disable and handlers
 
 ### syscalls/
+
 System call demonstrations:
+
 - **hello_world.asm** - sys_write syscall example
 - **simple_write.asm** - Basic stdout write test
 
 ### advanced/
+
 Complex algorithms and computations:
+
 - **fibonacci.asm** - Fibonacci sequence generator
 - **factorial.asm** - Iterative factorial calculation (supports larger values)
 - **factorial_recursive.asm** - Recursive factorial with stack frames
@@ -76,6 +93,7 @@ Complex algorithms and computations:
 ## DASM Coding Standards
 
 All examples follow DASM coding standards:
+
 - Entry point labeled as `_start`
 - Uppercase instructions (LOAD_IMM, MOV, ADD, etc.)
 - Clear comments explaining each section

@@ -10,6 +10,7 @@ The main.cpp file serves as the central orchestrator for the DemiEngine virtual 
 ## Key Components
 
 ### ArgParser Class
+
 - **Purpose:** Type-safe command line argument parsing
 - **Features:**
   - Boolean flags with callbacks
@@ -20,79 +21,93 @@ The main.cpp file serves as the central orchestrator for the DemiEngine virtual 
 ### Main Functions
 
 #### `initialize_devices()`
+
 - Initializes the device factory with standard I/O devices
 - Sets up console output device (ID: 1)
 - Configures device manager for hardware emulation
 
 #### `load_program_file(const std::string& path, std::vector<uint8_t>& out)`
+
 - Loads hex bytecode files from disk
 - Supports space and newline-separated hex values
 - Validates hex format and provides error reporting
 - Returns vector of assembled bytecode
 
 #### `generate_executable_name(const std::string& program_file)`
+
 - Generates appropriate executable names for compilation mode
 - Strips file extensions and adds platform-appropriate suffixes
 - Handles cross-platform file naming conventions
 
 #### `run_tests()`
+
 - Orchestrates unit test execution
 - Integrates with the test framework
 - Provides test result reporting
 
 ### Command Line Options
 
-| Option | Short | Description |
-|--------|--------|-------------|
-| `--help` | `-h` | Display help information |
-| `--debug` | `-d` | Enable debug mode with verbose logging |
-| `--verbose` | `-v` | Show informational messages |
-| `--extended-registers` | `-er` | Display all 50 registers in output |
-| `--debug-file` | `-f` | Specify debug log file path |
-| `--hex` | `-H` | Path to hex file for execution |
-| `--test` | `-t` | Run unit test suite |
-| `--gui` | `-g` | Enable graphical debugger |
-| `--assembly` | `-A` | Assembly mode for .asm files |
-| `--compile` | `-o` | Compile to standalone executable |
+| Option                 | Short | Description                            |
+| ---------------------- | ----- | -------------------------------------- |
+| `--help`               | `-h`  | Display help information               |
+| `--debug`              | `-d`  | Enable debug mode with verbose logging |
+| `--verbose`            | `-v`  | Show informational messages            |
+| `--extended-registers` | `-er` | Display all 50 registers in output     |
+| `--debug-file`         | `-f`  | Specify debug log file path            |
+| `--hex`                | `-H`  | Path to hex file for execution         |
+| `--test`               | `-t`  | Run unit test suite                    |
+| `--gui`                | `-g`  | Enable graphical debugger              |
+| `--assembly`           | `-A`  | Assembly mode for .asm files           |
+| `--compile`            | `-o`  | Compile to standalone executable       |
 
 ### Execution Modes
 
 #### 1. Hex File Execution Mode
+
 ```bash
 ./bin/demi-engine -H program.hex
 ```
+
 - Loads pre-assembled hex bytecode
 - Executes directly on virtual CPU
 - Primary runtime mode
 
 #### 2. Assembly Mode
+
 ```bash
 ./bin/demi-engine -A program.asm
 ```
+
 - Invokes lexer → parser → assembler pipeline
 - Compiles assembly source to bytecode
 - Executes assembled program
 
 #### 3. Test Mode
+
 ```bash
 ./bin/demi-engine -t
 ```
+
 - Runs comprehensive unit test suite
 - Tests all CPU instructions and subsystems
 - Validates register architecture
 
 #### 4. GUI Debug Mode
+
 ```bash
 ./bin/demi-engine -H program.hex --gui
 ```
+
 - Launches graphical debugger interface
 - Provides real-time CPU state visualization
 - Interactive debugging capabilities
 
 #### 5. Compile Mode
+
 ```bash
 ./bin/demi-engine -H program.hex -o [output_name]
 ```
+
 - Generates standalone executable
 - Bundles VM runtime with program
 - Cross-platform binary generation

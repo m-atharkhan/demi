@@ -1,4 +1,5 @@
 # Documentation Verification Findings
+
 **Date**: October 3, 2025
 **Verification Method**: Code analysis and cross-referencing
 
@@ -7,11 +8,13 @@
 ### 1. **OPCODE COUNT DISCREPANCY** ❌
 
 **Claimed**: 162 opcodes
-**Reality**: 
+**Reality**:
+
 - **151 opcodes DEFINED** in `src/assembler/opcodes.hpp`
 - **Only 63 opcodes IMPLEMENTED** in `src/engine/opcodes/opcodes_consolidated.cpp`
 
 **Actually Implemented Opcodes** (63 total):
+
 ```
 ADD, ADD64, ADDEX, AND, CALL, CMP, DB, DEC, DIV, HALT,
 IN, INB, INC, INL, INSTR, INW,
@@ -26,6 +29,7 @@ RET, SHL, SHR, STORE, SUB, SUB64, SUBEX, SWAP, XOR
 ```
 
 **NOT Implemented** (88 opcodes defined but not in dispatch):
+
 - **SIMD Operations** (26): MOVAPS, MOVUPS, ADDPS, SUBPS, MULPS, DIVPS, SQRTPS, MAXPS, MINPS, ANDPS, ORPS, XORPS, CMPPS, MOVAPD, MOVUPD, ADDPD, SUBPD, MULPD, DIVPD, SQRTPD, MAXPD, MINPD, ANDPD, ORPD, XORPD, CMPPD
 - **FPU Operations** (23): FLD, FST, FSTP, FILD, FIST, FISTP, FADD, FSUB, FMUL, FDIV, FSIN, FCOS, FTAN, FSQRT, FABS, FCHS, FINIT, FCLEX, FSTCW, FLDCW, FSTSW, FCOMPP, FUCOMPP
 - **AVX Operations** (20): VADDPS, VSUBPS, VMULPS, VDIVPS, VSQRTPS, VMAXPS, VMINPS, VANDPS, VORPS, VXORPS, VADDPD, VSUBPD, VMULPD, VDIVPD, VSQRTPD, VMAXPD, VMINPD, VANDPD, VORPD, VXORPD
@@ -38,7 +42,8 @@ RET, SHL, SHR, STORE, SUB, SUB64, SUBEX, SWAP, XOR
 **Reality**: ✅ **VERIFIED CORRECT**
 
 From `src/engine/cpu_registers.hpp`:
-- `REGISTER_COUNT = 134` 
+
+- `REGISTER_COUNT = 134`
 - Properly defined enum with all 134 registers
 - Test verification in `src/test/unit_tests.cpp` line 662-663
 
@@ -48,6 +53,7 @@ From `src/engine/cpu_registers.hpp`:
 **Reality**: ✅ **VERIFIED CORRECT**
 
 Actual test execution shows:
+
 - Unit tests: 78/78 passing (measured)
 - Assembly tests: 68/68 passing (measured)
 - Integration tests: 42/42 passing (measured)
@@ -56,24 +62,29 @@ Actual test execution shows:
 ### 4. **UNIMPLEMENTED FEATURES CLAIMED**
 
 #### SIMD/SSE Support ❌
+
 **Claimed**: "SIMD operations"
 **Reality**: NO SIMD opcodes implemented (0/26)
 
 #### FPU Support ❌
+
 **Claimed**: "FPU operations"
 **Reality**: NO FPU opcodes implemented (0/23)
 
 #### AVX Support ❌
+
 **Claimed**: "AVX operations"
 **Reality**: NO AVX opcodes implemented (0/20)
 
 #### MMX Support ❌
+
 **Claimed**: "MMX operations"
 **Reality**: NO MMX opcodes implemented (0/11)
 
 ### 5. **WORKING FEATURES** ✅
 
 The following ARE properly implemented:
+
 - ✅ Basic arithmetic (ADD, SUB, MUL, DIV, INC, DEC)
 - ✅ Bitwise operations (AND, OR, XOR, NOT, SHL, SHR)
 - ✅ Control flow (JMP, JZ, JNZ, JS, JNS, JC, JNC, JO, JNO, JG, JL, JGE, JLE)
@@ -99,7 +110,7 @@ The following ARE properly implemented:
 2. **Remove misleading feature claims**:
    - Remove "SIMD" from feature lists
    - Remove "FPU operations" from feature lists
-   - Remove "AVX" from feature lists  
+   - Remove "AVX" from feature lists
    - Remove "MMX" from feature lists
 
 3. **Update QUICK_REFERENCE.md**:
@@ -123,7 +134,7 @@ grep -E '^\s+[A-Z0-9_]+ = 0x[0-9A-Fa-f]+,' src/assembler/opcodes.hpp | wc -l
 # Result: 151
 
 # Count implemented opcodes
-grep -E '^\s*case Opcode::' src/engine/opcodes/opcodes_consolidated.cpp | wc -l  
+grep -E '^\s*case Opcode::' src/engine/opcodes/opcodes_consolidated.cpp | wc -l
 # Result: 63
 
 # Verify register count
@@ -132,13 +143,14 @@ grep "REGISTER_COUNT = " src/engine/cpu_registers.hpp
 
 # Verify tests
 ./bin/demi-engine -t  # 78/78 unit tests
-./bin/demi-engine -it # 42/42 integration tests  
+./bin/demi-engine -it # 42/42 integration tests
 ./bin/demi-engine -at # 68/68 assembly tests
 ```
 
 ## Accurate Feature Summary
 
 **What DemiEngine Actually Has**:
+
 - ✅ 134-register architecture (x86-64 style)
 - ✅ 63 implemented opcodes covering:
   - Arithmetic operations
@@ -156,6 +168,7 @@ grep "REGISTER_COUNT = " src/engine/cpu_registers.hpp
 - ✅ Memory management
 
 **What DemiEngine Does NOT Have** (despite documentation claims):
+
 - ❌ SIMD/SSE operations (0/26 implemented)
 - ❌ FPU operations (0/23 implemented)
 - ❌ AVX operations (0/20 implemented)

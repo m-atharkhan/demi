@@ -1,4 +1,5 @@
 # DemiEngine Documentation Index
+
 ## 🧭 Complete Navigation Guide
 
 This documentation index provides a comprehensive guide to all DemiEngine documentation. Use the table and directory structure below to quickly locate any document, whether current, planned, or archived.
@@ -7,15 +8,15 @@ This documentation index provides a comprehensive guide to all DemiEngine docume
 - **Directory Structure:** Visual map of all documentation files and folders.
 - **Task-Based Guides:** Find what you need based on your current goal.
 - **Archive:** Access historical, deprecated, or verification documents in `archive/`:
-    ```
-    archive/
-    ├── README.md
-    ├── RENAME_CHECKLIST.md
-    ├── TEST_FLAGS.md.old
-    ├── DOCUMENTATION_VERIFICATION_FINDINGS.md
-    ├── DOCUMENTATION_CORRECTIONS_SUMMARY.md
-    └── DOCUMENTATION_UPDATE_SUMMARY.md
-    ```
+  ```
+  archive/
+  ├── README.md
+  ├── RENAME_CHECKLIST.md
+  ├── TEST_FLAGS.md.old
+  ├── DOCUMENTATION_VERIFICATION_FINDINGS.md
+  ├── DOCUMENTATION_CORRECTIONS_SUMMARY.md
+  └── DOCUMENTATION_UPDATE_SUMMARY.md
+  ```
 
 Refer to the sections below for detailed navigation and descriptions of each document.
 
@@ -23,28 +24,28 @@ Refer to the sections below for detailed navigation and descriptions of each doc
 
 ## 📚 Quick Navigation
 
-| Category | Document | Description |
-|----------|----------|-------------|
-| **Getting Started** | [Main README](../README.md) | Project overview and quick start |
-| | [Quick Reference](reference/QUICK_REFERENCE.md) | Fast command and instruction lookup |
-| | [Usage Guide](usage/README.md) | Programming guide and tutorials |
-| **Development** | [Roadmap](../roadmap.md) | Complete development roadmap |
-| | [Future Opcodes](development/FUTURE_OPCODES.md) | 88 planned opcodes implementation plan |
-| | [Demi Language Plan](development/DEMI_LANGUAGE_PLAN.md) | High-level language specification |
-| | [Native Compiler Plan](development/NATIVE_COMPILER_PLAN.md) | x86-64 code generation plan |
-| | [Debug Directives](DEBUG_DIRECTIVES_IMPLEMENTATION.md) | 14 debug directives implementation |
-| **Testing** | [Test Framework Design](testing/TEST_FRAMEWORK_DESIGN.md) | Complete testing architecture |
-| | [Test Quick Reference](testing/TEST_QUICK_REFERENCE.md) | Running and writing tests |
-| | [Test Flags](testing/TEST_FLAGS.md) | CPU flags testing guide |
-| | [Test Status](testing/TEST_FRAMEWORK_STATUS.md) | Current test coverage (188/188) |
-| **Codebase** | [Architecture](codebase/README.md) | Core system design |
-| | [API Reference](codebase/API_REFERENCE.md) | Complete API documentation |
-| | [Error Handling](development/ERROR_HANDLING_IMPLEMENTATION.md) | Error & debug system implementation |
-| | [CPU Module](codebase/modules/cpu.md) | CPU implementation details |
-| | [Assembler Module](codebase/modules/assembler.md) | Assembler architecture |
-| | [Device Manager](codebase/modules/device_manager.md) | Device I/O system |
-| **Support** | [Troubleshooting](usage/TROUBLESHOOTING.md) | Common issues and solutions |
-| | [Contributing](../CONTRIBUTING.md) | Development guidelines |
+| Category            | Document                                                       | Description                            |
+| ------------------- | -------------------------------------------------------------- | -------------------------------------- |
+| **Getting Started** | [Main README](../README.md)                                    | Project overview and quick start       |
+|                     | [Quick Reference](reference/QUICK_REFERENCE.md)                | Fast command and instruction lookup    |
+|                     | [Usage Guide](usage/README.md)                                 | Programming guide and tutorials        |
+| **Development**     | [Roadmap](../roadmap.md)                                       | Complete development roadmap           |
+|                     | [Future Opcodes](development/FUTURE_OPCODES.md)                | 88 planned opcodes implementation plan |
+|                     | [Demi Language Plan](development/DEMI_LANGUAGE_PLAN.md)        | High-level language specification      |
+|                     | [Native Compiler Plan](development/NATIVE_COMPILER_PLAN.md)    | x86-64 code generation plan            |
+|                     | [Debug Directives](DEBUG_DIRECTIVES_IMPLEMENTATION.md)         | 14 debug directives implementation     |
+| **Testing**         | [Test Framework Design](testing/TEST_FRAMEWORK_DESIGN.md)      | Complete testing architecture          |
+|                     | [Test Quick Reference](testing/TEST_QUICK_REFERENCE.md)        | Running and writing tests              |
+|                     | [Test Flags](testing/TEST_FLAGS.md)                            | CPU flags testing guide                |
+|                     | [Test Status](testing/TEST_FRAMEWORK_STATUS.md)                | Current test coverage (188/188)        |
+| **Codebase**        | [Architecture](codebase/README.md)                             | Core system design                     |
+|                     | [API Reference](codebase/API_REFERENCE.md)                     | Complete API documentation             |
+|                     | [Error Handling](development/ERROR_HANDLING_IMPLEMENTATION.md) | Error & debug system implementation    |
+|                     | [CPU Module](codebase/modules/cpu.md)                          | CPU implementation details             |
+|                     | [Assembler Module](codebase/modules/assembler.md)              | Assembler architecture                 |
+|                     | [Device Manager](codebase/modules/device_manager.md)           | Device I/O system                      |
+| **Support**         | [Troubleshooting](usage/TROUBLESHOOTING.md)                    | Common issues and solutions            |
+|                     | [Contributing](../CONTRIBUTING.md)                             | Development guidelines                 |
 
 ---
 
@@ -113,42 +114,49 @@ docs/
 ### I want to...
 
 #### Learn DemiEngine
+
 1. Start with [Main README](../README.md)
 2. Read [Quick Reference](reference/QUICK_REFERENCE.md)
 3. Follow [Usage Guide](usage/README.md)
 4. Try [Example Programs](../examples/README.md)
 
 #### Write Assembly Programs
+
 1. Read [Usage Guide](usage/README.md)
 2. Check [Quick Reference](reference/QUICK_REFERENCE.md) for instructions
 3. Browse [Example Programs](../examples/README.md)
 4. See [Test Programs](../tests/asm/README.md) for more examples
 
 #### Understand the Codebase
+
 1. Start with [Architecture Overview](codebase/README.md)
 2. Review [API Reference](codebase/API_REFERENCE.md)
 3. Read specific [Module Documentation](codebase/modules/)
 4. Check [Contributing Guide](../CONTRIBUTING.md)
 
 #### Write Tests
+
 1. Read [Test Framework Design](testing/TEST_FRAMEWORK_DESIGN.md)
 2. Follow [Test Quick Reference](testing/TEST_QUICK_REFERENCE.md)
 3. Study [Test Flags Guide](testing/TEST_FLAGS.md)
 4. Look at existing tests in `/tests/`
 
 #### Understand Future Plans
+
 1. Read [Project Roadmap](../roadmap.md)
 2. Review [Future Opcodes Plan](development/FUTURE_OPCODES.md)
 3. Check [Demi Language Plan](development/DEMI_LANGUAGE_PLAN.md)
 4. See [Native Compiler Plan](development/NATIVE_COMPILER_PLAN.md)
 
 #### Troubleshoot Issues
+
 1. Check [Troubleshooting Guide](usage/TROUBLESHOOTING.md)
 2. Review [Test Status](testing/TEST_FRAMEWORK_STATUS.md)
 3. Search [Issue Tracker](https://github.com/bobrossrtx/demi/issues)
 4. Ask in discussions
 
 #### Contribute Code
+
 1. Read [Contributing Guide](../CONTRIBUTING.md)
 2. Review [Architecture Overview](codebase/README.md)
 3. Check [Test Framework](testing/TEST_FRAMEWORK_DESIGN.md)
@@ -162,12 +170,14 @@ docs/
 **Focus**: Implementing 88 additional opcodes
 
 ### Implementation Status
+
 - ✅ **Core Backend**: Complete (134 registers, 63 opcodes, 188 tests)
 - 🔄 **Opcode Expansion**: Planning (88 opcodes: SIMD, FPU, AVX, MMX)
 - 🔜 **Native Codegen**: Next phase (Stage 2)
 - 🔜 **Demi Language**: Future phase (Stage 6)
 
 ### Key Metrics
+
 - **Opcodes**: 63 implemented / 151 defined (42%)
 - **Registers**: 134 (x86-64 style architecture)
 - **Tests**: 188/188 passing (100% coverage)
@@ -188,14 +198,14 @@ docs/
 
 ## 📝 Document Status
 
-| Document | Status | Last Updated |
-|----------|--------|--------------|
-| README.md | ✅ Current | 2025-10-03 |
-| reference/QUICK_REFERENCE.md | ✅ Current | 2025-10-03 |
-| development/FUTURE_OPCODES.md | ✅ Current | 2025-10-03 |
-| testing/* | ✅ Current | 2025-10-03 |
-| codebase/* | ✅ Current | 2025-10-03 |
-| usage/* | ✅ Current | 2025-10-03 |
+| Document                      | Status     | Last Updated |
+| ----------------------------- | ---------- | ------------ |
+| README.md                     | ✅ Current | 2025-10-03   |
+| reference/QUICK_REFERENCE.md  | ✅ Current | 2025-10-03   |
+| development/FUTURE_OPCODES.md | ✅ Current | 2025-10-03   |
+| testing/\*                    | ✅ Current | 2025-10-03   |
+| codebase/\*                   | ✅ Current | 2025-10-03   |
+| usage/\*                      | ✅ Current | 2025-10-03   |
 
 ---
 

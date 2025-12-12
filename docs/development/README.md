@@ -23,6 +23,7 @@ This directory contains development plans, roadmaps, and future feature specific
 ## Development Phases
 
 ### Current Phase: Assembly Language Expansion (Stage 1)
+
 **Status**: In Progress  
 **Focus**: Implementing 88 planned opcodes to complete instruction set  
 **Primary Document**: [FUTURE_OPCODES.md](FUTURE_OPCODES.md)

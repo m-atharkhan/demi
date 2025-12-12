@@ -7,12 +7,14 @@ Welcome to the DemiEngine codebase documentation. This guide provides comprehens
 ## Quick Navigation
 
 ### Core Documentation
+
 - **[API Reference](API_REFERENCE.md)** - Complete API documentation with examples
 - **[Module Documentation](#module-documentation)** - Per-component technical details
 - **[Architecture Overview](#architecture-overview)** - System design and patterns
 - **[Development Workflow](#development-workflow)** - Building, testing, and contributing
 
 ### Developer Resources
+
 - **[Code Style Guide](#code-style-guidelines)** - Coding standards and best practices
 - **[Testing Framework](#testing-requirements)** - Unit tests and validation
 - **[Build System](#build-system)** - Compilation and dependency management
@@ -23,42 +25,54 @@ Welcome to the DemiEngine codebase documentation. This guide provides comprehens
 DemiEngine is organized into clearly defined modules, each with comprehensive documentation:
 
 ### [📱 Main Application (`main.cpp`)](modules/main.md)
+
 **Application orchestration and command-line interface**
+
 - Entry point and system initialization
 - Command-line argument parsing with validation
 - Execution mode management (hex, assembly, testing, GUI)
 - Integration of all subsystems
 
 ### [🧠 CPU Core System (`vhardware/cpu.*`)](modules/cpu.md)
+
 **Virtual processor implementation and execution engine**
+
 - Complete instruction set architecture (50+ opcodes)
 - Extended register system (50 registers: R0-R49)
 - Memory management with 1MB virtual memory
 - Flag system for conditional operations and status tracking
 
 ### [⚙️ Assembly Language System (`assembler/`)](modules/assembler.md)
+
 **Complete assembly toolchain and compiler**
+
 - **Lexer**: Token generation and syntax analysis
 - **Parser**: Abstract syntax tree construction
 - **Assembler**: Two-pass bytecode generation with symbol resolution
 - Full instruction set support with comprehensive error handling
 
 ### [🔌 Device Management (`vhardware/device_manager.*`)](modules/device_manager.md)
+
 **Hardware abstraction and I/O coordination**
+
 - Unified device interface with extensible architecture
 - Device factory pattern for component creation
 - Console output device with future expansion support
 - Memory-mapped I/O capabilities and port management
 
 ### [🐛 Debug and Logging System (`debug/`)](modules/debug.md)
+
 **Development tools and runtime analysis**
+
 - Structured logging framework with multiple severity levels
 - Real-time GUI debugging interface (ImGui-based)
 - Interactive breakpoint system and state inspection
 - Performance monitoring and execution profiling
 
 ### [🧪 Test Framework (`test/`)](modules/testing.md)
+
 **Comprehensive testing infrastructure**
+
 - Unit testing for all CPU instructions and components
 - Integration tests for complete system validation
 - Assembly language toolchain testing
@@ -105,18 +119,23 @@ DemiEngine follows a modular, layered architecture with clear separation of conc
 ### Key Design Principles
 
 #### 🔧 **Modularity**
+
 Each component has a well-defined interface and clear responsibilities, enabling independent development and testing.
 
 #### 🔄 **Extensibility**
+
 Plugin architecture supports adding new devices, instructions, and debugging tools without modifying core systems.
 
 #### 🎯 **Testability**
+
 Dependency injection and interface segregation enable comprehensive unit testing and system validation.
 
 #### 📊 **Observability**
+
 Comprehensive logging, debugging interfaces, and profiling tools provide deep system insights.
 
 #### 🛡️ **Reliability**
+
 Robust error handling, input validation, and graceful degradation ensure stable operation.
 
 ## Development Workflow
@@ -237,17 +256,17 @@ namespace assembler {
 
 ### Documentation Standards
 
-```cpp
+````cpp
 /**
  * @brief Execute a single CPU instruction
- * 
+ *
  * Decodes and executes the instruction at the current program counter,
  * updating CPU state and advancing PC as appropriate.
- * 
+ *
  * @param instruction The opcode and operands to execute
  * @return true if execution should continue, false if HALT encountered
  * @throws CPUException for invalid instructions or runtime errors
- * 
+ *
  * @example
  * ```cpp
  * CPU cpu;
@@ -255,7 +274,7 @@ namespace assembler {
  * ```
  */
 bool execute_instruction(uint8_t instruction);
-```
+````
 
 ### Error Handling Strategy
 
@@ -287,6 +306,7 @@ bool CPU::set_register(uint8_t reg, uint32_t value) {
 ## Testing Requirements
 
 ### Test Coverage Goals
+
 - **Unit Tests**: >95% coverage for all public APIs
 - **Integration Tests**: End-to-end workflow validation
 - **Assembly Examples**: Working programs for every instruction
@@ -470,18 +490,21 @@ make clean && make test
 ### Planned Enhancements
 
 #### Phase 3: Documentation and Examples (Current)
+
 - **Comprehensive Tutorials**: Step-by-step assembly programming guides
 - **Advanced Examples**: Complex programs demonstrating VM capabilities
 - **API Documentation**: Complete reference with interactive examples
 - **Video Tutorials**: Visual learning resources for complex topics
 
 #### Phase 4: Advanced Features
+
 - **Graphics Device**: Display controller with framebuffer support
 - **Audio Device**: Sound generation and audio I/O capabilities
 - **Network Device**: TCP/UDP communication support
 - **Storage Device**: Virtual disk with filesystem support
 
 #### Phase 5: Performance and Tooling
+
 - **JIT Compilation**: Runtime optimization for performance-critical code
 - **Reverse Debugging**: Time-travel debugging capabilities
 - **Plugin Architecture**: External device and instruction plugins

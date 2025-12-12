@@ -18,6 +18,7 @@ This report documents a comprehensive verification of all opcode references acro
 ## Authoritative Opcode Mappings
 
 ### Core Instructions (63 opcodes)
+
 ```
 0x00 = NOP           0x01 = LOAD_IMM      0x02 = ADD           0x03 = SUB
 0x04 = MOV           0x05 = JMP           0x06 = LOAD          0x07 = STORE
@@ -35,22 +36,26 @@ This report documents a comprehensive verification of all opcode references acro
 ```
 
 ### Extended 64-bit Operations (7 opcodes)
+
 ```
 0x34 = ADD64         0x35 = SUB64         0x36 = MOV64         0x37 = LOAD_IMM64
 0x38 = MOVEX         0x39 = ADDEX         0x3A = SUBEX
 ```
 
 ### I/O Operations
+
 ```
 0x40 = OUT           0x41 = LOADR
 ```
 
 ### System
+
 ```
 0xFF = HALT
 ```
 
 ### FPU Operations (23 opcodes) - Range 0xA0-0xB6
+
 ```
 0xA0 = FLD           0xA1 = FST           0xA2 = FSTP          0xA3 = FILD
 0xA4 = FIST          0xA5 = FISTP         0xA6 = FADD          0xA7 = FSUB
@@ -61,6 +66,7 @@ This report documents a comprehensive verification of all opcode references acro
 ```
 
 ### SIMD Operations (8 opcodes) - Range 0xD4-0xDB
+
 ```
 0xD4 = VADD          0xD5 = VMUL          0xD6 = VDOT          0xD7 = VMAX
 0xD8 = VBROADCAST    0xD9 = VCMPGT        0xDA = PACKB         0xDB = UNPACKB
@@ -73,6 +79,7 @@ This report documents a comprehensive verification of all opcode references acro
 **Problem**: All SIMD opcodes were documented as 0xA0-0xA7, but are actually 0xD4-0xDB
 
 **Corrections Made**:
+
 - ✅ VADD: Changed from `0xA0` → `0xD4`
 - ✅ VMUL: Changed from `0xA1` → `0xD5`
 - ✅ VDOT: Changed from `0xA2` → `0xD6`
@@ -89,12 +96,14 @@ This report documents a comprehensive verification of all opcode references acro
 **Problem**: Referenced old opcode ranges for FPU and SIMD
 
 **Corrections Made**:
+
 - ✅ FPU range: Changed from `0xD0-0xE6` → `0xA0-0xB6` (4 occurrences)
 - ✅ SIMD range: Changed from `0xA0-0xA7` → `0xD4-0xDB` (4 occurrences)
 
 ## Files Verified as Correct ✅
 
 ### Documentation Files
+
 1. ✅ **QUICK_REFERENCE.md** - All opcodes correct (FPU 0xA0-0xB6, SIMD 0xD4-0xDB)
 2. ✅ **FPU_REFERENCE.md** - All opcodes correct (0xA0-0xB6)
 3. ✅ **FEATURES.md** - All opcode ranges correct
@@ -103,23 +112,27 @@ This report documents a comprehensive verification of all opcode references acro
 6. ✅ **INSTRUCTION_FUSION_IMPLEMENTATION.md** - References correct opcodes
 
 ### Test Files
+
 Test files use mnemonics (VADD, FADD, etc.) which are correctly mapped by the assembler to the proper opcodes, so they are inherently correct.
 
 ## Verification Results by Category
 
 ### Core Instructions (0x00-0x41, 0xFF)
+
 - **Documentation Status**: ✅ All Correct
 - **Files Checked**: 6 documentation files
 - **Errors Found**: 0
 - **Verification**: Cross-referenced with opcode_registry.cpp
 
 ### FPU Instructions (0xA0-0xB6)
+
 - **Documentation Status**: ✅ All Correct (after fixes)
 - **Files Checked**: 4 documentation files
 - **Errors Found**: 4 (in DOCUMENTATION_COMPLETION.md - now fixed)
 - **Verification**: All FPU opcodes match opcode_registry.cpp
 
 ### SIMD Instructions (0xD4-0xDB)
+
 - **Documentation Status**: ✅ All Correct (after fixes)
 - **Files Checked**: 3 documentation files
 - **Errors Found**: 8 (in SIMD_REFERENCE.md - now fixed)
@@ -148,13 +161,17 @@ This is why the documentation errors didn't affect functionality—they were pur
 ## Recommended Actions for Future
 
 ### 1. Single Source of Truth
+
 The **ONLY** authoritative source for opcode mappings is:
+
 ```
 src/engine/opcodes/opcode_registry.cpp → initialize_handlers()
 ```
 
 ### 2. Documentation Update Process
+
 When adding new opcodes:
+
 1. ✅ Implement in opcode_registry.cpp (source of truth)
 2. ✅ Update QUICK_REFERENCE.md immediately
 3. ✅ Update feature-specific docs (FPU_REFERENCE.md, SIMD_REFERENCE.md)
@@ -162,15 +179,18 @@ When adding new opcodes:
 5. ✅ Verify all references across all docs
 
 ### 3. Verification Script (Recommended)
+
 Consider creating a script to extract opcodes from opcode_registry.cpp and verify documentation automatically.
 
 ## Final Status
 
 ### Total Errors Found: 12
+
 - ❌ SIMD_REFERENCE.md: 8 errors (Format sections)
 - ❌ DOCUMENTATION_COMPLETION.md: 4 errors (range references)
 
 ### Total Corrections Made: 12
+
 - ✅ All SIMD opcode references corrected
 - ✅ All FPU range references corrected
 - ✅ All documentation now matches implementation
@@ -185,23 +205,23 @@ All opcode references in documentation now correctly match the implementation in
 
 ### Complete Opcode Map
 
-| Range | Category | Opcodes | Status |
-|-------|----------|---------|--------|
-| 0x00-0x33 | Core Instructions | 52 opcodes | ✅ Implemented & Documented |
-| 0x34-0x3A | Extended 64-bit | 7 opcodes | ✅ Implemented & Documented |
-| 0x40-0x41 | I/O Operations | 2 opcodes | ✅ Implemented & Documented |
-| 0xA0-0xB6 | FPU Operations | 23 opcodes | ✅ Implemented & Documented |
-| 0xD4-0xDB | SIMD Operations | 8 opcodes | ✅ Implemented & Documented |
-| 0xFF | System | 1 opcode (HALT) | ✅ Implemented & Documented |
-| **TOTAL** | **All Categories** | **93 opcodes** | ✅ **100% Accurate** |
+| Range     | Category           | Opcodes         | Status                      |
+| --------- | ------------------ | --------------- | --------------------------- |
+| 0x00-0x33 | Core Instructions  | 52 opcodes      | ✅ Implemented & Documented |
+| 0x34-0x3A | Extended 64-bit    | 7 opcodes       | ✅ Implemented & Documented |
+| 0x40-0x41 | I/O Operations     | 2 opcodes       | ✅ Implemented & Documented |
+| 0xA0-0xB6 | FPU Operations     | 23 opcodes      | ✅ Implemented & Documented |
+| 0xD4-0xDB | SIMD Operations    | 8 opcodes       | ✅ Implemented & Documented |
+| 0xFF      | System             | 1 opcode (HALT) | ✅ Implemented & Documented |
+| **TOTAL** | **All Categories** | **93 opcodes**  | ✅ **100% Accurate**        |
 
 ### Reserved/Planned Ranges
 
-| Range | Purpose | Status |
-|-------|---------|--------|
+| Range     | Purpose             | Status                  |
+| --------- | ------------------- | ----------------------- |
 | 0x80-0x9F | SSE/SSE2 Operations | 📋 Planned (26 opcodes) |
-| 0xC0-0xDF | AVX Operations | 📋 Planned (20 opcodes) |
-| 0xE0-0xEF | MMX Operations | 📋 Planned (11 opcodes) |
+| 0xC0-0xDF | AVX Operations      | 📋 Planned (20 opcodes) |
+| 0xE0-0xEF | MMX Operations      | 📋 Planned (11 opcodes) |
 
 ---
 

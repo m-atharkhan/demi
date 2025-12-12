@@ -1,11 +1,13 @@
 # DemiEngine Future Features Roadmap
 
 ## Overview
+
 This document outlines future features and enhancements for DemiEngine, prioritized based on test coverage, user needs, and architectural importance.
 
 ## Phase 1: Core CPU Enhancements (High Priority)
 
 ### 1.1 Signed Comparison Operations
+
 **Status**: Not Implemented  
 **Priority**: HIGH  
 **Effort**: Medium
@@ -13,12 +15,14 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Add signed integer comparison support with proper jump instructions.
 
 **New Instructions**:
+
 - `JG` (0xXX) - Jump if Greater (signed)
 - `JL` (0xXX) - Jump if Less (signed)
 - `JGE` (0xXX) - Jump if Greater or Equal (signed)
 - `JLE` (0xXX) - Jump if Less or Equal (signed)
 
 **Benefits**:
+
 - Proper signed arithmetic support
 - Better algorithm implementations
 - Complete comparison instruction set
@@ -28,6 +32,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 1.2 Memory Protection and Bounds Checking
+
 **Status**: Partial  
 **Priority**: HIGH  
 **Effort**: Medium
@@ -35,12 +40,14 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Enhance memory protection with proper bounds checking and error reporting.
 
 **Features**:
+
 - Runtime bounds checking for all memory operations
 - Configurable memory protection levels
 - Detailed error messages for violations
 - Memory region permissions (read/write/execute)
 
 **Benefits**:
+
 - Safer program execution
 - Better debugging information
 - Prevention of memory corruption
@@ -50,6 +57,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 1.3 Enhanced Stack Operations
+
 **Status**: Partial  
 **Priority**: MEDIUM  
 **Effort**: Low
@@ -57,12 +65,14 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Add bulk stack operations for efficient register save/restore.
 
 **New Instructions**:
+
 - `PUSHALL` (0xXX) - Push all registers to stack
 - `POPALL` (0xXX) - Pop all registers from stack
 - `PUSHA` (0xXX) - Push accumulator registers
 - `POPA` (0xXX) - Pop accumulator registers
 
 **Benefits**:
+
 - Faster context switching
 - Easier exception handler implementation
 - Better function prologue/epilogue support
@@ -74,6 +84,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ## Phase 2: Exception and Interrupt System (High Priority)
 
 ### 2.1 Exception Handling Framework
+
 **Status**: Not Implemented  
 **Priority**: HIGH  
 **Effort**: High
@@ -81,11 +92,13 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Complete exception handling system with handlers and recovery.
 
 **New Instructions**:
+
 - `SETEXH <addr>` (0xXX) - Set exception handler address
 - `RETEX` (0xXX) - Return from exception
 - `GETEXINFO` (0xXX) - Get exception information
 
 **Exception Types**:
+
 - Division by zero
 - Stack overflow/underflow
 - Invalid opcode
@@ -93,6 +106,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 - Arithmetic overflow (configurable)
 
 **Benefits**:
+
 - Robust error handling
 - Graceful program recovery
 - Better debugging capabilities
@@ -102,6 +116,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 2.2 Software Interrupt System
+
 **Status**: Not Implemented  
 **Priority**: MEDIUM  
 **Effort**: Medium
@@ -109,6 +124,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Software interrupt mechanism for system calls and IPC.
 
 **New Instructions**:
+
 - `INT <vector>` (0xXX) - Trigger software interrupt
 - `IRET` (0xXX) - Return from interrupt
 - `SETINT <vector>, <handler>` (0xXX) - Set interrupt handler
@@ -116,12 +132,14 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 - `STI` (0xXX) - Set interrupt flag (enable)
 
 **Features**:
+
 - 256 interrupt vectors
 - Interrupt priority levels
 - Nested interrupt support
 - Interrupt masking
 
 **Benefits**:
+
 - System call interface
 - Inter-process communication
 - Event-driven programming
@@ -131,6 +149,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 2.3 Hardware Interrupts
+
 **Status**: Not Implemented  
 **Priority**: LOW  
 **Effort**: High
@@ -138,12 +157,14 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Hardware interrupt support for I/O devices and timers.
 
 **Features**:
+
 - Timer interrupts (configurable intervals)
 - Device interrupts (keyboard, disk, network)
 - Interrupt controller (PIC/APIC-like)
 - Interrupt prioritization
 
 **Benefits**:
+
 - Real-time responsiveness
 - Device driver support
 - Preemptive multitasking foundation
@@ -155,6 +176,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ## Phase 3: SIMD and Parallel Operations (Medium Priority)
 
 ### 3.1 Basic Vector Operations
+
 **Status**: Not Implemented  
 **Priority**: MEDIUM  
 **Effort**: High
@@ -162,6 +184,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: SIMD instructions for parallel operations on vectors.
 
 **New Instructions**:
+
 - `VADD <dest>, <src1>, <src2>` - Vector addition
 - `VSUB <dest>, <src1>, <src2>` - Vector subtraction
 - `VMUL <dest>, <src1>, <src2>` - Vector multiplication
@@ -170,6 +193,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Vector Sizes**: 2, 4, 8, 16 elements (configurable)
 
 **Benefits**:
+
 - 2-8x performance for parallel workloads
 - Better data processing capabilities
 - Modern CPU features
@@ -179,6 +203,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 3.2 Advanced Vector Operations
+
 **Status**: Not Implemented  
 **Priority**: LOW  
 **Effort**: High
@@ -186,6 +211,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Advanced SIMD operations for complex computations.
 
 **New Instructions**:
+
 - `VDOT <dest>, <src1>, <src2>` - Dot product
 - `VCROSS <dest>, <src1>, <src2>` - Cross product (3D)
 - `VMAX <dest>, <src>` - Find maximum element
@@ -195,6 +221,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 - `VCMPGT <dest>, <src1>, <src2>` - Compare greater than
 
 **Benefits**:
+
 - Efficient mathematical operations
 - Graphics/physics computations
 - Signal processing
@@ -204,6 +231,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 3.3 Packed Data Operations
+
 **Status**: Not Implemented  
 **Priority**: LOW  
 **Effort**: Medium
@@ -211,12 +239,14 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Operations on packed byte/word data in registers.
 
 **New Instructions**:
+
 - `PACKB <dest>, <src1>, <src2>` - Pack bytes
 - `UNPACKB <dest>, <src>` - Unpack bytes
 - `PACKW <dest>, <src1>, <src2>` - Pack words
 - `UNPACKW <dest>, <src>` - Unpack words
 
 **Benefits**:
+
 - Efficient data representation
 - Better memory utilization
 - SIMD-style operations on sub-register data
@@ -228,6 +258,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ## Phase 4: Performance and Debugging (Medium Priority)
 
 ### 4.1 Performance Counters
+
 **Status**: Not Implemented  
 **Priority**: MEDIUM  
 **Effort**: Medium
@@ -235,6 +266,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Hardware performance counters for profiling.
 
 **Features**:
+
 - Cycle counter
 - Instruction counter
 - Cache hit/miss counters (if caching implemented)
@@ -242,10 +274,12 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 - Memory access counters
 
 **New Instructions**:
+
 - `RDTSC <dest>` - Read timestamp counter
 - `RDPMC <counter>, <dest>` - Read performance counter
 
 **Benefits**:
+
 - Performance profiling
 - Optimization guidance
 - Benchmarking support
@@ -255,6 +289,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 4.2 Advanced Debugging Support
+
 **Status**: Basic  
 **Priority**: MEDIUM  
 **Effort**: Medium
@@ -262,6 +297,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Enhanced debugging features for development.
 
 **Features**:
+
 - Breakpoint support (`INT 3` equivalent)
 - Single-step mode
 - Register/memory watch points
@@ -269,10 +305,12 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 - Debug symbol support
 
 **New Instructions**:
+
 - `BREAK` (0xXX) - Trigger breakpoint
 - `TRACE` (0xXX) - Enable single-step mode
 
 **Benefits**:
+
 - Easier program debugging
 - Better error diagnosis
 - Development tool support
@@ -280,6 +318,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 4.3 Memory Management Unit (MMU)
+
 **Status**: Not Implemented  
 **Priority**: LOW  
 **Effort**: Very High
@@ -287,6 +326,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Virtual memory support with page tables.
 
 **Features**:
+
 - Virtual address translation
 - Page tables (4KB pages)
 - Memory protection (read/write/execute)
@@ -294,10 +334,12 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 - Memory mapped I/O
 
 **New Instructions**:
+
 - `LOADCR3 <page_table>` - Load page table base
 - `INVLPG <addr>` - Invalidate TLB entry
 
 **Benefits**:
+
 - Process isolation
 - Virtual memory support
 - Better memory protection
@@ -308,6 +350,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ## Phase 5: Advanced Features (Low Priority)
 
 ### 5.1 Floating Point Enhancements
+
 **Status**: Complete (Basic)  
 **Priority**: LOW  
 **Effort**: Medium
@@ -315,14 +358,16 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Additional FPU features beyond current implementation.
 
 **Potential Additions**:
+
 - `FPREM` - Partial remainder
 - `FRNDINT` - Round to integer
 - `FSCALE` - Scale by power of 2
-- `FYL2X` - Y * log2(X)
+- `FYL2X` - Y \* log2(X)
 - `FPTAN` - Partial tangent
 - `FPATAN` - Partial arctangent
 
 **Benefits**:
+
 - Complete FPU instruction set
 - Better IEEE 754 compliance
 - Advanced mathematical functions
@@ -330,6 +375,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 5.2 Cryptographic Instructions
+
 **Status**: Not Implemented  
 **Priority**: LOW  
 **Effort**: High
@@ -337,11 +383,13 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Hardware-accelerated cryptographic operations.
 
 **Potential Instructions**:
+
 - `AES` - AES encryption/decryption
 - `SHA256` - SHA-256 hash computation
 - `RDRAND` - Hardware random number generation
 
 **Benefits**:
+
 - Secure computation
 - Performance for crypto workloads
 - Modern CPU feature parity
@@ -349,6 +397,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ---
 
 ### 5.3 Multi-core Support
+
 **Status**: Not Implemented  
 **Priority**: LOW  
 **Effort**: Very High
@@ -356,6 +405,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 **Description**: Multiple CPU core simulation with synchronization.
 
 **Features**:
+
 - Multiple CPU instances
 - Shared memory
 - Atomic operations
@@ -363,12 +413,14 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 - Inter-core communication
 
 **New Instructions**:
+
 - `LOCK` prefix for atomic operations
 - `MFENCE`, `LFENCE`, `SFENCE` - Memory fences
 - `CMPXCHG` - Compare and exchange
 - `XADD` - Exchange and add
 
 **Benefits**:
+
 - Parallel programming
 - Multi-threaded applications
 - Modern computing paradigm
@@ -377,23 +429,23 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 
 ## Implementation Priority Matrix
 
-| Feature | Priority | Effort | Impact | Phase |
-|---------|----------|--------|--------|-------|
-| Signed Comparisons | HIGH | Medium | High | 1 |
-| Exception Handling | HIGH | High | High | 2 |
-| Memory Protection | HIGH | Medium | High | 1 |
-| Software Interrupts | MEDIUM | Medium | Medium | 2 |
-| Stack Operations | MEDIUM | Low | Medium | 1 |
-| Basic SIMD | MEDIUM | High | Medium | 3 |
-| Performance Counters | MEDIUM | Medium | Medium | 4 |
-| Debugging Support | MEDIUM | Medium | High | 4 |
-| Hardware Interrupts | LOW | High | Low | 2 |
-| Advanced SIMD | LOW | High | Low | 3 |
-| Packed Data | LOW | Medium | Low | 3 |
-| MMU | LOW | Very High | Low | 4 |
-| FPU Enhancements | LOW | Medium | Low | 5 |
-| Cryptographic | LOW | High | Low | 5 |
-| Multi-core | LOW | Very High | Low | 5 |
+| Feature              | Priority | Effort    | Impact | Phase |
+| -------------------- | -------- | --------- | ------ | ----- |
+| Signed Comparisons   | HIGH     | Medium    | High   | 1     |
+| Exception Handling   | HIGH     | High      | High   | 2     |
+| Memory Protection    | HIGH     | Medium    | High   | 1     |
+| Software Interrupts  | MEDIUM   | Medium    | Medium | 2     |
+| Stack Operations     | MEDIUM   | Low       | Medium | 1     |
+| Basic SIMD           | MEDIUM   | High      | Medium | 3     |
+| Performance Counters | MEDIUM   | Medium    | Medium | 4     |
+| Debugging Support    | MEDIUM   | Medium    | High   | 4     |
+| Hardware Interrupts  | LOW      | High      | Low    | 2     |
+| Advanced SIMD        | LOW      | High      | Low    | 3     |
+| Packed Data          | LOW      | Medium    | Low    | 3     |
+| MMU                  | LOW      | Very High | Low    | 4     |
+| FPU Enhancements     | LOW      | Medium    | Low    | 5     |
+| Cryptographic        | LOW      | High      | Low    | 5     |
+| Multi-core           | LOW      | Very High | Low    | 5     |
 
 ---
 
@@ -421,6 +473,7 @@ This document outlines future features and enhancements for DemiEngine, prioriti
 ## Contributing
 
 When implementing new features:
+
 1. Start with test cases that define expected behavior
 2. Update this roadmap with implementation status
 3. Document new instructions in API_REFERENCE.md

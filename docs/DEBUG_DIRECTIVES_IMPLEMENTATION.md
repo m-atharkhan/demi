@@ -1,6 +1,7 @@
 # Debug Directives Implementation Summary
 
 ## Overview
+
 Successfully implemented 14 debug directives for the Demi VM/assembler system. All directives only produce output when the `-d` (debug) flag is used.
 
 ## Debug Directives
@@ -92,23 +93,28 @@ Successfully implemented 14 debug directives for the Demi VM/assembler system. A
 ## Technical Details
 
 ### Opcode Structure
+
 - **Opcode:** 0x42 (DEBUG)
 - **Format:** `DEBUG sub_opcode [operands...]`
 - **Sub-opcodes:** 0-13 (14 total directives)
 
 ### Bytecode Encoding
+
 Each directive emits:
+
 1. Opcode byte (0x42)
 2. Sub-opcode byte (0-13)
 3. Directive-specific operands (varies by directive)
 
 ### Configuration
+
 - **Config::debug** - CLI flag (-d), controls all debug directive output
 - **Config::trace** - Runtime flag, controls instruction-level tracing (set by .trace directive)
 
 ## Files Modified
 
 ### Frontend (Parsing & Assembly)
+
 - `src/assembler/token.hpp` - Added 9 new token types
 - `src/assembler/lexer.cpp` - Added 9 new keywords
 - `src/assembler/parser.hpp` - Declared parse_debug_directive()
@@ -117,10 +123,12 @@ Each directive emits:
 - `src/assembler/assembler.cpp` - Extended DEBUG instruction emission for all sub-opcodes
 
 ### Backend (Execution)
+
 - `src/engine/opcodes/opcode_dispatcher_inlined.cpp` - Implemented execution logic for all sub-opcodes
 - `src/config.hpp` - Added Config::trace flag
 
 ### Testing
+
 - `tests/debug_new.test.asm` - Comprehensive test of all 14 directives
 - `examples/debug_directives.asm` - Example usage (original 5 directives)
 
@@ -149,17 +157,20 @@ add64 rax, rbx
 Run with: `./bin/demi-engine-debug -d -A program.asm`
 
 ## Notes
+
 - All directives are no-ops when not in debug mode (no -d flag)
 - Memory operations (watch/unwatch/memset) are informational only in current implementation
 - Full watchpoint tracking and step-mode execution would require additional CPU state management
 - All directives have been tested and verified working
 
 ## Build Instructions
+
 ```bash
 make clean && make
 ```
 
 ## Test Instructions
+
 ```bash
 ./bin/demi-engine-debug -d -A tests/debug_new.test.asm
 ```

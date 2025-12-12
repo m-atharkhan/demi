@@ -9,6 +9,7 @@ The DemiEngine now features a comprehensive, centralized error handling system i
 #### 1.1 ErrorHandler Class
 
 **Core Features:**
+
 - ✅ Centralized error reporting through singleton pattern
 - ✅ Structured error codes categorized by subsystem
 - ✅ Context-rich error messages with CPU state
@@ -17,8 +18,9 @@ The DemiEngine now features a comprehensive, centralized error handling system i
 - ✅ Quiet mode support for test execution
 
 **Error Code Categories:**
+
 - **0x001-0x099**: Parser/Lexer errors
-- **0x100-0x199**: Assembly errors  
+- **0x100-0x199**: Assembly errors
 - **0x200-0x299**: Runtime/CPU errors
 - **0x300-0x399**: Memory errors
 - **0x400-0x499**: I/O errors
@@ -40,6 +42,7 @@ ErrorHandler::instance().report_runtime(
 ```
 
 **Context includes:**
+
 - Program counter (PC) at time of error
 - Complete register state dump
 - Call stack trace for runtime errors
@@ -50,6 +53,7 @@ ErrorHandler::instance().report_runtime(
 ### 1.3 Error Message Examples
 
 **Before Implementation:**
+
 ```
 Error: Division by zero
 Memory out of bounds
@@ -57,12 +61,13 @@ Unexpected token
 ```
 
 **After Implementation:**
+
 ```
 [ERROR:0x200] [CPU] [CRITICAL] Division by zero at PC=0x1234
 Context: R0=5, R1=0, SP=0x7FF8, FLAGS=0x0002
 Stack: main+0x1234 -> arithmetic_test+0x45
 
-[ERROR:0x202] [CPU] [ERROR] Memory access violation  
+[ERROR:0x202] [CPU] [ERROR] Memory access violation
 Context: Attempted read at 0x8000 (available: 0x0000-0x7FFF)
 PC=0x0456, instruction: LOAD R0, [R1]
 
@@ -78,25 +83,28 @@ File: tests/example.test.asm
 The debug system is implemented in `src/debug/debug_handler.hpp` with structured debugging categories and context tracking.
 
 #### Debug Categories
+
 - **0x001-0x099**: CPU/Engine debug
 - **0x100-0x199**: Assembly/Parser debug
-- **0x200-0x299**: Memory/Storage debug  
+- **0x200-0x299**: Memory/Storage debug
 - **0x300-0x399**: I/O/Device debug
 - **0x400-0x499**: Test/Execution debug
 - **0x500-0x599**: GUI/Interface debug
 - **0x600-0x699**: Performance/Profiling debug
 
 #### Debug Context Tracking
+
 ```cpp
 // Structured debug output with context
-DEBUG_INFO(DebugCategory::CPU_EXECUTION, 
-    "Executing instruction at PC={:04X}: {} R{}={}", 
+DEBUG_INFO(DebugCategory::CPU_EXECUTION,
+    "Executing instruction at PC={:04X}: {} R{}={}",
     pc, opcode_name, reg, value);
 ```
 
 ### 2.2 Enhanced Logger System
 
 **Features Implemented:**
+
 - ✅ Structured logging with categories
 - ✅ Context-aware debug messages
 - ✅ Thread-safe logging operations
@@ -105,6 +113,7 @@ DEBUG_INFO(DebugCategory::CPU_EXECUTION,
 - ✅ Conditional debug output based on categories
 
 **Debug Output Format:**
+
 ```
 [DEBUG:0x001] [CPU] Executing ADD R0, R1 at PC=0x0012
   Before: R0=0x05, R1=0x03, FLAGS=0x0000
@@ -125,6 +134,7 @@ Logging::ErrorHandler::instance().set_quiet_mode(false);
 ```
 
 **Benefits:**
+
 - Clean test output without debug noise
 - Proper error reporting for test failures
 - Structured error messages in test results
@@ -132,6 +142,7 @@ Logging::ErrorHandler::instance().set_quiet_mode(false);
 ### 3.2 Test Result Visualization
 
 **Current Test Output:**
+
 ```
 📁 Testing file: tests/algorithms.test.asm
 fibonacci calculation ✓
@@ -154,11 +165,13 @@ Failed: 0
 ## 4. PERFORMANCE AND RELIABILITY
 
 ### 4.1 Error Handling Performance
+
 - **Zero-cost when no errors occur** (conditional compilation)
 - **Thread-safe error reporting** with minimal locking overhead
 - **Structured error codes** enable programmatic error handling
 
-### 4.2 Debug Performance  
+### 4.2 Debug Performance
+
 - **Conditional debug compilation** with DEBUG_INFO macros
 - **Category-based filtering** reduces debug noise
 - **Lazy string formatting** only when debug is enabled
@@ -168,6 +181,7 @@ Failed: 0
 ### ✅ Completed Features
 
 #### Error Handling System:
+
 - [x] ErrorHandler singleton class
 - [x] Structured error codes (0x001-0x5FF)
 - [x] Context-rich error messages
@@ -178,6 +192,7 @@ Failed: 0
 - [x] Quiet mode for test execution
 
 #### Debug System:
+
 - [x] DebugHandler with category-based debugging
 - [x] Structured debug categories (0x001-0x6FF)
 - [x] Context tracking for debug messages
@@ -186,6 +201,7 @@ Failed: 0
 - [x] Conditional debug compilation
 
 #### Logger Integration:
+
 - [x] Enhanced Logger class with structured output
 - [x] Error/debug message formatting
 - [x] Test framework integration
@@ -194,6 +210,7 @@ Failed: 0
 ### 🚧 Future Enhancements
 
 #### Interactive Debugging (Planned):
+
 - [ ] GDB-style interactive debugger (`--gdb` flag)
 - [ ] Breakpoint system (PC-based, opcode-based)
 - [ ] Step/continue execution control
@@ -202,6 +219,7 @@ Failed: 0
 - [ ] Watch points and conditional debugging
 
 #### Advanced Error Recovery:
+
 - [ ] Error recovery mechanisms (continue after parse errors)
 - [ ] Error suppression categories
 - [ ] Context-aware error suggestions
@@ -210,8 +228,9 @@ Failed: 0
 ## 6. ERROR CODE REFERENCE
 
 ### Parser/Lexer Errors (0x001-0x099)
+
 - `0x001`: Duplicate label definition
-- `0x002`: Unknown directive  
+- `0x002`: Unknown directive
 - `0x003`: Invalid operand format
 - `0x004`: Missing required operand
 - `0x005`: Invalid number format
@@ -219,6 +238,7 @@ Failed: 0
 - `0x007`: Generic parse error
 
 ### Assembly Processing (0x100-0x199)
+
 - `0x100`: Unknown instruction
 - `0x101`: Invalid register name
 - `0x102`: Invalid immediate value (out of range)
@@ -228,6 +248,7 @@ Failed: 0
 - `0x106`: Directive processing error
 
 ### Runtime/CPU Errors (0x200-0x299)
+
 - `0x200`: Division by zero
 - `0x201`: Modulo by zero
 - `0x202`: Memory out of bounds access
@@ -239,12 +260,14 @@ Failed: 0
 - `0x208`: Invalid opcode
 
 ### Memory Errors (0x300-0x399)
+
 - `0x300`: Memory allocation failure
 - `0x301`: Memory deallocation error
 - `0x302`: Memory corruption detected
 - `0x303`: Invalid memory access pattern
 
 ### I/O Errors (0x400-0x499)
+
 - `0x400`: File not found
 - `0x401`: Directory not found
 - `0x402`: File read error
@@ -253,6 +276,7 @@ Failed: 0
 - `0x405`: Permission denied
 
 ### Test Framework (0x500-0x599)
+
 - `0x500`: Test exceeded max steps (infinite loop)
 - `0x501`: Test assertion failed
 - `0x502`: Unexpected error in test execution
@@ -262,6 +286,7 @@ Failed: 0
 ## 7. USAGE EXAMPLES
 
 ### Error Handling Usage:
+
 ```cpp
 // Runtime error with context
 ErrorHandler::instance().report_runtime(
@@ -278,7 +303,7 @@ ErrorHandler::instance().report_parse(
     "tests/example.asm", 15, 8
 );
 
-// I/O error with path context  
+// I/O error with path context
 ErrorHandler::instance().report_io(
     ErrorCode::IO_FILE_NOT_FOUND,
     "/path/to/missing/file.asm",
@@ -287,9 +312,10 @@ ErrorHandler::instance().report_io(
 ```
 
 ### Debug System Usage:
+
 ```cpp
 // Conditional debug output
-DEBUG_INFO(DebugCategory::CPU_EXECUTION, 
+DEBUG_INFO(DebugCategory::CPU_EXECUTION,
     "ADD instruction: R{} ({}) + R{} ({}) = {} (flags: {})",
     reg1, val1, reg2, val2, result, flags);
 
@@ -305,9 +331,10 @@ DEBUG_MEM(DebugCategory::MEM_ACCESS,
 ## Summary
 
 **Implementation Status:**
+
 - ✅ **Error Handling**: Complete centralized system with structured error codes and rich context
 - ✅ **Debug System**: Comprehensive debug categories with context tracking
-- ✅ **Logger Integration**: Enhanced formatting and test framework integration  
+- ✅ **Logger Integration**: Enhanced formatting and test framework integration
 - ✅ **Test Framework**: Clean error reporting and quiet mode support
 - ✅ **Performance**: Zero-cost when disabled, thread-safe operations
 - 🚧 **Interactive Debugging**: Planned for future release
@@ -332,6 +359,7 @@ The error handling and debug systems provide a solid foundation for development,
 ### 1.3 Current Error Handling Patterns
 
 **Pattern 1: Error + Exception**
+
 ```cpp
 Logger::instance().error() << error_msg << std::endl;
 Config::error_count++;
@@ -339,6 +367,7 @@ throw CPUException(error_msg);  // Redundant - already logged
 ```
 
 **Pattern 2: Try-Catch with Generic Message**
+
 ```cpp
 catch (const std::exception& e) {
     std::cerr << "Error: Exception: " << e.what() << std::endl;
@@ -347,6 +376,7 @@ catch (const std::exception& e) {
 ```
 
 **Pattern 3: Direct stderr**
+
 ```cpp
 std::cerr << "Error: Test path not found: " << filepath << std::endl;
 ```
@@ -358,6 +388,7 @@ std::cerr << "Error: Test path not found: " << filepath << std::endl;
 ### 2.1 Immediate Improvements (High Priority)
 
 **A) Create Consistent Error Format**
+
 ```cpp
 // Proposed format:
 [ERROR_CODE:0x001] [SUBSYSTEM] [SEVERITY] Message
@@ -366,6 +397,7 @@ Suggestion: Fix your code like this...
 ```
 
 **B) Define Error Code System**
+
 - 0x001-0x099: Parser/Lexer errors
 - 0x100-0x199: Assembly errors
 - 0x200-0x299: Runtime/CPU errors
@@ -374,6 +406,7 @@ Suggestion: Fix your code like this...
 - 0x500-0x599: Test framework errors
 
 **C) Centralize Error Handling**
+
 - Create `ErrorHandler` class
 - Standardize all error reporting through it
 - Prevent duplicate logging
@@ -381,6 +414,7 @@ Suggestion: Fix your code like this...
 **D) Improve Specific Error Messages**
 
 Current → Improved Examples:
+
 - "Invalid Division Division by zero" → "Runtime error at PC=0x1234: Division by zero (R0 = 5, R1 = 0)"
 - "Memory out of bounds" → "Memory access error: Attempted to read at 0xFFFF, available memory: 0x0000-0x7FFF"
 - "Unexpected token" → "Unexpected token '}' at line 15, column 8. Expected 'number' or 'identifier'"
@@ -405,14 +439,14 @@ Current → Improved Examples:
 
 **Debug Messages by Category:**
 
-| Category | Location | Count | Quality |
-|----------|----------|-------|---------|
-| Opcode Execution | opcodes_consolidated.cpp | 50+ | VERBOSE - logs every step |
-| Memory Operations | cpu.cpp | 6 | MODERATE - missing context |
-| Assembly Processing | assembler.cpp | 6 | LOW - vague messages |
-| Instruction Fetch | cpu.cpp | 4 | HIGH - clear state info |
-| Device I/O | devices/*.hpp | 8 | MODERATE - format inconsistent |
-| Test Framework | assembly_test_executor.cpp | 4 | LOW - missing test context |
+| Category            | Location                   | Count | Quality                        |
+| ------------------- | -------------------------- | ----- | ------------------------------ |
+| Opcode Execution    | opcodes_consolidated.cpp   | 50+   | VERBOSE - logs every step      |
+| Memory Operations   | cpu.cpp                    | 6     | MODERATE - missing context     |
+| Assembly Processing | assembler.cpp              | 6     | LOW - vague messages           |
+| Instruction Fetch   | cpu.cpp                    | 4     | HIGH - clear state info        |
+| Device I/O          | devices/\*.hpp             | 8     | MODERATE - format inconsistent |
+| Test Framework      | assembly_test_executor.cpp | 4     | LOW - missing test context     |
 
 ### 3.2 Debug Message Issues
 
@@ -454,7 +488,7 @@ DEBUG_CONTEXT.set_pc(cpu.get_pc());
 Logger::instance().debug()
     .with_context(DEBUG_CONTEXT)
     .format("ADD", "R0={} R1={} -> R0={} (C={}, O={})")
-    .args(cpu.get_register(0), cpu.get_register(1), 
+    .args(cpu.get_register(0), cpu.get_register(1),
           cpu.get_register(0), carry_flag, overflow_flag)
     .flush();
 ```
@@ -462,9 +496,11 @@ Logger::instance().debug()
 ### 4.2 GDB-Style Debugger Mode (`--gdb` / `-g`)
 
 **Three-Letter Flag Design:**
+
 - `-g` or `--gdb`: Enter interactive debugger mode
 
 **Core Features:**
+
 - **Breakpoints**: `break PC=0x1234` or `break opcode=JMP`
 - **Step Execution**: `step` (next instruction), `stepover` (skip functions)
 - **Register Inspection**: `registers`, `register R0`, `memory 0x1000 0x1010`
@@ -474,6 +510,7 @@ Logger::instance().debug()
 - **Watch Points**: `watch R0`, `watch_memory 0x5000`
 
 **Interactive Session Format:**
+
 ```
 (demi-gdb) break 0x1234
 Breakpoint 1 set at PC=0x1234
@@ -500,12 +537,14 @@ R1  = 0x00000003  (decimal: 3)
 ### 4.3 Logger Visual Improvements
 
 **Current Output:**
+
 ```
 [25-11-17 11:52:05.152] [INFO] === Running tests from tests/algorithms.test.asm ===
 [25-11-17 11:52:05.152] [INFO] fibonacci calculation ✓
 ```
 
 **Proposed Output:**
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │  DEMI Engine Test Suite                             │
@@ -533,6 +572,7 @@ R1  = 0x00000003  (decimal: 3)
 ## 5. IMPLEMENTATION ROADMAP
 
 ### Phase 1: Error Handling Improvements (1-2 hours)
+
 - [ ] Create `ErrorHandler` class with error codes
 - [ ] Standardize error message format
 - [ ] Add context information to runtime errors
@@ -540,12 +580,14 @@ R1  = 0x00000003  (decimal: 3)
 - [ ] Add error recovery hints
 
 ### Phase 2: Debug System Redesign (2-3 hours)
+
 - [ ] Create `DebugContext` for thread-safe context tracking
 - [ ] Redesign Logger output format with structure
 - [ ] Implement visual table/box drawing for test results
 - [ ] Add progress indicators and timing information
 
 ### Phase 3: GDB-Style Debugger (3-4 hours)
+
 - [ ] Create `DebuggerREPL` class for interactive commands
 - [ ] Implement breakpoint system (PC-based, opcode-based)
 - [ ] Add register/memory inspection commands
@@ -553,6 +595,7 @@ R1  = 0x00000003  (decimal: 3)
 - [ ] Add call stack inspection
 
 ### Phase 4: Testing & Polish (1 hour)
+
 - [ ] Test error messages with various scenarios
 - [ ] Verify debugger works with test suite
 - [ ] Performance validation
@@ -563,6 +606,7 @@ R1  = 0x00000003  (decimal: 3)
 ## 6. ERROR CODE REFERENCE
 
 ### Assembly/Parser (0x001-0x099)
+
 - 0x001: Duplicate label definition
 - 0x002: Unknown directive
 - 0x003: Invalid operand format
@@ -572,6 +616,7 @@ R1  = 0x00000003  (decimal: 3)
 - 0x007: Parse error
 
 ### Assembly Processing (0x100-0x199)
+
 - 0x100: Unknown instruction
 - 0x101: Invalid register name
 - 0x102: Invalid immediate value (out of range)
@@ -580,6 +625,7 @@ R1  = 0x00000003  (decimal: 3)
 - 0x105: Instruction encoding not implemented
 
 ### Memory/CPU Runtime (0x200-0x299)
+
 - 0x200: Division by zero
 - 0x201: Memory out of bounds
 - 0x202: Invalid register access
@@ -590,6 +636,7 @@ R1  = 0x00000003  (decimal: 3)
 - 0x207: Invalid opcode
 
 ### I/O Errors (0x400-0x499)
+
 - 0x400: File not found
 - 0x401: Directory not found
 - 0x402: File read error
@@ -598,6 +645,7 @@ R1  = 0x00000003  (decimal: 3)
 - 0x405: Permission denied
 
 ### Test Framework (0x500-0x599)
+
 - 0x500: Test exceeded max steps (infinite loop)
 - 0x501: Test assertion failed
 - 0x502: Unexpected error in test
@@ -608,6 +656,7 @@ R1  = 0x00000003  (decimal: 3)
 ## Summary
 
 **Current State:**
+
 - ✓ Error handling exists but inconsistent
 - ✗ Error messages lack context and structure
 - ✗ No systematic error categorization
@@ -615,6 +664,7 @@ R1  = 0x00000003  (decimal: 3)
 - ✗ No interactive debugging capability
 
 **Proposed State:**
+
 - ✓ Structured error messages with codes
 - ✓ Rich context (register state, memory, etc.)
 - ✓ New logger visual format

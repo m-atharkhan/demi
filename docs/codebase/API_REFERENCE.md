@@ -74,7 +74,7 @@ void execute(const std::vector<uint8_t>& program, uint32_t entry_address = 0, si
 uint64_t get_register(Register reg) const;
 
 /**
- * @brief Set value of specified register  
+ * @brief Set value of specified register
  * @param reg Register identifier
  * @param value 64-bit value to store
  */
@@ -100,7 +100,7 @@ uint32_t get_sp() const { return sp; }
 
 /**
  * @brief Get current frame pointer value
- * @return 32-bit FP address  
+ * @return 32-bit FP address
  */
 uint32_t get_fp() const { return fp; }
 
@@ -222,7 +222,7 @@ virtual std::string get_type() const = 0;
 virtual uint16_t read_word();
 
 /**
- * @brief Write 16-bit word to device  
+ * @brief Write 16-bit word to device
  * Default implementation calls write() twice
  * @param value 16-bit value to write
  */
@@ -317,7 +317,7 @@ void write_port(uint8_t port, uint8_t value);
 
 /**
  * @brief Read 16-bit word from device port
- * @param port 8-bit port number  
+ * @param port 8-bit port number
  * @return 16-bit value from device
  */
 uint16_t read_port_word(uint8_t port);
@@ -391,7 +391,7 @@ public:
      * @param output Output stream (default: std::cout)
      */
     ConsoleDevice(std::istream& input = std::cin, std::ostream& output = std::cout);
-    
+
     // Device interface implementation
     uint8_t read() override;
     void write(uint8_t value) override;
@@ -415,12 +415,12 @@ public:
      * @param base_dir Base directory for file operations (default: current)
      */
     FileDevice(const std::string& base_dir = ".");
-    
+
     // Device interface implementation
     uint8_t read() override;
     void write(uint8_t value) override;
     std::string get_type() const override { return "File"; }
-    
+
     // File-specific operations
     bool open_file(const std::string& filename, bool write_mode = false);
     void close_file();
@@ -438,13 +438,13 @@ Simple counter device for testing and timing operations.
 class CounterDevice : public Device {
 public:
     CounterDevice();
-    
-    // Device interface implementation  
+
+    // Device interface implementation
     uint8_t read() override;
     void write(uint8_t value) override;
     void update() override;
     std::string get_type() const override { return "Counter"; }
-    
+
     // Counter-specific operations
     uint32_t get_count() const;
     void set_count(uint32_t value);
@@ -467,12 +467,12 @@ public:
      * @param baud_rate Communication speed (default: 9600)
      */
     SerialPortDevice(const std::string& port_name, int baud_rate = 9600);
-    
+
     // Device interface implementation
     uint8_t read() override;
     void write(uint8_t value) override;
     std::string get_type() const override { return "SerialPort"; }
-    
+
     // Serial-specific operations
     bool open();
     void close();
@@ -498,31 +498,31 @@ public:
      * @param device_manager Pointer to device manager
      */
     DebugGUI(CPU* cpu, DeviceManager* device_manager);
-    
+
     /**
      * @brief Initialize GUI system
      * @return true if successful, false on error
      */
     bool initialize();
-    
+
     /**
      * @brief Render one frame of GUI
      * Should be called in main loop
      */
     void render();
-    
+
     /**
      * @brief Shutdown GUI system
      * Cleanup resources and windows
      */
     void shutdown();
-    
+
     /**
      * @brief Check if user requested to close window
      * @return true if should exit
      */
     bool should_close() const;
-    
+
     /**
      * @brief Handle window and input events
      */
@@ -591,7 +591,7 @@ public:
         DIVISION_BY_ZERO,
         DEVICE_ERROR
     };
-    
+
     CPUError(Type type, const std::string& message);
     Type get_type() const { return type_; }
 };
@@ -633,7 +633,7 @@ constexpr uint32_t PROGRAM_START = 0x00000000;       // Programs start at 0
 
 ```cpp
 constexpr uint32_t FLAG_ZERO = 0x01;    // Zero flag
-constexpr uint32_t FLAG_SIGN = 0x02;    // Sign flag  
+constexpr uint32_t FLAG_SIGN = 0x02;    // Sign flag
 constexpr uint32_t FLAG_CARRY = 0x04;   // Carry flag
 constexpr uint32_t FLAG_OVERFLOW = 0x08; // Overflow flag
 ```

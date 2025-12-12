@@ -16,11 +16,13 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
 ### 1. Memory Bounds Checking (opcodes_consolidated.cpp)
 
 #### LOAD Operation
+
 - Added validation for register bounds
 - Added validation for memory address bounds
 - Errors increment Config::error_count and halt execution
 
 #### STORE Operation
+
 - Added validation for register bounds
 - Added validation for memory address bounds
 - Errors increment Config::error_count and halt execution
@@ -28,11 +30,13 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
 ### 2. Stack Operations (opcodes_consolidated.cpp)
 
 #### PUSH Operation
+
 - Added stack overflow detection (SP < 8)
 - Prevents stack from growing into invalid memory regions
 - Errors increment Config::error_count and halt execution
 
 #### RET Operation
+
 - Added validation for RET without matching CALL
 - Checks if SP+8 exceeds memory size
 - Errors increment Config::error_count and halt execution
@@ -40,6 +44,7 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
 ### 3. Control Flow Validation (opcodes_consolidated.cpp)
 
 #### JMP Operation
+
 - Enhanced existing validation
 - Now increments Config::error_count on invalid jump addresses
 - Ensures error tracking works correctly
@@ -47,11 +52,13 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
 ### 4. Assembler Validation (assembler.cpp)
 
 #### .org Directive
+
 - Added validation to prevent backwards movement
 - .org can only move forward or stay at current address
 - Clear error message shows attempted backwards jump
 
 #### DB Directive (Multiple Paths)
+
 - Added length validation in both code paths:
   - `handle_db_directive()` for directive processing
   - `encode_instruction()` for instruction processing
@@ -59,6 +66,7 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
 - Provides clear error message with both values
 
 #### LOAD_IMM Instruction
+
 - Added immediate value range checking
 - LOAD_IMM restricted to 0-255 (1-byte immediate)
 - Clear error message shows out-of-range value
@@ -66,15 +74,18 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
 ### 5. Test Corrections
 
 #### Fixed Opcode Values in Tests
+
 - Corrected JMP opcode: 0x05 (not 0x08)
 - Corrected RET opcode: 0x1B (not 0x1C)
 - Corrected PUSH opcode: 0x08
 
 #### Updated Existing Tests
+
 - `org_directive_backwards` → now expects error (TEST_CASE_EXPECT_ERROR)
 - `org_directive_edge_cases` → updated to not use backwards .org
 
 #### Documented Limitations
+
 - `memory_out_of_bounds_read_limitation` - 1-byte address can't exceed 256-byte memory
 - `memory_out_of_bounds_write_limitation` - 1-byte address can't exceed 256-byte memory
 - Changed from EXPECT_ERROR to regular TEST_CASE with documentation
@@ -82,6 +93,7 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
 ## Test Results
 
 ### Before Fixes
+
 - **Unit Tests**: 70/79 passing (88.6%)
 - **Negative Tests Failing**: 9/20
   - memory_out_of_bounds_read
@@ -95,6 +107,7 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
   - ret_without_call
 
 ### After Fixes
+
 - **Unit Tests**: 79/79 passing (100%) ✅
 - **Integration Tests**: 42/42 passing (100%) ✅
 - **Negative Tests**: 20/20 working correctly ✅
@@ -127,6 +140,7 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
 ## Files Modified
 
 ### Source Code
+
 - `/workspaces/demi/src/engine/opcodes/opcodes_consolidated.cpp`
   - handle_load() - Added bounds checking
   - handle_store() - Added bounds checking
@@ -141,6 +155,7 @@ Successfully implemented comprehensive error validation for the DemiEngine assem
   - LOAD_IMM encoding - Added immediate value range checking
 
 ### Tests
+
 - `/workspaces/demi/src/test/unit_tests.cpp`
   - Fixed opcode values in all negative tests
   - Updated 2 existing tests to expect errors
@@ -205,6 +220,7 @@ make clean && make
 ## Conclusion
 
 All negative tests are now functioning correctly, providing comprehensive validation of error conditions in the DemiEngine assembler and CPU. The system properly detects and reports:
+
 - Memory access violations
 - Stack overflow/underflow
 - Invalid instructions and operands

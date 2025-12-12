@@ -3,6 +3,7 @@
 ## Overview
 
 **Currently Implemented**: 94 opcodes (fully functional)
+
 - 63 Core opcodes (basic operations, arithmetic, memory, control flow, stack, bitwise, I/O)
 - 23 FPU opcodes (floating-point arithmetic and control)
 - 8 SIMD opcodes (vector operations)
@@ -10,6 +11,7 @@
 **Defined but Not Implemented**: 57 opcodes (SSE, AVX, MMX - planned for future)
 
 ## Basic Syntax
+
 - Instructions are written in hexadecimal
 - Comments start with `#`
 - Registers: R0-R7 (basic), R0-R15 (extended), plus special/system registers
@@ -18,6 +20,7 @@
 ## Implemented Instruction Categories
 
 ### Basic Operations
+
 ```hex
 00                    # NOP - No operation
 FF                    # HALT - Stop execution
@@ -26,6 +29,7 @@ FF                    # HALT - Stop execution
 ```
 
 ### Arithmetic
+
 ```hex
 02 <dst> <src>        # ADD - Add registers
 03 <dst> <src>        # SUB - Subtract registers
@@ -37,6 +41,7 @@ FF                    # HALT - Stop execution
 ```
 
 ### Memory Operations
+
 ```hex
 06 <dst> <addr>       # LOAD - Load from memory
 07 <addr> <src>       # STORE - Store to memory
@@ -46,6 +51,7 @@ FF                    # HALT - Stop execution
 ```
 
 ### Control Flow
+
 ```hex
 05 <addr>             # JMP - Unconditional jump
 0A <reg1> <reg2>      # CMP - Compare registers
@@ -64,6 +70,7 @@ FF                    # HALT - Stop execution
 ```
 
 ### Stack Operations
+
 ```hex
 08 <reg>              # PUSH - Push register to stack
 09 <reg>              # POP - Pop from stack
@@ -76,6 +83,7 @@ FF                    # HALT - Stop execution
 ```
 
 ### Bitwise Operations
+
 ```hex
 14 <dst> <src>        # AND - Bitwise AND
 15 <dst> <src>        # OR - Bitwise OR
@@ -86,6 +94,7 @@ FF                    # HALT - Stop execution
 ```
 
 ### I/O Operations
+
 ```hex
 30 <dst> <port>       # IN - Read from port
 31 <port> <src>       # OUT - Write to port
@@ -100,6 +109,7 @@ FF                    # HALT - Stop execution
 ```
 
 ### Data Definition
+
 ```hex
 40 <byte>             # DB - Define byte in program
 ```
@@ -107,6 +117,7 @@ FF                    # HALT - Stop execution
 ## Common Patterns
 
 ### Hello World
+
 ```hex
 01 00 10              # LOAD_IMM R0, 0x10 (string address)
 39 01 00              # OUTSTR port=1, R0
@@ -117,6 +128,7 @@ FF                    # HALT
 ```
 
 ### Simple Loop
+
 ```hex
 01 00 0A              # LOAD_IMM R0, 10 (counter)
 01 01 00              # LOAD_IMM R1, 0 (comparison value)
@@ -128,6 +140,7 @@ FF                    # HALT
 ```
 
 ### Function Call
+
 ```hex
 01 00 05              # LOAD_IMM R0, 5
 1A 10                 # CALL 0x10 (function address)
@@ -139,6 +152,7 @@ FF                    # HALT
 ```
 
 ## Device Ports
+
 - **Port 1**: Console (text I/O)
 - **Port 2**: File device
 - **Port 3**: Counter device
@@ -146,6 +160,7 @@ FF                    # HALT
 - **Ports 5-255**: Available for custom devices
 
 ## Register Usage Conventions
+
 - **R0-R3**: General purpose, function parameters/return values
 - **R4-R6**: General purpose, local variables
 - **R7**: Often used as temporary or frame pointer
@@ -154,6 +169,7 @@ FF                    # HALT
 - **FP**: Frame pointer (manual management)
 
 ## Memory Layout
+
 ```
 High Memory ┌─────────┐
             │  Stack  │ ← SP
@@ -169,6 +185,7 @@ Low Memory  │  Code   │ ← PC starts here
 ```
 
 ## Common Gotchas
+
 1. **8-bit immediates**: LOAD_IMM only supports 8-bit values (0-255)
 2. **Stack direction**: Stack grows downward (SP decreases on push)
 3. **String termination**: Strings must be null-terminated for OUTSTR
@@ -179,6 +196,7 @@ Low Memory  │  Code   │ ← PC starts here
 ## Testing Quick Reference
 
 ### Run Tests
+
 ```bash
 ./bin/demi-engine -ut                         # Unit tests (101)
 ./bin/demi-engine -at                         # Assembly tests (118)
@@ -186,19 +204,21 @@ Low Memory  │  Code   │ ← PC starts here
 ```
 
 ### Test Specific Files
+
 ```bash
 ./bin/demi-engine -at tests/arithmetic.test.asm   # Test single file
 ./bin/demi-engine -at tests/stack.test.asm        # Another example
 ```
 
 ### In-Assembly Test Format
+
 ```assembly
 .test test_name
     .description What this test validates
     .author Your Name
     .category Test Category
     .tag tag1, tag2
-    
+
     LOAD_IMM R0, 5
     LOAD_IMM R1, 10
     ADD R0, R1
@@ -207,6 +227,7 @@ Low Memory  │  Code   │ ← PC starts here
 ```
 
 ### Test Metadata Directives
+
 - `.description` - Brief test description (recommended)
 - `.author` - Test author/team (optional)
 - `.category` - Test category/group (optional)
@@ -217,12 +238,14 @@ Low Memory  │  Code   │ ← PC starts here
 - `.skip` - Skip this test (no value needed)
 
 ### Benchmark Directives
+
 - `.benchmark` - Mark this test as a benchmark (measures performance)
 - `.warmup` - Number of warmup iterations before measurement
 - `.iterations` - Number of benchmark iterations (default: 1)
 - `.measure` - What to measure: "time", "cycles", or "instructions"
 
 ### Test Commands
+
 - `.assert_eq <reg>, <value>` - Assert register equals value
 - `.assert_ne <reg>, <value>` - Assert register not equals value
 - `.assert_lt <reg>, <value>` - Assert register less than value
@@ -233,6 +256,7 @@ See [TEST_FLAGS.md](testing/TEST_FLAGS.md) and [tests/asm/README.md](../tests/as
 ---
 
 ### Floating Point Unit (FPU)
+
 ```hex
 # FPU Load/Store (Floating-Point)
 A0 <format> <src>     # FLD - Load floating-point value
@@ -273,6 +297,7 @@ B6                    # FUCOMPP - Unordered compare ST(0) and ST(1), pop twice
 ```
 
 ### SIMD Vector Operations
+
 ```hex
 D4 <dst> <src>        # VADD - Vector addition (element-wise)
 D5 <dst> <src>        # VMUL - Vector multiplication (element-wise)
@@ -289,39 +314,47 @@ DB <dst> <src>        # UNPACKB - Unpack bytes
 The following instruction categories are **defined** in the opcode table but **not yet implemented**:
 
 ### SIMD/SSE Operations (0x80-0x9F) - 26 opcodes ⚠️
+
 ```
 MOVAPS, MOVUPS, ADDPS, SUBPS, MULPS, DIVPS, SQRTPS, MAXPS, MINPS,
 ANDPS, ORPS, XORPS, CMPPS,
 MOVAPD, MOVUPD, ADDPD, SUBPD, MULPD, DIVPD, SQRTPD, MAXPD, MINPD,
 ANDPD, ORPD, XORPD, CMPPD
 ```
+
 **Status**: Opcodes defined, handlers not implemented
 **Use Case**: Vector operations for parallel processing (SSE/SSE2)
 
 ### AVX Operations (0xC0-0xDF) - 20 opcodes ⚠️
+
 ```
 VADDPS, VSUBPS, VMULPS, VDIVPS, VSQRTPS, VMAXPS, VMINPS,
 VANDPS, VORPS, VXORPS,
 VADDPD, VSUBPD, VMULPD, VDIVPD, VSQRTPD, VMAXPD, VMINPD,
 VANDPD, VORPD, VXORPD
 ```
+
 **Status**: Opcodes defined, handlers not implemented
 **Use Case**: 256-bit vector operations (AVX)
 
 ### MMX Operations (0xE0-0xEF) - 11 opcodes ⚠️
+
 ```
 MOVQ, PADDB, PADDW, PADDD, PSUBB, PSUBW, PSUBD,
 PCMPEQB, PCMPEQW, PCMPEQD, EMMS
 ```
+
 **Status**: Opcodes defined, handlers not implemented
 **Use Case**: Multimedia/integer SIMD operations
 
 ### Additional 64-bit Operations - 18 opcodes ⚠️
+
 ```
 MUL64, DIV64, AND64, OR64, XOR64, SHL64, SHR64, CMP64,
 NOT64, INC64, DEC64,
 MULEX, DIVEX, CMPEX, LOADEX, STOREX, PUSHEX, POPEX, MODEFLAG
 ```
+
 **Status**: Partially implemented (ADD64, SUB64, MOV64, LOAD_IMM64 work)
 **Use Case**: Extended 64-bit register operations
 
@@ -329,17 +362,17 @@ MULEX, DIVEX, CMPEX, LOADEX, STOREX, PUSHEX, POPEX, MODEFLAG
 
 ## Implementation Status Summary
 
-| Category | Defined | Implemented | Status |
-|----------|---------|-------------|--------|
-| **Core Operations** | 48 | 48 | ✅ 100% |
-| **Extended 64-bit** | 22 | 4 | ⚠️ 18% |
-| **FPU** | 23 | 23 | ✅ 100% |
-| **SIMD (Foundation)** | 8 | 8 | ✅ 100% |
-| **SIMD/SSE** | 26 | 0 | ❌ 0% |
-| **AVX** | 20 | 0 | ❌ 0% |
-| **MMX** | 11 | 0 | ❌ 0% |
-| **Mode Control** | 1 | 1 | ✅ 100% |
-| **TOTAL** | **159** | **94** | **59%** |
+| Category              | Defined | Implemented | Status  |
+| --------------------- | ------- | ----------- | ------- |
+| **Core Operations**   | 48      | 48          | ✅ 100% |
+| **Extended 64-bit**   | 22      | 4           | ⚠️ 18%  |
+| **FPU**               | 23      | 23          | ✅ 100% |
+| **SIMD (Foundation)** | 8       | 8           | ✅ 100% |
+| **SIMD/SSE**          | 26      | 0           | ❌ 0%   |
+| **AVX**               | 20      | 0           | ❌ 0%   |
+| **MMX**               | 11      | 0           | ❌ 0%   |
+| **Mode Control**      | 1       | 1           | ✅ 100% |
+| **TOTAL**             | **159** | **94**      | **59%** |
 
 **Note**: Attempting to use unimplemented opcodes will result in an "Unknown opcode" error.
 

@@ -7,9 +7,11 @@ Welcome to the DemiEngine documentation! DemiEngine is a virtual machine and ass
 ## 📚 Documentation Structure
 
 ### 🚀 [Quick Reference](./QUICK_REFERENCE.md)
+
 Fast lookup for commands, instruction set, implementation status, and common patterns. **Start here** for quick answers!
 
 ### 🛠️ [Development & Planning](./development/README.md)
+
 Development roadmaps, future feature plans, and implementation specifications.
 
 - **[Future Opcodes](./development/FUTURE_OPCODES.md)** - Complete plan for implementing 88 additional opcodes (SIMD, FPU, AVX, MMX)
@@ -17,6 +19,7 @@ Development roadmaps, future feature plans, and implementation specifications.
 - **[Native Compiler Plan](./development/NATIVE_COMPILER_PLAN.md)** - x86-64 code generation design
 
 ### 🧪 [Testing Documentation](./testing/README.md)
+
 Complete testing framework documentation, test writing guides, and status reports.
 
 - **[Test Framework Design](./testing/TEST_FRAMEWORK_DESIGN.md)** - Architecture and design
@@ -24,6 +27,7 @@ Complete testing framework documentation, test writing guides, and status report
 - **Current Status**: 219/219 tests passing (118 assembly + 101 unit tests)
 
 ### 💻 [Codebase Documentation](./codebase/README.md)
+
 Technical documentation for developers working on DemiEngine itself. API references, architecture overviews, and implementation details.
 
 - **[Architecture & Components](./codebase/README.md)** - Core system design
@@ -31,9 +35,11 @@ Technical documentation for developers working on DemiEngine itself. API referen
 - **[Module Documentation](./codebase/modules/)** - Detailed module documentation (CPU, Assembler, Devices, etc.)
 
 ### 📖 [Usage Documentation](./usage/README.md)
+
 User guides for programming the virtual computer. Writing assembly programs, understanding the instruction set, and working with devices.
 
 ### 🔧 [Troubleshooting Guide](./TROUBLESHOOTING.md)
+
 Solutions for common problems, debugging tips, and best practices.
 
 ## ⚡ Quick Start
@@ -51,7 +57,7 @@ make
 # Run all tests (219 tests)
 ./bin/demi-engine -ut && ./bin/demi-engine -at
 
-# Run specific test category  
+# Run specific test category
 ./bin/demi-engine --unit-test           # 101 unit tests
 ./bin/demi-engine --assembly-test       # 118 assembly tests
 
@@ -64,6 +70,7 @@ make
 **Current Phase**: Assembly Language Expansion (Stage 1)
 
 ### Implemented Features ✅
+
 - **134 Registers**: x86-64 style register architecture
 - **63 Opcodes**: Core instruction set (arithmetic, logic, memory, control flow, I/O, stack)
 - **Assembly Toolchain**: Lexer → Parser → Assembler → Bytecode
@@ -72,6 +79,7 @@ make
 - **Native Executables**: x86-64 ELF generation with embedded VM
 
 ### Planned Features 🔄
+
 - **88 Additional Opcodes**: SIMD (26), FPU (23), AVX (20), MMX (11), Extended 64-bit (18)
 - **Native Code Generation**: Direct x86-64 compilation (Stage 2)
 - **Demi Language Frontend**: High-level language with customization (Stage 6)

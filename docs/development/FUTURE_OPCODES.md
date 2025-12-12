@@ -27,11 +27,13 @@ DemiEngine currently has **63 core opcodes** fully implemented and tested. These
 ### ⚠️ CRITICAL: Performance Optimization Required
 
 **Current Status**: VM interpretation overhead causing 5-20x performance penalty
+
 - **95-case switch dispatcher** with branch prediction misses
 - **Per-instruction overhead** from bounds checking, logging, flag calculations
 - **Function call overhead** for each opcode handler
 
 **Immediate Priority**: VM optimization before continuing with remaining opcodes
+
 - **Quick wins available**: Threaded code + inlining for 2-5x improvement
 - **Timeline**: 2-4 weeks
 - **See**: `docs/development/VM_PERFORMANCE_ANALYSIS.md` for detailed analysis
@@ -41,7 +43,7 @@ DemiEngine currently has **63 core opcodes** fully implemented and tested. These
 🔄 **SIMD/SSE** (18 opcodes) - Advanced vector operations [NEXT PRIORITY]  
 🔄 **Extended 64-bit** (18 opcodes) - Complete addressing modes  
 🔄 **AVX** (20 opcodes) - Advanced vector processing  
-🔄 **MMX** (11 opcodes) - Legacy multimedia extensions  
+🔄 **MMX** (11 opcodes) - Legacy multimedia extensions
 
 ---
 
@@ -56,28 +58,32 @@ DemiEngine currently has **63 core opcodes** fully implemented and tested. These
 **All 23 FPU opcodes implemented in `src/engine/opcodes/f*.hpp`:**
 
 #### Load/Store Operations ✅
+
 - **FLD** (0xA0) - Load floating-point value onto FP stack
-- **FST** (0xA1) - Store floating-point value from FP stack  
+- **FST** (0xA1) - Store floating-point value from FP stack
 - **FSTP** (0xA2) - Store floating-point value and pop stack
 - **FILD** (0xA3) - Load integer as floating-point
 - **FIST** (0xA4) - Store floating-point as integer
 - **FISTP** (0xA5) - Store floating-point as integer and pop
 
 #### Arithmetic Operations ✅
+
 - **FADD** (0xA6) - Floating-point addition
-- **FSUB** (0xA7) - Floating-point subtraction  
+- **FSUB** (0xA7) - Floating-point subtraction
 - **FMUL** (0xA8) - Floating-point multiplication
 - **FDIV** (0xA9) - Floating-point division
 
 #### Mathematical Functions ✅
+
 - **FSIN** (0xAA) - Sine function
-- **FCOS** (0xAB) - Cosine function  
+- **FCOS** (0xAB) - Cosine function
 - **FTAN** (0xAC) - Tangent function
 - **FSQRT** (0xAD) - Square root
 - **FABS** (0xAE) - Absolute value
 - **FCHS** (0xAF) - Change sign
 
 #### Comparison & Control ✅
+
 - **FINIT** (0xB0) - Initialize FPU
 - **FCLEX** (0xB1) - Clear exception flags
 - **FSTCW** (0xB2) - Store control word
@@ -99,7 +105,7 @@ DemiEngine currently has **63 core opcodes** fully implemented and tested. These
 ### Performance Bottlenecks Identified
 
 1. **Switch Dispatch Overhead** - 87-case switch causing branch prediction misses
-2. **Per-Instruction Overhead** - Bounds checking, logging, flag calculations  
+2. **Per-Instruction Overhead** - Bounds checking, logging, flag calculations
 3. **Function Call Overhead** - Separate handler functions for each opcode
 4. **Memory Access Patterns** - 134 virtual registers vs 16 native
 
@@ -116,11 +122,12 @@ DemiEngine currently has **63 core opcodes** fully implemented and tested. These
 
 ---
 
-## 🎯 **Phase 3 NEXT: SIMD/Vector Operations** 
+## 🎯 **Phase 3 NEXT: SIMD/Vector Operations**
 
 **Priority**: HIGH - Next major capability expansion  
 **Timeline**: Q1 2026 (4-6 weeks after VM optimization)  
 **Goal**: Enable vectorized computation for performance-critical applications
+
 ```
 FLD    (0xA0) - Load floating-point value onto FP stack
 FST    (0xA1) - Store floating-point value from FP stack
@@ -131,6 +138,7 @@ FISTP  (0xA5) - Store floating-point as integer and pop
 ```
 
 #### Arithmetic Operations
+
 ```
 FADD   (0xA6) - Floating-point add
 FSUB   (0xA7) - Floating-point subtract
@@ -143,6 +151,7 @@ FDIVP  (0xAD) - Divide and pop
 ```
 
 #### Mathematical Functions
+
 ```
 FABS   (0xAE) - Absolute value
 FCHS   (0xAF) - Change sign
@@ -153,6 +162,7 @@ FTAN   (0xB3) - Tangent
 ```
 
 #### Constants
+
 ```
 FLDZ   (0xB4) - Load +0.0
 FLD1   (0xB5) - Load +1.0
@@ -166,6 +176,7 @@ FLDPI  (0xB6) - Load π
 **x86-64 Mapping**: Direct mapping to x87 FPU instructions
 
 **Example Usage**:
+
 ```asm
 ; Calculate area of circle: π * r²
 FLD radius        ; ST0 = radius
@@ -195,6 +206,7 @@ FST area          ; Store result
 ### SIMD/SSE Opcodes to Implement
 
 #### Packed Single-Precision (128-bit, 4x float32)
+
 ```
 MOVPS    (0xC0) - Move packed single-precision (aligned)
 MOVUPS   (0xC1) - Move packed single-precision (unaligned)
@@ -214,6 +226,7 @@ XORPS    (0xCE) - Bitwise XOR packed single-precision
 ```
 
 #### Scalar Single-Precision
+
 ```
 MOVSS    (0xCF) - Move scalar single-precision
 ADDSS    (0xD0) - Add scalar single-precision
@@ -228,6 +241,7 @@ RSQRTSS  (0xD8) - Reciprocal square root scalar
 ```
 
 #### Comparison
+
 ```
 CMPPS    (0xD9) - Compare packed single-precision
 ```
@@ -239,6 +253,7 @@ CMPPS    (0xD9) - Compare packed single-precision
 **x86-64 Mapping**: Direct mapping to SSE/SSE2 instructions
 
 **Example Usage**:
+
 ```asm
 ; Add two vectors of 4 floats each
 MOVUPS XMM0, [vector_a]    ; Load 4 floats from vector_a
@@ -265,6 +280,7 @@ MOVUPS [result], XMM0      ; Store result
 ### Extended Opcodes to Implement
 
 #### Memory Operations
+
 ```
 LOADEX      (0x50) - Load with extended addressing
 STOREEX     (0x51) - Store with extended addressing
@@ -272,6 +288,7 @@ LOAD_IMMEX  (0x52) - Load immediate to extended register
 ```
 
 #### Control Flow
+
 ```
 JMPEX   (0x53) - Jump with extended addressing
 CALLEX  (0x54) - Call with extended addressing
@@ -290,6 +307,7 @@ JNSEX   (0x60) - Jump if no sign (extended)
 ```
 
 #### Comparison
+
 ```
 CMPEX   (0x61) - Compare extended registers
 ```
@@ -312,6 +330,7 @@ CMPEX   (0x61) - Compare extended registers
 ### AVX Opcodes to Implement
 
 #### 256-bit Packed Operations
+
 ```
 VMOVPS   (0xE0) - Move packed single-precision (256-bit)
 VMOVUPS  (0xE1) - Move unaligned packed (256-bit)
@@ -329,6 +348,7 @@ VXORPS   (0xEC) - Bitwise XOR (256-bit)
 ```
 
 #### Scalar Operations
+
 ```
 VMOVSS   (0xED) - Move scalar single-precision
 VADDSS   (0xEE) - Add scalar
@@ -413,7 +433,7 @@ PXOR   (0x7A) - Packed bitwise XOR
 **SIMD Second** → Biggest performance impact  
 **Extended 64-bit Third** → Complete architecture  
 **AVX Fourth** → Modern optimization  
-**MMX Last** → Legacy support, less critical  
+**MMX Last** → Legacy support, less critical
 
 ### Success Criteria
 
