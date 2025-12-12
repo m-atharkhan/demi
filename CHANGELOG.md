@@ -5,7 +5,7 @@ All notable changes to DemiEngine will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-12-10
+## [1.0.0] - 2025-12-12
 
 ### ✨ Features
 
@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - improve debug handler with mode-aware output (617844c) - Owen Boreham
 - standardize test syntax to .test and add octal number support (19f6cee) - Owen Boreham
 - enhance MOV instruction with multiple operand types (f37315f) - Owen Boreham
+- Add --version flag support (e0b0ffb) - Owen Boreham
 
 ### ⚡ Performance Improvements
 
@@ -98,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve integration test failures and enhance examples (c7c16d3) - Owen Boreham
 - Fix argument parsing and include directive processing (d6cd95e) - Owen Boreham
 - update LOAD_IMM to 6-byte format and fix FPU handlers (0886f42) - Owen Boreham
+- Resolve all compiler warnings for clean build (89196e0) - Owen Boreham
 
 ### 🧪 Tests
 
@@ -170,6 +172,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - update documentation for mode-aware execution (4c5efb2) - Owen Boreham
 - update README, roadmap, and remove run_tests.sh (9af33c6) - Owen Boreham
 - update changelog, examples, and project documentation (795f490) - Owen Boreham
+- regenerate changelog with latest commits (ca7b687) - Owen Boreham
+- Update test coverage to 322 tests (145 unit + 177 assembly) (3591b4f) - Owen Boreham
 
 ### ♻️ Code Refactoring
 
@@ -194,6 +198,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Update test result header formatting for consistency (db561d1) - Bobrossrtx
 - Update settings.json with additional file associations and spell check words (8ed7c62) - Bobrossrtx
+- Apply Trunk formatting and add development tooling (70078c1) - Owen Boreham
+- Apply Trunk formatting to build system files (bdd651e) - Owen Boreham
+- Apply Trunk formatting to configuration files (c864864) - Owen Boreham
+- Apply Trunk formatting to governance documents (ffdbfaf) - Owen Boreham
+- Apply Trunk formatting to documentation and examples (2fdf2d2) - Owen Boreham
 
 ### 🔧 Build System
 
@@ -228,6 +237,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clean up legacy test files and add comprehensive documentation (dc9d4d4) - Owen Boreham
 - Repository cleanup and maintenance (6d87ce0) - Owen Boreham
 - remove automated community growth scripts (c5c0ceb) - Owen Boreham
+- Update .gitignore with development artifacts (63daa09) - Owen Boreham
 
 ### 🔄 Other Changes
 
@@ -299,3 +309,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update issue templates (4020a6e) - Owen Boreham
 - Add issue template configuration for security reports (1c4d8f2) - Owen Boreham
 - Refactor Makefile to production-ready build system (67bbbce) - Owen Boreham
+
+
