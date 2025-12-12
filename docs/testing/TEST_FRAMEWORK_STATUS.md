@@ -3,6 +3,7 @@
 ## Overview
 
 The DemiEngine test framework provides comprehensive testing capabilities with support for:
+
 - Unit tests written in C++
 - Integration tests using hex files
 - Negative tests (testing error conditions)
@@ -37,6 +38,7 @@ Integration tests are hex files in the `tests/hex/` directory. They are automati
 ### 3. Negative Tests
 
 Negative tests verify that the system properly detects and reports errors. These use `TEST_CASE_EXPECT_ERROR` and verify that:
+
 - Invalid operations are caught
 - Bounds checking works
 - Type mismatches are detected
@@ -45,6 +47,7 @@ Negative tests verify that the system properly detects and reports errors. These
 ## Current Negative Test Status
 
 ### ✅ Working Negative Tests (11/20)
+
 - `invalid_register_number` - Catches invalid register numbers
 - `undefined_label` - Catches undefined label references
 - `invalid_opcode` - Catches invalid/unknown opcodes
@@ -58,7 +61,9 @@ Negative tests verify that the system properly detects and reports errors. These
 - `call_stack_overflow` - Catches excessive call depth
 
 ### ❌ Not Yet Implemented (9/20)
+
 The following error conditions are not currently detected by the system:
+
 - `memory_out_of_bounds_read` - Memory bounds checking on reads
 - `memory_out_of_bounds_write` - Memory bounds checking on writes
 - `stack_overflow` - Stack overflow detection
@@ -81,7 +86,7 @@ The test framework will support test cases written directly in assembly files us
     LOAD_IMM R0, 10
     LOAD_IMM R1, 20
     ADD R0, R1
-    
+
     ; Assertions
     #assert_reg R0, 30
     #assert_mem 0x100, 42
@@ -118,6 +123,7 @@ The lexer and AST support for test directives has been implemented, but the pars
 ## Test Results
 
 Current test status:
+
 - **Unit Tests**: 70/79 passing (88.6%)
 - **Integration Tests**: 42/42 passing (100%)
 - **Negative Tests**: 11/20 working as designed

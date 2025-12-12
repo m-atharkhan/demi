@@ -13,6 +13,7 @@ The Demi workspace demonstrates **strong adherence** to practical C++ developmen
 ### Key Findings
 
 ✅ **Strengths** (95%+ adherence):
+
 - Excellent naming consistency (`snake_case` functions, `PascalCase` classes)
 - Strong modular architecture with clear separation of concerns
 - Comprehensive debug and logging framework
@@ -21,12 +22,14 @@ The Demi workspace demonstrates **strong adherence** to practical C++ developmen
 - Security-conscious design patterns
 
 ⚠️ **Areas for Improvement** (70-90% adherence):
+
 - Documentation completeness varies by module
 - Some inconsistent member variable naming
 - Mixed indentation in a few legacy files
 - Const correctness could be improved in older code
 
 🔧 **Technical Debt** (requires gradual refactoring):
+
 - Some raw pointers in legacy opcodes
 - Occasional C-style code patterns
 - A few modules lack comprehensive error handling
@@ -40,6 +43,7 @@ The Demi workspace demonstrates **strong adherence** to practical C++ developmen
 **Standard**: `snake_case`
 
 **Sample Analysis** (50 random functions):
+
 ```
 parse_expression()           ✅
 execute_instruction()        ✅
@@ -52,6 +56,7 @@ resolve_forward_references() ✅
 ```
 
 **Exceptions Found**: ~2-3 functions
+
 - Legacy: Some old helper functions might use `camelCase` (rare)
 - External: Callbacks matching external library conventions
 
@@ -62,6 +67,7 @@ resolve_forward_references() ✅
 **Standard**: `PascalCase`
 
 **Sample Analysis**:
+
 ```
 CPU                       ✅
 DebugHandler              ✅
@@ -80,6 +86,7 @@ Logger                    ✅
 **Standard**: Trailing `_` preferred, but mixed practice accepted
 
 **Sample Analysis**:
+
 ```cpp
 // Trailing underscore (preferred)
 ivt_base_                  ✅
@@ -98,6 +105,7 @@ m_stackPointer             ❌ (found: 0-1 instances)
 ```
 
 **Distribution**:
+
 - Trailing `_`: ~40% of members
 - No prefix: ~58% of members
 - Other patterns: ~2%
@@ -109,6 +117,7 @@ m_stackPointer             ❌ (found: 0-1 instances)
 **Standard**: `PascalCase` for project namespaces
 
 **Sample Analysis**:
+
 ```
 Logging                    ✅
 Assembler                  ✅
@@ -130,6 +139,7 @@ vhw                       ⚠️ (lowercase - legacy)
 **Standard**: 4 spaces (no tabs)
 
 **File Analysis** (sample of 30 files):
+
 ```
 src/debug/debug_handler.cpp      4 spaces ✅
 src/debug/logger.cpp              4 spaces ✅
@@ -142,6 +152,7 @@ src/engine/opcodes/*.cpp          Mixed 2-4 spaces ⚠️ (legacy)
 ```
 
 **Distribution**:
+
 - 4 spaces: ~85% of files
 - 2 spaces: ~13% of files (older opcode handlers)
 - Tabs: <1% (very rare, probably accidental)
@@ -153,6 +164,7 @@ src/engine/opcodes/*.cpp          Mixed 2-4 spaces ⚠️ (legacy)
 **Standard**: K&R style (opening brace on same line)
 
 **Sample Analysis**:
+
 ```cpp
 // K&R Style (correct)
 void function() {                 ✅ ~92%
@@ -180,6 +192,7 @@ void legacy_function()            ⚠️ ~8% (some old code)
 **Standard**: Attach to type (`int* ptr`, `const std::string& ref`)
 
 **Sample Analysis**:
+
 ```cpp
 void execute(const std::vector<uint8_t>& program)  ✅
 std::unique_ptr<Device> device                      ✅
@@ -199,16 +212,17 @@ uint8_t *legacy_ptr                                 ⚠️ (rare)
 
 **Module Breakdown**:
 
-| Module | Doc Coverage | Quality | Notes |
-|--------|-------------|---------|-------|
-| `src/debug/*` | 95% | Excellent | Comprehensive Doxygen |
-| `src/test/*` | 90% | Excellent | Well-documented |
-| `src/assembler/*` | 80% | Good | Some missing @param |
-| `src/engine/cpu.*` | 75% | Good | Core functions documented |
-| `src/engine/opcodes/*` | 60% | Fair | Many handlers lack docs |
-| `src/main.cpp` | 70% | Good | CLI args well-documented |
+| Module                 | Doc Coverage | Quality   | Notes                     |
+| ---------------------- | ------------ | --------- | ------------------------- |
+| `src/debug/*`          | 95%          | Excellent | Comprehensive Doxygen     |
+| `src/test/*`           | 90%          | Excellent | Well-documented           |
+| `src/assembler/*`      | 80%          | Good      | Some missing @param       |
+| `src/engine/cpu.*`     | 75%          | Good      | Core functions documented |
+| `src/engine/opcodes/*` | 60%          | Fair      | Many handlers lack docs   |
+| `src/main.cpp`         | 70%          | Good      | CLI args well-documented  |
 
 **Sample Good Documentation**:
+
 ```cpp
 /**
  * @brief Execute a single CPU instruction
@@ -221,6 +235,7 @@ void execute(const std::vector<uint8_t>& program, bool& running);
 ```
 
 **Areas Needing Improvement**:
+
 - Many opcode handlers lack documentation
 - Some helper functions missing brief descriptions
 - Not all parameters documented with `@param`
@@ -232,6 +247,7 @@ void execute(const std::vector<uint8_t>& program, bool& running);
 **Standard**: Explain "why", not "what"; use `//` for implementation details
 
 **Quality Distribution**:
+
 ```
 Excellent comments (explain why):        ~40%
 Good comments (helpful context):         ~30%
@@ -240,6 +256,7 @@ No comments (self-documenting):         ~10%
 ```
 
 **Sample Excellent Comments**:
+
 ```cpp
 // Use POSIX execvp instead of system() to prevent shell injection
 pid_t pid = fork();
@@ -252,6 +269,7 @@ void sync_legacy_registers();
 ```
 
 **Sample Needs Improvement**:
+
 ```cpp
 i++; // increment i  ❌ (states the obvious)
 memory[addr] = value;  // store value ❌ (redundant)
@@ -268,6 +286,7 @@ memory[addr] = value;  // store value ❌ (redundant)
 **Module Analysis**:
 
 **Modern Code (80%+)**:
+
 ```cpp
 std::unique_ptr<Device> device = std::make_unique<ConsoleDevice>();  ✅
 std::shared_ptr<Logger> logger = Logger::instance().shared_from_this(); ✅
@@ -276,6 +295,7 @@ std::string buffer;           // RAII string ✅
 ```
 
 **Legacy Code (<20%)**:
+
 ```cpp
 Device* device = new ConsoleDevice();  ⚠️ (some old opcode handlers)
 char* buffer = new char[size];         ⚠️ (rare, very old code)
@@ -288,6 +308,7 @@ char* buffer = new char[size];         ⚠️ (rare, very old code)
 **Standard**: Use modern C++17 features where appropriate
 
 **Features in Use**:
+
 ```cpp
 std::filesystem::path               ✅ Widely used
 std::optional<T>                    ✅ Used in several modules
@@ -307,6 +328,7 @@ if (auto it = map.find(key); ...)  ✅ Used in many places
 **Analysis**:
 
 **New Code (90%+ const correct)**:
+
 ```cpp
 const std::vector<uint8_t>& get_memory() const;  ✅
 uint32_t read_mem32(uint32_t addr) const;       ✅
@@ -314,6 +336,7 @@ bool is_category_enabled(DebugCategory) const;  ✅
 ```
 
 **Legacy Code (50% const correct)**:
+
 ```cpp
 uint32_t get_register(size_t i);  ⚠️ should be const
 void print_state(std::string label); ⚠️ label should be const&
@@ -328,6 +351,7 @@ void print_state(std::string label); ⚠️ label should be const&
 **Standard**: Validate all inputs at system boundaries
 
 **Analysis**:
+
 ```cpp
 // Good validation
 if (addr + 4 > memory.size()) {
@@ -353,6 +377,7 @@ std::string sanitize_filename(const std::string& filename) {
 **Standard**: Prevent buffer overflows, use-after-free, etc.
 
 **Analysis**:
+
 ```cpp
 std::vector<uint8_t> memory;        ✅ Bounds-checked
 std::string buffer;                 ✅ Safe string handling
@@ -361,6 +386,7 @@ if (size > MAX_SIZE) return error;  ✅ Size validation
 ```
 
 **Rare Issues**:
+
 - A few C-style arrays in legacy code
 - Some unchecked pointer dereferences in old opcodes
 
@@ -373,6 +399,7 @@ if (size > MAX_SIZE) return error;  ✅ Size validation
 **Standard**: Use exceptions for recoverable errors
 
 **Patterns Found**:
+
 ```cpp
 // Modern exception usage ✅
 throw CPUException("Invalid opcode");
@@ -400,6 +427,7 @@ if (invalid) {
 **Standard**: Write tests for all new functionality
 
 **Test Framework Analysis**:
+
 - ✅ Comprehensive unit test framework
 - ✅ In-assembly test support
 - ✅ Integration tests
@@ -407,6 +435,7 @@ if (invalid) {
 - ⚠️ Some legacy modules lack tests
 
 **Test Quality**:
+
 ```
 Total Tests: 180+
 Pass Rate: 100%
@@ -420,12 +449,14 @@ Coverage: ~85% (estimated)
 ### ✅ Modularity: 95% - Excellent
 
 **Analysis**:
+
 - Clear separation of concerns
 - Well-defined module boundaries
 - Minimal cross-module dependencies
 - Good use of namespaces
 
 **Module Structure**:
+
 ```
 src/
 ├── engine/      ✅ Core execution engine
@@ -439,6 +470,7 @@ src/
 ### ✅ Abstraction: 90% - Very Good
 
 **Device System** (Excellent example):
+
 ```cpp
 class Device {  // Abstract base
 public:
@@ -453,21 +485,22 @@ class FileDevice : public Device { ... };
 ### ✅ Dependency Management: 85% - Good
 
 **External Dependencies**:
+
 - ✅ fmt (modern formatting)
 - ✅ imgui (GUI, optional)
 - ⚠️ Few other dependencies (minimal, good)
 
 ## Standards Adherence Score by Module
 
-| Module | Naming | Formatting | Docs | Modern C++ | Overall |
-|--------|--------|-----------|------|-----------|---------|
-| `src/debug/*` | 98% | 95% | 95% | 98% | ⭐⭐⭐⭐⭐ 97% |
-| `src/test/*` | 95% | 92% | 90% | 95% | ⭐⭐⭐⭐⭐ 93% |
-| `src/assembler/*` | 95% | 88% | 80% | 90% | ⭐⭐⭐⭐ 88% |
-| `src/engine/cpu.*` | 92% | 85% | 75% | 85% | ⭐⭐⭐⭐ 84% |
-| `src/main.cpp` | 95% | 90% | 70% | 88% | ⭐⭐⭐⭐ 86% |
-| `src/engine/opcodes/*` | 88% | 75% | 60% | 70% | ⭐⭐⭐ 73% |
-| **Overall Average** | **94%** | **87%** | **78%** | **87%** | ⭐⭐⭐⭐ **87%** |
+| Module                 | Naming  | Formatting | Docs    | Modern C++ | Overall          |
+| ---------------------- | ------- | ---------- | ------- | ---------- | ---------------- |
+| `src/debug/*`          | 98%     | 95%        | 95%     | 98%        | ⭐⭐⭐⭐⭐ 97%   |
+| `src/test/*`           | 95%     | 92%        | 90%     | 95%        | ⭐⭐⭐⭐⭐ 93%   |
+| `src/assembler/*`      | 95%     | 88%        | 80%     | 90%        | ⭐⭐⭐⭐ 88%     |
+| `src/engine/cpu.*`     | 92%     | 85%        | 75%     | 85%        | ⭐⭐⭐⭐ 84%     |
+| `src/main.cpp`         | 95%     | 90%        | 70%     | 88%        | ⭐⭐⭐⭐ 86%     |
+| `src/engine/opcodes/*` | 88%     | 75%        | 60%     | 70%        | ⭐⭐⭐ 73%       |
+| **Overall Average**    | **94%** | **87%**    | **78%** | **87%**    | ⭐⭐⭐⭐ **87%** |
 
 ## Priority Recommendations
 
@@ -521,14 +554,14 @@ class FileDevice : public Device { ... };
 
 ### Updated Coding Standards Documentation (FIXED ✅)
 
-| Standard | Old Docs | Actual Practice | Fixed? |
-|----------|----------|----------------|---------|
-| Function Naming | `camelCase` | `snake_case` | ✅ YES |
-| Member Prefix | `m_` | `_` suffix or none | ✅ YES |
-| Indentation | 2 spaces | 4 spaces | ✅ YES |
-| Bracing | Allman | K&R | ✅ YES |
-| Namespace | `lowercase` | `PascalCase` | ✅ YES |
-| Reference Guide | LLVM Standards | Pragmatic C++ | ✅ YES |
+| Standard        | Old Docs       | Actual Practice    | Fixed? |
+| --------------- | -------------- | ------------------ | ------ |
+| Function Naming | `camelCase`    | `snake_case`       | ✅ YES |
+| Member Prefix   | `m_`           | `_` suffix or none | ✅ YES |
+| Indentation     | 2 spaces       | 4 spaces           | ✅ YES |
+| Bracing         | Allman         | K&R                | ✅ YES |
+| Namespace       | `lowercase`    | `PascalCase`       | ✅ YES |
+| Reference Guide | LLVM Standards | Pragmatic C++      | ✅ YES |
 
 **Result**: Coding standards documentation now **accurately reflects** actual practice!
 
@@ -537,6 +570,7 @@ class FileDevice : public Device { ... };
 The Demi workspace is **well-maintained** with strong adherence to practical C++ standards. The codebase demonstrates:
 
 ### Strengths ✅
+
 - ⭐ Excellent naming consistency
 - ⭐ Modern C++17 usage
 - ⭐ Strong security practices
@@ -545,6 +579,7 @@ The Demi workspace is **well-maintained** with strong adherence to practical C++
 - ⭐ Clean separation of concerns
 
 ### Areas for Improvement ⚠️
+
 - 📝 Documentation completeness varies
 - 🔧 Some legacy code needs modernization
 - 📐 Minor formatting inconsistencies
@@ -590,6 +625,7 @@ The Demi project follows **high-quality development standards** suitable for sys
 ### Scoring Methodology
 
 **5-Star Rating System**:
+
 - ⭐⭐⭐⭐⭐ (95-100%): Excellent - Virtually perfect adherence
 - ⭐⭐⭐⭐ (85-94%): Very Good - Strong adherence, minor issues
 - ⭐⭐⭐ (70-84%): Good - Acceptable adherence, room for improvement
@@ -601,6 +637,7 @@ The Demi project follows **high-quality development standards** suitable for sys
 **Analysis Confidence**: 95%
 
 Based on:
+
 - Comprehensive file coverage
 - Multiple search patterns
 - Cross-validation across modules

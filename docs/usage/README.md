@@ -20,12 +20,14 @@ This section provides user guides for programming the DemiEngine virtual compute
 ### Installation and Setup
 
 1. **Build DemiEngine**:
+
    ```bash
    cd demi-engine
    make
    ```
 
 2. **Test the installation**:
+
    ```bash
    ./bin/demi-engine tests/helloworld.hex
    ```
@@ -70,6 +72,7 @@ DemiEngine programs are written in hexadecimal format with support for comments 
 ### Program Format
 
 Hex programs consist of:
+
 - **Hexadecimal bytes**: The actual machine code
 - **Comments**: Documentation starting with `#`
 - **Whitespace**: Spaces and newlines for formatting
@@ -185,40 +188,49 @@ Multi-Byte:     [OPCODE] [REG] [32-BIT-IMM]
 ### Register Encoding
 
 Registers are encoded as single bytes:
+
 - `0x00` = R0, `0x01` = R1, ..., `0x07` = R7
 - Special registers accessible through specific instructions
 
 ### Basic Operations
 
 #### NOP (0x00)
+
 **Format**: `00`
 **Purpose**: No operation, consumes one CPU cycle
 **Example**:
+
 ```hex
 00    # NOP - do nothing
 ```
 
 #### HALT (0xFF)
+
 **Format**: `FF`
 **Purpose**: Stop program execution
 **Example**:
+
 ```hex
 FF    # HALT - end program
 ```
 
 #### LOAD_IMM (0x01)
+
 **Format**: `01 <reg> <32-bit-value>`
 **Purpose**: Load immediate 32-bit value into register
 **Example**:
+
 ```hex
 01 00 2A 00 00 00    # LOAD_IMM R0, 42
 01 02 FF FF FF FF    # LOAD_IMM R2, 0xFFFFFFFF
 ```
 
 #### MOV (0x04)
+
 **Format**: `04 <dst_reg> <src_reg>`
 **Purpose**: Copy value from source to destination register
 **Example**:
+
 ```hex
 04 01 00    # MOV R1, R0  (R1 = R0)
 ```
@@ -226,52 +238,64 @@ FF    # HALT - end program
 ### Arithmetic Operations
 
 #### ADD (0x02)
+
 **Format**: `02 <dst_reg> <src_reg>`
 **Purpose**: Add src_reg to dst_reg, store in dst_reg
 **Flags**: Updates zero and sign flags
 **Example**:
+
 ```hex
 02 00 01    # ADD R0, R1  (R0 = R0 + R1)
 ```
 
 #### SUB (0x03)
+
 **Format**: `03 <dst_reg> <src_reg>`
 **Purpose**: Subtract src_reg from dst_reg, store in dst_reg
 **Flags**: Updates zero and sign flags
 **Example**:
+
 ```hex
 03 02 03    # SUB R2, R3  (R2 = R2 - R3)
 ```
 
 #### MUL (0x10)
+
 **Format**: `10 <dst_reg> <src_reg>`
 **Purpose**: Multiply dst_reg by src_reg, store in dst_reg
 **Example**:
+
 ```hex
 10 00 01    # MUL R0, R1  (R0 = R0 * R1)
 ```
 
 #### DIV (0x12)
+
 **Format**: `12 <dst_reg> <src_reg>`
 **Purpose**: Divide dst_reg by src_reg, store in dst_reg
 **Note**: Division by zero halts program with error
 **Example**:
+
 ```hex
 12 05 06    # DIV R5, R6  (R5 = R5 / R6)
 ```
 
 #### INC (0x13)
+
 **Format**: `13 <reg>`
 **Purpose**: Increment register by 1
 **Example**:
+
 ```hex
 13 00    # INC R0  (R0 = R0 + 1)
 ```
 
 #### DEC (0x13)
+
 **Format**: `13 <reg>`
 **Purpose**: Decrement register by 1
 **Example**:
+
 ```hex
 13 07    # DEC R7  (R7 = R7 - 1)
 ```
@@ -279,17 +303,21 @@ FF    # HALT - end program
 ### Memory Operations
 
 #### LOAD (0x06)
+
 **Format**: `06 <dst_reg> <addr_reg>`
 **Purpose**: Load 32-bit value from memory address in addr_reg
 **Example**:
+
 ```hex
 06 01 00    # LOAD R1, [R0]  (R1 = memory[R0])
 ```
 
 #### STORE (0x07)
+
 **Format**: `07 <addr_reg> <src_reg>`
 **Purpose**: Store 32-bit value from src_reg to memory address in addr_reg
 **Example**:
+
 ```hex
 03 02 01    # STORE [R2], R1  (memory[R2] = R1)
 ```
@@ -297,35 +325,43 @@ FF    # HALT - end program
 ### Control Flow
 
 #### JMP (0x05)
+
 **Format**: `05 <32-bit-address>`
 **Purpose**: Unconditional jump to address
 **Example**:
+
 ```hex
 05 10 00 00 00    # JMP 0x10  (jump to address 16)
 ```
 
 #### CMP (0x0A)
+
 **Format**: `0A <reg1> <reg2>`
 **Purpose**: Compare two registers, set flags
 **Flags**: Sets zero flag if equal, sign flag if reg1 < reg2
 **Example**:
+
 ```hex
 0A 00 01    # CMP R0, R1  (compare R0 with R1)
 ```
 
 #### JZ (0x0B)
+
 **Format**: `0B <32-bit-address>`
 **Purpose**: Jump if zero flag is set (after CMP)
 **Example**:
+
 ```hex
 0A 00 01          # CMP R0, R1
 0B 20 00 00 00    # JZ 0x20  (jump if R0 == R1)
 ```
 
 #### JNZ (0x0C)
+
 **Format**: `0C <32-bit-address>`
 **Purpose**: Jump if zero flag is clear
 **Example**:
+
 ```hex
 0A 02 03          # CMP R2, R3
 0C 30 00 00 00    # JNZ 0x30  (jump if R2 != R3)
@@ -336,37 +372,45 @@ FF    # HALT - end program
 The stack grows downward from high memory. The Stack Pointer (SP) always points to the top of the stack.
 
 #### PUSH (0x0A)
+
 **Format**: `0A <reg>`
 **Purpose**: Push register value onto stack
 **Effect**: SP decreases by 4, memory[SP] = reg
 **Example**:
+
 ```hex
 0A 00    # PUSH R0  (push R0 onto stack)
 ```
 
 #### POP (0x0B)
+
 **Format**: `0B <reg>`
 **Purpose**: Pop value from stack into register
 **Effect**: reg = memory[SP], SP increases by 4
 **Example**:
+
 ```hex
 0B 01    # POP R1  (pop top of stack into R1)
 ```
 
 #### CALL (0x0C)
+
 **Format**: `0C <32-bit-address>`
 **Purpose**: Call subroutine (push return address, jump)
 **Effect**: Push PC+5 onto stack, jump to address
 **Example**:
+
 ```hex
 0C 50 00 00 00    # CALL 0x50  (call function at 0x50)
 ```
 
 #### RET (0x0D)
+
 **Format**: `0D`
 **Purpose**: Return from subroutine
 **Effect**: Pop return address from stack, jump to it
 **Example**:
+
 ```hex
 0D    # RET  (return to caller)
 ```
@@ -376,40 +420,50 @@ The stack grows downward from high memory. The Stack Pointer (SP) always points 
 DemiEngine uses port-based I/O to communicate with devices.
 
 #### IN (0x18)
+
 **Format**: `18 <dst_reg> <port>`
 **Purpose**: Read byte from device port
 **Example**:
+
 ```hex
 18 00 01    # IN R0, 1  (read byte from port 1 into R0)
 ```
 
 #### OUT (0x19)
+
 **Format**: `19 <port> <src_reg>`
 **Purpose**: Write byte to device port
 **Example**:
+
 ```hex
 19 01 00    # OUT 1, R0  (write R0 to port 1)
 ```
 
 #### INW (0x1A) / OUTW (0x1B)
+
 **Purpose**: 16-bit word I/O operations
 **Example**:
+
 ```hex
 1A 00 02    # INW R0, 2   (read word from port 2)
 1B 02 01    # OUTW 2, R1  (write word to port 2)
 ```
 
 #### INL (0x1C) / OUTL (0x1D)
+
 **Purpose**: 32-bit dword I/O operations
 **Example**:
+
 ```hex
 1C 03 04    # INL R3, 4   (read dword from port 4)
 1D 04 03    # OUTL 4, R3  (write dword to port 4)
 ```
 
 #### INSTR (0x1E) / OUTSTR (0x1F)
+
 **Purpose**: String I/O operations
 **Example**:
+
 ```hex
 1E 00 01    # INSTR R0, 1   (read string from port 1, address in R0)
 1F 01 02    # OUTSTR 1, R2  (write string to port 1, address in R2)
@@ -418,41 +472,51 @@ DemiEngine uses port-based I/O to communicate with devices.
 ### Bitwise Operations
 
 #### AND (0x15)
+
 **Format**: `15 <dst_reg> <src_reg>`
 **Purpose**: Bitwise AND operation
 **Example**:
+
 ```hex
 15 00 01    # AND R0, R1  (R0 = R0 & R1)
 ```
 
 #### OR (0x16)
+
 **Format**: `16 <dst_reg> <src_reg>`
 **Purpose**: Bitwise OR operation
 **Example**:
+
 ```hex
 16 02 03    # OR R2, R3  (R2 = R2 | R3)
 ```
 
 #### XOR (0x17)
+
 **Format**: `17 <dst_reg> <src_reg>`
 **Purpose**: Bitwise XOR operation
 **Example**:
+
 ```hex
 17 04 05    # XOR R4, R5  (R4 = R4 ^ R5)
 ```
 
 #### NOT (0x20)
+
 **Format**: `20 <reg>`
 **Purpose**: Bitwise NOT operation
 **Example**:
+
 ```hex
 20 00    # NOT R0  (R0 = ~R0)
 ```
 
 #### SHL (0x21) / SHR (0x22)
+
 **Format**: `21 <reg> <shift_amount>`
 **Purpose**: Shift left/right by immediate amount
 **Example**:
+
 ```hex
 21 00 02    # SHL R0, 2  (R0 = R0 << 2)
 22 01 03    # SHR R1, 3  (R1 = R1 >> 3)
@@ -465,15 +529,18 @@ DemiEngine's modular device system allows programs to interact with various virt
 ### Available Devices
 
 #### Console Device (Port 1)
+
 **Purpose**: Text input/output for user interaction
 
 **Operations**:
+
 - `OUT 1, reg`: Write character to console
 - `IN reg, 1`: Read character from console
 - `OUTSTR 1, reg`: Write null-terminated string (address in reg)
 - `INSTR reg, 1`: Read line into buffer (address in reg)
 
 **Example - Hello World**:
+
 ```hex
 # Hello World using console device
 
@@ -492,6 +559,7 @@ FF                  # HALT
 ```
 
 **Example - User Input**:
+
 ```hex
 # Read user input and echo it back
 
@@ -508,15 +576,18 @@ FF                  # HALT
 ```
 
 #### File Device (Port 2)
+
 **Purpose**: File system access
 
 **Protocol**:
+
 1. Write filename address to port
 2. Write operation code (0=read, 1=write)
 3. Write data address
 4. Read result status
 
 **Example - Read File**:
+
 ```hex
 # Read contents of "data.txt"
 
@@ -545,14 +616,17 @@ FF                  # HALT
 ```
 
 #### Counter Device (Port 3)
+
 **Purpose**: Simple counter for testing and timing
 
 **Operations**:
+
 - `IN reg, 3`: Read current counter value
 - `OUT 3, reg`: Set counter value
 - Counter auto-increments each CPU cycle
 
 **Example - Timing Loop**:
+
 ```hex
 # Measure loop execution time
 
@@ -579,6 +653,7 @@ FF                  # HALT
 ### Device Communication Patterns
 
 #### Polling Pattern
+
 ```hex
 # Poll for device ready status
 # Loop:
@@ -591,6 +666,7 @@ FF                  # HALT
 ```
 
 #### String Processing
+
 ```hex
 # Process null-terminated strings
 01 00 30 00 00 00    # LOAD_IMM R0, 0x30  (string address)
@@ -618,6 +694,7 @@ FF                  # HALT
 DemiEngine provides 14 powerful debug directives for program development and troubleshooting. All directives only produce output when the `-d` (debug) flag is enabled.
 
 **Enable debug output**:
+
 ```bash
 ./bin/demi-engine-debug -d -A your_program.asm
 ```
@@ -625,23 +702,29 @@ DemiEngine provides 14 powerful debug directives for program development and tro
 #### Output Directives
 
 **1. `.print` - Print strings and register values**
+
 ```asm
 .print "Hello, World!"      ; Print string literal
 .print rax                  ; Print register value
 ```
 
 **2. `.dump` - Display all CPU registers**
+
 ```asm
 .dump                       ; Shows all registers, flags, PC, SP
 ```
+
 Output: `[PC=0x004A] MODE=x86 R0=0x64 R1=0x2A ... FLAGS=0x00000000`
 
 **3. `.memdump` - Hex dump with ASCII representation**
+
 ```asm
 .memdump 0x100, 64         ; Dump 64 bytes starting at address 0x100
 .memdump rsp, 32           ; Dump 32 bytes from stack pointer
 ```
+
 Output: 16-byte wide hex dump with ASCII column
+
 ```
   0x00000100: 48 65 6C 6C 6F 20 57 6F  72 6C 64 00 00 00 00 00  |Hello World.....|
   0x00000110: AA BB CC DD EE FF 00 11  22 33 44 55 66 77 88 99  |........"3DUfw..|
@@ -650,21 +733,26 @@ Output: 16-byte wide hex dump with ASCII column
 #### Validation Directives
 
 **4. `.assert` - Verify expected values**
+
 ```asm
 load_imm64 rax, 42
 .assert rax, 42             ; Passes if RAX = 42
 .assert rbx, 100            ; Fails if RBX ≠ 100
 ```
+
 Output: `ASSERTION PASSED at 0x56` or `ASSERTION FAILED at 0x56: expected 0x64, got 0x2a`
 
 #### Memory Inspection
 
 **5. `.dumpstack` - Display stack contents**
+
 ```asm
 .dumpstack 8                ; Show top 8 stack entries
 .dumpstack                  ; Show top 16 entries (default)
 ```
+
 Output:
+
 ```
 Stack dump (depth=8, SP=0x5678):
   [SP+0] 0x5678: 0x1234567890abcdef
@@ -672,73 +760,92 @@ Stack dump (depth=8, SP=0x5678):
 ```
 
 **6. `.watch` - Set memory watchpoint**
+
 ```asm
 .watch 0x1000, 32          ; Watch 32 bytes at address 0x1000
 ```
+
 Output: `WATCHPOINT set at 0x1000 (length 32)`
 
 **7. `.unwatch` - Remove memory watchpoint**
+
 ```asm
 .unwatch 0x1000            ; Remove watchpoint
 ```
+
 Output: `WATCHPOINT removed at 0x1000`
 
 **8. `.memset` - Fill memory with pattern**
+
 ```asm
 .memset 0x500, 64, 0xAA    ; Fill 64 bytes at 0x500 with 0xAA
 ```
+
 Output: `MEMSET: filled 64 bytes at 0x500 with 0xaa`
 
 #### Execution Control
 
 **9. `.checkpoint` - Mark execution points**
+
 ```asm
 .checkpoint "Start of loop"
 ; ... code ...
 .checkpoint "After computation"
 ```
+
 Output: `CHECKPOINT: Start of loop at 0x120`
 
 **10. `.step` - Single-step execution marker**
+
 ```asm
 .step 5                    ; Mark next 5 instructions for stepping
 ```
+
 Output: `STEP: executing 5 instruction(s) starting at 0x164`
 
 **11. `.trace` - Instruction-level tracing**
+
 ```asm
 .trace 1                   ; Enable instruction tracing
 load_imm64 rax, 10
 add64 rax, rbx
 .trace 0                   ; Disable tracing
 ```
+
 Displays detailed execution information for each instruction.
 
 **12. `.break` - Execution breakpoint**
+
 ```asm
 .break                     ; Pause execution (in debug mode)
 ```
+
 Output: `BREAKPOINT at 0x100`
 
 #### Register Inspection
 
 **13. `.dumpreg` - Single register details**
+
 ```asm
 .dumpreg rax               ; Show RAX in hex and decimal
 .dumpreg rdx
 ```
+
 Output: `RAX = 0x2a (42)`
 
 #### Logging
 
 **14. `.log` - Leveled logging messages**
+
 ```asm
 .log 0, "DEBUG: Detailed info"     ; DEBUG level
 .log 1, "INFO: Normal message"     ; INFO level
 .log 2, "WARN: Warning message"    ; WARN level
 .log 3, "ERROR: Error occurred"    ; ERROR level
 ```
+
 Output:
+
 ```
 [DEBUG] DEBUG: Detailed info
 [INFO] INFO: Normal message
@@ -772,11 +879,13 @@ add64 rax, rbx
 The debug GUI provides powerful tools for program development and troubleshooting.
 
 **Enable GUI**:
+
 ```bash
 ./bin/demi-engine your_program.hex --gui
 ```
 
 **GUI Features**:
+
 - **CPU State**: View all registers, PC, SP, flags in real-time
 - **Memory View**: Hexadecimal dump with address navigation
 - **Device Monitor**: Live status of all connected devices
@@ -786,6 +895,7 @@ The debug GUI provides powerful tools for program development and troubleshootin
 ### Common Programming Patterns
 
 #### Function Calls
+
 ```hex
 # Main function
 01 00 0A 00 00 00    # LOAD_IMM R0, 10
@@ -800,6 +910,7 @@ FF                  # HALT
 ```
 
 #### Array Processing
+
 ```hex
 # Process array of 5 numbers
 01 00 50 00 00 00    # LOAD_IMM R0, 0x50  (array address)
@@ -828,6 +939,7 @@ FF                  # HALT
 Common errors and solutions:
 
 #### Invalid Memory Access
+
 ```hex
 # Bad: accessing uninitialized memory
 02 00 01            # LOAD R0, [R1]  # R1 not initialized!
@@ -838,6 +950,7 @@ Common errors and solutions:
 ```
 
 #### Stack Overflow
+
 ```hex
 # Bad: infinite recursion
 0C 00 00 00 00      # CALL 0x00  (calls itself)
@@ -850,6 +963,7 @@ Common errors and solutions:
 ```
 
 #### Division by Zero
+
 ```hex
 # Good: check before division
 0A 01 02            # CMP R1, R2        (check if R1 == 0)
@@ -860,6 +974,7 @@ Common errors and solutions:
 ### Testing Strategies
 
 #### Unit Testing Pattern
+
 ```hex
 # Test addition function
 01 00 05 00 00 00    # LOAD_IMM R0, 5
@@ -882,6 +997,7 @@ FF                  # HALT
 DemiEngine provides a flat memory model, but you can implement your own memory management:
 
 #### Simple Heap Allocator
+
 ```hex
 # Simple bump allocator
 # R7 = heap pointer (starts at 0x1000)
@@ -895,6 +1011,7 @@ DemiEngine provides a flat memory model, but you can implement your own memory m
 ```
 
 #### Stack Frame Management
+
 ```hex
 # Function prologue
 0A 06               # PUSH R6           (save old frame pointer)
@@ -910,6 +1027,7 @@ DemiEngine provides a flat memory model, but you can implement your own memory m
 ### Performance Optimization
 
 #### Loop Unrolling
+
 ```hex
 # Unrolled loop (process 4 elements at once)
 02 01 00            # LOAD R1, [R0]     # Element 0
@@ -927,6 +1045,7 @@ DemiEngine provides a flat memory model, but you can implement your own memory m
 ```
 
 #### Register Allocation
+
 ```hex
 # Good: keep frequently used values in registers
 01 00 64 00 00 00    # LOAD_IMM R0, 100  # loop counter
@@ -942,7 +1061,7 @@ DemiEngine provides a flat memory model, but you can implement your own memory m
 
 ## Assembly Language (Future)
 
-*This section will be updated when the assembly language compiler is implemented.*
+_This section will be updated when the assembly language compiler is implemented._
 
 The planned assembly language will provide:
 
@@ -953,6 +1072,7 @@ The planned assembly language will provide:
 - **Include files** for modular programming
 
 **Planned syntax example**:
+
 ```assembly
 .data
     message: .string "Hello, World!"
@@ -1003,34 +1123,34 @@ Check the `tests/` directory for complete example programs:
 
 ### Instruction Quick Reference
 
-| Mnemonic | Opcode | Format | Description |
-|----------|--------|--------|-------------|
-| NOP      | 0x00   | `00`   | No operation |
-| LOAD_IMM | 0x01   | `01 reg imm32` | Load immediate |
-| LOAD     | 0x02   | `02 dst src` | Load from memory |
-| STORE    | 0x03   | `03 addr src` | Store to memory |
-| ADD      | 0x04   | `04 dst src` | Add registers |
-| SUB      | 0x05   | `05 dst src` | Subtract registers |
-| MOV      | 0x04   | `04 dst src` | Move register |
-| JMP      | 0x05   | `05 addr32` | Jump unconditional |
-| PUSH     | 0x08   | `08 reg` | Push to stack |
-| POP      | 0x09   | `09 reg` | Pop from stack |
-| CALL     | 0x1A   | `1A addr32` | Call function |
-| RET      | 0x1B   | `1B` | Return |
-| CMP      | 0x0A   | `0A r1 r2` | Compare registers |
-| JZ       | 0x0B   | `0B addr32` | Jump if zero |
-| JNZ      | 0x0C   | `0C addr32` | Jump if not zero |
-| OUTSTR   | 0x39   | `39 port reg` | Output string |
-| HALT     | 0xFF   | `FF` | Stop execution |
+| Mnemonic | Opcode | Format         | Description        |
+| -------- | ------ | -------------- | ------------------ |
+| NOP      | 0x00   | `00`           | No operation       |
+| LOAD_IMM | 0x01   | `01 reg imm32` | Load immediate     |
+| LOAD     | 0x02   | `02 dst src`   | Load from memory   |
+| STORE    | 0x03   | `03 addr src`  | Store to memory    |
+| ADD      | 0x04   | `04 dst src`   | Add registers      |
+| SUB      | 0x05   | `05 dst src`   | Subtract registers |
+| MOV      | 0x04   | `04 dst src`   | Move register      |
+| JMP      | 0x05   | `05 addr32`    | Jump unconditional |
+| PUSH     | 0x08   | `08 reg`       | Push to stack      |
+| POP      | 0x09   | `09 reg`       | Pop from stack     |
+| CALL     | 0x1A   | `1A addr32`    | Call function      |
+| RET      | 0x1B   | `1B`           | Return             |
+| CMP      | 0x0A   | `0A r1 r2`     | Compare registers  |
+| JZ       | 0x0B   | `0B addr32`    | Jump if zero       |
+| JNZ      | 0x0C   | `0C addr32`    | Jump if not zero   |
+| OUTSTR   | 0x39   | `39 port reg`  | Output string      |
+| HALT     | 0xFF   | `FF`           | Stop execution     |
 
 ### Device Port Map
 
-| Port | Device | Purpose |
-|------|--------|---------|
-| 1    | Console | Text I/O |
-| 2    | File | File system access |
-| 3    | Counter | Timer/counter |
-| 4    | Serial | Hardware serial port |
-| 5-255| Available | For custom devices |
+| Port  | Device    | Purpose              |
+| ----- | --------- | -------------------- |
+| 1     | Console   | Text I/O             |
+| 2     | File      | File system access   |
+| 3     | Counter   | Timer/counter        |
+| 4     | Serial    | Hardware serial port |
+| 5-255 | Available | For custom devices   |
 
 This completes the comprehensive usage documentation for DemiEngine programming!

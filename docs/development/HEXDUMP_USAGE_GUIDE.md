@@ -34,14 +34,16 @@ parser.add_action_arg("hexdump", "--hexdump", "", "Enable bytecode hex dump outp
 **Trigger**: After bytecode assembly, before execution
 
 **Output Format**:
+
 ```
 Assembled bytecode hex dump (256 bytes):
-0x0000: 01 00 0a 00 00 00 01 01 05 00 00 00 02 00 01 ff 
+0x0000: 01 00 0a 00 00 00 01 01 05 00 00 00 02 00 01 ff
 0x0010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 ...
 ```
 
 **Implementation**:
+
 ```cpp
 // Print hex dump of assembled bytecode (using ASM_HEXDUMP category)
 {
@@ -95,6 +97,7 @@ Assembled bytecode hex dump (256 bytes):
 **Category**: `MEM_ACCESS` or new `MEM_HEXDUMP` (0x206)
 
 **Use Cases**:
+
 - Memory writes (STORE operations)
 - Memory reads (LOAD operations)
 - Memory initialization
@@ -108,14 +111,14 @@ void CPU::write_mem32(uint32_t addr, uint32_t value) {
     if (addr + 4 > memory.size()) {
         throw CPUException("Memory write out of bounds");
     }
-    
+
     // Hexdump before write
     if (DebugHandler::instance().is_category_enabled(DebugCategory::MEM_HEXDUMP)) {
         std::ostringstream dump;
         dump << "Memory write at 0x" << std::hex << addr << ": "
              << "old=[";
         for (int i = 0; i < 4; i++) {
-            dump << std::hex << std::setw(2) << std::setfill('0') 
+            dump << std::hex << std::setw(2) << std::setfill('0')
                  << static_cast<int>(memory[addr + i]) << " ";
         }
         dump << "] new=[";
@@ -126,7 +129,7 @@ void CPU::write_mem32(uint32_t addr, uint32_t value) {
         dump << "]";
         DEBUG_DETAIL(DebugCategory::MEM_HEXDUMP, "{}", dump.str());
     }
-    
+
     // Perform write
     memory[addr] = value & 0xFF;
     memory[addr + 1] = (value >> 8) & 0xFF;
@@ -142,6 +145,7 @@ void CPU::write_mem32(uint32_t addr, uint32_t value) {
 **Category**: `IO_HEXDUMP` (0x306)
 
 **Use Cases**:
+
 - Port read/write operations
 - File device operations
 - RAMDisk block transfers
@@ -162,7 +166,7 @@ void DeviceManager::writePortDWord(uint8_t port, uint32_t value) {
                  << "(device: " << it->second->get_name() << ")";
             DEBUG_DETAIL(DebugCategory::IO_HEXDUMP, "{}", dump.str());
         }
-        
+
         it->second->write(value);
     }
 }
@@ -175,6 +179,7 @@ void DeviceManager::writePortDWord(uint8_t port, uint32_t value) {
 **Category**: `CPU_STACK` or `STACK_HEXDUMP` (0x004 or new)
 
 **Use Cases**:
+
 - Function call stack frames
 - Stack overflow detection
 - Stack unwinding debugging
@@ -186,18 +191,18 @@ void DeviceManager::writePortDWord(uint8_t port, uint32_t value) {
 // In cpu.cpp - for CALL instruction
 void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     // ... existing call logic ...
-    
+
     // Hexdump stack after CALL
     if (DebugHandler::instance().is_category_enabled(DebugCategory::STACK_HEXDUMP)) {
         std::ostringstream dump;
         uint32_t sp = cpu.get_sp();
         dump << "Stack after CALL (SP=0x" << std::hex << sp << "):\n";
-        
+
         // Show top 8 stack entries
         for (int i = 0; i < 8 && sp + (i * 4) < cpu.get_memory().size(); i++) {
             uint32_t addr = sp + (i * 4);
             uint32_t value = cpu.read_mem32(addr);
-            dump << "  [SP+" << std::dec << (i * 4) << "] 0x" << std::hex 
+            dump << "  [SP+" << std::dec << (i * 4) << "] 0x" << std::hex
                  << std::setw(8) << std::setfill('0') << value << "\n";
         }
         DEBUG_DETAIL(DebugCategory::STACK_HEXDUMP, "{}", dump.str());
@@ -212,6 +217,7 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 **Category**: `CPU_EXECUTION` or `EXEC_HEXDUMP` (0x001 or new)
 
 **Use Cases**:
+
 - Instruction stream analysis
 - Opcode verification
 - Jump target verification
@@ -223,28 +229,28 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 // In cpu.cpp - execute() loop
 void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address) {
     // ... initialization ...
-    
+
     while (running && registers[static_cast<size_t>(Register::RIP)] < program.size()) {
         uint32_t pc = registers[static_cast<size_t>(Register::RIP)];
         uint8_t opcode = program[pc];
-        
+
         // Hexdump instruction fetch
         if (DebugHandler::instance().is_category_enabled(DebugCategory::EXEC_HEXDUMP)) {
             std::ostringstream dump;
-            dump << "Fetch PC=0x" << std::hex << std::setw(4) << std::setfill('0') << pc 
-                 << ": opcode=0x" << std::hex << std::setw(2) << std::setfill('0') 
+            dump << "Fetch PC=0x" << std::hex << std::setw(4) << std::setfill('0') << pc
+                 << ": opcode=0x" << std::hex << std::setw(2) << std::setfill('0')
                  << static_cast<int>(opcode);
-            
+
             // Show next few bytes (operands)
             dump << " [";
             for (size_t i = 0; i < 8 && pc + i < program.size(); i++) {
-                dump << std::hex << std::setw(2) << std::setfill('0') 
+                dump << std::hex << std::setw(2) << std::setfill('0')
                      << static_cast<int>(program[pc + i]) << " ";
             }
             dump << "]";
             DEBUG_TRACE(DebugCategory::EXEC_HEXDUMP, "{}", dump.str());
         }
-        
+
         // ... dispatch opcode ...
     }
 }
@@ -257,6 +263,7 @@ void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address) {
 **Category**: `CPU_REGISTERS` or `REG_HEXDUMP` (0x002 or new)
 
 **Use Cases**:
+
 - Full register state snapshots
 - Before/after comparisons
 - Multi-register operation verification
@@ -269,20 +276,20 @@ void CPU::hexdump_registers() {
     if (!DebugHandler::instance().is_category_enabled(DebugCategory::REG_HEXDUMP)) {
         return;
     }
-    
+
     std::ostringstream dump;
     dump << "Register Hexdump:\n";
-    
+
     // General purpose registers (show in groups of 4)
     for (size_t i = 0; i < 16; i += 4) {
         dump << "  ";
         for (size_t j = 0; j < 4 && i + j < 16; j++) {
-            dump << RegisterNames[i + j] << "=0x" << std::hex << std::setw(16) 
+            dump << RegisterNames[i + j] << "=0x" << std::hex << std::setw(16)
                  << std::setfill('0') << registers[i + j] << " ";
         }
         dump << "\n";
     }
-    
+
     DEBUG_DETAIL(DebugCategory::REG_HEXDUMP, "{}", dump.str());
 }
 ```
@@ -294,6 +301,7 @@ void CPU::hexdump_registers() {
 **Category**: `IO_INTERRUPT` or `INT_HEXDUMP` (0x305 or new)
 
 **Use Cases**:
+
 - Interrupt vector table dumps
 - Interrupt context switching
 - ISR entry/exit verification
@@ -307,12 +315,12 @@ void InterruptController::trigger_interrupt(uint8_t vector) {
     if (DebugHandler::instance().is_category_enabled(DebugCategory::INT_HEXDUMP)) {
         uint32_t ivt_address = ivt_base_ + (vector * 4);
         std::ostringstream dump;
-        dump << "Interrupt 0x" << std::hex << std::setw(2) << std::setfill('0') 
+        dump << "Interrupt 0x" << std::hex << std::setw(2) << std::setfill('0')
              << static_cast<int>(vector)
              << " -> IVT[0x" << std::hex << ivt_address << "]";
         DEBUG_IMPORTANT(DebugCategory::INT_HEXDUMP, "{}", dump.str());
     }
-    
+
     // ... trigger interrupt ...
 }
 ```
@@ -324,6 +332,7 @@ void InterruptController::trigger_interrupt(uint8_t vector) {
 **Category**: `IO_FILE` or `FILE_HEXDUMP` (0x301 or new)
 
 **Use Cases**:
+
 - File read/write operations
 - Block device transfers
 - RAMDisk operations
@@ -335,13 +344,13 @@ void InterruptController::trigger_interrupt(uint8_t vector) {
 // In file_device.cpp
 void FileDevice::write(uint32_t value) {
     // ... write logic ...
-    
+
     // Hexdump file operation
     if (DebugHandler::instance().is_category_enabled(DebugCategory::FILE_HEXDUMP)) {
         std::ostringstream dump;
         dump << "FileDevice Write: [" << std::hex;
         for (size_t i = 0; i < buffer.size() && i < 32; i++) {
-            dump << std::setw(2) << std::setfill('0') 
+            dump << std::setw(2) << std::setfill('0')
                  << static_cast<int>(buffer[i]) << " ";
         }
         if (buffer.size() > 32) dump << "... (" << std::dec << buffer.size() << " bytes)";
@@ -360,6 +369,7 @@ void FileDevice::write(uint32_t value) {
 **Purpose**: Enable multiple hexdump categories with a single flag
 
 **Syntax**:
+
 ```bash
 # All hexdumps
 --hexdump=all
@@ -373,14 +383,15 @@ void FileDevice::write(uint32_t value) {
 ```
 
 **Implementation**:
+
 ```cpp
-parser.add_value_arg("hexdump", "--hexdump", "", 
+parser.add_value_arg("hexdump", "--hexdump", "",
     "Enable hexdump output (categories: all, asm, memory, io, stack, exec, registers, interrupts, files)",
     [this](const std::string& value) {
         Config::debug = true;
-        
+
         std::string categories = value.empty() ? "asm" : value;
-        
+
         if (categories == "all") {
             // Enable all hexdump categories
             Logging::DebugHandler::instance().enable_category(Logging::DebugCategory::ASM_HEXDUMP);
@@ -427,7 +438,7 @@ To implement all recommended hexdump points, add these categories to `debug_hand
 ```cpp
 enum class DebugCategory {
     // ... existing categories ...
-    
+
     // Memory/Storage (0x200-0x299)
     MEM_ACCESS = 0x200,
     MEM_ALLOCATION = 0x201,
@@ -436,7 +447,7 @@ enum class DebugCategory {
     MEM_CACHE = 0x204,
     MEM_PROTECTION = 0x205,
     MEM_HEXDUMP = 0x206,        // NEW: Memory operation hexdumps
-    
+
     // I/O/Device (0x300-0x399)
     IO_DEVICE = 0x300,
     IO_FILE = 0x301,
@@ -446,7 +457,7 @@ enum class DebugCategory {
     IO_INTERRUPT = 0x305,
     IO_HEXDUMP = 0x306,         // NEW: I/O operation hexdumps
     FILE_HEXDUMP = 0x307,       // NEW: File/block device hexdumps
-    
+
     // CPU/Engine (0x001-0x099)
     CPU_EXECUTION = 0x001,
     CPU_REGISTERS = 0x002,
@@ -468,6 +479,7 @@ enum class DebugCategory {
 ### Hexdump Overhead
 
 Hexdumps can be **expensive** when enabled:
+
 - String formatting operations
 - I/O operations (output to console/file)
 - Potential lock contention in multi-threaded scenarios
@@ -475,6 +487,7 @@ Hexdumps can be **expensive** when enabled:
 ### Mitigation Strategies
 
 1. **Conditional Compilation**:
+
 ```cpp
 #ifdef DEMI_ENABLE_HEXDUMP
     if (DebugHandler::instance().is_category_enabled(DebugCategory::MEM_HEXDUMP)) {
@@ -484,6 +497,7 @@ Hexdumps can be **expensive** when enabled:
 ```
 
 2. **Lazy Evaluation**:
+
 ```cpp
 // Only format string if category is enabled
 DEBUG_DETAIL_IF(DebugCategory::MEM_HEXDUMP, [&]() {
@@ -494,6 +508,7 @@ DEBUG_DETAIL_IF(DebugCategory::MEM_HEXDUMP, [&]() {
 ```
 
 3. **Sampling**:
+
 ```cpp
 // Only hexdump every Nth operation
 static uint64_t counter = 0;
@@ -503,6 +518,7 @@ if ((++counter % 100) == 0) {
 ```
 
 4. **Size Limits**:
+
 ```cpp
 // Limit hexdump size
 const size_t MAX_HEXDUMP_SIZE = 256;
@@ -551,6 +567,7 @@ size_t dump_size = std::min(bytecode.size(), MAX_HEXDUMP_SIZE);
 ### When to Use Hexdumps
 
 ✅ **Good Use Cases**:
+
 - Assembly output verification
 - Binary protocol debugging
 - Memory corruption investigation
@@ -559,6 +576,7 @@ size_t dump_size = std::min(bytecode.size(), MAX_HEXDUMP_SIZE);
 - Security vulnerability research
 
 ❌ **Avoid For**:
+
 - Production execution (too slow)
 - Long-running programs (huge output)
 - High-frequency operations (overwhelming)
@@ -567,16 +585,19 @@ size_t dump_size = std::min(bytecode.size(), MAX_HEXDUMP_SIZE);
 ### Output Management
 
 1. **Redirect to File**:
+
 ```bash
 ./bin/demi-engine-debug --hexdump=all -A program.asm 2>hexdump.log
 ```
 
 2. **Filter with grep**:
+
 ```bash
 ./bin/demi-engine-debug --hexdump=all -A program.asm 2>&1 | grep "HEXDUMP"
 ```
 
 3. **Paginate Output**:
+
 ```bash
 ./bin/demi-engine-debug --hexdump=all -A program.asm 2>&1 | less
 ```
@@ -599,6 +620,7 @@ Recommended implementation order:
 ### Interactive Hexdump Viewer
 
 Integrate hexdumps into GUI or create interactive viewer:
+
 - Click on address to see hexdump
 - Compare before/after states
 - Search/filter hexdump output
@@ -607,6 +629,7 @@ Integrate hexdumps into GUI or create interactive viewer:
 ### Hexdump Diff Mode
 
 Show only changed bytes:
+
 ```
 Memory write diff at 0x1000:
   - [00 00 00 00]
@@ -616,6 +639,7 @@ Memory write diff at 0x1000:
 ### Hexdump Replay
 
 Record hexdumps and replay program state:
+
 - Capture all hexdumps during execution
 - Save to file for later analysis
 - Replay execution with same state

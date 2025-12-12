@@ -1,14 +1,17 @@
 # Validation Test Results - test_temp_failing.asm
 
 ## Purpose
+
 This temporary test file was created to verify that the test validation system correctly identifies invalid test cases.
 
 ## Test Results
 
 ### ❌ Test 1: "this test is missing assertions"
+
 **Status:** FAILED ✗
 **Reason:** Test has no assertions
 **Code:**
+
 ```assembly
 #test "this test is missing assertions" {
     LOAD_IMM R0, 42
@@ -16,6 +19,7 @@ This temporary test file was created to verify that the test validation system c
     ; NO ASSERTIONS - should fail validation
 }
 ```
+
 **Expected:** Fail validation ✓
 **Actual:** Failed validation ✓
 **Verdict:** Working correctly!
@@ -23,14 +27,17 @@ This temporary test file was created to verify that the test validation system c
 ---
 
 ### ❌ Test 2: "this test is empty"
+
 **Status:** FAILED ✗
 **Reason:** Test has no statements
 **Code:**
+
 ```assembly
 #test "this test is empty" {
     ; No statements at all - should fail validation
 }
 ```
+
 **Expected:** Fail validation ✓
 **Actual:** Failed validation ✓
 **Verdict:** Working correctly!
@@ -38,15 +45,18 @@ This temporary test file was created to verify that the test validation system c
 ---
 
 ### ✅ Test 3: "this test should pass"
+
 **Status:** PASSED ✓
 **Details:** Test has 2 statement(s), 1 assertion(s)
 **Code:**
+
 ```assembly
 #test "this test should pass" {
     LOAD_IMM R0, 100
     #assert_reg R0, 100
 }
 ```
+
 **Expected:** Pass validation ✓
 **Actual:** Passed validation ✓
 **Verdict:** Working correctly!
@@ -54,9 +64,11 @@ This temporary test file was created to verify that the test validation system c
 ---
 
 ### ❌ Test 4: "another test missing assertions"
+
 **Status:** FAILED ✗
 **Reason:** Test has no assertions
 **Code:**
+
 ```assembly
 #test "another test missing assertions" {
     LOAD_IMM R1, 50
@@ -65,6 +77,7 @@ This temporary test file was created to verify that the test validation system c
     ; Has statements but no assertions - should fail
 }
 ```
+
 **Expected:** Fail validation ✓
 **Actual:** Failed validation ✓
 **Verdict:** Working correctly!
@@ -83,7 +96,7 @@ This temporary test file was created to verify that the test validation system c
 The validator successfully checks:
 
 1. ✅ **Empty test detection** - Tests with no statements are rejected
-2. ✅ **Missing assertion detection** - Tests without assertions are rejected  
+2. ✅ **Missing assertion detection** - Tests without assertions are rejected
 3. ✅ **Valid test acceptance** - Properly structured tests are accepted
 4. ✅ **Statement counting** - Correctly counts statements and assertions
 
@@ -92,6 +105,7 @@ The validator successfully checks:
 The test validation system is **working perfectly**! All intentionally invalid tests were correctly identified and rejected, while the valid test passed.
 
 The validator properly enforces the rules:
+
 - Tests must have at least one statement
 - Tests must have at least one assertion (unless using #expect_error)
 - Tests with proper structure are accepted

@@ -7,6 +7,7 @@ DemiEngine provides foundational SIMD capabilities for parallel data processing.
 ## SIMD Register Architecture
 
 ### XMM Registers
+
 - **XMM0 through XMM15**: 128-bit SIMD registers
 - Each register can hold:
   - 4 × 32-bit floats
@@ -17,6 +18,7 @@ DemiEngine provides foundational SIMD capabilities for parallel data processing.
   - 2 × 64-bit integers
 
 ### Register Naming
+
 ```
 Register Ranges (Internal Enumeration):
   0-15      : General Purpose Registers (RAX, RCX, ..., R15)
@@ -38,6 +40,7 @@ Register Ranges (Internal Enumeration):
 ### Vector Arithmetic
 
 #### VADD - Vector Addition
+
 ```assembly
 VADD <dest_xmm>, <src_xmm>    ; dest = dest + src (element-wise)
 ```
@@ -45,10 +48,12 @@ VADD <dest_xmm>, <src_xmm>    ; dest = dest + src (element-wise)
 **Description**: Adds corresponding elements from two XMM registers.
 
 **Format**:
+
 - Opcode: `0xD4`
 - Format: `VADD <xmm_dest> <xmm_src>`
 
 **Example**:
+
 ```assembly
 ; Add two vectors of floats
 ; XMM0 = [1.0, 2.0, 3.0, 4.0]
@@ -58,28 +63,29 @@ VADD XMM0, XMM1
 ```
 
 **Assembly Test Example**:
+
 ```assembly
 .test "vector addition" {
     .description "Test parallel addition of vector elements using VADD"
     .author "DemiEngine Team"
     .category "SIMD"
     .tag "vector", "addition"
-    
+
     ; Set up first vector in XMM0: [1.0, 2.0, 3.0, 4.0]
     LOAD_IMM XMM0_0, 1    ; XMM0 component 0 = 1.0
     LOAD_IMM XMM0_1, 2    ; XMM0 component 1 = 2.0
     LOAD_IMM XMM0_2, 3    ; XMM0 component 2 = 3.0
     LOAD_IMM XMM0_3, 4    ; XMM0 component 3 = 4.0
-    
+
     ; Set up second vector in XMM1: [5.0, 6.0, 7.0, 8.0]
     LOAD_IMM XMM1_0, 5
     LOAD_IMM XMM1_1, 6
     LOAD_IMM XMM1_2, 7
     LOAD_IMM XMM1_3, 8
-    
+
     ; Perform vector addition
     VADD XMM0, XMM1
-    
+
     ; Verify results: XMM0 should be [6.0, 8.0, 10.0, 12.0]
     .assert_reg XMM0_0, 6
     .assert_reg XMM0_1, 8
@@ -89,6 +95,7 @@ VADD XMM0, XMM1
 ```
 
 #### VMUL - Vector Multiplication
+
 ```assembly
 VMUL <dest_xmm>, <src_xmm>    ; dest = dest * src (element-wise)
 ```
@@ -96,10 +103,12 @@ VMUL <dest_xmm>, <src_xmm>    ; dest = dest * src (element-wise)
 **Description**: Multiplies corresponding elements from two XMM registers.
 
 **Format**:
+
 - Opcode: `0xD5`
 - Format: `VMUL <xmm_dest> <xmm_src>`
 
 **Example**:
+
 ```assembly
 ; Multiply two vectors
 ; XMM0 = [2.0, 3.0, 4.0, 5.0]
@@ -109,27 +118,28 @@ VMUL XMM0, XMM1
 ```
 
 **Assembly Test Example**:
+
 ```assembly
 .test "vector multiplication" {
     .description "Test parallel multiplication of vector elements using VMUL"
     .author "DemiEngine Team"
     .category "SIMD"
     .tag "vector", "multiplication"
-    
+
     ; XMM0 = [2.0, 3.0, 4.0, 5.0]
     LOAD_IMM XMM0_0, 2
     LOAD_IMM XMM0_1, 3
     LOAD_IMM XMM0_2, 4
     LOAD_IMM XMM0_3, 5
-    
+
     ; XMM1 = [10.0, 10.0, 10.0, 10.0]
     LOAD_IMM XMM1_0, 10
     LOAD_IMM XMM1_1, 10
     LOAD_IMM XMM1_2, 10
     LOAD_IMM XMM1_3, 10
-    
+
     VMUL XMM0, XMM1
-    
+
     ; Verify: [20.0, 30.0, 40.0, 50.0]
     .assert_reg XMM0_0, 20
     .assert_reg XMM0_1, 30
@@ -139,6 +149,7 @@ VMUL XMM0, XMM1
 ```
 
 #### VDOT - Vector Dot Product
+
 ```assembly
 VDOT <dest_xmm>, <src_xmm>    ; dest[0] = sum(dest[i] * src[i])
 ```
@@ -146,10 +157,12 @@ VDOT <dest_xmm>, <src_xmm>    ; dest[0] = sum(dest[i] * src[i])
 **Description**: Computes the dot product of two vectors and stores result in first component.
 
 **Format**:
+
 - Opcode: `0xD6`
 - Format: `VDOT <xmm_dest> <xmm_src>`
 
 **Example**:
+
 ```assembly
 ; Compute dot product
 ; XMM0 = [1.0, 2.0, 3.0, 4.0]
@@ -159,27 +172,28 @@ VDOT XMM0, XMM1
 ```
 
 **Assembly Test Example**:
+
 ```assembly
 .test "vector dot product" {
     .description "Test dot product of two vectors using VDOT"
     .author "DemiEngine Team"
     .category "SIMD"
     .tag "vector", "dot-product"
-    
+
     ; XMM0 = [1.0, 2.0, 3.0, 4.0]
     LOAD_IMM XMM0_0, 1
     LOAD_IMM XMM0_1, 2
     LOAD_IMM XMM0_2, 3
     LOAD_IMM XMM0_3, 4
-    
+
     ; XMM1 = [5.0, 6.0, 7.0, 8.0]
     LOAD_IMM XMM1_0, 5
     LOAD_IMM XMM1_1, 6
     LOAD_IMM XMM1_2, 7
     LOAD_IMM XMM1_3, 8
-    
+
     VDOT XMM0, XMM1
-    
+
     ; Verify: 1*5 + 2*6 + 3*7 + 4*8 = 70
     .assert_reg XMM0_0, 70
 }
@@ -188,6 +202,7 @@ VDOT XMM0, XMM1
 ### Vector Comparison
 
 #### VCMPGT - Vector Compare Greater Than
+
 ```assembly
 VCMPGT <dest_xmm>, <src_xmm>  ; dest[i] = (dest[i] > src[i]) ? -1 : 0
 ```
@@ -195,10 +210,12 @@ VCMPGT <dest_xmm>, <src_xmm>  ; dest[i] = (dest[i] > src[i]) ? -1 : 0
 **Description**: Compares elements and sets result to all 1s (true) or all 0s (false).
 
 **Format**:
+
 - Opcode: `0xD9`
 - Format: `VCMPGT <xmm_dest> <xmm_src>`
 
 **Example**:
+
 ```assembly
 ; Compare vectors
 ; XMM0 = [5.0, 3.0, 8.0, 2.0]
@@ -210,6 +227,7 @@ VCMPGT XMM0, XMM1
 ### Vector Operations
 
 #### VMAX - Vector Maximum
+
 ```assembly
 VMAX <dest_xmm>, <src_xmm>    ; dest[i] = max(dest[i], src[i])
 ```
@@ -217,10 +235,12 @@ VMAX <dest_xmm>, <src_xmm>    ; dest[i] = max(dest[i], src[i])
 **Description**: Stores the maximum of each pair of corresponding elements.
 
 **Format**:
+
 - Opcode: `0xD7`
 - Format: `VMAX <xmm_dest> <xmm_src>`
 
 **Example**:
+
 ```assembly
 ; Find element-wise maximum
 ; XMM0 = [1.0, 8.0, 3.0, 7.0]
@@ -230,27 +250,28 @@ VMAX XMM0, XMM1
 ```
 
 **Assembly Test Example**:
+
 ```assembly
 .test "vector max" {
     .description "Test finding maximum element in vector using VMAX"
     .author "DemiEngine Team"
     .category "SIMD"
     .tag "vector", "max"
-    
+
     ; XMM0 = [1.0, 8.0, 3.0, 7.0]
     LOAD_IMM XMM0_0, 1
     LOAD_IMM XMM0_1, 8
     LOAD_IMM XMM0_2, 3
     LOAD_IMM XMM0_3, 7
-    
+
     ; XMM1 = [5.0, 2.0, 9.0, 6.0]
     LOAD_IMM XMM1_0, 5
     LOAD_IMM XMM1_1, 2
     LOAD_IMM XMM1_2, 9
     LOAD_IMM XMM1_3, 6
-    
+
     VMAX XMM0, XMM1
-    
+
     ; Verify: [5.0, 8.0, 9.0, 7.0]
     .assert_reg XMM0_0, 5
     .assert_reg XMM0_1, 8
@@ -260,6 +281,7 @@ VMAX XMM0, XMM1
 ```
 
 #### VBROADCAST - Vector Broadcast
+
 ```assembly
 VBROADCAST <dest_xmm>, <src_reg>  ; Broadcast scalar to all elements
 ```
@@ -267,10 +289,12 @@ VBROADCAST <dest_xmm>, <src_reg>  ; Broadcast scalar to all elements
 **Description**: Copies a single value to all elements of the destination vector.
 
 **Format**:
+
 - Opcode: `0xD8`
 - Format: `VBROADCAST <xmm_dest> <scalar_src>`
 
 **Example**:
+
 ```assembly
 ; Broadcast value 42 to all elements
 LOAD_IMM R0, 42
@@ -279,19 +303,20 @@ VBROADCAST XMM0, R0
 ```
 
 **Assembly Test Example**:
+
 ```assembly
 .test "vector broadcast" {
     .description "Test broadcasting scalar to vector using VBROADCAST"
     .author "DemiEngine Team"
     .category "SIMD"
     .tag "vector", "broadcast"
-    
+
     ; Load scalar value
     LOAD_IMM R0, 42
-    
+
     ; Broadcast to all XMM0 components
     VBROADCAST XMM0, R0
-    
+
     ; Verify all components are 42
     .assert_reg XMM0_0, 42
     .assert_reg XMM0_1, 42
@@ -303,6 +328,7 @@ VBROADCAST XMM0, R0
 ### Data Manipulation
 
 #### PACKB - Pack Bytes
+
 ```assembly
 PACKB <dest_xmm>, <src_xmm>   ; Pack bytes with saturation
 ```
@@ -310,39 +336,43 @@ PACKB <dest_xmm>, <src_xmm>   ; Pack bytes with saturation
 **Description**: Packs bytes from source and destination into destination with saturation.
 
 **Format**:
+
 - Opcode: `0xDA`
 - Format: `PACKB <xmm_dest> <xmm_src>`
 
 **Example**:
+
 ```assembly
 ; Pack bytes
 PACKB XMM0, XMM1
 ```
 
 **Assembly Test Example**:
+
 ```assembly
 .test "packed byte operations" {
     .description "Test packing and unpacking bytes using PACKB and UNPACKB"
     .author "DemiEngine Team"
     .category "SIMD"
     .tag "packed", "bytes"
-    
+
     ; Set up source data
     LOAD_IMM XMM0_0, 0x12345678
     LOAD_IMM XMM1_0, 0x9ABCDEF0
-    
+
     ; Pack bytes
     PACKB XMM0, XMM1
-    
+
     ; Unpack bytes
     UNPACKB XMM2, XMM0
-    
+
     ; Verify operation
     .assert_reg XMM2_0, 0x12345678
 }
 ```
 
 #### UNPACKB - Unpack Bytes
+
 ```assembly
 UNPACKB <dest_xmm>, <src_xmm> ; Unpack bytes
 ```
@@ -350,10 +380,12 @@ UNPACKB <dest_xmm>, <src_xmm> ; Unpack bytes
 **Description**: Unpacks bytes from source register.
 
 **Format**:
+
 - Opcode: `0xDB`
 - Format: `UNPACKB <xmm_dest> <xmm_src>`
 
 **Example**:
+
 ```assembly
 ; Unpack bytes
 UNPACKB XMM2, XMM0
@@ -363,20 +395,21 @@ UNPACKB XMM2, XMM0
 
 **Note**: The SIMD opcodes are currently mapped to the 0xD4-0xDB range in the implementation.
 
-| Opcode | Mnemonic | Description |
-|--------|----------|-------------|
-| 0xD4 | VADD | Vector addition (element-wise) |
-| 0xD5 | VMUL | Vector multiplication (element-wise) |
-| 0xD6 | VDOT | Vector dot product |
-| 0xD7 | VMAX | Vector maximum (element-wise) |
-| 0xD8 | VBROADCAST | Broadcast scalar to vector |
-| 0xD9 | VCMPGT | Vector compare greater than |
-| 0xDA | PACKB | Pack bytes with saturation |
-| 0xDB | UNPACKB | Unpack bytes |
+| Opcode | Mnemonic   | Description                          |
+| ------ | ---------- | ------------------------------------ |
+| 0xD4   | VADD       | Vector addition (element-wise)       |
+| 0xD5   | VMUL       | Vector multiplication (element-wise) |
+| 0xD6   | VDOT       | Vector dot product                   |
+| 0xD7   | VMAX       | Vector maximum (element-wise)        |
+| 0xD8   | VBROADCAST | Broadcast scalar to vector           |
+| 0xD9   | VCMPGT     | Vector compare greater than          |
+| 0xDA   | PACKB      | Pack bytes with saturation           |
+| 0xDB   | UNPACKB    | Unpack bytes                         |
 
 ## Register Access Patterns
 
 ### Direct Component Access
+
 ```assembly
 ; Access individual XMM components
 LOAD_IMM XMM0_0, 10    ; XMM0 component 0
@@ -386,6 +419,7 @@ LOAD_IMM XMM0_3, 40    ; XMM0 component 3
 ```
 
 ### Register Index Mapping
+
 ```
 XMM0: R96-R99     (components 0-3)
 XMM1: R100-R103   (components 0-3)
@@ -397,6 +431,7 @@ XMM15: R156-R159  (components 0-3)
 ## Programming Examples
 
 ### Vector Scaling
+
 ```assembly
 ; Scale a vector by a constant
 ; vector = [1, 2, 3, 4] * 10
@@ -417,6 +452,7 @@ VMUL XMM0, XMM1
 ```
 
 ### Vector Normalization (Simplified)
+
 ```assembly
 ; Normalize a 4D vector
 ; 1. Compute dot product (magnitude squared)
@@ -444,6 +480,7 @@ VDOT XMM0, XMM1
 ```
 
 ### Matrix-Vector Multiplication (4x4 × 4)
+
 ```assembly
 ; Multiply 4x4 matrix by 4D vector
 ; result[i] = dot(matrix_row[i], vector)
@@ -475,6 +512,7 @@ VDOT XMM2, XMM0
 ```
 
 ### Parallel Comparison
+
 ```assembly
 ; Find which elements are greater than threshold
 
@@ -497,18 +535,21 @@ VCMPGT XMM0, XMM1
 ## Performance Considerations
 
 ### Benefits of SIMD
+
 1. **Parallelism**: Process 4 elements simultaneously
 2. **Memory Efficiency**: Single instruction for multiple data
 3. **Cache Friendly**: Contiguous data access patterns
 4. **Throughput**: Higher operations per cycle
 
 ### Best Practices
+
 1. **Align Data**: Ensure data is properly aligned for best performance
 2. **Batch Operations**: Process data in chunks of 4 (XMM width)
 3. **Minimize Transfers**: Keep data in XMM registers when possible
 4. **Use Broadcasts**: Efficient for scalar-vector operations
 
 ### Common Use Cases
+
 - Graphics processing (colors, vertices, normals)
 - Physics simulations (particles, forces)
 - Signal processing (filters, transforms)
@@ -519,6 +560,7 @@ VCMPGT XMM0, XMM1
 ## Test Coverage
 
 DemiEngine includes comprehensive SIMD testing:
+
 - 6 SIMD tests in `tests/simd.test.asm`
 - All vector operations tested
 - Component-wise operations verified
@@ -560,6 +602,7 @@ FST 0x01 result_addr
 ## Future SIMD Extensions
 
 Planned enhancements:
+
 - More vector sizes (256-bit, 512-bit)
 - Additional comparison operations
 - Shuffle and permute instructions

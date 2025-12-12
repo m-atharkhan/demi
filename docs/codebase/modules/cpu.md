@@ -45,21 +45,25 @@ struct CPUFlags {
 ## Instruction Set
 
 ### Arithmetic Operations
+
 - `ADD`, `SUB`, `MUL`, `DIV` - Basic arithmetic
 - `INC`, `DEC` - Increment/decrement operations
 - `ADD64`, `SUB64`, `MUL64`, `DIV64` - 64-bit arithmetic
 
 ### Logic Operations
+
 - `AND`, `OR`, `XOR`, `NOT` - Bitwise logic
 - `SHL`, `SHR` - Bit shifting operations
 
 ### Memory Operations
+
 - `LOAD_IMM` - Load immediate values
 - `MOV` - Register-to-register transfers
 - `LOAD`, `STORE` - Memory access operations
 - `LEA` - Load effective address
 
 ### Control Flow
+
 - `JMP` - Unconditional jump
 - `JZ`, `JNZ` - Zero flag conditional jumps
 - `JG`, `JL`, `JGE`, `JLE` - Comparison-based jumps
@@ -68,14 +72,17 @@ struct CPUFlags {
 - `JO`, `JNO` - Overflow flag jumps
 
 ### Stack Operations
+
 - `PUSH`, `POP` - Stack manipulation
 - `PUSHF`, `POPF` - Flags register stack operations
 
 ### I/O Operations
+
 - `IN`, `OUT` - Device communication
 - Supports multiple device types via device manager
 
 ### System Operations
+
 - `CMP` - Compare operations (sets flags)
 - `NOP` - No operation
 - `HALT` - Terminate execution
@@ -90,29 +97,29 @@ class CPU {
 public:
     CPU();
     ~CPU();
-    
+
     // Core execution
     void run(const std::vector<uint8_t>& program);
     void step();
     bool is_running() const;
     void halt();
-    
+
     // Register access
     uint32_t get_register(uint8_t reg) const;
     void set_register(uint8_t reg, uint32_t value);
-    
+
     // Memory management
     uint8_t read_memory(uint32_t address) const;
     void write_memory(uint32_t address, uint8_t value);
-    
+
     // Debugging support
     std::string get_state_string() const;
     void dump_registers() const;
     void dump_memory(uint32_t start, uint32_t length) const;
-    
+
     // Device integration
     void attach_device_manager(DeviceManager* dm);
-    
+
 private:
     std::unique_ptr<Register[]> registers;
     std::vector<uint8_t> memory;
@@ -134,11 +141,13 @@ private:
 ## Instruction Encoding
 
 ### Standard Format
+
 ```
 [OPCODE][REG1][REG2][IMMEDIATE/ADDRESS]
 ```
 
 ### Size Variants
+
 - **1-byte immediate:** `LOAD_IMM R0, 42`
 - **4-byte address:** `JMP 0x1000`
 - **Register-only:** `ADD R0, R1`
@@ -146,6 +155,7 @@ private:
 ## Error Handling
 
 ### Exception Types
+
 - **Invalid Opcode:** Unknown instruction encountered
 - **Register Out of Bounds:** Invalid register access
 - **Memory Violation:** Address beyond memory limits
@@ -153,6 +163,7 @@ private:
 - **Stack Overflow/Underflow:** Stack boundary violations
 
 ### Recovery Mechanisms
+
 - Graceful halt on critical errors
 - Detailed error logging with context
 - State preservation for debugging
@@ -168,16 +179,19 @@ The CPU integrates with the device manager to provide:
 ## Extended Features
 
 ### 64-bit Mode Support
+
 - Extended arithmetic operations
 - Larger immediate values
 - Enhanced addressing modes
 
 ### Debug Integration
+
 - Real-time state monitoring
 - Breakpoint support (via GUI)
 - Instruction tracing
 
 ### Performance Features
+
 - Optimized instruction decode
 - Efficient memory access patterns
 - Minimal overhead execution
@@ -185,6 +199,7 @@ The CPU integrates with the device manager to provide:
 ## Usage Examples
 
 ### Basic Execution
+
 ```cpp
 CPU cpu;
 DeviceManager devices;
@@ -200,6 +215,7 @@ cpu.run(program);
 ```
 
 ### State Inspection
+
 ```cpp
 // Check register values
 uint32_t value = cpu.get_register(0);

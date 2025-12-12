@@ -8,17 +8,17 @@ Successfully added granular test execution flags to DemiEngine, allowing develop
 
 ### Added Flags
 
-| Flag | Short | Description | Tests | Runtime |
-|------|-------|-------------|-------|---------|
-| `--unit-test` | `-ut` | Run unit tests only | 79 | ~1-2s |
-| `--integration-test` | `-it` | Run integration tests only | 42 | ~2-3s |
-| `--assembly-test` | `-at` | Run assembly test validation | 61 | ~1s |
+| Flag                 | Short | Description                  | Tests | Runtime |
+| -------------------- | ----- | ---------------------------- | ----- | ------- |
+| `--unit-test`        | `-ut` | Run unit tests only          | 79    | ~1-2s   |
+| `--integration-test` | `-it` | Run integration tests only   | 42    | ~2-3s   |
+| `--assembly-test`    | `-at` | Run assembly test validation | 61    | ~1s     |
 
 ### Existing Flag (Enhanced)
 
-| Flag | Short | Description | Tests | Runtime |
-|------|-------|-------------|-------|---------|
-| `--test` | `-t` | Run all tests | 182 | ~5-7s |
+| Flag     | Short | Description   | Tests | Runtime |
+| -------- | ----- | ------------- | ----- | ------- |
+| `--test` | `-t`  | Run all tests | 182   | ~5-7s   |
 
 ## Implementation Details
 
@@ -26,7 +26,7 @@ Successfully added granular test execution flags to DemiEngine, allowing develop
 
 1. **src/main.cpp**
    - Added `run_unit_tests_only()` function
-   - Added `run_integration_tests_only()` function  
+   - Added `run_integration_tests_only()` function
    - Added `run_assembly_tests_only()` function
    - Refactored `run_tests()` to avoid code duplication
    - Added three new command-line argument handlers
@@ -46,7 +46,7 @@ bool run_tests()                   // Runs all suites in sequence
 ### Argument Registration
 
 ```cpp
-parser.add_action_arg("unit_test", "--unit-test", "-ut", 
+parser.add_action_arg("unit_test", "--unit-test", "-ut",
     "Run unit tests only", [this]() { run_unit_tests_only(); });
 
 parser.add_action_arg("integration_test", "--integration-test", "-it",
@@ -59,6 +59,7 @@ parser.add_action_arg("assembly_test", "--assembly-test", "-at",
 ## Usage Examples
 
 ### Development Workflow
+
 ```bash
 # Quick iteration
 ./bin/demi-engine -ut
@@ -74,15 +75,16 @@ parser.add_action_arg("assembly_test", "--assembly-test", "-at",
 ```
 
 ### CI/CD Integration
+
 ```yaml
 # Parallel test execution
 jobs:
   unit-tests:
     run: ./bin/demi-engine -ut
-  
+
   integration-tests:
     run: ./bin/demi-engine -it
-  
+
   assembly-tests:
     run: ./bin/demi-engine -at
 ```
@@ -150,12 +152,12 @@ Total: 182 tests, 100% pass rate
 
 ## Performance Comparison
 
-| Test Type | Old Method | New Method | Speedup |
-|-----------|------------|------------|---------|
-| Unit only | Run all (~7s) | `-ut` (~1.5s) | **~5x faster** |
+| Test Type        | Old Method    | New Method    | Speedup        |
+| ---------------- | ------------- | ------------- | -------------- |
+| Unit only        | Run all (~7s) | `-ut` (~1.5s) | **~5x faster** |
 | Integration only | Run all (~7s) | `-it` (~2.5s) | **~3x faster** |
-| Assembly only | Run all (~7s) | `-at` (~1s) | **~7x faster** |
-| All tests | `-t` (~7s) | `-t` (~7s) | Same |
+| Assembly only    | Run all (~7s) | `-at` (~1s)   | **~7x faster** |
+| All tests        | `-t` (~7s)    | `-t` (~7s)    | Same           |
 
 ## Future Enhancements
 

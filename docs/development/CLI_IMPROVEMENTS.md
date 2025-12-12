@@ -3,6 +3,7 @@
 This document describes the recent enhancements to DemiEngine's command-line interface and test execution system.
 
 ## Table of Contents
+
 1. [Argument Linking](#argument-linking)
 2. [Enhanced Test Output](#enhanced-test-output)
 3. [Unified Test Command](#unified-test-command)
@@ -13,10 +14,13 @@ This document describes the recent enhancements to DemiEngine's command-line int
 ## Argument Linking
 
 ### Overview
+
 DemiEngine now supports **argument linking**, allowing multiple short flags to be combined into a single argument for convenience.
 
 ### How It Works
+
 The argument parser uses a **greedy longest-match algorithm** to parse linked arguments:
+
 - Attempts to match the longest possible flag first
 - Falls back to shorter flags if no match is found
 - Processes flags left-to-right
@@ -42,6 +46,7 @@ The argument parser uses a **greedy longest-match algorithm** to parse linked ar
 ```
 
 ### Supported Linked Combinations
+
 - `-utq` - Unit tests + Quiet mode
 - `-atq` - Assembly tests + Quiet mode
 - `-tq` - All tests + Quiet mode
@@ -50,9 +55,11 @@ The argument parser uses a **greedy longest-match algorithm** to parse linked ar
 - `-atd` - Assembly tests + Debug mode
 
 ### Implementation Details
+
 **File**: `src/main.cpp` - `ArgParser::parse()`
 
 The parser processes linked arguments by:
+
 1. Identifying arguments starting with `-` (not `--`)
 2. Attempting greedy matching starting from position 1
 3. Calling callbacks for matched flags in order
@@ -80,6 +87,7 @@ while (i < arg.size()) {
 Assembly tests now organize output by category, making it easier to understand test results.
 
 #### Quiet Mode (`-atq`)
+
 ```
 Algorithms (5/5) [29.2ms]
   ✓ [7.6ms] fibonacci calculation - Calculates the 5th Fibonacci number
@@ -96,6 +104,7 @@ Assembly Tests: 79 passed / 79 total [403.6ms total, 5.11ms avg]
 ```
 
 **Features**:
+
 - Tests grouped under category headers
 - Category headers show: `Name (passed/total) [time]`
 - Each test shows: `✓ [time] name - description`
@@ -104,8 +113,9 @@ Assembly Tests: 79 passed / 79 total [403.6ms total, 5.11ms avg]
 - Enhanced summary with total time and average
 
 #### Verbose Mode (`-at`)
+
 ```
-[INFO] 
+[INFO]
 Algorithms (5/5) [29.2ms]
 [INFO]   ✓ [7.6ms] fibonacci calculation
 [INFO]     Description: Calculates the 5th Fibonacci number using iterative approach
@@ -122,6 +132,7 @@ Algorithms (5/5) [29.2ms]
 ```
 
 **Features**:
+
 - Full test metadata displayed
 - Category grouping with detailed test information
 - Author and tag information
@@ -133,12 +144,14 @@ Algorithms (5/5) [29.2ms]
 Unit tests now provide more detailed timing and performance information.
 
 #### Example Output
+
 ```
 Unit Tests: 101 passed / 101 [1002.2ms total, 9.92ms avg]
 Slowest test: call_stack_overflow [391.3ms]
 ```
 
 **Features**:
+
 - Total execution time
 - Average time per test
 - Failed test count (when applicable)
@@ -149,6 +162,7 @@ Slowest test: call_stack_overflow [391.3ms]
 ## Unified Test Command
 
 ### Overview
+
 The `--test` / `-t` command now runs **both** unit tests and assembly tests in a single execution.
 
 ### Usage
@@ -203,16 +217,20 @@ Individual test types can still be run separately:
 ## Quiet Mode Enhancements
 
 ### Overview
+
 Quiet mode has been enhanced to provide useful information while suppressing verbose logging.
 
 ### Configuration
+
 **File**: `src/config.hpp`
 
 Two separate quiet flags:
+
 - `Config::quiet` - For unit tests
 - `Config::quiet_assembly_test` - For assembly tests
 
 The `-q` flag sets **both** flags automatically:
+
 ```cpp
 parser.add_bool_arg("quiet", "--quiet", "-q", "...",
     [this](bool value) {
@@ -224,12 +242,14 @@ parser.add_bool_arg("quiet", "--quiet", "-q", "...",
 ### Quiet Mode Behavior
 
 #### What Gets Suppressed
+
 - DEBUG log messages
 - INFO log messages
 - RUNNING status messages
 - Verbose test execution details
 
 #### What Gets Displayed
+
 - Test results (✓ or ✗)
 - Test timing information
 - Category summaries
@@ -244,7 +264,7 @@ Uses `std::cout` directly instead of `Logger::info()` to bypass log filtering:
 
 ```cpp
 if (Config::quiet_assembly_test) {
-    std::cout << fmt::format("\033[32m✓\033[0m \033[90m[{:.1f}ms]\033[0m {}", 
+    std::cout << fmt::format("\033[32m✓\033[0m \033[90m[{:.1f}ms]\033[0m {}",
                             result.execution_time_ms, result.test_name);
     if (!result.description.empty()) {
         std::cout << " - " << result.description;
@@ -265,7 +285,7 @@ if (Config::quiet) {
     for (const auto& [cat, data] : category_data) {
         std::cout << fmt::format("{}  {:<20} {:>3}/{:<3} [{:>7.1f}ms]\033[0m\n",
                                cat_color, cat, passed_count, total_count, total_time);
-        
+
         // Print individual tests under category
         for (const auto& result : cat_results) {
             // ... test output ...
@@ -279,6 +299,7 @@ if (Config::quiet) {
 ## Performance Information
 
 ### Timing Display
+
 All test modes now display timing information:
 
 - **Individual tests**: `[X.Xms]` next to each test
@@ -286,6 +307,7 @@ All test modes now display timing information:
 - **Summaries**: Total time and average per test
 
 ### Color Coding
+
 - **Green (✓)**: Passed tests
 - **Red (✗)**: Failed tests
 - **Cyan**: Category headers (all passed)
@@ -299,6 +321,7 @@ Assembly Tests: 79 passed / 79 total [403.6ms total, 5.11ms avg]
 ```
 
 This shows:
+
 - Total tests: 79
 - Pass rate: 100%
 - Total execution time: 403.6ms
@@ -309,6 +332,7 @@ This shows:
 ## Implementation Files
 
 ### Modified Files
+
 1. **src/main.cpp**
    - Argument linking implementation
    - `run_all_tests()` function
@@ -336,6 +360,7 @@ This shows:
 ## Testing the Improvements
 
 ### Verify Argument Linking
+
 ```bash
 # Test unit tests + quiet
 ./bin/demi-engine -utq
@@ -348,6 +373,7 @@ This shows:
 ```
 
 ### Verify Enhanced Output
+
 ```bash
 # See category grouping (quiet)
 ./bin/demi-engine -atq | head -30
@@ -360,6 +386,7 @@ This shows:
 ```
 
 ### Verify Performance Metrics
+
 ```bash
 # Check timing displays
 ./bin/demi-engine -atq | grep "ms"

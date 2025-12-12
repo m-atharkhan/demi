@@ -11,11 +11,13 @@ This directory contains version management and changelog generation tools for De
 ## Usage
 
 ### Check Current Version
+
 ```bash
 ./generate_changelog.sh version
 ```
 
 ### Generate Changelog
+
 ```bash
 # Generate full changelog from git history
 ./generate_changelog.sh generate
@@ -25,12 +27,13 @@ This directory contains version management and changelog generation tools for De
 ```
 
 ### Create a New Release
+
 ```bash
 # Patch release (1.0.0 -> 1.0.1) - bug fixes
 ./generate_changelog.sh release patch
 
 # Minor release (1.0.0 -> 1.1.0) - new features
-./generate_changelog.sh release minor  
+./generate_changelog.sh release minor
 
 # Major release (1.0.0 -> 2.0.0) - breaking changes
 ./generate_changelog.sh release major
@@ -39,6 +42,7 @@ This directory contains version management and changelog generation tools for De
 ## Release Process
 
 The `release` command performs these actions automatically:
+
 1. Increments version number in `VERSION` file
 2. Updates version constants in `src/config.hpp`
 3. Generates changelog entry for the new version
@@ -49,19 +53,19 @@ The `release` command performs these actions automatically:
 
 The changelog generator automatically categorizes commits:
 
-| Pattern | Category | Icon |
-|---------|----------|------|
-| `feat:` or Feature keywords | ✨ Features | |
-| `fix:` or Fix keywords | 🐛 Bug Fixes | |
-| `perf:` or Performance keywords | ⚡ Performance Improvements | |
-| `docs:` or Documentation keywords | 📚 Documentation | |
-| `test:` or Test keywords | 🧪 Tests | |
-| `refactor:` | ♻️ Code Refactoring | |
-| `style:` | 💅 Code Style | |
-| `build:` | 🔧 Build System | |
-| `ci:` | 👷 Continuous Integration | |
-| `chore:` | 🔨 Chores | |
-| Others | 🔄 Other Changes | |
+| Pattern                           | Category                    | Icon |
+| --------------------------------- | --------------------------- | ---- |
+| `feat:` or Feature keywords       | ✨ Features                 |      |
+| `fix:` or Fix keywords            | 🐛 Bug Fixes                |      |
+| `perf:` or Performance keywords   | ⚡ Performance Improvements |      |
+| `docs:` or Documentation keywords | 📚 Documentation            |      |
+| `test:` or Test keywords          | 🧪 Tests                    |      |
+| `refactor:`                       | ♻️ Code Refactoring         |      |
+| `style:`                          | 💅 Code Style               |      |
+| `build:`                          | 🔧 Build System             |      |
+| `ci:`                             | 👷 Continuous Integration   |      |
+| `chore:`                          | 🔨 Chores                   |      |
+| Others                            | 🔄 Other Changes            |      |
 
 ## Version Constants
 
@@ -69,7 +73,7 @@ Version information is automatically updated in `src/config.hpp`:
 
 ```cpp
 #define DEMI_VERSION_MAJOR 1
-#define DEMI_VERSION_MINOR 0  
+#define DEMI_VERSION_MINOR 0
 #define DEMI_VERSION_PATCH 0
 #define DEMI_VERSION_STRING "1.0.0"
 ```
@@ -81,26 +85,29 @@ These can be used in the application code to display version information.
 This project follows [Semantic Versioning](https://semver.org/):
 
 - **MAJOR** version when you make incompatible API changes
-- **MINOR** version when you add functionality in a backwards compatible manner  
+- **MINOR** version when you add functionality in a backwards compatible manner
 - **PATCH** version when you make backwards compatible bug fixes
 
 ## Examples
 
 ### Creating a patch release for bug fixes:
+
 ```bash
 ./generate_changelog.sh release patch
 # Output: 1.0.0 -> 1.0.1
 ```
 
 ### Creating a minor release for new features:
-```bash  
+
+```bash
 ./generate_changelog.sh release minor
 # Output: 1.0.1 -> 1.1.0
 ```
 
 ### Creating a major release for breaking changes:
+
 ```bash
-./generate_changelog.sh release major  
+./generate_changelog.sh release major
 # Output: 1.1.0 -> 2.0.0
 ```
 

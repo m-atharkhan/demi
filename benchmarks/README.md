@@ -12,7 +12,7 @@ Benchmarks are designed to:
 
 1. **Measure Performance**: Quantify operation execution speed
 2. **Stress Test**: Push the system to its limits
-3. **Validate Scalability**: Test behavior under heavy loads  
+3. **Validate Scalability**: Test behavior under heavy loads
 4. **Profile Operations**: Identify performance bottlenecks
 5. **Regression Testing**: Ensure optimizations don't break functionality
 
@@ -29,7 +29,7 @@ The FPU benchmark (`fpu_performance.asm`) tests:
 
 ```assembly
 ; Setup phase - Initialize test data
-; Timing loop - Execute operations repeatedly  
+; Timing loop - Execute operations repeatedly
 ; Results - Calculate and display performance metrics
 ```
 
@@ -48,16 +48,19 @@ time ./bin/demi-engine --assembly benchmarks/fpu_performance.asm
 ## Benchmark Categories
 
 ### Computational Benchmarks
+
 - Pure computation speed (arithmetic operations)
 - Algorithm implementation efficiency
 - Mathematical function performance
 
-### Memory Benchmarks  
+### Memory Benchmarks
+
 - Memory access patterns
 - Cache behavior simulation
 - Load/store operation speed
 
 ### System Benchmarks
+
 - Overall VM overhead
 - Instruction decode performance
 - Register file access speed

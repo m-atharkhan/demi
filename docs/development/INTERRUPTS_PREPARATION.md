@@ -9,6 +9,7 @@ The DemiEngine codebase has been cleaned, documented, and prepared for interrupt
 ## ✅ Completed Preparation Work
 
 ### 1. Debug Directives System
+
 - **Status**: ✅ Complete and Documented
 - **Implementation**: 14 debug directives fully functional
 - **Documentation**: Usage guide, API reference, examples
@@ -19,6 +20,7 @@ The DemiEngine codebase has been cleaned, documented, and prepared for interrupt
   - Docs: `docs/DEBUG_DIRECTIVES_IMPLEMENTATION.md`, `docs/usage/README.md`
 
 ### 2. Documentation Updates
+
 - **Status**: ✅ Complete
 - **Updated Files**:
   - `README.md` - Added debug directives to key features
@@ -27,6 +29,7 @@ The DemiEngine codebase has been cleaned, documented, and prepared for interrupt
   - `docs/DEBUG_DIRECTIVES_IMPLEMENTATION.md` - Technical implementation details
 
 ### 3. Repository Cleanup
+
 - **Status**: ✅ Complete
 - **Actions Taken**:
   - Removed test debug files from `tests/` directory
@@ -35,6 +38,7 @@ The DemiEngine codebase has been cleaned, documented, and prepared for interrupt
   - Organized documentation structure
 
 ### 4. Codebase State
+
 - **Build Status**: ✅ Clean compilation
 - **Test Status**: ✅ All tests passing
 - **Memory Safety**: ✅ No leaks detected
@@ -74,6 +78,7 @@ The DemiEngine codebase has been cleaned, documented, and prepared for interrupt
 ### Architecture Components to Implement
 
 #### 1. CPU Extensions
+
 ```cpp
 // src/engine/cpu.hpp additions
 class CPU {
@@ -81,7 +86,7 @@ class CPU {
     bool interrupts_enabled = true;
     uint32_t ivt_base = 0x0000;  // Interrupt Vector Table base address
     std::queue<uint8_t> interrupt_queue;
-    
+
     // Interrupt methods
     void trigger_interrupt(uint8_t vector);
     void handle_interrupt(uint8_t vector);
@@ -92,6 +97,7 @@ class CPU {
 ```
 
 #### 2. New Opcodes
+
 - **INT** (0x??): Software interrupt with vector number
 - **IRET** (0x??): Return from interrupt handler
 - **CLI** (0x??): Clear interrupt flag (disable)
@@ -99,6 +105,7 @@ class CPU {
 - **HLT** (0x??): Halt until interrupt (already exists as 0xFF)
 
 #### 3. Exception Handling
+
 ```cpp
 enum class CPUException {
     DIVIDE_BY_ZERO = 0x00,
@@ -112,6 +119,7 @@ enum class CPUException {
 ```
 
 #### 4. Device Integration
+
 - Extend device manager to trigger interrupts
 - Timer device for periodic interrupts
 - Console device for input interrupts
@@ -120,24 +128,28 @@ enum class CPUException {
 ### Implementation Plan
 
 #### Phase 1: Core Infrastructure (Week 1)
+
 1. Add interrupt state to CPU
 2. Implement IVT memory structure
 3. Add CLI/STI/INT/IRET opcodes
 4. Basic interrupt trigger mechanism
 
 #### Phase 2: Exception Handling (Week 2)
+
 1. Define exception vectors
 2. Trigger exceptions on errors
 3. Default exception handlers
 4. Stack overflow detection
 
 #### Phase 3: Hardware Interrupts (Week 3)
+
 1. Timer interrupt support
 2. Device interrupt routing
 3. Interrupt priority system
 4. Nested interrupt handling
 
 #### Phase 4: Testing & Documentation (Week 4)
+
 1. Unit tests for all interrupt types
 2. Assembly test cases
 3. Example programs

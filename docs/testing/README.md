@@ -27,6 +27,7 @@ This directory contains all testing-related documentation for DemiEngine, includ
 ## Current Test Status
 
 **Total**: 219/219 tests passing (100% coverage)
+
 - **Unit Tests**: 101/101 ✅
 - **Assembly Tests**: 118/118 ✅
 
@@ -56,7 +57,9 @@ See [TEST_FRAMEWORK_DESIGN.md](TEST_FRAMEWORK_DESIGN.md) for detailed informatio
 ## Test Categories
 
 ### 1. Unit Tests (C++)
+
 Located in `src/test/`
+
 - CPU operations and register management
 - Arithmetic instructions
 - Memory operations
@@ -65,13 +68,17 @@ Located in `src/test/`
 - Assembler functionality
 
 ### 2. Assembly Tests (In-code)
+
 Embedded in assembly files under `tests/asm/`
+
 - Real assembly program execution
 - Multi-instruction workflows
 - Error handling validation
 
 ### 3. Integration Tests (Hex Files)
+
 Located in `tests/hex/`
+
 - Complete program execution
 - System-level validation
 - Multi-component interactions

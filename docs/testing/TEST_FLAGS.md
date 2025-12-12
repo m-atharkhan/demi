@@ -3,6 +3,7 @@
 Complete guide to using DemiEngine's comprehensive test framework with command-line flags.
 
 ## Table of Contents
+
 - [Overview](#overview)
 - [Test Flag Summary](#test-flag-summary)
 - [Detailed Usage](#detailed-usage)
@@ -20,11 +21,11 @@ Complete guide to using DemiEngine's comprehensive test framework with command-l
 
 DemiEngine provides a flexible test framework with **188 total tests** achieving **100% coverage**:
 
-| Test Suite | Count | Description |
-|------------|-------|-------------|
-| **Unit Tests** | 78 | Core functionality validation (CPU, memory, instructions) |
-| **Assembly Tests** | 68 | In-assembly test validation with metadata |
-| **Integration Tests** | 42 | Real program execution from hex files |
+| Test Suite            | Count | Description                                               |
+| --------------------- | ----- | --------------------------------------------------------- |
+| **Unit Tests**        | 78    | Core functionality validation (CPU, memory, instructions) |
+| **Assembly Tests**    | 68    | In-assembly test validation with metadata                 |
+| **Integration Tests** | 42    | Real program execution from hex files                     |
 
 **Key Feature**: All test flags support **optional file arguments**, allowing you to run all tests of a type OR test a single specific file.
 
@@ -51,23 +52,28 @@ DemiEngine provides a flexible test framework with **188 total tests** achieving
 ## Detailed Usage
 
 ### `--test` / `-t`
+
 **Description**: The primary testing flag. Without arguments, it runs the full unit test suite. With a file argument, it runs tests for that specific file.
 
 **Usage**:
+
 ```bash
 ./bin/demi-engine -t
 ./bin/demi-engine -t tests/arithmetic.test.asm
 ```
 
 ### `--unit-test` / `-ut`
+
 **Description**: Runs the C++ unit test suite. These tests validate the internal components of the engine (CPU, Memory, Assembler) directly.
 
 **Usage**:
+
 ```bash
 ./bin/demi-engine -ut
 ```
 
 **Features tested**:
+
 - Assembler functionality
 - Parser operations
 - CPU instruction validation
@@ -76,14 +82,17 @@ DemiEngine provides a flexible test framework with **188 total tests** achieving
 - Negative test cases
 
 ### `--assembly-test` / `-at`
+
 **Description**: Runs the "In-Assembly" test suite. These are `.asm` files that contain self-validating code using `.assert` directives.
 
 **Usage**:
+
 ```bash
 ./bin/demi-engine -at
 ```
 
 **Use when:**
+
 - Testing core assembler/parser changes
 - Quick feedback on code changes
 - CI/CD pipelines (fastest test suite)
@@ -91,9 +100,11 @@ DemiEngine provides a flexible test framework with **188 total tests** achieving
 **Average runtime:** ~1-2 seconds
 
 ### `--assembly-test-quiet` / `-atq`
+
 **Description**: Same as `-at`, but suppresses detailed output, showing only the final summary and any failures.
 
 **Usage**:
+
 ```bash
 ./bin/demi-engine -atq
 ```

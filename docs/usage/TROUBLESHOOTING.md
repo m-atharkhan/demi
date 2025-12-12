@@ -17,14 +17,16 @@ This guide helps you diagnose and fix common issues when using DemiEngine. For d
 DemiEngine uses structured error codes for precise error identification:
 
 ### Error Code Format
+
 ```
 [ERROR:0x200] [CPU] [CRITICAL] Division by zero at PC=0x1234
 Context: R0=5, R1=0, SP=0x7FF8, FLAGS=0x0002
 ```
 
 ### Common Error Codes
+
 - **0x200-0x299**: Runtime/CPU errors
-- **0x100-0x199**: Assembly errors  
+- **0x100-0x199**: Assembly errors
 - **0x001-0x099**: Parse errors
 - **0x400-0x499**: I/O errors
 - **0x500-0x599**: Test framework errors
@@ -38,22 +40,25 @@ See [Error Code Reference](ERROR_HANDLING_IMPLEMENTATION.md#6-error-code-referen
 **Symptom**: Program halts with "Invalid opcode" error
 
 **Error Message**:
+
 ```
 [ERROR:0x208] [CPU] [CRITICAL] Invalid opcode 0xFE at PC=0x0012
 Context: R0=0x05, R1=0x03, SP=0x7FF8, FLAGS=0x0000
 ```
 
 **Causes**:
+
 1. Incorrect opcode in hex program
 2. Jumping to data section or uninitialized memory
 3. Corrupted program file
 
 **Solutions**:
+
 ```hex
 # Bad: Invalid opcode
 FE                  # Invalid opcode (not defined)
 
-# Good: Valid opcode  
+# Good: Valid opcode
 FF                  # HALT (valid)
 ```
 
@@ -62,6 +67,7 @@ FF                  # HALT (valid)
 **Symptom**: "Memory access violation" error
 
 **Error Message**:
+
 ```
 [ERROR:0x202] [CPU] [ERROR] Memory access violation
 Context: Attempted read at 0x8000 (available: 0x0000-0x7FFF)
@@ -69,11 +75,13 @@ PC=0x0456, instruction: LOAD R0, [R1]
 ```
 
 **Causes**:
+
 1. Accessing memory outside allocated range
-2. Uninitialized address registers  
+2. Uninitialized address registers
 3. Stack overflow
 
 **Solutions**:
+
 ```hex
 # Bad: Uninitialized register
 06 00 01            # LOAD R0, [R1]  ; R1 not initialized!
@@ -84,6 +92,7 @@ PC=0x0456, instruction: LOAD R0, [R1]
 ```
 
 **Prevention**:
+
 - Always initialize address registers before use
 - Check array bounds before access
 - Monitor stack pointer in recursive functions
@@ -93,11 +102,13 @@ PC=0x0456, instruction: LOAD R0, [R1]
 **Symptom**: Stack-related errors or unexpected behavior
 
 **Causes**:
+
 1. Infinite recursion
 2. Too many PUSH without POP
 3. POP from empty stack
 
 **Solutions**:
+
 ```hex
 # Bad: Infinite recursion
 my_function:
@@ -117,12 +128,14 @@ base_case:
 **Symptom**: Program halts on DIV instruction
 
 **Error Message**:
+
 ```
 [ERROR:0x200] [CPU] [CRITICAL] Division by zero at PC=0x0042
 Context: R0=10, R1=0 (divisor), SP=0x7FF6, FLAGS=0x0000
 ```
 
 **Solution**:
+
 ```hex
 # Good: Check before division
 0E 01 02            # CMP R1, R2        ; Check if divisor is 0
@@ -138,6 +151,7 @@ error_handler:
 ### Compilation Errors
 
 **Missing Dependencies**:
+
 ```bash
 # Install required packages on Ubuntu/Debian
 sudo apt update
@@ -147,6 +161,7 @@ sudo apt install g++ libfmt-dev libgl1-mesa-dev libglfw3-dev
 ```
 
 **C++17 Support**:
+
 ```bash
 # Ensure compiler supports C++17
 g++ --version
@@ -159,6 +174,7 @@ sudo apt install g++-9
 ### Linking Errors
 
 **Missing Libraries**:
+
 ```bash
 # Check if libraries are installed
 pkg-config --cflags --libs fmt
@@ -171,6 +187,7 @@ LIBS += -L/usr/local/lib -lfmt
 ### Build Configuration Issues
 
 **Wrong Architecture**:
+
 ```bash
 # Clean and rebuild for correct architecture
 make clean
@@ -185,6 +202,7 @@ make debug
 ### Program Won't Start
 
 **File Not Found**:
+
 ```bash
 # Check file path and permissions
 ls -la tests/your_program.hex
@@ -195,6 +213,7 @@ ls -la tests/your_program.hex
 ```
 
 **Permission Issues**:
+
 ```bash
 # Make executable
 chmod +x bin/demi-engine
@@ -206,6 +225,7 @@ ls -la bin/demi-engine
 ### GUI Won't Start
 
 **Display Issues**:
+
 ```bash
 # Check if running in graphical environment
 echo $DISPLAY
@@ -218,6 +238,7 @@ ssh -X username@hostname
 ```
 
 **OpenGL Issues**:
+
 ```bash
 # Check OpenGL support
 glxinfo | grep "OpenGL version"
@@ -229,11 +250,13 @@ sudo apt install mesa-utils
 ### Device Communication Problems
 
 **Console Not Responding**:
+
 1. Check if console device is registered at port 1
 2. Verify OUTSTR/INSTR instructions are correct
 3. Ensure strings are null-terminated
 
 **File Device Issues**:
+
 1. Check file permissions and paths
 2. Verify file exists and is readable
 3. Check if file device is properly initialized
@@ -245,6 +268,7 @@ sudo apt install mesa-utils
 DemiEngine provides structured debug output with categories (see [Debug Categories](ERROR_HANDLING_IMPLEMENTATION.md#debug-categories)):
 
 **Enable Debug Output**:
+
 ```bash
 # Enable all debug output
 ./bin/demi-engine --debug tests/your_program.hex
@@ -255,6 +279,7 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ```
 
 **Debug Output Format**:
+
 ```
 [DEBUG:0x100] [CPU] Executing LOAD R0, #42 at PC=0x0008
 [DEBUG:0x201] [MEMORY] Memory write: 0x1000 = 0x42
@@ -264,12 +289,14 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ### Using the Debug GUI
 
 **Enable Step-by-Step Execution**:
+
 ```bash
 ./bin/demi-engine your_program.hex --gui
 ```
 
 **Key Debug Windows**:
-- **CPU State**: Monitor registers and flags  
+
+- **CPU State**: Monitor registers and flags
 - **Memory View**: Examine memory contents
 - **Device Status**: Check device states
 - **Debug Log**: View categorized debug messages
@@ -277,6 +304,7 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ### Manual Debugging
 
 **Add Debug Output**:
+
 ```hex
 # Add debug prints at key points
 01 00 XX 00 00 00    # LOAD_IMM R0, debug_message_addr
@@ -284,6 +312,7 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ```
 
 **Register Dumps**:
+
 ```hex
 # Output register values for debugging
 02 00 01            # ADD R0, R1    ; R1 = ASCII '0'
@@ -293,11 +322,13 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ### Trace Execution
 
 **Program Counter Tracking**:
+
 - Use debug GUI to step through instructions
 - Note PC values at each step
 - Compare with expected execution flow
 
 **Memory Monitoring**:
+
 - Watch memory changes in debug GUI
 - Set memory view to key addresses
 - Monitor stack pointer changes
@@ -307,6 +338,7 @@ export DEBUG_CATEGORY=CPU,MEMORY
 ### Slow Execution
 
 **Infinite Loops**:
+
 ```hex
 # Bad: No exit condition
 loop_start:
@@ -321,6 +353,7 @@ loop_start:
 ```
 
 **Inefficient Algorithms**:
+
 - Use better algorithms for sorting, searching
 - Minimize memory access in tight loops
 - Cache frequently used values in registers
@@ -328,6 +361,7 @@ loop_start:
 ### Memory Usage
 
 **Large Programs**:
+
 - Increase memory size if needed
 - Optimize data structures
 - Remove unused code and data
@@ -337,6 +371,7 @@ loop_start:
 ### Hex Format Errors
 
 **Invalid Hex Characters**:
+
 ```hex
 # Bad: Invalid characters
 01 0G 10 00 00 00    # 'G' is not valid hex
@@ -346,6 +381,7 @@ loop_start:
 ```
 
 **Missing Bytes**:
+
 ```hex
 # Bad: Incomplete instruction
 01 00               # LOAD_IMM needs 6 bytes total
@@ -357,6 +393,7 @@ loop_start:
 ### Register Usage
 
 **Register Corruption**:
+
 ```hex
 # Bad: Overwriting important values
 01 00 10 00 00 00    # LOAD_IMM R0, 16
@@ -374,6 +411,7 @@ loop_start:
 ### Control Flow
 
 **Missing Return Statements**:
+
 ```hex
 # Bad: Function falls through
 my_function:
@@ -387,6 +425,7 @@ my_function:
 ```
 
 **Wrong Jump Addresses**:
+
 ```hex
 # Calculate addresses carefully
 # Use comments to mark target addresses
@@ -402,6 +441,7 @@ target_address:
 ### String Handling
 
 **Missing Null Terminators**:
+
 ```hex
 # Bad: String without null terminator
 48 65 6C 6C 6F      # "Hello" - missing \0
@@ -411,6 +451,7 @@ target_address:
 ```
 
 **Buffer Overflows**:
+
 ```hex
 # Allocate sufficient buffer space for strings
 # Check string lengths before copying
@@ -422,6 +463,7 @@ target_address:
 ### Debug Information
 
 When reporting issues, include:
+
 1. Complete program that reproduces the issue
 2. Error messages (exact text)
 3. Platform and compiler information
@@ -430,6 +472,7 @@ When reporting issues, include:
 ### Log Analysis
 
 **Enable Detailed Logging**:
+
 ```bash
 # Compile with debug symbols
 make debug
@@ -449,8 +492,9 @@ make debug
 ### Error Code Quick Reference
 
 Common error codes to remember:
+
 - **0x200**: Division by zero
-- **0x202**: Memory access violation  
+- **0x202**: Memory access violation
 - **0x208**: Invalid opcode
 - **0x100-0x199**: Assembly/parse errors
 - **0x400-0x499**: I/O device errors

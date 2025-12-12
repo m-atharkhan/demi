@@ -12,14 +12,17 @@ This release brings significant improvements to DemiEngine's command-line interf
 ## 🎯 Major Features
 
 ### 1. Argument Linking
+
 **New capability to combine multiple short command-line flags into a single argument**
 
 #### What Changed
+
 - Implemented greedy longest-match algorithm for parsing linked arguments
 - Short flags (single `-`) can now be combined: `-utq`, `-atq`, `-tq`, etc.
 - Maintains backward compatibility with separate flags
 
 #### Examples
+
 ```bash
 # Before
 ./bin/demi-engine --unit-test --quiet
@@ -30,6 +33,7 @@ This release brings significant improvements to DemiEngine's command-line interf
 ```
 
 #### Implementation
+
 - **File**: `src/main.cpp`
 - **Function**: `ArgParser::parse()`
 - **Algorithm**: Greedy longest-match with fallback to shorter flags
@@ -43,6 +47,7 @@ This release brings significant improvements to DemiEngine's command-line interf
 **Tests are now organized by category with comprehensive timing information**
 
 ##### Quiet Mode (`-atq`)
+
 ```
 Algorithms (5/5) [29.2ms]
   ✓ [7.6ms] fibonacci calculation - Calculates the 5th Fibonacci number
@@ -53,6 +58,7 @@ Assembly Tests: 79 passed / 79 total [403.6ms total, 5.11ms avg]
 ```
 
 **Features**:
+
 - Category headers with pass/fail count and timing
 - Individual test timing
 - Test descriptions
@@ -60,8 +66,9 @@ Assembly Tests: 79 passed / 79 total [403.6ms total, 5.11ms avg]
 - Enhanced summary with total and average execution time
 
 ##### Verbose Mode (`-at`)
+
 ```
-[INFO] 
+[INFO]
 Algorithms (5/5) [29.2ms]
 [INFO]   ✓ [7.6ms] fibonacci calculation
 [INFO]     Description: Calculates the 5th Fibonacci number
@@ -77,6 +84,7 @@ Algorithms (5/5) [29.2ms]
 ```
 
 **Implementation**:
+
 - **File**: `src/test/assembly_test_executor.cpp`
 - **Function**: `TestExecutor::print_results()`
 - **Data Structure**: `std::map<std::string, std::vector<const TestResult*>>` for category grouping
@@ -91,12 +99,14 @@ Slowest test: call_stack_overflow [391.3ms]
 ```
 
 **Features**:
+
 - Total execution time
 - Average time per test
 - Failed test count display
 - Slowest test identification (verbose mode)
 
 **Implementation**:
+
 - **File**: `src/test/test_framework.hpp`
 - **Function**: `TestFramework::print_results()`
 
@@ -107,6 +117,7 @@ Slowest test: call_stack_overflow [391.3ms]
 **`--test` / `-t` now runs BOTH unit tests AND assembly tests**
 
 #### What Changed
+
 ```bash
 # Before: Only ran unit tests
 ./bin/demi-engine --test
@@ -116,6 +127,7 @@ Slowest test: call_stack_overflow [391.3ms]
 ```
 
 #### Output Format
+
 ```
 ┌──────────────────────────────────────────────────────┐
 │     Running All DemiEngine Tests                     │
@@ -131,6 +143,7 @@ Assembly Tests: 79 passed / 79 total [326.1ms total, 4.13ms avg]
 ```
 
 #### Implementation
+
 - **File**: `src/main.cpp`
 - **Function**: `run_all_tests()`
 - Calls both `run_unit_tests()` and `run_in_assembly_tests()`
@@ -142,17 +155,20 @@ Assembly Tests: 79 passed / 79 total [326.1ms total, 4.13ms avg]
 **Improved quiet mode to balance brevity with useful information**
 
 #### Configuration Changes
+
 - **File**: `src/config.hpp`
 - Added `Config::quiet_assembly_test` flag
 - `-q` flag now sets both `Config::quiet` and `Config::quiet_assembly_test`
 
 #### What Gets Suppressed
+
 - DEBUG log messages
-- INFO log messages  
+- INFO log messages
 - RUNNING status messages
 - Verbose test execution details
 
 #### What Gets Displayed
+
 - Test results (✓ or ✗)
 - Test timing information
 - Category summaries
@@ -160,10 +176,12 @@ Assembly Tests: 79 passed / 79 total [326.1ms total, 4.13ms avg]
 - Failure details (errors, failed assertions)
 
 #### Assembly Test Fix
+
 **Issue**: Assembly tests used `Logger::info()` which got filtered in quiet mode  
 **Solution**: Changed to use `std::cout` directly
 
 **Implementation**:
+
 - **File**: `src/test/assembly_test_executor.cpp`
 - Direct output bypasses logger filtering
 - Maintains proper formatting and color coding
@@ -225,6 +243,7 @@ Assembly Tests: 79 passed / 79 total [326.1ms total, 4.13ms avg]
 ### Argument Linking Algorithm
 
 **Greedy Longest-Match Parsing**:
+
 ```cpp
 size_t i = 1;
 while (i < arg.size()) {
@@ -249,6 +268,7 @@ while (i < arg.size()) {
 ### Test Data Structures
 
 **Category Tracking**:
+
 ```cpp
 // Unit tests
 std::map<std::string, std::tuple<int, int, double, std::vector<TestResult>>> category_data;
@@ -264,10 +284,12 @@ std::map<std::string, double> category_times;
 ### Performance Optimizations
 
 **Previous Issue**: `negative_tests` category taking 12.5 seconds
+
 - `stack_underflow`: 6316ms
 - `call_stack_overflow`: 6216ms
 
 **Solution**: Reduced `MAX_STEPS` from 10000 to 500
+
 - `negative_tests`: 12582.7ms → 702.8ms (17.9x speedup)
 - `stack_underflow`: 6316ms → 340ms (18.6x speedup)
 - `call_stack_overflow`: 6216ms → 287ms (21.6x speedup)
@@ -277,6 +299,7 @@ std::map<std::string, double> category_times;
 ## 🧪 Testing
 
 ### Test Migration
+
 - Reviewed `tests/data.test.asm.disabled`
 - Added 3 new useful tests to `tests/data.test.asm`:
   - `sequential data access`
@@ -284,6 +307,7 @@ std::map<std::string, double> category_times;
   - `data persistence across operations`
 
 ### Cleanup
+
 - Removed all `.asm` test/debug files from root directory:
   - `debug_overflow.asm`, `debug_vadd.asm`, `debug_vmul.asm`
   - `simple.asm`, `simple_vadd.asm`
@@ -291,7 +315,9 @@ std::map<std::string, double> category_times;
   - `test_vadd.asm`, `test_vadd_full.asm`, `test_vadd_simple.asm`
 
 ### Verification
+
 All features tested and verified:
+
 ```bash
 # Argument linking
 ./bin/demi-engine -utq  # ✓ Works
@@ -313,6 +339,7 @@ All features tested and verified:
 ## 📊 Test Results
 
 ### Current Test Coverage
+
 ```
 Unit Tests: 101 passed / 101 (100%)
 Assembly Tests: 79 passed / 79 (100%)
@@ -320,6 +347,7 @@ TOTAL: 180 tests passing (100% coverage)
 ```
 
 ### Performance Metrics
+
 ```
 Unit Tests: ~1002ms total, ~9.92ms average
 Assembly Tests: ~404ms total, ~5.11ms average
@@ -329,6 +357,7 @@ Combined: ~1406ms total
 ### Category Distribution
 
 **Assembly Tests**:
+
 - Algorithms: 5 tests
 - Arithmetic: 8 tests
 - Benchmarks: 4 tests
@@ -346,6 +375,7 @@ Combined: ~1406ms total
 - Stack Operations: 1 test
 
 **Unit Tests**:
+
 - 64bit_operations: 7 tests
 - arithmetic: 3 tests
 - assembler: 19 tests
@@ -370,6 +400,7 @@ Combined: ~1406ms total
 ## 🎨 Visual Improvements
 
 ### Color Coding
+
 - **Green (✓)**: Passed tests
 - **Red (✗)**: Failed tests
 - **Cyan**: Category headers (all passed)
@@ -377,6 +408,7 @@ Combined: ~1406ms total
 - **Gray**: Timing information
 
 ### Output Format
+
 - **Tree Structure**: Hierarchical category and test display
 - **Centered Separators**: Test output delimiters (60 characters)
 - **Indentation**: Tests indented under categories (2 spaces)
@@ -427,6 +459,7 @@ Potential improvements for future releases:
 ## 🙏 Acknowledgments
 
 These improvements were developed through iterative refinement and user feedback, focusing on:
+
 - Developer experience and workflow efficiency
 - Clear, actionable test output
 - Performance visibility and optimization

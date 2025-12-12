@@ -22,11 +22,11 @@ namespace Logging {
         ERROR = 3,
         SUCCESS = 4
     };
-    
+
     class Logger {
     public:
         static Logger& getInstance();
-        
+
         // Core logging methods
         void log(LogLevel level, const std::string& message);
         void debug(const std::string& message);
@@ -34,12 +34,12 @@ namespace Logging {
         void warning(const std::string& message);
         void error(const std::string& message);
         void success(const std::string& message);
-        
+
         // Configuration
         void set_log_level(LogLevel level);
         void enable_file_logging(const std::string& filename);
         void enable_console_logging(bool enabled);
-        
+
         // Formatting
         void set_timestamp_format(const std::string& format);
         void enable_colors(bool enabled);
@@ -59,7 +59,7 @@ Logger::getInstance().success("Assembly completed successfully");
 
 // Macro shortcuts (if defined)
 LOG_DEBUG("CPU state: PC=" + std::to_string(pc));
-LOG_ERROR("Memory access violation at address: 0x" + 
+LOG_ERROR("Memory access violation at address: 0x" +
           std::hex + address);
 ```
 
@@ -83,26 +83,26 @@ class DebugGUI {
 public:
     DebugGUI();
     ~DebugGUI();
-    
+
     // Lifecycle management
     bool initialize();
     void cleanup();
     bool should_close() const;
-    
+
     // Main rendering loop
     void begin_frame();
     void render();
     void end_frame();
-    
+
     // CPU state integration
     void set_cpu(CPU* cpu);
     void update_cpu_state();
-    
+
     // Debug controls
     void set_breakpoint(uint32_t address);
     void clear_breakpoint(uint32_t address);
     bool is_breakpoint(uint32_t address) const;
-    
+
     // Execution control
     void step_instruction();
     void continue_execution();
@@ -114,35 +114,41 @@ public:
 ### GUI Windows and Panels
 
 #### 1. CPU State Window
+
 - **Registers:** All 50 registers with real-time values
 - **Flags:** Visual indicators for Z, C, O, S flags
 - **Program Counter:** Current execution address
 - **Stack Pointer:** Stack state monitoring
 
 #### 2. Memory Viewer
+
 - **Hex Dump:** Raw memory contents
 - **Address Navigation:** Jump to specific addresses
 - **Search Functionality:** Find patterns in memory
 - **Memory Editing:** Runtime memory modification
 
 #### 3. Disassembly Window
+
 - **Current Instruction:** Highlighted current opcode
 - **Assembly View:** Human-readable instruction display
 - **Breakpoints:** Visual breakpoint indicators
 - **Jump Targets:** Label and address resolution
 
 #### 4. Device Monitor
+
 - **Device List:** All registered devices
 - **I/O History:** Recent device operations
 - **Device Status:** Ready/busy state indicators
 - **Traffic Analysis:** I/O bandwidth monitoring
 
 #### 5. Console Output
+
 - **Program Output:** Live console device output
 - **Clear/Save:** Output management functions
 - **Formatting:** ASCII and hex display modes
 
 #### 6. Control Panel
+
 - **Execution Controls:** Play, pause, step, reset buttons
 - **Speed Control:** Execution speed adjustment
 - **Debug Settings:** Configure debug behavior
@@ -156,14 +162,14 @@ public:
     void set_breakpoint(uint32_t address, const std::string& condition = "");
     void clear_breakpoint(uint32_t address);
     void clear_all_breakpoints();
-    
+
     bool should_break(uint32_t address, const CPU& cpu) const;
     std::vector<uint32_t> get_breakpoints() const;
-    
+
     // Conditional breakpoints
-    void set_conditional_breakpoint(uint32_t address, 
+    void set_conditional_breakpoint(uint32_t address,
                                   const std::string& condition);
-    
+
 private:
     struct Breakpoint {
         uint32_t address;
@@ -171,7 +177,7 @@ private:
         bool enabled;
         uint32_t hit_count;
     };
-    
+
     std::vector<Breakpoint> breakpoints;
 };
 ```
@@ -179,6 +185,7 @@ private:
 ### Interactive Features
 
 #### Memory Editing
+
 ```cpp
 // Runtime memory modification
 gui.memory_editor.set_read_only(false);
@@ -189,6 +196,7 @@ auto results = gui.memory_search("48 65 6C 6C 6F");  // "Hello"
 ```
 
 #### Register Modification
+
 ```cpp
 // Interactive register editing
 if (gui.register_editor.was_modified()) {
@@ -211,26 +219,26 @@ int main(int argc, char* argv[]) {
             LOG_ERROR("Failed to initialize debug GUI");
             return 1;
         }
-        
+
         // Debug execution loop
         while (!gui.should_close() && cpu.is_running()) {
             gui.begin_frame();
-            
+
             // Check for breakpoints
             if (gui.is_breakpoint(cpu.get_pc())) {
                 gui.pause_execution();
             }
-            
+
             // Step execution if not paused
             if (!gui.is_paused()) {
                 cpu.step();
             }
-            
+
             gui.update_cpu_state();
             gui.render();
             gui.end_frame();
         }
-        
+
         gui.cleanup();
     }
 }
@@ -249,11 +257,11 @@ public:
         std::vector<uint8_t> memory_sample;
         std::chrono::steady_clock::time_point timestamp;
     };
-    
+
     void capture_state(const CPU& cpu);
     std::vector<StateSnapshot> get_history() const;
     void clear_history();
-    
+
 private:
     std::vector<StateSnapshot> state_history;
     size_t max_history_size = 1000;
@@ -288,10 +296,10 @@ public:
     void push_context(const std::string& context);
     void pop_context();
     std::string get_full_context() const;
-    
+
     void add_cpu_state(const CPU& cpu);
     void add_memory_dump(uint32_t address, size_t length);
-    
+
 private:
     std::vector<std::string> context_stack;
     std::optional<CPUStateCollector::StateSnapshot> cpu_snapshot;
@@ -308,16 +316,16 @@ class ExecutionProfiler {
 public:
     void start_profiling();
     void stop_profiling();
-    
+
     void record_instruction(uint8_t opcode);
     void record_memory_access(uint32_t address, bool is_write);
     void record_device_io(int device_id, bool is_write);
-    
+
     // Analysis
     std::map<uint8_t, uint64_t> get_instruction_counts() const;
     std::map<uint32_t, uint64_t> get_memory_hotspots() const;
     double get_instructions_per_second() const;
-    
+
 private:
     bool profiling_enabled;
     std::chrono::steady_clock::time_point start_time;
@@ -338,7 +346,7 @@ struct DebugConfig {
     bool enable_memory_tracking = false;
     std::string log_file = "debug.log";
     LogLevel minimum_log_level = LogLevel::INFO;
-    
+
     // GUI settings
     bool show_memory_window = true;
     bool show_registers_window = true;
@@ -374,7 +382,7 @@ public:
     void track_allocation(void* ptr, size_t size);
     void track_deallocation(void* ptr);
     void dump_leaks();
-    
+
 private:
     std::map<void*, size_t> allocations;
 };
