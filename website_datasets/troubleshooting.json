@@ -124,5 +124,10 @@
       "order": 17
     }
   ],
-  "relatedDocs": ["getting_started", "instruction_set", "cli_reference", "testing"]
+  "relatedDocs": [
+    "getting_started",
+    "instruction_set",
+    "cli_reference",
+    "testing"
+  ]
 }

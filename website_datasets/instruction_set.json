@@ -26,10 +26,14 @@
       "codeLanguage": "hex",
       "order": 3,
       "opcodes": [
-        {"code": "0x00", "mnemonic": "NOP", "description": "No operation"},
-        {"code": "0xFF", "mnemonic": "HALT", "description": "Stop execution"},
-        {"code": "0x01", "mnemonic": "LOAD_IMM", "description": "Load immediate value (8-bit)"},
-        {"code": "0x04", "mnemonic": "MOV", "description": "Copy register"}
+        { "code": "0x00", "mnemonic": "NOP", "description": "No operation" },
+        { "code": "0xFF", "mnemonic": "HALT", "description": "Stop execution" },
+        {
+          "code": "0x01",
+          "mnemonic": "LOAD_IMM",
+          "description": "Load immediate value (8-bit)"
+        },
+        { "code": "0x04", "mnemonic": "MOV", "description": "Copy register" }
       ]
     },
     {
@@ -39,12 +43,36 @@
       "codeLanguage": "hex",
       "order": 4,
       "opcodes": [
-        {"code": "0x02", "mnemonic": "ADD", "description": "Add two registers"},
-        {"code": "0x03", "mnemonic": "SUB", "description": "Subtract registers"},
-        {"code": "0x10", "mnemonic": "MUL", "description": "Multiply registers"},
-        {"code": "0x11", "mnemonic": "DIV", "description": "Divide registers"},
-        {"code": "0x12", "mnemonic": "INC", "description": "Increment register"},
-        {"code": "0x13", "mnemonic": "DEC", "description": "Decrement register"}
+        {
+          "code": "0x02",
+          "mnemonic": "ADD",
+          "description": "Add two registers"
+        },
+        {
+          "code": "0x03",
+          "mnemonic": "SUB",
+          "description": "Subtract registers"
+        },
+        {
+          "code": "0x10",
+          "mnemonic": "MUL",
+          "description": "Multiply registers"
+        },
+        {
+          "code": "0x11",
+          "mnemonic": "DIV",
+          "description": "Divide registers"
+        },
+        {
+          "code": "0x12",
+          "mnemonic": "INC",
+          "description": "Increment register"
+        },
+        {
+          "code": "0x13",
+          "mnemonic": "DEC",
+          "description": "Decrement register"
+        }
       ]
     },
     {
@@ -54,10 +82,26 @@
       "codeLanguage": "hex",
       "order": 5,
       "opcodes": [
-        {"code": "0x06", "mnemonic": "LOAD", "description": "Load from memory address"},
-        {"code": "0x07", "mnemonic": "STORE", "description": "Store to memory address"},
-        {"code": "0x20", "mnemonic": "LEA", "description": "Load Effective Address"},
-        {"code": "0x21", "mnemonic": "SWAP", "description": "Swap register with memory"}
+        {
+          "code": "0x06",
+          "mnemonic": "LOAD",
+          "description": "Load from memory address"
+        },
+        {
+          "code": "0x07",
+          "mnemonic": "STORE",
+          "description": "Store to memory address"
+        },
+        {
+          "code": "0x20",
+          "mnemonic": "LEA",
+          "description": "Load Effective Address"
+        },
+        {
+          "code": "0x21",
+          "mnemonic": "SWAP",
+          "description": "Swap register with memory"
+        }
       ]
     },
     {
@@ -67,14 +111,38 @@
       "codeLanguage": "hex",
       "order": 6,
       "opcodes": [
-        {"code": "0x05", "mnemonic": "JMP", "description": "Unconditional jump"},
-        {"code": "0x0A", "mnemonic": "CMP", "description": "Compare two registers"},
-        {"code": "0x0B", "mnemonic": "JZ", "description": "Jump if zero flag set"},
-        {"code": "0x0C", "mnemonic": "JNZ", "description": "Jump if zero flag clear"},
-        {"code": "0x25", "mnemonic": "JG", "description": "Jump if greater"},
-        {"code": "0x26", "mnemonic": "JGE", "description": "Jump if greater or equal"},
-        {"code": "0x27", "mnemonic": "JL", "description": "Jump if less"},
-        {"code": "0x28", "mnemonic": "JLE", "description": "Jump if less or equal"}
+        {
+          "code": "0x05",
+          "mnemonic": "JMP",
+          "description": "Unconditional jump"
+        },
+        {
+          "code": "0x0A",
+          "mnemonic": "CMP",
+          "description": "Compare two registers"
+        },
+        {
+          "code": "0x0B",
+          "mnemonic": "JZ",
+          "description": "Jump if zero flag set"
+        },
+        {
+          "code": "0x0C",
+          "mnemonic": "JNZ",
+          "description": "Jump if zero flag clear"
+        },
+        { "code": "0x25", "mnemonic": "JG", "description": "Jump if greater" },
+        {
+          "code": "0x26",
+          "mnemonic": "JGE",
+          "description": "Jump if greater or equal"
+        },
+        { "code": "0x27", "mnemonic": "JL", "description": "Jump if less" },
+        {
+          "code": "0x28",
+          "mnemonic": "JLE",
+          "description": "Jump if less or equal"
+        }
       ]
     },
     {
@@ -84,10 +152,22 @@
       "codeLanguage": "hex",
       "order": 7,
       "opcodes": [
-        {"code": "0x08", "mnemonic": "PUSH", "description": "Push register to stack"},
-        {"code": "0x09", "mnemonic": "POP", "description": "Pop from stack"},
-        {"code": "0x1A", "mnemonic": "CALL", "description": "Call subroutine"},
-        {"code": "0x1B", "mnemonic": "RET", "description": "Return from subroutine"}
+        {
+          "code": "0x08",
+          "mnemonic": "PUSH",
+          "description": "Push register to stack"
+        },
+        { "code": "0x09", "mnemonic": "POP", "description": "Pop from stack" },
+        {
+          "code": "0x1A",
+          "mnemonic": "CALL",
+          "description": "Call subroutine"
+        },
+        {
+          "code": "0x1B",
+          "mnemonic": "RET",
+          "description": "Return from subroutine"
+        }
       ]
     },
     {
@@ -97,12 +177,12 @@
       "codeLanguage": "hex",
       "order": 8,
       "opcodes": [
-        {"code": "0x14", "mnemonic": "AND", "description": "Bitwise AND"},
-        {"code": "0x15", "mnemonic": "OR", "description": "Bitwise OR"},
-        {"code": "0x16", "mnemonic": "XOR", "description": "Bitwise XOR"},
-        {"code": "0x17", "mnemonic": "NOT", "description": "Bitwise NOT"},
-        {"code": "0x18", "mnemonic": "SHL", "description": "Shift left"},
-        {"code": "0x19", "mnemonic": "SHR", "description": "Shift right"}
+        { "code": "0x14", "mnemonic": "AND", "description": "Bitwise AND" },
+        { "code": "0x15", "mnemonic": "OR", "description": "Bitwise OR" },
+        { "code": "0x16", "mnemonic": "XOR", "description": "Bitwise XOR" },
+        { "code": "0x17", "mnemonic": "NOT", "description": "Bitwise NOT" },
+        { "code": "0x18", "mnemonic": "SHL", "description": "Shift left" },
+        { "code": "0x19", "mnemonic": "SHR", "description": "Shift right" }
       ]
     },
     {
@@ -112,9 +192,21 @@
       "codeLanguage": "hex",
       "order": 9,
       "opcodes": [
-        {"code": "0x30", "mnemonic": "IN", "description": "Read from I/O port"},
-        {"code": "0x31", "mnemonic": "OUT", "description": "Write to I/O port"},
-        {"code": "0x39", "mnemonic": "OUTSTR", "description": "Write string to port"}
+        {
+          "code": "0x30",
+          "mnemonic": "IN",
+          "description": "Read from I/O port"
+        },
+        {
+          "code": "0x31",
+          "mnemonic": "OUT",
+          "description": "Write to I/O port"
+        },
+        {
+          "code": "0x39",
+          "mnemonic": "OUTSTR",
+          "description": "Write string to port"
+        }
       ]
     },
     {
@@ -124,12 +216,20 @@
       "codeLanguage": "hex",
       "order": 10,
       "opcodes": [
-        {"code": "0xA0", "mnemonic": "FLD", "description": "Load floating-point value"},
-        {"code": "0xA1", "mnemonic": "FST", "description": "Store FP value"},
-        {"code": "0xA7", "mnemonic": "FADD", "description": "FP addition"},
-        {"code": "0xA8", "mnemonic": "FSUB", "description": "FP subtraction"},
-        {"code": "0xA9", "mnemonic": "FMUL", "description": "FP multiplication"},
-        {"code": "0xAA", "mnemonic": "FDIV", "description": "FP division"}
+        {
+          "code": "0xA0",
+          "mnemonic": "FLD",
+          "description": "Load floating-point value"
+        },
+        { "code": "0xA1", "mnemonic": "FST", "description": "Store FP value" },
+        { "code": "0xA7", "mnemonic": "FADD", "description": "FP addition" },
+        { "code": "0xA8", "mnemonic": "FSUB", "description": "FP subtraction" },
+        {
+          "code": "0xA9",
+          "mnemonic": "FMUL",
+          "description": "FP multiplication"
+        },
+        { "code": "0xAA", "mnemonic": "FDIV", "description": "FP division" }
       ]
     },
     {

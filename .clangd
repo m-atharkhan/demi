@@ -1,0 +1,49 @@
+# Clangd configuration for Demi virtualized compiler project
+# This configures clangd to understand the project's include paths and build settings
+
+CompileFlags:
+  Add:
+    # C++ standard and warnings
+    - "-std=c++17"
+    - "-Wall"
+    - "-Wextra"
+    
+    # Include paths for external dependencies
+    - "-Iextern/fmt/include"
+    
+    # Include paths for project source
+    - "-Isrc"
+    
+    # Preprocessor definitions for development
+    - "-DDEMI_DEBUG_MODE"
+    - "-DVM_DEBUG"
+    - "-DVM_BOUNDS_CHECK"
+    
+  Remove:
+    # Remove problematic flags that clangd doesn't handle well
+    - "-MMD"
+    - "-MP"
+    - "-march=*"
+    - "-mtune=*"
+
+Diagnostics:
+  ClangTidy:
+    Add:
+      - "readability-*"
+      - "modernize-*"
+      - "performance-*"
+      - "bugprone-*"
+    Remove:
+      - "readability-magic-numbers"
+      - "modernize-use-trailing-return-type"
+
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
+
+Hover:
+  ShowAKA: true
+
+Completion:
+  AllScopes: true

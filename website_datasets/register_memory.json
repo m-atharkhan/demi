@@ -114,5 +114,10 @@
       "order": 16
     }
   ],
-  "relatedDocs": ["instruction_set", "getting_started", "assembly_language", "troubleshooting"]
+  "relatedDocs": [
+    "instruction_set",
+    "getting_started",
+    "assembly_language",
+    "troubleshooting"
+  ]
 }
