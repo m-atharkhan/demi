@@ -9,11 +9,11 @@
 
 ## **Revolutionary Virtual Machine & Programming Language Platform**
 
-*Complete custom toolchain for the future Demi programming language - the Vim of programming languages*
+_Complete custom toolchain for the future Demi programming language - the Vim of programming languages_
 
 **Demi will be the Vim of programming languages** - infinitely customizable, with every aspect configurable to match your exact needs. Just as Vim lets you tailor your editor to perfection, Demi will let you customize syntax, semantics, behavior, and tooling on a per-project basis.
 
-DemiEngine is the foundational backend for **Demi**, a revolutionary programming language that will offer unprecedented customization capabilities. With a rock-solid virtual machine featuring 134 registers, 94+ implemented opcodes (including 8 SIMD foundation operations and 23+ FPU floating-point instructions), and **comprehensive test coverage**, DemiEngine provides the infrastructure for a dual-mode execution system: rapid interpretation for development and native compilation for production performance.
+DemiEngine is the foundational backend for **Demi**, a revolutionary programming language that will offer unprecedented customization capabilities. With a rock-solid virtual machine featuring 134 registers, 94+ implemented opcodes (including 8 SIMD foundation operations and 23+ FPU floating-point instructions), and **322 comprehensive tests (145 unit tests + 177 assembly tests, 100% pass rate)**, DemiEngine provides the infrastructure for a dual-mode execution system: rapid interpretation for development and native compilation for production performance.
 
 ---
 
@@ -31,22 +31,23 @@ DemiEngine serves as the foundation for the upcoming **Demi programming language
 
 ### 📈 **Development Roadmap**
 
-| Stage | Status | Target | Description |
-|-------|--------|--------|-------------|
-| **Stage 1** | ✅ Complete | Q4 2025 | Core VM Backend (63 opcodes, 134 registers) |
+| Stage       | Status        | Target  | Description                                  |
+| ----------- | ------------- | ------- | -------------------------------------------- |
+| **Stage 1** | ✅ Complete   | Q4 2025 | Core VM Backend (63 opcodes, 134 registers)  |
 | **Stage 2** | � In Progress | Q1 2026 | Assembly Language Expansion (SIMD, FPU, AVX) |
-| **Stage 3** | 🔜 Next | Q2 2026 | Native x86-64 Code Generation |
-| **Stage 4** | 🔜 Planning | Q3 2026 | Demi Language Frontend (High-level syntax) |
-| **Stage 5** | 🔜 Planning | Q4 2026 | D-ISA Assembler Integration |
-| **Stage 6** | 🔜 Planning | Q1 2027 | Custom Linker |
-| **Stage 7** | 🔜 Planning | Q2 2027 | Unified `demi` Toolchain |
-| **Stage 8** | 🔜 Planning | Q4 2027 | JIT Compilation |
+| **Stage 3** | 🔜 Next       | Q2 2026 | Native x86-64 Code Generation                |
+| **Stage 4** | 🔜 Planning   | Q3 2026 | Demi Language Frontend (High-level syntax)   |
+| **Stage 5** | 🔜 Planning   | Q4 2026 | D-ISA Assembler Integration                  |
+| **Stage 6** | 🔜 Planning   | Q1 2027 | Custom Linker                                |
+| **Stage 7** | 🔜 Planning   | Q2 2027 | Unified `demi` Toolchain                     |
+| **Stage 8** | 🔜 Planning   | Q4 2027 | JIT Compilation                              |
 
 ---
 
 ## 🚀 **Quick Start**
 
 ### Prerequisites
+
 ```bash
 # Required dependencies
 sudo apt install build-essential libglfw3-dev libglew-dev libfmt-dev
@@ -59,6 +60,7 @@ vcpkg install glfw3 glew fmt
 ```
 
 ### Build and Run
+
 ```bash
 # Clone and build
 git clone https://github.com/bobrossrtx/demi-engine.git
@@ -85,6 +87,7 @@ make test
 ```
 
 ### Command Line Interface
+
 ```
 Demi Engine - Virtualized Compiler and Assembler
 
@@ -126,6 +129,7 @@ Debugging:
 ```
 
 **New Features:**
+
 - **Argument Linking**: Combine short flags for faster workflows (e.g., `-atq` = `-at -q`)
 - **Enhanced Test Output**: Category grouping, timing information, and performance metrics
 - **Unified Test Command**: `--test` now runs both unit and assembly tests
@@ -136,6 +140,7 @@ Debugging:
 ## ⭐ **Key Features**
 
 ### 🖥️ **Advanced Virtual Machine**
+
 - **134-Register Architecture**: Comprehensive register set with x86-64 style registers
 - **94+ Opcode Instruction Set**: Arithmetic, logic, memory, I/O, control flow, **SIMD foundation operations**, and **FPU floating-point arithmetic**
 - **SIMD Foundation**: 8 fundamental vector instructions for parallel computation (VADD, VMUL, VDOT, VMAX, etc.)
@@ -145,6 +150,7 @@ Debugging:
 - **Professional Debugging**: ImGui-based visual debugger with real-time inspection
 
 ### 🔧 **Development Tools**
+
 - **Assembly Language**: Complete lexer → parser → assembler → bytecode pipeline
 - **Debug Directives**: 14 powerful directives (.print, .dump, .assert, .memdump, .log, etc.) for program inspection
 - **Test Framework**: Comprehensive testing with 100% SIMD foundation + FPU coverage (19/19 tests, 38/38 assertions)
@@ -153,6 +159,7 @@ Debugging:
 - **Hot Debugging**: Live system inspection and step-through capabilities
 
 ### 🎯 **Production Ready**
+
 - **Memory Safety**: Robust bounds checking and validation
 - **Standalone Compilation**: Generate native executables with embedded VM
 - **Cross-Platform**: Linux, Windows, macOS support
@@ -164,18 +171,21 @@ Debugging:
 ## 📚 **Documentation**
 
 ### 📖 **Complete Guide**
+
 - **[📋 Project Roadmap](roadmap.md)** – Complete development plan and vision
 - **[📚 Documentation Hub](docs/README.md)** – Comprehensive technical documentation
 - **[🎮 Usage Guide](docs/usage/README.md)** – Learn to write programs and use the system
 - **[🔧 API Reference](docs/codebase/API_REFERENCE.md)** – Technical details for developers
 
 ### 🎓 **Learning Resources**
+
 - **[📝 Examples](tests/hex/)** – Sample programs demonstrating features
 - **[🧪 Test Cases](tests/)** – Real-world usage patterns
 - **[⚠️ Troubleshooting](docs/usage/TROUBLESHOOTING.md)** – Common issues and solutions
 - **[🤝 Contributing](CONTRIBUTING.md)** – How to contribute to the project
 
 ### 🚀 **Feature Documentation**
+
 - **[🌟 Features Overview](docs/usage/FEATURES.md)** – Complete feature documentation
 - **[⚡ Quick Reference](docs/reference/QUICK_REFERENCE.md)** – Instruction set quick reference
 - **[🔢 FPU Reference](docs/reference/FPU_REFERENCE.md)** – Complete floating-point unit guide
@@ -213,14 +223,14 @@ Debugging:
 
 ### 🎯 **Core Components**
 
-| Component | Status | Description |
-|-----------|--------|-------------|
-| **CPU Engine** | ✅ Complete | 134 registers, 63 implemented opcodes |
-| **Memory System** | ✅ Complete | 1MB default, auto-scales up to 4GB |
-| **Device Manager** | ✅ Complete | Console, File, Counter, RAM Disk devices |
-| **Assembly Tools** | ✅ Complete | Full lexer → parser → assembler pipeline |
-| **Debug Interface** | ✅ Complete | ImGui-based visual debugger |
-| **Test Framework** | ✅ Complete | 100% test coverage with comprehensive validation |
+| Component           | Status      | Description                                      |
+| ------------------- | ----------- | ------------------------------------------------ |
+| **CPU Engine**      | ✅ Complete | 134 registers, 63 implemented opcodes            |
+| **Memory System**   | ✅ Complete | 1MB default, auto-scales up to 4GB               |
+| **Device Manager**  | ✅ Complete | Console, File, Counter, RAM Disk devices         |
+| **Assembly Tools**  | ✅ Complete | Full lexer → parser → assembler pipeline         |
+| **Debug Interface** | ✅ Complete | ImGui-based visual debugger                      |
+| **Test Framework**  | ✅ Complete | 100% test coverage with comprehensive validation |
 
 ---
 
@@ -229,6 +239,7 @@ Debugging:
 DemiEngine maintains exceptional quality through comprehensive testing with **perfect 100% test coverage**:
 
 ### Test Coverage
+
 ```bash
 # Run all tests (unit tests + assembly tests)
 ./bin/demi-engine --test
@@ -251,20 +262,22 @@ DemiEngine maintains exceptional quality through comprehensive testing with **pe
 ┌──────────────────────────────────────────────────────────┐
 │     DemiEngine Test Results - PERFECT COVERAGE           │
 └──────────────────────────────────────────────────────────┘
-Unit Tests: 101 passed / 101 [1002.2ms total, 9.92ms avg]
-Assembly Tests: 79 passed / 79 total [403.6ms total, 5.11ms avg]
-TOTAL: 180 tests passing (100% coverage)
+Unit Tests: 145 passed / 145 total [optimized execution]
+Assembly Tests: 177 passed / 177 total [34 test files]
+TOTAL: 322 tests passing (100% coverage, 0 failures)
 ```
 
 ### Test Suite Flags
+
 - `--test` / `-t` - Run all tests (unit + assembly), or test a specific file if path provided
 - `--unit-test` / `-ut` - Run unit tests only, or test a specific file
 - `--assembly-test` / `-at` - Run assembly tests, or test a specific file
 - `--quiet` / `-q` - Suppress logs, show only results and timing
 
 **Argument Linking**: Combine flags for faster workflows:
+
 - `-tq` - All tests, quiet mode
-- `-utq` - Unit tests, quiet mode  
+- `-utq` - Unit tests, quiet mode
 - `-atq` - Assembly tests, quiet mode
 
 **All test flags support optional file arguments** - provide a file path to test only that file.
@@ -272,6 +285,7 @@ TOTAL: 180 tests passing (100% coverage)
 **See [docs/development/CLI_IMPROVEMENTS.md](docs/development/CLI_IMPROVEMENTS.md) for detailed usage examples and new features**
 
 ### Test Categories
+
 - **✅ Unit Tests**: 101/101 passing - Core functionality validation
 - **✅ Assembly Tests**: 79/79 passing - In-assembly test execution and validation
 - **✅ Memory Tests**: Bounds checking and safety validation
@@ -281,6 +295,7 @@ TOTAL: 180 tests passing (100% coverage)
 - **✅ Performance Tests**: Timing and optimization validation
 
 ### Test Output Features
+
 - **Category Grouping**: Tests organized by category with timing
 - **Performance Metrics**: Individual test timing and slowest test identification
 - **Color-Coded Results**: Visual feedback with green (✓) and red (✗) indicators
@@ -288,6 +303,7 @@ TOTAL: 180 tests passing (100% coverage)
 - **Quiet Mode**: Minimal output showing only results and key statistics
 
 ### Test Coverage Achievements
+
 - **🏆 100% Unit Test Coverage**: All core functionality validated
 - **🏆 100% Integration Test Coverage**: All real-world scenarios tested
 - **🏆 Perfect Test Suite**: Zero failing tests across all categories
@@ -296,6 +312,7 @@ TOTAL: 180 tests passing (100% coverage)
 - **🏆 Professional Test Organization**: Organized test suites in `tests/`, `examples/`, `benchmarks/`
 
 ### Test Organization
+
 ```bash
 # Run all tests (unit + integration)
 make test-all
@@ -305,13 +322,14 @@ make test
 
 # Category-specific test directories
 tests/basic/     # Basic CPU operations and core instruction tests
-tests/fpu/      # Floating point unit and ST register syntax tests  
+tests/fpu/      # Floating point unit and ST register syntax tests
 tests/parsing/  # Advanced parser features (sections, directives, syntax)
 examples/       # Sample programs and learning examples
 benchmarks/     # Performance testing and stress tests
 ```
 
 ### Recently Fixed Issues (100% Coverage Achievement)
+
 - **✅ DB Directive System**: Complete assembler data handling with hybrid format detection
 - **✅ Extended Register Support**: Full 134-register system with partial extended instruction support
 - **✅ Integration Test Corrections**: Fixed register range validation and instruction encoding issues
@@ -320,6 +338,7 @@ benchmarks/     # Performance testing and stress tests
 ### Current Capabilities and Limitations
 
 **Fully Implemented** (63 opcodes):
+
 - ✅ Core arithmetic: ADD, SUB, MUL, DIV, INC, DEC
 - ✅ Bitwise logic: AND, OR, XOR, NOT, SHL, SHR
 - ✅ Control flow: JMP, JZ, JNZ, JS, JNS, JC, JNC, JO, JNO, JG, JL, JGE, JLE
@@ -330,6 +349,7 @@ benchmarks/     # Performance testing and stress tests
 - ✅ Modes: MODE32, MODE64, MODECMP
 
 **Not Yet Implemented** (88 opcodes defined but not functional):
+
 - ⚠️ SIMD/SSE operations (planned)
 - ⚠️ FPU floating-point operations (planned)
 - ⚠️ AVX vector operations (planned)
@@ -341,6 +361,7 @@ benchmarks/     # Performance testing and stress tests
 ## 💻 **Programming Examples**
 
 ### Assembly Language Programming
+
 ```assembly
 # hello_world.asm - Complete assembly program
 .section .data
@@ -356,12 +377,13 @@ _start:
     LOAD_IMM R1, msg        # message address
     LOAD_IMM R2, msg_len    # message length
     OUT R0, R1              # output to console device
-    
+
     # Exit cleanly
     HALT
 ```
 
 ### Hex Programming (Current)
+
 ```bash
 # Simple addition program
 # tests/hex/add.hex
@@ -370,6 +392,7 @@ _start:
 ```
 
 ### Future Demi Language (Stage 2)
+
 ```python
 # example.dem - Future Demi language syntax
 fn main() {
@@ -389,6 +412,7 @@ fn fibonacci(n: int) -> int {
 ## 🔧 **Development**
 
 ### Building from Source
+
 ```bash
 # Development build with debug symbols
 make debug
@@ -407,6 +431,7 @@ make docs
 ```
 
 ### Project Structure
+
 ```
 demi-engine/
 ├── src/                     # Source code
@@ -431,6 +456,7 @@ demi-engine/
 ```
 
 ### Adding New Features
+
 1. **New Instructions**: Add to `src/engine/opcodes/`
 2. **New Devices**: Implement `Device` interface in `src/engine/`
 3. **Assembly Features**: Extend lexer/parser in `src/assembler/`
@@ -443,6 +469,7 @@ demi-engine/
 DemiEngine is preparing for the revolutionary **Demi programming language** with unprecedented customization capabilities:
 
 ### 🎭 **Total Language Customization**
+
 ```toml
 # demi.toml - Project-specific language configuration
 [language]
@@ -463,6 +490,7 @@ gc_strategy = "generational"       # mark_sweep, generational, incremental
 ```
 
 ### ⚡ **Dual-Mode Execution**
+
 ```bash
 # Future demi command interface
 demi -I program.dem                # Fast interpretation (development)
@@ -472,6 +500,7 @@ demi -c program.dem --target arm64 # Cross-compilation
 ```
 
 ### 🔧 **Revolutionary Capabilities**
+
 - **Project-Specific Dialects**: Different language variants per project
 - **Custom Standard Libraries**: Replace or extend built-in functionality
 - **Runtime Syntax Switching**: Apply configuration dynamically
@@ -485,6 +514,7 @@ demi -c program.dem --target arm64 # Cross-compilation
 DemiEngine welcomes contributors at all levels! Whether you're interested in:
 
 ### 🎯 **Contribution Areas**
+
 - **🖥️ Systems Programming**: CPU architecture, instruction implementation
 - **🔧 Compiler Development**: Code generation, optimization passes
 - **🎮 Tooling**: IDE integration, debugging interfaces
@@ -492,6 +522,7 @@ DemiEngine welcomes contributors at all levels! Whether you're interested in:
 - **🧪 Testing**: Test coverage, validation frameworks
 
 ### 📋 **Getting Started**
+
 1. **Fork** the repository
 2. **Read** [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 3. **Choose** an area from our [roadmap](roadmap.md)
@@ -499,6 +530,7 @@ DemiEngine welcomes contributors at all levels! Whether you're interested in:
 5. **Submit** a pull request
 
 ### 🏆 **Why Contribute?**
+
 - ✅ **100% Custom Implementation**: No LLVM or GCC dependencies
 - ✅ **Educational Value**: Learn compiler construction from scratch
 - ✅ **Modern Architecture**: Built with contemporary best practices
@@ -515,20 +547,20 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## 🎯 **Project Status Summary**
 
-| Metric | Current Status | Target |
-|--------|----------------|--------|
-| **Backend Completion** | 🏆 100% | ✅ Complete (Q4 2025) |
-| **Test Coverage** | 🏆 100/100 (100%) | ✅ Perfect Coverage |
-| **Unit Tests** | 🏆 59/59 (100%) | ✅ Complete |
-| **Integration Tests** | 🏆 41/41 (100%) | ✅ Complete |
-| **Core Features** | ✅ Complete | ✅ Complete |
-| **Documentation** | ✅ Complete | ✅ Complete |
-| **Demi Language** | 🔜 Planning | Q1-Q2 2026 |
-| **Native Compilation** | 🔜 Planning | Q3 2026 |
+| Metric                 | Current Status    | Target                |
+| ---------------------- | ----------------- | --------------------- |
+| **Backend Completion** | 🏆 100%           | ✅ Complete (Q4 2025) |
+| **Test Coverage**      | 🏆 100/100 (100%) | ✅ Perfect Coverage   |
+| **Unit Tests**         | 🏆 59/59 (100%)   | ✅ Complete           |
+| **Integration Tests**  | 🏆 41/41 (100%)   | ✅ Complete           |
+| **Core Features**      | ✅ Complete       | ✅ Complete           |
+| **Documentation**      | ✅ Complete       | ✅ Complete           |
+| **Demi Language**      | 🔜 Planning       | Q1-Q2 2026            |
+| **Native Compilation** | 🔜 Planning       | Q3 2026               |
 
 **🎉 MILESTONE ACHIEVED**: Stage 1 (DemiEngine Backend) Complete with Perfect Test Coverage!  
 **Next Target**: Begin Stage 2 (Demi Language Frontend)
 
 ---
 
-*Join us in building the future of customizable programming languages with DemiEngine! 🚀*
+_Join us in building the future of customizable programming languages with DemiEngine! 🚀_
