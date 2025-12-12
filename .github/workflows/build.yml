@@ -5,19 +5,18 @@ permissions:
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Installing Prerequisites
-      run: make prereqs
-    - name: Building Demi Engine
-      run: make
-    - name: Running Tests
-      run: make test
+      - uses: actions/checkout@v4
+      - name: Installing Prerequisites
+        run: make prereqs
+      - name: Building Demi Engine
+        run: make
+      - name: Running Tests
+        run: make test
