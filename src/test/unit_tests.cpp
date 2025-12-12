@@ -1299,6 +1299,7 @@ TEST_CASE(db_directive_newline_handling, "assembler") {
 TEST_CASE(org_and_db_integration, "assembler") {
     // Comprehensive test combining .org and DB directives
     // Need larger memory for this test due to .org directives
+    (void)ctx; // Mark unused since we use large_ctx instead
     TestContext large_ctx; // Create separate context
     large_ctx.cpu.resize_memory(512); // Increase memory size to 512 bytes
     

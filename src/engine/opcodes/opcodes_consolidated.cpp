@@ -1213,9 +1213,17 @@ void handle_mul(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             uint64_t val1 = cpu.get_register_mode_aware(static_cast<Register>(reg1));
             uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(reg2));
 
-            // Use 128-bit arithmetic for full precision
+            // Use 128-bit arithmetic for full precision with compiler intrinsic or portable fallback
+#if defined(__GNUC__) || defined(__clang__)
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wpedantic"
             unsigned __int128 result128 = static_cast<unsigned __int128>(val1) * static_cast<unsigned __int128>(val2);
             uint64_t result = static_cast<uint64_t>(result128);
+            #pragma GCC diagnostic pop
+#else
+            // Portable fallback for non-GCC compilers
+            uint64_t result = val1 * val2; // May overflow, but that's expected behavior
+#endif
             uint64_t mask = cpu.get_operand_mask();
             uint64_t masked_result = result & mask;
 

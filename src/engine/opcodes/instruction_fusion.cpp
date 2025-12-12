@@ -17,7 +17,7 @@ static inline bool is_valid_legacy_register(uint8_t reg) {
 bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (!enabled) {
         if (Config::debug && stats.total_attempts == 0) {
-            DEBUG_INFO(Logging::DebugCategory::PERF_OPTIMIZATION, "[FUSION] Engine disabled!");
+            DEBUG_INFO(Logging::DebugCategory::PERF_OPTIMIZATION, "[FUSION] Engine disabled!{}", "");
         }
         return false;
     }

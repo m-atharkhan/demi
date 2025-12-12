@@ -420,9 +420,6 @@ void Assembler::AssemblerEngine::process_directive(const Assembler::Directive& d
         handle_text_section();
     } else if (directive.name == ".org") {
     Logging::DebugHandler::instance().report(Logging::DebugCategory::ASM_DIRECTIVE, "Processing .org directive", Logging::DebugLevel::DETAIL);
-        [[maybe_unused]] for (const auto& arg : directive.arguments) {
-            // Print argument type/value (currently unused)
-        }
         handle_org_directive(directive.arguments);
     DEBUG_INFO(Logging::DebugCategory::ASM_DIRECTIVE, "After .org directive, current_address: 0x{:04X}", current_address);
     } else {
@@ -922,8 +919,6 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                mnemonic == "OR" || mnemonic == "XOR" ||
                mnemonic == "ADD64" || mnemonic == "SUB64" ||
                mnemonic == "CMP64" || mnemonic == "MODECMP" ||
-               mnemonic == "MUL64" || mnemonic == "DIV64" || mnemonic == "MOD64" ||
-               mnemonic == "AND64" || mnemonic == "OR64" || mnemonic == "XOR64" ||
                mnemonic == "ADDEX" ||
                mnemonic == "SUBEX" || mnemonic == "CMPEX") {
         // Format: INSTRUCTION reg1, reg2
