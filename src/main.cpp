@@ -657,6 +657,15 @@ public:
         // Help argument
         parser.add_action_arg("help", "--help", "-h", "Shows help information", "General",
             [this]() { parser.print_help(); show_help = true; });
+        
+        // Version argument
+        parser.add_action_arg("version", "--version", "-V", "Shows version information", "General",
+            [this]() {
+                std::cout << "Demi Virtualized Compiler v" << DEMI_VERSION_STRING << std::endl;
+                std::cout << "Built with C++ " << __cplusplus << std::endl;
+                show_version = true;
+            });
+            
         // Debug argument
         parser.add_bool_arg("debug", "--debug", "-d", "Enable debug mode", "Debugging",
             [this](bool value) { 
@@ -1173,6 +1182,7 @@ public:
 
     void run() {
         if (show_help) return;
+        if (show_version) return;
 
         // Handle test mode first
         if (Config::running_tests) {
@@ -1256,6 +1266,7 @@ private:
     ArgParser parser;
     std::string data;
     bool show_help = false;
+    bool show_version = false;
 
     // Helper to load hex bytes from file
     bool load_program_file(const std::string& path, std::vector<uint8_t>& out) {
@@ -1356,27 +1367,27 @@ private:
             std::cout.flush();
             // Execute the assembled bytecode, starting at entry address
             cpu.execute(bytecode, entry_addr);
-            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "cpu.execute() completed successfully");
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "cpu.execute() completed successfully{}", "");
 
             // Print CPU state and registers (same as regular program mode)
-            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Post-execution: printing CPU state...");
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Post-execution: printing CPU state...{}", "");
             cpu.print_state("End");
-            DEBUG_INFO(Logging::DebugCategory::CPU_REGISTERS, "Post-execution: printing registers...");
+            DEBUG_INFO(Logging::DebugCategory::CPU_REGISTERS, "Post-execution: printing registers...{}", "");
             cpu.print_registers();
 
             // Print extended registers if enabled
             if (Config::extended_registers) {
-                DEBUG_INFO(Logging::DebugCategory::CPU_REGISTERS, "Post-execution: printing extended registers...");
+                DEBUG_INFO(Logging::DebugCategory::CPU_REGISTERS, "Post-execution: printing extended registers...{}", "");
                 cpu.print_extended_registers();
             }
 
             if (Config::memdump) {
-                DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Post-execution: printing memory...");
+                DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Post-execution: printing memory...{}", "");
                 size_t mem_size = cpu.get_memory().size();
                 if (mem_size > 0) {
                     cpu.print_memory(0, std::min<size_t>(mem_size, 256));
                 } else {
-                    DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Memory size is zero, skipping print_memory.");
+                    DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Memory size is zero, skipping print_memory.{}", "");
                 }
             }
 
