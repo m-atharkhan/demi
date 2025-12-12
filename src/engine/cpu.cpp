@@ -308,11 +308,11 @@ void CPU::reset() {
     std::fill(legacy_registers.begin(), legacy_registers.end(), 0);
     std::fill(memory.begin(), memory.end(), 0); // Clear memory
 
-    // Reset CPU mode based on configuration
+    // Reset CPU mode based on configuration - default to 32-bit for backward compatibility
     if (Config::architecture == Architecture::X64) {
         cpu_mode = CPUMode::MODE_64BIT;
     } else {
-        cpu_mode = CPUMode::MODE_32BIT;
+        cpu_mode = CPUMode::MODE_32BIT; // Default to 32-bit (includes AUTO mode)
     }
 
     // Reset special registers
@@ -462,7 +462,7 @@ void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address, s
             DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Interrupt handled, PC now at 0x{:04X}", get_pc());
         }
         if (!running) {
-            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Execution stopped by interrupt handler");
+            DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "Execution stopped by interrupt handler{}", "");
             break;
         }
         
@@ -752,7 +752,8 @@ void CPU::trigger_interrupt(uint8_t vector) {
     interrupt_controller_.queue_interrupt(vector);
 }
 
-bool CPU::handle_pending_interrupts(const std::vector<uint8_t>& [[maybe_unused]] program, bool& running) {
+bool CPU::handle_pending_interrupts(const std::vector<uint8_t>& program, bool& running) {
+    (void)program; // Mark as intentionally unused
     // Check if we have pending interrupts and interrupts are enabled
     if (!interrupt_controller_.has_pending_interrupts()) {
         return false;

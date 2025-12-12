@@ -42,7 +42,7 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
     
     // Bounds checking
     if (__builtin_expect(pc >= program.size(), 0)) {
-        DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_PREDICTIVE] PC out of bounds");
+        DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_PREDICTIVE] PC out of bounds{}", "");
         running = false;
         return;
     }

@@ -84,7 +84,8 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         goto *dispatch_table[program[cpu.get_pc()]];
     }
 
-    // Inlined LOAD_IMM operation - very common, simple operation
+    /*
+    // Inlined LOAD_IMM operation - currently disabled (code commented out to remove warning)
     op_load_imm: {
         uint32_t pc = cpu.get_pc();
         
@@ -153,6 +154,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         }
         goto *dispatch_table[program[cpu.get_pc()]];
     }
+    */
 
     // Inlined ADD operation - very common arithmetic operation
     op_add: {

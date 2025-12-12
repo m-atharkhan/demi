@@ -17,6 +17,7 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
     
     // Enable test mode for this test execution
     bool previous_test_mode = Config::test_mode;
+    Architecture previous_architecture = Config::architecture;
     Config::test_mode = true;
     
     // Read file
@@ -24,6 +25,7 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
     if (!file.is_open()) {
         std::cerr << fmt::format("Failed to open test file: {}", filename) << std::endl;
         Config::test_mode = previous_test_mode; // Restore previous state
+        Config::architecture = previous_architecture; // Restore previous architecture
         return results;
     }
     
@@ -59,6 +61,7 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
             }
         }
         Config::test_mode = previous_test_mode; // Restore previous state
+        Config::architecture = previous_architecture; // Restore previous architecture
         return results;
     }
     
@@ -90,6 +93,7 @@ std::vector<TestResult> TestExecutor::execute_tests_from_file(const std::string&
     }
     
     Config::test_mode = previous_test_mode; // Restore previous state
+    Config::architecture = previous_architecture; // Restore previous architecture
     return results;
 }
 
@@ -206,7 +210,7 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
             cpu.sync_from_legacy_registers();
 
             if (Config::memdump) {
-                DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Post-execution: printing memory...");
+                DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Post-execution: printing memory...{}", "");
                 size_t mem_size = cpu.get_memory().size();
                 if (mem_size > 0) {
                     // Print first 256 bytes or full memory if smaller
@@ -224,7 +228,7 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
             
             // Print memory dump on error if requested
             if (Config::memdump) {
-                DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Error occurred: printing memory...");
+                DEBUG_INFO(Logging::DebugCategory::MEM_ACCESS, "Error occurred: printing memory...{}", "");
                 size_t mem_size = cpu.get_memory().size();
                 if (mem_size > 0) {
                     cpu.print_memory(0, std::min<size_t>(mem_size, 256));
@@ -679,7 +683,7 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
             }
             
             // Stop when we've closed all braces
-            if (brace_depth == 0 && i > brace_line) {
+            if (brace_depth == 0 && i > static_cast<size_t>(brace_line)) {
                 break;
             }
         }
