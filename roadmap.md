@@ -1,17 +1,21 @@
 # DemiEngine Development Roadmap
 
-> **Last Updated:** December 5, 2025
-> **Project Status:** Advanced Backend Complete - Mode Awareness & Architecture Support
+> **Last Updated:** December 12, 2025
+> **Project Status:** Advanced Backend Complete - Clean Build & Perfect Test Coverage
 
 ---
 
 ## 🎯 Project Overview
 
-DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionary programming language with unprecedented customization capabilities. With the core infrastructure complete (134 registers, 94+ total opcodes implemented including 8 SIMD operations and 23+ FPU operations, **145 unit tests + 118 assembly tests passing**), development has successfully completed the first two major expansion phases with **SIMD vector processing**, **FPU floating-point arithmetic**, **structured error handling**, **mode-aware architecture support (x86/x64)**, and **advanced testing framework** now fully operational.
+DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionary programming language with unprecedented customization capabilities. With the core infrastructure complete (134 registers, 94+ total opcodes implemented including 8 SIMD operations and 23+ FPU operations, **322 comprehensive tests: 145 unit tests + 177 assembly tests, 100% pass rate, zero compiler warnings**), development has successfully completed the first two major expansion phases with **SIMD vector processing**, **FPU floating-point arithmetic**, **structured error handling**, **mode-aware architecture support (x86/x64)**, and **advanced testing framework** now fully operational.
 
-### 🌟 Current Status: Mode-Aware Architecture Complete ✅
+### 🌟 Current Status: Production-Ready Backend with Perfect Code Quality ✅
 
 **Recent Achievements (December 2025):**
+
+- ✅ **Zero Compiler Warnings**: Clean compilation with no warnings or errors
+- ✅ **Perfect Test Coverage**: 322 tests (145 unit + 177 assembly), 100% pass rate, 0 failures
+- ✅ **Version Support**: Added `--version` and `-V` flags for version information
 - ✅ **Dynamic Memory System**: Auto-scales up to 4GB based on system resources (`--memory`, `.memory auto`)
 - ✅ **Mode-Aware Operations**: Full x86 (32-bit) and x64 (64-bit) architecture support
 - ✅ **Architecture Selection**: `--architecture`, `-x86`, `-x64` CLI flags for mode selection
@@ -20,15 +24,15 @@ DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionar
 - ✅ **Mode-Aware Instructions**: MODE32, MODE64 directives for inline mode switching
 - ✅ **Comprehensive Examples**: x86/ and x64/ example directories with full coverage
 - ✅ **LOAD_IMM 32-bit Format**: 6-byte instruction format (opcode + reg + 4-byte immediate)
-- ✅ **145 Unit Tests**: Comprehensive unit test coverage including mode awareness tests
 - ✅ **Real Linux Syscalls**: INT 0x80 executes actual kernel syscalls
 
 **Phase 1 Achievements:**
+
 - ✅ **Robust Virtual Machine**: 134-register architecture with comprehensive instruction set
 - ✅ **Complete Assembly Toolchain**: Lexer → Parser → Assembler → Bytecode generation
 - ✅ **Native Executable Generation**: x86-64 ELF creation with embedded VM
 - ✅ **Professional Development Tools**: ImGui debugger and comprehensive logging
-- ✅ **Advanced Test Framework**: 219 tests passing (101 unit + 118 assembly) with structured validation
+- ✅ **Advanced Test Framework**: 322 tests passing (145 unit + 177 assembly) with structured validation
 - ✅ **Structured Error Handling**: Comprehensive error codes (0x001-0x5FF) with contextual debugging
 - ✅ **Production Documentation**: Complete technical documentation with error handling guides
 - ✅ **Project Rebranding**: Successfully renamed from VirtComp to DemiEngine with 'demi-engine' executable
@@ -40,11 +44,12 @@ DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionar
 **Phase 2 Status:** ✅ **COMPLETED** - Production-ready backend with comprehensive features
 
 **✅ Completed Objectives:**
+
 - ✅ **SIMD Foundation Operations**: 8 fundamental SIMD instructions fully implemented and tested
 - ✅ **Vector Processing Pipeline**: Parallel arithmetic, comparison, and data manipulation
 - ✅ **FPU Arithmetic Operations**: 23+ floating-point instructions with full mathematical support
 - ✅ **Mathematical Computing Foundation**: Complete floating-point arithmetic, trigonometry, and stack operations
-- ✅ **Advanced Testing Framework**: 219 comprehensive tests (101 unit + 118 assembly) with full coverage
+- ✅ **Advanced Testing Framework**: 322 comprehensive tests (145 unit + 177 assembly) with full coverage
 - ✅ **Structured Error Handling**: ErrorHandler and DebugHandler with categorized error codes (0x001-0x5FF)
 - ✅ **Production Documentation**: Complete technical documentation including troubleshooting guides
 - ✅ **Version Management System**: Semantic versioning with automated changelog generation
@@ -58,6 +63,7 @@ DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionar
 **Objective:** Complete migration from legacy `Logger::instance()` to structured `DebugHandler` and `ErrorHandler` APIs across the entire codebase for improved debugging capabilities and performance.
 
 **Progress:**
+
 - ✅ **cpu.cpp**: 27 Logger calls replaced
 - ✅ **interrupt_controller.cpp**: 12 Logger calls replaced
 - ✅ **opcodes_consolidated.cpp**: 82 Logger calls replaced (largest file complete)
@@ -71,6 +77,7 @@ DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionar
 - ⏳ **Other files**: ~90 Logger calls remaining
 
 **Benefits:**
+
 - 🎯 Structured debug categories (CPU_EXECUTION, MEM_ACCESS, IO_DEVICE, etc.)
 - 📊 Debug levels (TRACE, DETAIL, INFO, IMPORTANT, CRITICAL)
 - 🚀 Better performance with intelligent filtering
@@ -84,8 +91,9 @@ DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionar
 ### 🚀 Phase 3: Native Code Generation & VM Optimization
 
 **🎯 Phase 3 Objectives:**
+
 - 🚀 **VM Performance Optimization**: Threaded code interpretation and instruction fusion
-- 🎯 **Native Code Generation**: x86-64 translation for production performance  
+- 🎯 **Native Code Generation**: x86-64 translation for production performance
 - 🎯 **Extended 64-bit Operations**: Complete extended addressing and register modes
 - 🎯 **Assembly Language Features**: Advanced macros, conditionals, and preprocessor
 - 🎯 **Advanced Vector Extensions**: AVX and extended SIMD operations
@@ -95,6 +103,7 @@ DemiEngine provides a rock-solid backend foundation for **Demi**, a revolutionar
 **Objective:** Implement standard assembly program structure and linking capabilities.
 
 **Key Features:**
+
 - 📦 **Section Support**: Explicit `section .text`, `section .data`, `section .bss`, `section .rodata` handling.
 - 🌍 **Global Symbols**: `global` (or `.global`) directive to export symbols (e.g., `global _start`).
 - 🚪 **Entry Point**: Standardized `_start` entry point resolution in the loader/VM.
@@ -136,6 +145,7 @@ Implement true memory separation with distinct regions for each section type:
    - Address range: e.g., 0x03000000 - 0x03FFFFFF
 
 **Implementation Requirements:**
+
 - Assembler generates separate bytecode buffers per section
 - Memory layout with proper base addresses and boundaries
 - Symbol table tracks which section each symbol belongs to
@@ -145,16 +155,18 @@ Implement true memory separation with distinct regions for each section type:
 - Buffer expansion space for dynamic allocation within sections
 
 **Benefits:**
+
 - Realistic assembly programming model
 - Natural separation of code and data
 - Enables proper linking and relocation
 - Foundation for shared libraries and dynamic loading
 - Matches real ELF binary structure
 
-### 🏆 **Major Testing & Quality Achievements** (November 2025)
+### 🏆 **Major Testing & Quality Achievements** (December 2025)
 
 **✅ Advanced Testing Framework Complete:**
-- **219 Total Tests**: 101 unit tests + 118 assembly tests (100% passing)
+
+- **322 Total Tests**: 145 unit tests + 177 assembly tests (100% passing, 0 failures)
 - **Comprehensive Coverage**: All opcodes, error conditions, and edge cases validated
 - **Structured Error Testing**: 20+ negative test cases ensuring proper error handling
 - **Performance Benchmarking**: Execution time tracking and optimization validation
@@ -163,6 +175,7 @@ Implement true memory separation with distinct regions for each section type:
 - **Rich Assertions**: Register, memory, flag, device, and exception validation
 
 **✅ Error Handling & Debug System:**
+
 - **ErrorHandler Class**: Centralized error reporting with structured error codes
 - **DebugHandler Class**: Categorized debug output (CPU, Memory, Assembler, I/O, Tests)
 - **Context-Rich Messages**: CPU state dumps, register values, and call stack traces
@@ -171,6 +184,7 @@ Implement true memory separation with distinct regions for each section type:
 - **Exception Framework**: Proper error propagation and validation
 
 **✅ Documentation Excellence:**
+
 - **Complete Technical Docs**: User guides, API reference, troubleshooting
 - **Error Handling Guide**: Comprehensive error code reference and debugging tips
 - **Testing Documentation**: Framework design, usage guides, and best practices
@@ -182,6 +196,7 @@ Implement true memory separation with distinct regions for each section type:
 **Enhanced Performance Analysis** (November 2025): With backend complete and 219 tests validating functionality, focus shifts to performance optimization:
 
 **🔍 Current Performance Profile:**
+
 - **Instruction Dispatch**: Switch-based dispatcher with 94+ opcodes
 - **Test Execution**: 219 tests complete in ~5-7 seconds (excellent for development)
 - **Memory Management**: 134-register architecture with structured access
@@ -189,14 +204,16 @@ Implement true memory separation with distinct regions for each section type:
 - **Debug Integration**: Rich debugging capabilities with optional performance cost
 
 **📈 Performance Bottleneck Analysis:**
+
 - **Switch dispatch overhead**: 94-case switch statement causing branch prediction misses
-- **Per-instruction overhead**: Bounds checking, debug logging, flag calculations  
+- **Per-instruction overhead**: Bounds checking, debug logging, flag calculations
 - **Memory access patterns**: 134 registers vs native 16, complex virtualization layer
 - **Function call overhead**: Separate handler functions for each opcode
 
 **📊 Estimated Performance Impact**: Current VM is **5-20x slower** than native code execution
 
 **🚀 Updated Optimization Strategy** (November 2025):
+
 1. **Production Backend Validation** ✅ - 219 comprehensive tests validate all functionality
 2. **Threaded Code Interpretation**: Replace switch with computed goto → **2-3x faster dispatch** 🎯
 3. **Instruction Fusion**: Detect common patterns (ADD+STORE) → **1.5-2x faster sequences** 🎯
@@ -210,20 +227,22 @@ Implement true memory separation with distinct regions for each section type:
 
 ### 🔌 **Real System I/O Integration** (Parallel Development Track)
 
-**Current Status**: Foundation complete - Real device infrastructure operational  
-**Priority**: Medium (parallel with performance optimization)  
-**Timeline**: Can be implemented parallel with VM optimization (4-6 weeks)  
+**Current Status**: Foundation complete - Real device infrastructure operational
+**Priority**: Medium (parallel with performance optimization)
+**Timeline**: Can be implemented parallel with VM optimization (4-6 weeks)
 **Advantage**: Can leverage performance improvements for I/O throughput
 
 #### **Existing Real Device Foundation** ✅
+
 - **RealDevice interface** with connect/disconnect methods
 - **SerialPortDevice** - Full Unix serial port implementation with security validation
-- **FileDevice** - Real filesystem access with path traversal protection  
+- **FileDevice** - Real filesystem access with path traversal protection
 - **DeviceManager** - Port-based I/O routing (256 ports available)
 
 #### **Real System Integration Roadmap** (3-4 weeks)
 
 **Phase A: Network I/O Integration** (1 week) - **PRIORITY #1**
+
 ```cpp
 class NetworkDevice : public RealDevice {
     // TCP/UDP socket communication
@@ -232,7 +251,7 @@ class NetworkDevice : public RealDevice {
     // SSL/TLS encryption support
     // DNS resolution integration
     // Non-blocking I/O with epoll/kqueue
-    
+
     bool connect_tcp(const std::string& host, uint16_t port);
     bool bind_udp(uint16_t port);
     ssize_t send_data(const void* data, size_t size);
@@ -243,6 +262,7 @@ class NetworkDevice : public RealDevice {
 ```
 
 **Phase B: GPIO/Hardware Integration** (1 week) - **PRIORITY #2**
+
 ```cpp
 class GPIODevice : public RealDevice {
     // Linux GPIO access via /sys/class/gpio
@@ -251,7 +271,7 @@ class GPIODevice : public RealDevice {
     // PWM signal generation
     // SPI/I2C communication protocols
     // Hardware timer integration
-    
+
     bool set_pin_mode(uint8_t pin, PinMode mode);
     bool write_digital(uint8_t pin, bool state);
     bool read_digital(uint8_t pin);
@@ -263,6 +283,7 @@ class GPIODevice : public RealDevice {
 ```
 
 **Phase C: System Integration** (1-2 weeks) - **PRIORITY #3**
+
 ```cpp
 class SystemDevice : public RealDevice {
     // Process spawning and communication
@@ -272,7 +293,7 @@ class SystemDevice : public RealDevice {
     // Signal handling and IPC
     // Memory mapping and shared memory
     // Real-time scheduling interfaces
-    
+
     pid_t spawn_process(const std::string& executable, const std::vector<std::string>& args);
     bool send_signal(pid_t pid, int signal);
     std::string get_env_var(const std::string& name);
@@ -285,6 +306,7 @@ class SystemDevice : public RealDevice {
 ```
 
 **Expected Result**: Full real-world system integration capabilities including:
+
 - **Network Communication**: TCP/UDP sockets, HTTP servers, WebSocket support
 - **Hardware Control**: GPIO pins, PWM, SPI/I2C, hardware interrupts
 - **System Integration**: Process control, IPC, memory mapping, real-time scheduling
@@ -298,6 +320,7 @@ class SystemDevice : public RealDevice {
 The DemiEngine backend is now **production-ready** with comprehensive testing (219 tests) and robust error handling. This provides the **perfect foundation** for the revolutionary Demi language.
 
 **🏗️ Solid Backend Foundation Complete:**
+
 - ✅ **134-Register Architecture**: Advanced register system with SIMD/FPU support
 - ✅ **94+ Opcodes Implemented**: Complete instruction set for language implementation
 - ✅ **Advanced Assembler**: Full lexer/parser/assembler toolchain ready for language frontend
@@ -306,6 +329,7 @@ The DemiEngine backend is now **production-ready** with comprehensive testing (2
 - ✅ **Performance Foundation**: VM optimization pathway established for production performance
 
 **🎯 Revolutionary Language Design Principles:**
+
 - 🔜 **Total Customization**: Unprecedented control over language syntax and behavior
 - 🔜 **Project-Specific Dialects**: Different language variants per project
 - 🔜 **Zero Core Dependencies**: Complete custom implementation on proven DemiEngine backend
@@ -313,6 +337,7 @@ The DemiEngine backend is now **production-ready** with comprehensive testing (2
 - 🔜 **Revolutionary Configuration**: demi.toml controls every aspect of language behavior
 
 **🎨 Demi Language Implementation Path:**
+
 1. **Performance Optimization** (Phases 3) → High-performance backend
 2. **Native Code Generation** → Production compilation targets
 3. **Language Frontend** → Parser for Demi syntax and semantics
@@ -323,18 +348,23 @@ The DemiEngine backend is now **production-ready** with comprehensive testing (2
 **🔧 Total Customization – Demi gives programmers unprecedented control over how the language works:**
 
 #### 🎭 **User-Defined Syntax Rules**
+
 **Change keywords, punctuation, and grammar to match your style or project needs.**
 
 #### 🎛️ **Extensive Behavioral Controls**
+
 **Fine-tune type systems, scoping rules, evaluation order, and more.**
 
 #### 📚 **Custom Standard Libraries**
+
 **Ship your own core API set, replacing or extending built-ins.**
 
 #### ⚡ **Execution Model Tweaks**
+
 **Choose between strict, lazy, or mixed evaluation, control memory management strategies, and even define concurrency models.**
 
 #### 🌍 **Project-Specific Dialects**
+
 **Create language variants for different projects without touching the Demi core.**
 
 ---
@@ -342,6 +372,7 @@ The DemiEngine backend is now **production-ready** with comprehensive testing (2
 **Demi's Revolutionary Language Capabilities in Detail:**
 
 #### 🛠️ **Project-Based Syntax Customization**
+
 ```toml
 # demi.toml - Project-specific language configuration
 [language]
@@ -368,6 +399,7 @@ reserved_words = ["tensor", "gradient", "derivative"]
 ```
 
 #### ⚙️ **Extensive Language Configuration**
+
 ```toml
 [language.features]
 # Enable/disable language features per project
@@ -402,6 +434,7 @@ custom_prelude = "project_prelude.dem"  # Auto-imported definitions
 ```
 
 #### 🎛️ **Advanced Project Configuration**
+
 ```toml
 [language.macros]
 enabled = true
@@ -426,6 +459,7 @@ stack_traces = "enhanced"         # basic, enhanced, full_source
 ```
 
 #### 🔧 **Runtime Behavior Customization**
+
 ```toml
 [runtime]
 # Execution model tweaks - Choose between strict, lazy, or mixed evaluation
@@ -562,6 +596,7 @@ eigenvals = λ(A)  # Custom eigenvalue function
 ### 📊 Current Implementation Status
 
 **Completed (63 opcodes)**:
+
 - ✅ Core Arithmetic: ADD, SUB, MUL, DIV, INC, DEC (32-bit and 64-bit variants)
 - ✅ Logic Operations: AND, OR, XOR, NOT, SHL, SHR
 - ✅ Memory Operations: LOAD, STORE, MOV, LEA, SWAP (32-bit and 64-bit variants)
@@ -579,6 +614,7 @@ eigenvals = λ(A)  # Custom eigenvalue function
 #### 📋 **Phase A1: Core Assembly Language Extensions**
 
 **🔧 Macro System for Code Reusability** (#6)
+
 ```asm
 ; Macro definitions with parameters
 .macro PRINT_MESSAGE msg, newline=1
@@ -596,6 +632,7 @@ PRINT_MESSAGE "No newline", 0
 ```
 
 **🔀 Conditional Assembly Directives** (#7)
+
 ```asm
 ; Conditional compilation
 .ifdef DEBUG
@@ -615,6 +652,7 @@ PRINT_MESSAGE "No newline", 0
 ```
 
 **📊 Advanced Data Definition** (#8)
+
 ```asm
 ; Struct definitions
 .struct Point
@@ -635,6 +673,7 @@ PRINT_MESSAGE "No newline", 0
 ```
 
 **🔧 User-Defined Instructions** (#9)
+
 ```asm
 ; Custom instruction definitions
 .define INC_AND_MOV reg1, reg2
@@ -655,6 +694,7 @@ SAFE_DIV R3, R4, R5
 ```
 
 **🏷️ Register Aliases** (#15)
+
 ```asm
 ; Register aliasing for improved readability
 .alias Accumulator R0
@@ -671,6 +711,7 @@ LOAD BasePtr, [StackPtr + 8]
 #### 📋 **Phase A2: Enhanced Control Flow** (#10)
 
 **🔄 Enhanced Control Flow Features**
+
 ```asm
 ; High-level loop constructs
 .loop 10                    ; Loop 10 times
@@ -700,6 +741,7 @@ LOAD BasePtr, [StackPtr + 8]
 #### 📋 **Phase A3: Scoped Labels & Namespaces** (#12)
 
 **🏷️ Scoped Labels and Namespaces**
+
 ```asm
 ; Local scope labels
 function_name:
@@ -714,7 +756,7 @@ function_name:
     sqrt:
         ; Square root implementation
         RET
-    
+
     pow:
         ; Power function implementation
         RET
@@ -728,6 +770,7 @@ CALL math_lib::pow
 #### 📋 **Phase A4: Advanced Assembly Features**
 
 **📊 Inline Data Support** (#13)
+
 ```asm
 ; Inline hex and binary data
 .data
@@ -740,19 +783,20 @@ message: .string "Status: ", .hex "4F4B", .string "\n"
 ```
 
 **🐛 Debug Directives** (#16)
+
 ```asm
 ; Debugging directives
 .debug_start "main_function"
 main:
     .debug_info "Entering main function"
     LOAD_IMM R0, 42
-    
+
     .debug_breakpoint           ; Debugger breakpoint
     ADD R0, 1
-    
+
     .debug_watch R0             ; Watch register R0
     CALL subroutine
-    
+
     .debug_end "main_function"
     RET
 
@@ -766,9 +810,10 @@ main:
 
 **Goal**: Enable vectorized computation for performance-critical applications
 
-**✅ COMPLETED STATUS**: **8 SIMD Foundation Instructions Successfully Implemented** 
+**✅ COMPLETED STATUS**: **8 SIMD Foundation Instructions Successfully Implemented**
+
 - ✅ **VADD**: Vector addition with 4x32-bit elements
-- ✅ **VMUL**: Vector multiplication with overflow handling  
+- ✅ **VMUL**: Vector multiplication with overflow handling
 - ✅ **VDOT**: Dot product computation
 - ✅ **VMAX**: Maximum element selection
 - ✅ **VBROADCAST**: Scalar to vector broadcasting
@@ -777,6 +822,7 @@ main:
 - ✅ **UNPACKB**: Byte unpacking to multiple registers
 
 **✅ Performance Metrics** (November 2025):
+
 - **Test Suite**: 10 comprehensive SIMD tests with 29 assertions
 - **Execution Time**: 71.65ms for complete SIMD validation
 - **Success Rate**: 100% pass rate (10/10 tests, 29/29 assertions)
@@ -784,15 +830,17 @@ main:
 - **Production Ready**: Foundation established for native code generation
 
 **✅ SIMD Capabilities Achieved**:
+
 - **Vector Arithmetic**: Parallel addition and multiplication of 4-element vectors
 - **Vector Analysis**: Dot products and maximum element finding
-- **Data Broadcasting**: Efficient scalar-to-vector distribution  
+- **Data Broadcasting**: Efficient scalar-to-vector distribution
 - **Vector Comparisons**: Element-wise comparison operations
 - **Byte Manipulation**: Pack/unpack operations for data processing
 - **Overflow Handling**: Proper wraparound behavior for vector operations
 - **Complex Workflows**: Multi-operation SIMD instruction sequences
 
 **✅ Application Domains Enabled**:
+
 - Graphics and image processing pipelines
 - Scientific computing and simulations
 - Audio/video processing workflows
@@ -801,6 +849,7 @@ main:
 - Data analysis and transformation
 
 **✅ Technical Implementation**:
+
 - Complete opcode handlers with comprehensive error checking
 - Full integration with CPU dispatcher system
 - Robust test coverage validating all edge cases
@@ -808,15 +857,16 @@ main:
 - Memory-safe vector operations with bounds checking
 - Seamless integration with existing register architecture
 
-**🚀 Next Priority: SIMD Expansion Roadmap** 
+**🚀 Next Priority: SIMD Expansion Roadmap**
 
 With core SIMD functionality proven and operational, the next development priorities are:
 
 **Phase 2A.2: Advanced SIMD Operations** (Future Enhancement)
+
 ```
 Potential Future SIMD Extensions:
 - VSUB        # Vector subtraction (4x32-bit elements)
-- VDIV        # Vector division with divide-by-zero handling  
+- VDIV        # Vector division with divide-by-zero handling
 - VAND/VOR    # Vector bitwise operations
 - VMIN        # Vector minimum element selection
 - VCMPEQ      # Vector equality comparison
@@ -824,6 +874,7 @@ Potential Future SIMD Extensions:
 ```
 
 **Current Priority Shift**: With foundational SIMD complete, development focus shifts to:
+
 1. **Floating-Point Unit (FPU)** - Scientific computing support
 2. **Native Code Generation** - Performance optimization
 3. **Advanced Assembly Features** - Developer productivity
@@ -831,29 +882,30 @@ Potential Future SIMD Extensions:
 
 **🎯 SIMD Performance Benchmarks** (#1)
 The implemented SIMD instructions enable comprehensive performance validation:
+
 ```asm
 ; Current SIMD capabilities validated
 .test "simd_performance_validation"
     ; Vector addition performance
     VADD V0, V1              ; 4 additions in single instruction
-    
+
     ; Vector analysis
     VDOT V2, V3, V4          ; Dot product computation
     VMAX V5, V6              ; Maximum element finding
-    
+
     ; Data transformation
     VBROADCAST V7, R0        ; Scalar distribution
     PACKB V8, R1, R2, R3, R4 ; Byte packing
-    
+
     ; Complex operations
     VCMPGT V9, V10, V11      ; Parallel comparison
         .loop 250
             VADD V0, V1    ; Process 4 elements simultaneously
-            VMUL V2, V3    ; Process 4 elements simultaneously  
+            VMUL V2, V3    ; Process 4 elements simultaneously
             VMAX V4, V5    ; Process 4 elements simultaneously
         .endloop
     }
-    
+
     ; Advanced SIMD operations benchmark
     .benchmark "advanced_simd" {
         .loop 100
@@ -863,7 +915,7 @@ The implemented SIMD instructions enable comprehensive performance validation:
             PACKB V7, R7, R8, R9, R10  ; Pack bytes from registers
         .endloop
     }
-    
+
     ; Mathematical SIMD operations benchmark
     .benchmark "math_simd" {
         .loop 200
@@ -873,7 +925,7 @@ The implemented SIMD instructions enable comprehensive performance validation:
             VPOW V6, V7, V8      ; Vector power
         .endloop
     }
-    
+
     ; Performance validation targets
     .assert_performance_gain "simd_vs_scalar", 3.5    ; 3.5x speedup for basic ops
     .assert_performance_gain "advanced_simd", 2.8     ; 2.8x speedup for complex ops
@@ -884,17 +936,19 @@ The implemented SIMD instructions enable comprehensive performance validation:
 **🎯 SIMD Application Domains**
 
 **Graphics and Image Processing**:
+
 ```asm
 ; 4-pixel RGBA processing simultaneously
 VLOAD V0, [image_buffer]      ; Load 4 pixels
 VMUL V0, brightness_factor    ; Adjust brightness
-VADD V0, contrast_offset      ; Adjust contrast  
+VADD V0, contrast_offset      ; Adjust contrast
 VMIN V0, max_value           ; Clamp maximum values
 VMAX V0, min_value           ; Clamp minimum values
 VSTORE [output_buffer], V0    ; Store processed pixels
 ```
 
 **Scientific Computing**:
+
 ```asm
 ; Vector mathematical operations for simulations
 VLOAD V0, [position_array]    ; Load particle positions
@@ -908,6 +962,7 @@ VSTORE [velocity_array], V1   ; Store updated velocities
 ```
 
 **Audio Signal Processing**:
+
 ```asm
 ; Process 4 audio samples simultaneously
 VLOAD V0, [audio_input]       ; Load 4 audio samples
@@ -921,6 +976,7 @@ VSTORE [audio_output], V0     ; Output processed audio
 ```
 
 **Machine Learning Inference**:
+
 ```asm
 ; Neural network layer computation (4 neurons)
 VLOAD V0, [input_vector]      ; Load input features
@@ -935,15 +991,17 @@ VSTORE [output_vector], V2    ; Store layer output
 **x86-64 Mapping**: Direct 1:1 mapping to native SSE/AVX instructions achieved
 
 **✅ Implementation Completed**: November 2025
+
 - **Core SIMD Foundation**: 8 essential vector operations implemented
 - **Comprehensive Testing**: 10 test cases with 29 assertions (100% pass rate)
 - **Performance Validated**: 71.65ms execution time demonstrating excellent VM efficiency
 - **Production Ready**: SIMD capabilities operational and stable
 
 **Future SIMD Expansion** (Lower Priority):
+
 - **Advanced Arithmetic**: VSUB, VDIV, VABS, VMIN extensions
 - **Bitwise Operations**: VAND, VOR, VXOR, shift operations
-- **Memory Operations**: VLOAD, VSTORE, gather/scatter operations  
+- **Memory Operations**: VLOAD, VSTORE, gather/scatter operations
 - **Mathematical Functions**: VSIN, VCOS, VEXP, VLOG functions
 
 **Current Priority**: Focus shifts to FPU implementation for mathematical computing foundation
@@ -951,10 +1009,11 @@ VSTORE [output_vector], V2    ; Store layer output
 **🎯 Advanced SIMD Features for Future Implementation**
 
 **Phase 2A.6: Vector Data Types and Precision Modes** (2-3 weeks)
+
 ```
 Multiple Precision Support:
 - V8B_*       # 8x8-bit byte operations (V8B_ADD, V8B_MUL, etc.)
-- V4W_*       # 4x16-bit word operations (V4W_ADD, V4W_MUL, etc.)  
+- V4W_*       # 4x16-bit word operations (V4W_ADD, V4W_MUL, etc.)
 - V2D_*       # 2x32-bit double-word operations (V2D_ADD, V2D_MUL, etc.)
 - V1Q_*       # 1x64-bit quad-word operations (V1Q_ADD, V1Q_MUL, etc.)
 - VF32_*      # 4x32-bit float operations (VF32_ADD, VF32_SIN, etc.)
@@ -962,6 +1021,7 @@ Multiple Precision Support:
 ```
 
 **Phase 2A.7: SIMD Conversion and Type Operations** (2-3 weeks)
+
 ```
 Vector Type Conversions:
 - VCVT_I2F    # Convert integer vector to float vector
@@ -975,6 +1035,7 @@ Vector Type Conversions:
 ```
 
 **Phase 2A.8: Advanced Vector Algorithms** (3-4 weeks)
+
 ```
 Complex Vector Operations:
 - VSUM        # Horizontal sum of vector elements
@@ -990,6 +1051,7 @@ Complex Vector Operations:
 ```
 
 **Phase 2A.9: Matrix and Linear Algebra Operations** (4-5 weeks)
+
 ```
 Matrix Operations (using multiple vectors):
 - MMAT_MUL    # Matrix multiplication (4x4 using 4 vectors)
@@ -1005,6 +1067,7 @@ Matrix Operations (using multiple vectors):
 ```
 
 **Phase 2A.10: SIMD Memory Optimization Features** (2-3 weeks)
+
 ```
 Memory Efficiency Operations:
 - VPREFETCH   # Prefetch vector data into cache
@@ -1019,6 +1082,7 @@ Memory Efficiency Operations:
 **🎯 SIMD Integration with Other Systems**
 
 **Integration with FPU Operations**:
+
 ```asm
 ; Combined SIMD + FPU workflows
 VLOAD V0, [float_array]       ; Load vector of floats
@@ -1029,6 +1093,7 @@ VMUL V0, V1                  ; Apply sine scaling to all elements
 ```
 
 **Integration with Memory Management**:
+
 ```asm
 ; SIMD with memory-mapped operations
 VLOAD V0, [device_memory + 0x100]  ; Load from memory-mapped device
@@ -1039,19 +1104,20 @@ VSTORE [device_output], V0         ; Store to device output buffer
 **🎯 SIMD Programming Model and Best Practices**
 
 **Optimal Usage Patterns**:
+
 ```asm
 ; Efficient SIMD loop structure
 vector_processing_loop:
     VLOAD V0, [src_ptr]           ; Load 4 elements
     VLOAD V1, [src_ptr + 16]      ; Load next 4 elements
-    
+
     ; Process both vectors simultaneously
     VADD V0, V0, V1               ; Add corresponding elements
     VMUL V0, scale_factor         ; Scale results
     VMAX V0, min_threshold        ; Apply minimum threshold
-    
+
     VSTORE [dst_ptr], V0          ; Store 4 processed elements
-    
+
     ADD src_ptr, 32               ; Move to next 8 elements
     ADD dst_ptr, 16               ; Move output pointer
     DEC loop_counter
@@ -1059,6 +1125,7 @@ vector_processing_loop:
 ```
 
 **Performance Optimization Guidelines**:
+
 ```asm
 ; Memory alignment for optimal performance
 .align 16                         ; Align data to 16-byte boundaries
@@ -1075,6 +1142,7 @@ VSTORE [output], V2               ; Store once
 **🎯 SIMD Testing and Validation Framework**
 
 **Comprehensive Test Categories**:
+
 ```asm
 ; Edge case testing
 .test "simd_edge_cases"
@@ -1082,12 +1150,12 @@ VSTORE [output], V2               ; Store once
     VZERO V0
     VADD V1, V0, V0
     ASSERT_VECTOR_EQ V1, V0
-    
+
     ; Test with maximum values
     VLOAD V0, [max_values]
     VADD V1, V0, one_vector
     ASSERT_VECTOR_OVERFLOW V1
-    
+
     ; Test with NaN/infinity (for float vectors)
     VLOAD V0, [nan_values]
     VADD V1, V0, normal_values
@@ -1095,25 +1163,27 @@ VSTORE [output], V2               ; Store once
 ```
 
 **Performance Regression Testing**:
+
 ```asm
 ; Automated performance monitoring
 .benchmark "simd_regression_test"
     .performance_baseline "simd_ops_baseline.json"
-    
+
     ; Standard operations benchmark
     .loop 10000
         VADD V0, V1, V2
         VMUL V3, V4, V5
         VDOT V6, V7, V8
     .endloop
-    
+
     ; Ensure performance hasn't degraded
     .assert_performance_regression_max 5.0  ; Max 5% slowdown allowed
 ```
 
 **Total SIMD Roadmap Summary**:
+
 - **Current**: 8 implemented instructions (50-70ms execution time)
-- **Phase 2A.1-5**: +45 core SIMD instructions  
+- **Phase 2A.1-5**: +45 core SIMD instructions
 - **Phase 2A.6-10**: +40 advanced SIMD features
 - **Final Goal**: 93 total SIMD instructions providing comprehensive vector processing capabilities
 
@@ -1124,8 +1194,9 @@ This extensive SIMD roadmap transforms DemiEngine into a professional-grade vect
 **Goal**: Full floating-point arithmetic support for scientific and mathematical computation
 
 **✅ COMPLETED STATUS**: **23+ FPU Instructions Successfully Implemented**
+
 - ✅ **FLD, FST, FSTP**: Load/store floating-point values with stack management
-- ✅ **FILD, FIST, FISTP**: Integer conversion operations  
+- ✅ **FILD, FIST, FISTP**: Integer conversion operations
 - ✅ **FADD, FSUB, FMUL, FDIV**: Basic floating-point arithmetic
 - ✅ **FINIT**: FPU initialization and stack management
 - ✅ **FABS, FCHS**: Absolute value and sign change operations
@@ -1135,6 +1206,7 @@ This extensive SIMD roadmap transforms DemiEngine into a professional-grade vect
 - ✅ **FCLEX, FSTCW, FLDCW, FSTSW**: Control and status word operations
 
 **✅ Performance Metrics** (November 2025):
+
 - **Test Suite**: 9 comprehensive FPU tests with 9 assertions
 - **Execution Time**: 112ms for complete floating-point validation
 - **Success Rate**: 100% pass rate (9/9 tests, 9/9 assertions)
@@ -1142,6 +1214,7 @@ This extensive SIMD roadmap transforms DemiEngine into a professional-grade vect
 - **Stack Operations**: Proper FPU stack management and register handling
 
 **✅ FPU Capabilities Achieved**:
+
 - **Complete Arithmetic Suite**: All basic floating-point operations (add, subtract, multiply, divide)
 - **Advanced Mathematics**: Trigonometric functions (sin, cos, tan) and square root
 - **Integer Integration**: Seamless conversion between integer and floating-point formats
@@ -1151,6 +1224,7 @@ This extensive SIMD roadmap transforms DemiEngine into a professional-grade vect
 - **Error Handling**: Robust validation and mathematical error detection
 
 **✅ Scientific Computing Applications Enabled**:
+
 - Mathematical simulations and modeling
 - Financial calculations with precision arithmetic
 - Graphics rendering and transformations
@@ -1159,6 +1233,7 @@ This extensive SIMD roadmap transforms DemiEngine into a professional-grade vect
 - Statistical analysis and data science workflows
 
 **Priority Rationale**: FPU operations provide the essential mathematical foundation for:
+
 - Scientific simulations and modeling capabilities ✅
 - Financial calculations and precision arithmetic ✅
 - Graphics rendering and mathematical transformations ✅
@@ -1167,6 +1242,7 @@ This extensive SIMD roadmap transforms DemiEngine into a professional-grade vect
 - Direct mapping to x87 FPU instructions for native compilation ✅
 
 **Planned FPU Instructions**:
+
 ```
 Load/Store:
 - FLD, FST, FSTP           # Load/store floating-point values
@@ -1187,6 +1263,7 @@ Constants:
 
 **🎯 Type System Foundation** (#18)
 FPU implementation provides the foundation for advanced type system:
+
 ```asm
 ; Type annotations in assembly
 .type float32 single_var
@@ -1208,6 +1285,7 @@ FADD                     ; Type-checked addition
 **Goal**: 256-bit vector operations for maximum throughput
 
 **Why**: AVX extends SIMD for:
+
 - Processing 8 floats simultaneously (vs 4 with SSE)
 - Modern CPU optimization
 - High-performance computing applications
@@ -1215,6 +1293,7 @@ FADD                     ; Type-checked addition
 - Professional-grade vector processing
 
 **Planned AVX Instructions**:
+
 ```
 256-bit Packed Operations:
 - VMOVPS, VMOVUPS, VMOVAPS  # 256-bit moves
@@ -1236,12 +1315,14 @@ FADD                     ; Type-checked addition
 **Goal**: Legacy multimedia extension support for integer vector operations
 
 **Why**: MMX provides:
+
 - 64-bit integer vector operations
 - Compatibility with older codebases
 - Specialized multimedia processing
 - Complete x86-64 instruction set coverage
 
 **Planned MMX Instructions**:
+
 ```
 Data Movement:
 - MOVQ                     # Move 64-bit quadword
@@ -1264,12 +1345,14 @@ Logic:
 **Goal**: Complete extended register support and 64-bit addressing
 
 **Why**: Extended operations enable:
+
 - Full 64-bit memory addressing
 - Large program support
 - Advanced control flow
 - Complete register architecture utilization
 
 **Planned Extended Instructions**:
+
 ```
 Memory:
 - LOADEX, STOREEX, LOAD_IMMEX # Extended addressing modes
@@ -1318,6 +1401,7 @@ Comparison:
    - Verify SIMD/FPU operations perform correctly
 
 **Priority Order**:
+
 1. **FPU Operations** (Q1 2026) - Most fundamental, enables scientific computing
 2. **SIMD/SSE Operations** (Q1 2026) - Critical for performance, widely used
 3. **Extended 64-bit Operations** (Q1-Q2 2026) - Complete register architecture
@@ -1325,6 +1409,7 @@ Comparison:
 5. **MMX Operations** (Q2 2026) - Legacy support, nice-to-have
 
 **Success Criteria**:
+
 - ✅ All 151 opcodes implemented in CPU dispatcher
 - ✅ 100% test coverage maintained
 - ✅ Clear mapping to x86-64 instructions documented
@@ -1335,6 +1420,7 @@ Comparison:
 ### 🚀 Post-Expansion: Native Code Generation
 
 **After Assembly Expansion**: With all opcodes implemented, we'll have:
+
 - Complete instruction set ready for translation
 - Clear mapping to x86-64 assembly
 - Proven implementations via VM execution
@@ -1342,6 +1428,7 @@ Comparison:
 - Seamless transition to native code generation phase
 
 **Next Steps After Phase 2**:
+
 - Implement x86-64 code generator using opcode mappings
 - Register allocation for 134 virtual → 16 physical registers
 - Direct assembly output bypassing VM
@@ -1358,9 +1445,10 @@ Comparison:
 
 The following 20 features have been integrated into the existing roadmap across appropriate development stages:
 
-#### 🔥 **Phase 1: Assembly Language Extensions** *(Q1-Q2 2026)*
+#### 🔥 **Phase 1: Assembly Language Extensions** _(Q1-Q2 2026)_
+
 - **#6 - Macro System** → Integrated into Assembly Language Enhancement Phase A1
-- **#7 - Conditional Assembly** → Integrated into Assembly Language Enhancement Phase A1  
+- **#7 - Conditional Assembly** → Integrated into Assembly Language Enhancement Phase A1
 - **#8 - Advanced Data Structures** → Integrated into Assembly Language Enhancement Phase A1
 - **#9 - User-Defined Instructions** → Integrated into Assembly Language Enhancement Phase A1
 - **#10 - Enhanced Control Flow** → Integrated into Assembly Language Enhancement Phase A2
@@ -1369,48 +1457,54 @@ The following 20 features have been integrated into the existing roadmap across 
 - **#15 - Register Aliases** → Integrated into Assembly Language Enhancement Phase A1
 - **#16 - Debug Directives** → Integrated into Assembly Language Enhancement Phase A4
 
-#### ⚡ **Phase 2: Core Infrastructure** *(Q2-Q3 2026)*
+#### ⚡ **Phase 2: Core Infrastructure** _(Q2-Q3 2026)_
+
 - **#1 - SIMD Performance Benchmarks** → Integrated into Phase 2A SIMD Implementation
 - **#4 - Enhanced Error Handling** → Integrated into Stage 5 Custom Linker
-- **#11 - Interrupt System** → Integrated into Stage 5 Custom Linker  
+- **#11 - Interrupt System** → Integrated into Stage 5 Custom Linker
 - **#14 - Memory-Mapped Devices** → Integrated into Stage 5 Custom Linker
 - **#18 - Type System** → Foundation integrated into Phase 2B FPU Implementation
 
-#### 🚀 **Phase 3: High-Level Language Features** *(Q4 2026 - Q1 2027)*
+#### 🚀 **Phase 3: High-Level Language Features** _(Q4 2026 - Q1 2027)_
+
 - **#17 - Performance & Profiling** → Integrated into Stage 6 Demi Language
 - **#19 - Parallelism** → Integrated into Stage 6 Demi Language
 - **#20 - Program Metadata** → Integrated into Stage 6 Demi Language
 
-#### 🛠️ **Phase 4: Advanced Tooling** *(Q1-Q2 2027)*
+#### 🛠️ **Phase 4: Advanced Tooling** _(Q1-Q2 2027)_
+
 - **#2 - Development Tool Enhancements** → Integrated into Stage 7 Unified Toolchain
 - **#3 - Portal System** → Integrated into Stage 7 Unified Toolchain
 - **#5 - Website Configuration Platform** → Integrated into Stage 7 Unified Toolchain
 
 ### 🎯 **Implementation Priority Matrix**
 
-| Priority | Features | Timeline | Dependencies |
-|----------|----------|----------|--------------|
-| **CRITICAL** | #6, #7, #8, #9, #15 (Assembly Core) | Q1 2026 | Current VirtComp Complete |
-| **HIGH** | #1, #10, #12, #13, #16, #18 (Enhanced Assembly) | Q1-Q2 2026 | Assembly Core Complete |
-| **MEDIUM** | #4, #11, #14 (Infrastructure) | Q2-Q3 2026 | Assembly Expansion Complete |
-| **IMPORTANT** | #17, #19, #20 (Language Features) | Q4 2026-Q1 2027 | Native Codegen Complete |
-| **ENHANCEMENT** | #2, #3, #5 (Advanced Tools) | Q1-Q2 2027 | Demi Language Complete |
+| Priority        | Features                                        | Timeline        | Dependencies                |
+| --------------- | ----------------------------------------------- | --------------- | --------------------------- |
+| **CRITICAL**    | #6, #7, #8, #9, #15 (Assembly Core)             | Q1 2026         | Current VirtComp Complete   |
+| **HIGH**        | #1, #10, #12, #13, #16, #18 (Enhanced Assembly) | Q1-Q2 2026      | Assembly Core Complete      |
+| **MEDIUM**      | #4, #11, #14 (Infrastructure)                   | Q2-Q3 2026      | Assembly Expansion Complete |
+| **IMPORTANT**   | #17, #19, #20 (Language Features)               | Q4 2026-Q1 2027 | Native Codegen Complete     |
+| **ENHANCEMENT** | #2, #3, #5 (Advanced Tools)                     | Q1-Q2 2027      | Demi Language Complete      |
 
 ### 💡 **Feature Integration Strategy**
 
 **Incremental Implementation Approach:**
+
 1. **Foundation First**: Assembly language enhancements build the foundation
 2. **Infrastructure Next**: Error handling, interrupts, and device integration
 3. **Language Features**: High-level features built on solid foundation
 4. **Advanced Tooling**: Final polish with developer experience enhancements
 
 **Cross-Feature Synergies:**
+
 - **Type System (#18)** + **FPU Operations** = Type-safe floating-point arithmetic
 - **Performance Metrics (#17)** + **SIMD Benchmarks (#1)** = Comprehensive performance validation
 - **Portal System (#3)** + **Debug Directives (#16)** = Advanced testing and debugging
 - **Error Codes (#4)** + **Website Platform (#5)** = Enhanced developer experience
 
 **Quality Assurance:**
+
 - Each feature includes comprehensive test coverage
 - Documentation requirements integrated with feature development
 - Performance benchmarks validate improvements
@@ -1420,7 +1514,7 @@ The following 20 features have been integrated into the existing roadmap across 
 
 The following development plan builds DemiEngine into a complete custom toolchain for the Demi programming language:
 
-### 🔥 **Stage 1: Assembly Language Expansion** *(CURRENT - Q1 2026)*
+### 🔥 **Stage 1: Assembly Language Expansion** _(CURRENT - Q1 2026)_
 
 **Priority: CRITICAL** | **Status: In Progress** | **Dependencies: Core Backend ✅ Complete**
 
@@ -1429,12 +1523,14 @@ Expand the instruction set to enable seamless native code generation and profess
 #### 🎯 **Immediate Development Priority: Implement 88 Planned Opcodes**
 
 **DemiEngine Core Status: ✅ COMPLETE**
+
 - ✅ **134-Register Architecture**: Full extended register system operational
 - ✅ **63 Core Opcodes**: Base instruction set fully implemented and tested
 - ✅ **Assembly Toolchain**: Lexer → Parser → Assembler → Bytecode fully functional
 - ✅ **Virtual Machine**: CPU emulation with device I/O system
 
 **⚠️ CRITICAL: VM Performance Optimization Required**
+
 - **Current Status**: VM interpretation 5-20x slower than native execution
 - **Immediate Action**: Implement quick wins (threaded code + inlining) for 2-5x improvement
 - **Timeline**: 2-4 weeks parallel with SIMD development
@@ -1444,6 +1540,7 @@ Expand the instruction set to enable seamless native code generation and profess
 - ✅ **ImGui Debugger**: Professional development and debugging interface
 
 **Current Phase: Opcode Implementation** (See detailed plan above)
+
 - 🔄 **FPU Operations** (23 opcodes) - Floating-point arithmetic
 - 🔄 **SIMD/SSE Operations** (26 opcodes) - Vector processing
 - 🔄 **Extended 64-bit** (18 opcodes) - Complete addressing modes
@@ -1455,6 +1552,7 @@ Expand the instruction set to enable seamless native code generation and profess
 #### 📋 **Assembly Expansion Implementation**
 
 **Phase 1: FPU Operations (3-4 weeks)**
+
 - � **FLD/FST/FSTP**: Floating-point load/store with stack management
 - � **FADD/FSUB/FMUL/FDIV**: Basic FP arithmetic operations
 - 🔄 **Transcendental Functions**: FSIN, FCOS, FTAN, FSQRT
@@ -1462,6 +1560,7 @@ Expand the instruction set to enable seamless native code generation and profess
 - � **Test Suite**: Comprehensive FPU operation validation
 
 **Phase 2: SIMD/SSE Operations (4-6 weeks)**
+
 - � **Packed Operations**: MOVPS, ADDPS, SUBPS, MULPS, DIVPS
 - � **Scalar Operations**: MOVSS, ADDSS, SUBSS, MULSS, DIVSS
 - � **Logic Operations**: ANDPS, ORPS, XORPS on packed data
@@ -1470,12 +1569,14 @@ Expand the instruction set to enable seamless native code generation and profess
 - � **Test Suite**: Vector operation validation and edge cases
 
 **Phase 3: Extended 64-bit Operations (2-3 weeks)**
+
 - 🔄 **Extended Memory**: LOADEX, STOREEX, LOAD_IMMEX
 - � **Extended Control Flow**: JMPEX, CALLEX, conditional jumps (EX variants)
 - � **Extended Comparison**: CMPEX for extended register modes
 - � **Test Suite**: Large address space and extended register tests
 
 **Phase 4: AVX Operations (3-4 weeks)**
+
 - 🔄 **256-bit Operations**: VMOVPS, VADDPS, VSUBPS, VMULPS, VDIVPS
 - � **Advanced Vector Math**: VMAXPS, VMINPS, VSQRTPS
 - 🔄 **Logic Operations**: VANDPS, VORPS, VXORPS
@@ -1483,12 +1584,14 @@ Expand the instruction set to enable seamless native code generation and profess
 - � **Test Suite**: 256-bit vector operation validation
 
 **Phase 5: MMX Operations (1-2 weeks)**
+
 - � **Data Movement**: MOVQ operations
 - � **Packed Integer Arithmetic**: PADDB/W/D, PSUBB/W/D, PMULLW
 - � **Packed Logic**: PAND, POR, PXOR
 - 🔄 **Test Suite**: Integer vector operation validation
 
 **Phase 6: Integration and Documentation (1-2 weeks)**
+
 - � **Complete Testing**: Verify all 151 opcodes functional
 - � **x86-64 Mapping Documentation**: Document native instruction translations
 - � **Performance Benchmarking**: Validate operation correctness and speed
@@ -1497,6 +1600,7 @@ Expand the instruction set to enable seamless native code generation and profess
 #### Core Interpreter Enhancements
 
 **🎯 Development Mode Optimization**
+
 ```bash
 # Development workflow
 demi -I hello.dem                    # Fast interpretation
@@ -1506,6 +1610,7 @@ demi -I hello.dem --profile         # Performance profiling
 ```
 
 **Enhanced VirtComp Features:**
+
 - ✅ **Extended Register System**: 134 registers with dual x32/x64 mode support
 - ✅ **Core Instruction Set**: 63 implemented opcodes covering arithmetic, logic, control flow, memory, I/O, and extended register operations
 - ⚠️ **Planned Instructions**: 88 additional opcodes defined (SIMD, FPU, AVX, MMX) for future implementation
@@ -1516,6 +1621,7 @@ demi -I hello.dem --profile         # Performance profiling
 - 🚧 **Development Tools**: Integrated debugger with step-through capabilities
 
 **Demi Language Frontend:**
+
 - 🔜 **Lexer/Parser**: Demi source language syntax processing
 - 🔜 **AST Generation**: Abstract syntax tree for Demi programs
 - 🔜 **Bytecode Translation**: Demi source → VirtComp bytecode compilation
@@ -1523,13 +1629,14 @@ demi -I hello.dem --profile         # Performance profiling
 - 🔜 **Error Reporting**: Comprehensive syntax and runtime error messages
 
 **Integration Points:**
+
 - 🔜 **Unified Interface**: Integration into future `demi` executable
 - 🔜 **Standard Library**: Core Demi runtime functions and I/O operations
 - 🔜 **Module System**: Import/export capabilities for code organization
 
 ---
 
-### ⚡ **Stage 2: Native Code Generation Backend** *(Q2-Q3 2026)*
+### ⚡ **Stage 2: Native Code Generation Backend** _(Q2-Q3 2026)_
 
 **Priority: HIGH** | **Status: Foundation Laid** | **Dependencies: Stage 1 Complete (Assembly Expansion)**
 
@@ -1538,6 +1645,7 @@ Transform assembly programs to true native x86-64 machine code with seamless opc
 #### 🎯 **Native Compilation Goals**
 
 **Current State: Foundation Ready**
+
 - ✅ **x86-64 Encoder**: Instruction emission framework implemented
 - ✅ **Register Allocator**: Design for mapping 134 virtual → 16 physical registers
 - ✅ **Compilation Framework**: D-ISA → x86-64 translation architecture
@@ -1550,36 +1658,42 @@ Transform assembly programs to true native x86-64 machine code with seamless opc
 **After Stage 1 Assembly Expansion**: With complete instruction set implemented
 
 **Week 1-2: x86-64 Encoder Implementation**
+
 - 🔜 **Instruction Encoding**: Complete x86-64 machine code generation
 - 🔜 **Register Management**: Implement register allocation with spilling
 - 🔜 **Memory Operations**: Handle load/store and addressing modes
 - 🔜 **Basic Testing**: Verify instruction encoding with simple programs
 
 **Week 3-4: D-ISA Translation Engine**
+
 - 🔜 **Instruction Mapping**: Translate all 162 D-ISA opcodes to x86-64
-- 🔜 **Control Flow**: Handle jumps, calls, and conditional branches  
+- 🔜 **Control Flow**: Handle jumps, calls, and conditional branches
 - 🔜 **Stack Operations**: Implement function calls and local variables
 - 🔜 **Device I/O**: Runtime calls for VirtComp device operations
 
 **Week 5-6: Optimization Passes**
+
 - 🔜 **Dead Code Elimination**: Remove unused instructions
 - 🔜 **Redundant Move Elimination**: Optimize register-to-register moves
 - 🔜 **Constant Folding**: Compile-time evaluation of constants
 - 🔜 **Peephole Optimization**: Local instruction sequence improvements
 
 **Week 7-8: Integration and Testing**
+
 - 🔜 **Demi Integration**: Add `demi -c` native compilation mode
 - 🔜 **Real Program Testing**: Compile actual Demi applications
 - 🔜 **Performance Benchmarking**: Measure speedup vs VM execution
 - 🔜 **Compatibility Validation**: Ensure identical behavior to VM
 
 **Week 9-10: Advanced Features**
+
 - 🔜 **Debug Information**: Generate DWARF debug symbols
 - 🔜 **Error Handling**: Proper compilation error reporting
 - 🔜 **Link-Time Optimization**: Cross-function optimization
 - 🔜 **Production Polish**: Robust native compilation pipeline
 
 #### 🚀 **Expected Performance Gains**
+
 - **Compute-Heavy Code**: 10-50x speedup over VM execution
 - **I/O Operations**: Near-VM performance (minimal overhead)
 - **Compilation Speed**: Sub-second compilation for small programs
@@ -1588,6 +1702,7 @@ Transform assembly programs to true native x86-64 machine code with seamless opc
 #### D-ISA Architecture Specification
 
 **🎯 Register Architecture**
+
 ```asm
 ; D-ISA Register Set
 ; General Purpose Registers (64-bit)
@@ -1604,6 +1719,7 @@ DR0-DR7                    ; Debug registers
 ```
 
 **🎯 Memory Addressing Modes**
+
 ```asm
 ; D-ISA Addressing Modes
 MOV RAX, 0x1234           ; Immediate addressing
@@ -1616,6 +1732,7 @@ MOV RAX, [RBX + RCX*4 + 8] ; Full x86-style addressing
 ```
 
 **🎯 Core Instruction Set**
+
 ```asm
 ; Arithmetic Operations
 ADD, SUB, MUL, DIV, MOD   ; Basic arithmetic
@@ -1642,6 +1759,7 @@ CLI, STI                  ; Interrupt control
 ```
 
 **🎯 System Call Interface**
+
 ```asm
 ; D-ISA System Call Convention
 SYSCALL_READ    = 0       ; File I/O operations
@@ -1666,6 +1784,7 @@ SYSCALL                   ; Invoke system call
 ```
 
 **Architecture Benefits:**
+
 - ✅ **Unified IR**: Single intermediate form for interpretation and compilation
 - ✅ **x86-Compatible**: Familiar instruction set for easy adoption
 - ✅ **Extensible**: Room for future instruction additions
@@ -1673,7 +1792,7 @@ SYSCALL                   ; Invoke system call
 
 ---
 
-### 🛠️ **Stage 3: D-ISA Assembler Enhancement** *(Q2-Q3 2026)*
+### 🛠️ **Stage 3: D-ISA Assembler Enhancement** _(Q2-Q3 2026)_
 
 **Priority: MEDIUM** | **Status: Planning** | **Dependencies: Assembly Expansion Complete (Stage 1)**
 
@@ -1684,6 +1803,7 @@ Enhance the existing assembler with additional features for professional assembl
 #### Assembler Core Features
 
 **🎯 Command Interface**
+
 ```bash
 # D-ISA Assembler usage
 demi -A program.dasm -O program.dl   # Assemble to object file
@@ -1693,6 +1813,7 @@ demi -A program.dasm --verbose       # Show symbol table and debug info
 ```
 
 **🎯 Advanced Assembly Language Features**
+
 ```asm
 ; Enhanced directive support
 .section .text              ; Code section
@@ -1725,6 +1846,7 @@ message: .string "Hello, Demi!\n"
 ```
 
 **🎯 Macro System**
+
 ```asm
 ; Macro definitions for code reuse
 .macro PRINT_STRING str
@@ -1745,6 +1867,7 @@ message: .string "Hello, Demi!\n"
 ```
 
 **🎯 Object File Format (.dl)**
+
 ```
 Demi Object File (.dl) Structure:
 ┌─────────────────────────────┐
@@ -1779,6 +1902,7 @@ Demi Object File (.dl) Structure:
 ```
 
 **Implementation Features:**
+
 - ✅ **Two-Pass Assembly**: Symbol collection and code generation
 - ✅ **Symbol Resolution**: Global and local label management
 - ✅ **Error Reporting**: Detailed syntax error messages with line numbers
@@ -1788,7 +1912,7 @@ Demi Object File (.dl) Structure:
 
 ---
 
-### 🎯 **Stage 4: Native Code Generation Backend** *(Q3 2026)*
+### 🎯 **Stage 4: Native Code Generation Backend** _(Q3 2026)_
 
 **Priority: CRITICAL** | **Status: Planning** | **Dependencies: Stage 1 (Assembly Expansion) + Stage 3 (D-ISA Assembler)**
 
@@ -1799,6 +1923,7 @@ Implement the custom compiler backend that generates native machine code from D-
 #### Native Compilation Pipeline
 
 **🎯 Compilation Workflow**
+
 ```bash
 # Native compilation process (assembly → native)
 demi -c program.dasm -o program          # Compile assembly to native executable
@@ -1808,6 +1933,7 @@ demi -c program.dasm --target x86_64 --opt 2  # Optimized build
 ```
 
 **🎯 Code Generation Architecture**
+
 ```
 Demi Source Code (.dem)
          ↓
@@ -1832,6 +1958,7 @@ Demi Source Code (.dem)
 ```
 
 **🎯 x86_64 Code Generation**
+
 ```asm
 ; D-ISA to x86_64 translation example
 ; D-ISA input:
@@ -1850,6 +1977,7 @@ syscall                     ; invoke system call
 ```
 
 **🎯 Optimization Engine**
+
 ```cpp
 // Compiler optimization passes
 class CodeGenerator {
@@ -1870,6 +1998,7 @@ class CodeGenerator {
 ```
 
 **🎯 Multi-Target Architecture**
+
 ```cpp
 // Target architecture abstraction
 class TargetMachine {
@@ -1892,7 +2021,7 @@ class RISCVTarget : public TargetMachine { /* ... */ };
 
 ---
 
-### 🔗 **Stage 5: Custom Linker Implementation** *(Q3-Q4 2026)*
+### 🔗 **Stage 5: Custom Linker Implementation** _(Q3-Q4 2026)_
 
 **Priority: HIGH** | **Status: Planning** | **Dependencies: Native Code Generation Complete**
 
@@ -1901,6 +2030,7 @@ Build a custom linker to combine object files into final executables with full s
 #### Linker Core Functionality
 
 **🎯 Linking Commands**
+
 ```bash
 # Custom Demi Linker usage
 demi -L main.dl utils.dl -o myapp          # Link multiple object files
@@ -1911,6 +2041,7 @@ demi -L main.dl --format elf64 -o myapp    # Specify output format
 ```
 
 **🎯 Enhanced Error Handling with Error Codes** (#4)
+
 ```cpp
 // Enhanced error handling system
 enum class DemiErrorCode {
@@ -1919,13 +2050,13 @@ enum class DemiErrorCode {
     DUPLICATE_SYMBOL = 4002,
     INCOMPATIBLE_OBJECT = 4003,
     MISSING_LIBRARY = 4004,
-    
+
     // Assembly errors (3000-3999)
     SYNTAX_ERROR = 3001,
     UNDEFINED_LABEL = 3002,
     INVALID_OPCODE = 3003,
     TYPE_MISMATCH = 3004,
-    
+
     // Runtime errors (2000-2999)
     DIVISION_BY_ZERO = 2001,
     STACK_OVERFLOW = 2002,
@@ -1939,15 +2070,16 @@ class DemiError {
     std::string file;
     int line;
     std::string documentation_url;
-    
+
     std::string getErrorCodeReference() {
-        return fmt::format("See documentation: https://demi-lang.org/errors/{}", 
+        return fmt::format("See documentation: https://demi-lang.org/errors/{}",
                           static_cast<int>(code));
     }
 };
 ```
 
 **🎯 Memory-Mapped Devices** (#14)
+
 ```cpp
 // Memory-mapped device integration
 class MemoryMappedDevice {
@@ -1963,12 +2095,12 @@ class GPIODevice : public MemoryMappedDevice {
         memory_base = base;
         register_size = size;
     }
-    
+
     uint64_t read(uint64_t offset, size_t bytes) override {
         // Read from GPIO pins/registers
         return gpio_state[offset];
     }
-    
+
     void write(uint64_t offset, uint64_t value, size_t bytes) override {
         // Write to GPIO pins/registers
         gpio_state[offset] = value;
@@ -1978,6 +2110,7 @@ class GPIODevice : public MemoryMappedDevice {
 ```
 
 **🎯 Interrupt System Support** (#11)
+
 ```asm
 ; Interrupt handler definitions
 .interrupt TIMER_INT, timer_handler
@@ -2003,6 +2136,7 @@ SYSCALL_INTERRUPT 0x80, system_call_handler
 ```
 
 **🎯 Output Format Support**
+
 ```cpp
 // Multi-platform executable formats
 class ExecutableFormat {
@@ -2040,6 +2174,7 @@ class MachOFormat : public ExecutableFormat {
 ```
 
 **🎯 Symbol Resolution & Relocation**
+
 ```cpp
 // Advanced symbol resolution
 class Linker {
@@ -2062,6 +2197,7 @@ class Linker {
 ```
 
 **🎯 Library Management**
+
 ```bash
 # Library creation and management
 demi --create-lib mylib.dl obj1.dl obj2.dl    # Create static library
@@ -2075,6 +2211,7 @@ demi -L main.dl -l demi_io -l demi_math -o app
 ```
 
 **Early Implementation Strategy:**
+
 - 🔜 **Phase 5.1**: Basic object file combination and symbol table merging
 - 🔜 **Phase 5.2**: ELF64 format generation for Linux compatibility
 - 🔜 **Phase 5.3**: System linker integration for bootstrapping
@@ -2083,7 +2220,7 @@ demi -L main.dl -l demi_io -l demi_math -o app
 
 ---
 
-### � **Stage 6: Demi High-Level Language Frontend** *(Q4 2026 - Q1 2027)*
+### � **Stage 6: Demi High-Level Language Frontend** _(Q4 2026 - Q1 2027)_
 
 **Priority: HIGH** | **Status: Future** | **Dependencies: Native Code Generation Complete (Stage 4)**
 
@@ -2094,6 +2231,7 @@ Build the revolutionary Demi programming language with unprecedented customizati
 #### Demi Language Goals
 
 **🎯 Revolutionary Language Features**
+
 ```bash
 # Demi language compilation workflow
 demi compile hello.dem -o hello           # Compile Demi → Assembly → Native
@@ -2103,6 +2241,7 @@ demi run hello.dem --config custom.toml   # Custom language dialect
 ```
 
 **🎯 Parallelism Support** (#19)
+
 ```demi
 // Built-in parallelism primitives
 parallel {
@@ -2129,6 +2268,7 @@ let result = parallel_for(0..1000) |i| {
 ```
 
 **🎯 Built-in Performance and Profiling Metrics** (#17)
+
 ```demi
 // Performance annotations
 @profile
@@ -2159,6 +2299,7 @@ fn performance_critical() {
 ```
 
 **🎯 Program Metadata** (#20)
+
 ```demi
 // Program metadata annotations
 @metadata {
@@ -2193,18 +2334,21 @@ fn performance_critical() {
 **🎯 Implementation Phases**
 
 **Phase 1: Core Language (4-6 weeks)**
+
 - 🔜 **Lexer/Parser**: Tokenize and parse .dem source files
-- 🔜 **AST Generation**: Abstract syntax tree for Demi programs  
+- 🔜 **AST Generation**: Abstract syntax tree for Demi programs
 - 🔜 **Type System**: Basic type checking and inference
 - 🔜 **Code Generation**: Demi → D-ISA assembly translation
 
 **Phase 2: Customization System (3-4 weeks)**
+
 - 🔜 **TOML Configuration**: Parse demi.toml project files
 - 🔜 **Syntax Profiles**: C-like, Python-like, Rust-like variants
 - 🔜 **Feature Toggles**: Configure language behavior per project
 - 🔜 **Custom Standard Library**: Replaceable core modules
 
 **Phase 3: Advanced Features (4-6 weeks)**
+
 - 🔜 **REPL Environment**: Interactive development
 - 🔜 **Package Management**: Module system and imports
 - 🔜 **Error Diagnostics**: IDE-quality error messages
@@ -2212,7 +2356,7 @@ fn performance_critical() {
 
 ---
 
-### 🎯 **Stage 7: Unified Toolchain Integration** *(Q1-Q2 2027)*
+### 🎯 **Stage 7: Unified Toolchain Integration** _(Q1-Q2 2027)_
 
 **Priority: CRITICAL** | **Status: Planning** | **Dependencies: Demi Language Complete (Stage 6)**
 
@@ -2221,6 +2365,7 @@ Combine all tools into the single `demi` executable with intelligent mode detect
 #### Unified Command Interface
 
 **🎯 Primary Mode Selection**
+
 ```bash
 # Interpretation modes
 demi script.dem                    # Auto-detect: interpret if .dem
@@ -2246,6 +2391,7 @@ demi --create-lib -o mylib.dl *.dl # Create static library
 ```
 
 **🎯 Development Tool Enhancements** (#2)
+
 ```bash
 # Advanced debugging (GDB-like interface)
 demi debug myapp                   # Start interactive debugger
@@ -2265,6 +2411,7 @@ demi debug myapp --script debug.cmd # Run debugging script
 ```
 
 **🎯 Website Configuration Platform** (#5)
+
 ```bash
 # Official website integration
 demi config generate              # Generate config via web interface
@@ -2279,6 +2426,7 @@ demi config optimize             # AI-powered config optimization
 ```
 
 **🎯 Portal System for Enhanced Testing** (#3)
+
 ```demi
 // Portal system for cross-virtual CPU access
 fn main() {
@@ -2290,7 +2438,7 @@ fn main() {
     // Access code and data outside the test virtual CPU
     let data = load_from_portal!("test_data");
     call_external!{main};  // Call main function from outside context
-    
+
     // Portal allows access to memory addresses outside test
     let external_memory = portal_memory!(0x1000, 256);
     assert_mem external_memory[0], 42;
@@ -2306,6 +2454,7 @@ fn main() {
 ```
 
 **🎯 Intelligent Workflow Management**
+
 ```bash
 # Automatic build management
 demi build                         # Auto-detect project type and build
@@ -2356,6 +2505,7 @@ assertions = true
 ```
 
 **🎯 Development Environment Integration**
+
 ```bash
 # IDE and editor support
 demi lsp                          # Start Language Server Protocol daemon
@@ -2370,6 +2520,7 @@ demi publish                      # Publish package to registry
 ```
 
 **Implementation Architecture:**
+
 ```cpp
 // Unified toolchain structure
 class DemiToolchain {
@@ -2387,7 +2538,7 @@ class DemiToolchain {
 
 ---
 
-### ⚡ **Stage 8: Just-In-Time (JIT) Compilation** *(Q3-Q4 2027)*
+### ⚡ **Stage 8: Just-In-Time (JIT) Compilation** _(Q3-Q4 2027)_
 
 **Priority: MEDIUM** | **Status: Future Planning** | **Dependencies: Unified Toolchain Complete**
 
@@ -2396,6 +2547,7 @@ Implement JIT compilation for runtime native code generation and hybrid executio
 #### JIT Compilation Engine
 
 **🎯 Hybrid Execution Model**
+
 ```bash
 # JIT-enabled execution
 demi -I program.dem --jit          # Enable JIT compilation
@@ -2408,6 +2560,7 @@ demi -I program.dem --jit-debug     # JIT debugging information
 ```
 
 **🎯 Runtime Code Generation**
+
 ```cpp
 // JIT compilation architecture
 class JITEngine {
@@ -2428,6 +2581,7 @@ class JITEngine {
 ```
 
 **🎯 Hot-Swapping Capabilities**
+
 ```cpp
 // Dynamic code replacement
 class CodeHotSwap {
@@ -2444,6 +2598,7 @@ class CodeHotSwap {
 ```
 
 **🎯 Advanced Optimization Features**
+
 - ✅ **Speculation**: Optimistic optimization with deoptimization fallback
 - ✅ **Inlining**: Aggressive function inlining for hot paths
 - ✅ **Vectorization**: Automatic SIMD optimization for suitable code
@@ -2454,7 +2609,7 @@ class CodeHotSwap {
 
 ## 🏆 **EXISTING COMPLETED FEATURES**
 
-*Preserving the excellent work already accomplished in VirtComp that forms the foundation for the Demi toolchain.*### ✅ **Core CPU Architecture** *(100% Complete)*
+_Preserving the excellent work already accomplished in VirtComp that forms the foundation for the Demi toolchain._### ✅ **Core CPU Architecture** _(100% Complete)_
 
 - ✅ **Basic Instruction Set**: Core arithmetic, logic, and control flow operations
 - ✅ **Extended Register System**: 50 registers implemented (RAX-R15, segments, control)
@@ -2465,7 +2620,7 @@ class CodeHotSwap {
 - ✅ **Dual-Mode Operation**: x32/x64 mode switching with MODE32/MODE64 opcodes
 - ✅ **64-bit Arithmetic**: Extended operations (MOVEX, ADDEX, SUBEX) with proper flag handling
 
-### ✅ **Assembly Language Integration** *(100% Complete)*
+### ✅ **Assembly Language Integration** _(100% Complete)_
 
 - ✅ **VM Integration**: Full assembly language integrated with main VirtComp executable
 - ✅ **Assembly Mode**: `-A/--assembly` flag for assembling and running .asm files
@@ -2475,7 +2630,7 @@ class CodeHotSwap {
 - ✅ **Error Handling**: Comprehensive error reporting for assembly, parsing, and runtime
 - ✅ **Debug Integration**: Assembly mode works with `-v`, `-d`, and `--extended-registers`
 
-### ✅ **Enhanced I/O Operations** *(100% Complete)*
+### ✅ **Enhanced I/O Operations** _(100% Complete)_
 
 - ✅ **Basic I/O**: IN/OUT operations for device communication
 - ✅ **Sized Operations**: INB/OUTB, INW/OUTW, INL/OUTL for different data sizes
@@ -2483,7 +2638,7 @@ class CodeHotSwap {
 - ✅ **Device Integration**: Enhanced device protocol support
 - ✅ **Advanced Instructions**: WRITE_PORT, READ_PORT, indexed addressing implemented
 
-### ✅ **Device System** *(100% Complete)*
+### ✅ **Device System** _(100% Complete)_
 
 - ✅ **Device Manager**: Centralized I/O device management
 - ✅ **Console Device**: Text input/output capabilities
@@ -2491,7 +2646,7 @@ class CodeHotSwap {
 - ✅ **File Device**: Virtual file system access
 - ✅ **RAM Disk**: In-memory block storage device
 
-### ✅ **Testing Framework** *(100% Complete)*
+### ✅ **Testing Framework** _(100% Complete)_
 
 - ✅ **Modern Unit Testing**: Comprehensive test framework with 40 unit tests
 - ✅ **Integration Testing**: 41 hex file execution validation tests
@@ -2499,7 +2654,7 @@ class CodeHotSwap {
 - ✅ **Automated Testing**: Integrated with build system (`make test` command)
 - ✅ **Bug Resolution**: Successfully debugged and fixed all test failures
 
-### ✅ **UI Enhancement & Professional Polish** *(100% Complete)*
+### ✅ **UI Enhancement & Professional Polish** _(100% Complete)_
 
 - ✅ **Extended Register Display**: Command-line flag (-er/--extended-registers) for 50-register visibility
 - ✅ **Output Formatting Cleanup**: Removed ASCII art headers and debug decorative elements
@@ -2507,7 +2662,7 @@ class CodeHotSwap {
 - ✅ **Register Display Optimization**: Extended registers shown once at end instead of repetitive debug output
 - ✅ **Professional UI**: Clean, production-ready output formatting for end users
 
-### ✅ **Build System & Documentation** *(100% Complete)*
+### ✅ **Build System & Documentation** _(100% Complete)_
 
 - ✅ **Makefile Integration**: Automated compilation and testing
 - ✅ **Comprehensive Documentation**: API references, usage guides, troubleshooting
@@ -2518,31 +2673,32 @@ class CodeHotSwap {
 
 ## 🚀 **UPDATED DEVELOPMENT TIMELINE**
 
-*Prioritizing Demi language development, then native compilation*
+_Prioritizing Demi language development, then native compilation_
 
-### 🔥 **Current Priority: Demi Language Foundation** *(Q3-Q4 2025)*
+### 🔥 **Current Priority: Demi Language Foundation** _(Q3-Q4 2025)_
 
 **🎯 Immediate Tasks (Next 90 Days):**
 
-1. **Demi Language Core** *(Critical - Weeks 1-6)*
+1. **Demi Language Core** _(Critical - Weeks 1-6)_
    - 🔜 **Basic Demi Syntax**: Define default language syntax and semantics
    - 🔜 **Demi Lexer/Parser**: Tokenize and parse .dem source files
    - 🔜 **AST → D-ISA Compiler**: Convert Demi programs to VirtComp bytecode
    - 🔜 **Integration**: `demi -I program.dem` interpretation mode
 
-2. **Revolutionary Customization System** *(Core Feature - Weeks 7-10)*
+2. **Revolutionary Customization System** _(Core Feature - Weeks 7-10)_
    - 🔜 **TOML Configuration**: Parse demi.toml project settings
    - 🔜 **Syntax Profiles**: C-like, Python-like, Rust-like language variants
    - 🔜 **Dynamic Adaptation**: Runtime syntax switching based on configuration
    - 🔜 **Project Dialects**: Complete language customization per project
 
-3. **Professional Development Experience** *(Polish - Weeks 11-13)*
+3. **Professional Development Experience** _(Polish - Weeks 11-13)_
    - 🔜 **REPL Environment**: Interactive development and testing
    - 🔜 **Enhanced Error Messages**: IDE-quality diagnostics and suggestions
    - 🔜 **Live Code Updates**: Hot-reload and dynamic modification
    - 🔜 **Command Interface**: Complete `demi` executable with all modes
 
 **VirtComp Backend Status: ✅ COMPLETE**
+
 - 134 registers, 63 opcodes implemented (151 defined), 188/188 tests passing
 - Native x86-64 ELF generation with embedded VM
 - Professional debugger and development tools
@@ -2550,6 +2706,7 @@ class CodeHotSwap {
 ### 📅 **Q1-Q2 2026: Native Code Generation Backend**
 
 **🎯 Direct x86-64 Compilation (After Demi Language Complete):**
+
 - Transform from VM-based execution to true native compilation
 - Implement x86-64 instruction encoder and register allocator
 - 10-50x performance gains for compute-heavy applications
@@ -2558,6 +2715,7 @@ class CodeHotSwap {
 ### 📅 **Q3-Q4 2026: Advanced Ecosystem Features**
 
 **🎯 Production-Ready Language Platform:**
+
 - Cross-platform compilation support
 - IDE integration and language server protocol
 - Package management and distribution system
@@ -2566,6 +2724,7 @@ class CodeHotSwap {
 ### 📅 **Q1 2026: Stage 2 - D-ISA Specification**
 
 **🎯 D-ISA Architecture Definition:**
+
 - Define complete Demi Instruction Set Architecture
 - Register architecture and calling conventions
 - Memory model and addressing modes
@@ -2573,6 +2732,7 @@ class CodeHotSwap {
 - Instruction encoding and bytecode format
 
 **🎯 Reference Implementation:**
+
 - D-ISA virtual machine implementation
 - Instruction set validation and testing
 - Performance benchmarking against current VirtComp
@@ -2581,6 +2741,7 @@ class CodeHotSwap {
 ### 📅 **Q2 2026: Stage 3 - D-ISA Assembler**
 
 **🎯 Assembler Implementation:**
+
 - Human-readable D-ISA assembly language
 - Advanced directives and macro system
 - Object file format (.dl) definition
@@ -2588,6 +2749,7 @@ class CodeHotSwap {
 - Integration with `demi -A` command interface
 
 **🎯 Assembler Features:**
+
 - Two-pass assembly with symbol tables
 - Comprehensive error reporting
 - Listing file generation
@@ -2596,12 +2758,14 @@ class CodeHotSwap {
 ### 📅 **Q3 2026: Stage 4 - Native Code Generation**
 
 **🎯 Compiler Backend:**
+
 - D-ISA to x86_64 native code translation
 - Custom optimization passes
 - Register allocation and instruction scheduling
 - Platform-specific code generation
 
 **🎯 Target Architecture Support:**
+
 - x86_64 Linux ELF generation
 - Windows x64 PE support planning
 - Cross-compilation infrastructure
@@ -2610,12 +2774,14 @@ class CodeHotSwap {
 ### 📅 **Q4 2026: Stage 5 - Custom Linker**
 
 **🎯 Linker Implementation:**
+
 - Object file linking and symbol resolution
 - ELF64, PE, Mach-O format output
 - Static and dynamic linking support
 - Library creation and management
 
 **🎯 System Integration:**
+
 - System linker integration for bootstrapping
 - Standard library development
 - Package management infrastructure
@@ -2623,12 +2789,14 @@ class CodeHotSwap {
 ### 📅 **Q1 2027: Stage 6 - Unified Toolchain**
 
 **🎯 Single Executable Integration:**
+
 - Combine all tools into `demi` executable
 - Intelligent mode detection and workflow
 - Project configuration and build management
 - IDE integration and tooling support
 
 **🎯 Developer Experience:**
+
 - Language Server Protocol implementation
 - VS Code extension development
 - Documentation generation tools
@@ -2637,6 +2805,7 @@ class CodeHotSwap {
 ### 📅 **Q2-Q3 2027: Stage 7 - JIT Compilation**
 
 **🎯 Runtime Optimization:**
+
 - Just-in-time compilation engine
 - Hot code detection and optimization
 - Hybrid interpretation/compilation model
@@ -2692,15 +2861,15 @@ class CodeHotSwap {
 
 ### 📊 **Technical Milestones:**
 
-| Stage | Completion Target | Key Deliverable | Success Criteria |
-|-------|------------------|-----------------|------------------|
-| Stage 1 | Q4 2025 | Enhanced VirtComp Interpreter | Demi source → VirtComp execution |
-| Stage 2 | Q1 2026 | D-ISA Specification | Complete instruction set definition |
-| Stage 3 | Q2 2026 | D-ISA Assembler | Assembly → Object file compilation |
-| Stage 4 | Q3 2026 | Native Code Generator | D-ISA → x86_64 native code |
-| Stage 5 | Q4 2026 | Custom Linker | Object files → Executable linking |
-| Stage 6 | Q1 2027 | Unified Toolchain | Single `demi` executable |
-| Stage 7 | Q3 2027 | JIT Compilation | Runtime optimization system |
+| Stage   | Completion Target | Key Deliverable               | Success Criteria                    |
+| ------- | ----------------- | ----------------------------- | ----------------------------------- |
+| Stage 1 | Q4 2025           | Enhanced VirtComp Interpreter | Demi source → VirtComp execution    |
+| Stage 2 | Q1 2026           | D-ISA Specification           | Complete instruction set definition |
+| Stage 3 | Q2 2026           | D-ISA Assembler               | Assembly → Object file compilation  |
+| Stage 4 | Q3 2026           | Native Code Generator         | D-ISA → x86_64 native code          |
+| Stage 5 | Q4 2026           | Custom Linker                 | Object files → Executable linking   |
+| Stage 6 | Q1 2027           | Unified Toolchain             | Single `demi` executable            |
+| Stage 7 | Q3 2027           | JIT Compilation               | Runtime optimization system         |
 
 ### 🏆 **Quality Standards:**
 
@@ -2729,6 +2898,7 @@ class CodeHotSwap {
 ### 🎯 **Actual Implementation Status (Verified August 2025):**
 
 **What's Actually Working:**
+
 - **Register System**: 134 total registers (not 50 as previously documented)
 - **Instruction Set**: 63 opcodes implemented, 151 defined (core operations complete, SIMD/FPU/AVX/MMX planned)
 - **Memory**: 1MB default, expandable to 64MB maximum
@@ -2738,6 +2908,7 @@ class CodeHotSwap {
 - **Build System**: Full Makefile integration with automated testing
 
 **What's Missing for Stage 1 Completion:**
+
 - **Demi Language Frontend**: No lexer/parser for Demi language exists yet
 - **Interactive REPL**: Command-line interface not implemented
 - **Live Code Updates**: Hot-swapping capability not present
@@ -2776,24 +2947,28 @@ class CodeHotSwap {
 ### 🎯 **Contributor Opportunities:**
 
 **For Assembly/Systems Programmers:**
+
 - Implement missing D-ISA instructions and addressing modes
 - Optimize code generation and register allocation algorithms
 - Add support for new target architectures (ARM64, RISC-V)
 - Develop advanced debugging and profiling capabilities
 
 **For Compiler Engineers:**
+
 - Design and implement the Demi language frontend
 - Build optimization passes for the native code generator
 - Create advanced static analysis and error detection systems
 - Implement just-in-time compilation features
 
 **For Tooling Developers:**
+
 - Build IDE integrations and language server protocol support
 - Create package management and distribution systems
 - Develop testing frameworks and quality assurance tools
 - Design documentation generation and project management utilities
 
 **For Language Designers:**
+
 - Define Demi language syntax, semantics, and standard library
 - Create educational materials and tutorial content
 - Design API interfaces and programming paradigms
@@ -2802,6 +2977,7 @@ class CodeHotSwap {
 ### 📚 **Learning Opportunities:**
 
 This project offers unique learning experiences in:
+
 - **Custom Compiler Construction** - Build a complete toolchain from scratch
 - **Instruction Set Architecture** - Design and implement a custom ISA
 - **Native Code Generation** - Transform high-level code to machine instructions
@@ -2822,20 +2998,20 @@ This project offers unique learning experiences in:
 
 ### 📊 **Current Development Metrics:**
 
-| Component | Completion | Lines of Code | Test Coverage | Documentation |
-|-----------|------------|---------------|---------------|---------------|
-| Core CPU Architecture | 100% | ~3,000 | 100% (39/41 integration tests) | Complete |
-| Device System | 100% | ~1,500 | 100% (resolved memory corruption) | Complete |
-| Assembly Language | 100% | ~2,500 | 100% | Complete |
-| Extended Architecture | 100% | ~2,000 | 100% | Complete |
-| Testing Framework | 100% | ~900 | 100% | Complete |
-| Advanced Instruction Set | 100% | ~1,600 | 100% | Complete |
-| **DemiEngine Total** | **95%** | **~10,500** | **95%** | **Complete** |
-| Demi Frontend | 0% | 0 | 0% | Planning |
-| D-ISA Specification | 0% | 0 | 0% | Planning |
-| Native Code Generator | 0% | 0 | 0% | Planning |
-| Custom Linker | 0% | 0 | 0% | Planning |
-| **Project Total** | **19%** | **~10,500** | **19%** | **19%** |
+| Component                | Completion | Lines of Code | Test Coverage                     | Documentation |
+| ------------------------ | ---------- | ------------- | --------------------------------- | ------------- |
+| Core CPU Architecture    | 100%       | ~3,000        | 100% (39/41 integration tests)    | Complete      |
+| Device System            | 100%       | ~1,500        | 100% (resolved memory corruption) | Complete      |
+| Assembly Language        | 100%       | ~2,500        | 100%                              | Complete      |
+| Extended Architecture    | 100%       | ~2,000        | 100%                              | Complete      |
+| Testing Framework        | 100%       | ~900          | 100%                              | Complete      |
+| Advanced Instruction Set | 100%       | ~1,600        | 100%                              | Complete      |
+| **DemiEngine Total**     | **95%**    | **~10,500**   | **95%**                           | **Complete**  |
+| Demi Frontend            | 0%         | 0             | 0%                                | Planning      |
+| D-ISA Specification      | 0%         | 0             | 0%                                | Planning      |
+| Native Code Generator    | 0%         | 0             | 0%                                | Planning      |
+| Custom Linker            | 0%         | 0             | 0%                                | Planning      |
+| **Project Total**        | **19%**    | **~10,500**   | **19%**                           | **19%**       |
 
 ### 🎯 **Upcoming Milestones:**
 
@@ -2876,13 +3052,14 @@ This project offers unique learning experiences in:
 
 ## 📚 **WEBSITE DOCUMENTATION DATASET CONVERSION**
 
-**Goal**: Transform comprehensive `docs/` folder into structured JSON datasets for user-friendly website presentation  
-**Timeline**: 2-3 weeks (parallel with other development)  
+**Goal**: Transform comprehensive `docs/` folder into structured JSON datasets for user-friendly website presentation
+**Timeline**: 2-3 weeks (parallel with other development)
 **Scope**: Convert technical documentation to web-optimized content with user/contributor separation
 
 ### **Documentation Conversion Strategy**
 
 #### **Target Audience Separation**
+
 - **User Documentation**: Core concepts, quick start, examples, API reference
 - **Contributor Documentation**: Technical implementation, development guides (GitHub-only)
 - **Internal Documentation**: Detailed technical specs, archived materials (GitHub-only)
@@ -2890,6 +3067,7 @@ This project offers unique learning experiences in:
 #### **Website Content Structure** (JSON Format)
 
 **1. User-Facing Content** (`/website/data/`)
+
 ```json
 {
   "quickStart": {
@@ -2916,7 +3094,7 @@ This project offers unique learning experiences in:
     "title": "Code Examples",
     "categories": [
       {
-        "name": "Basic Programs", 
+        "name": "Basic Programs",
         "examples": [
           { "name": "Hello World", "code": "...", "description": "...", "output": "..." }
         ]
@@ -2927,25 +3105,35 @@ This project offers unique learning experiences in:
 ```
 
 **2. Feature Highlights** (`/website/data/features.json`)
+
 ```json
 {
   "hero": {
     "title": "DemiEngine: Revolutionary Programming Language Platform",
     "subtitle": "134-register architecture, custom instruction set, native compilation",
-    "highlights": ["Custom Syntax Control", "VM + Native Execution", "Complete Toolchain"]
+    "highlights": [
+      "Custom Syntax Control",
+      "VM + Native Execution",
+      "Complete Toolchain"
+    ]
   },
   "features": [
     {
-      "icon": "cpu", 
+      "icon": "cpu",
       "title": "Advanced VM Architecture",
       "description": "134-register system with 86 implemented opcodes",
-      "details": ["Extended register set", "Floating-point operations", "Device I/O system"]
+      "details": [
+        "Extended register set",
+        "Floating-point operations",
+        "Device I/O system"
+      ]
     }
   ]
 }
 ```
 
 **3. Interactive Content** (`/website/data/interactive.json`)
+
 ```json
 {
   "playground": {
@@ -2966,17 +3154,19 @@ This project offers unique learning experiences in:
 #### **Conversion Implementation Plan**
 
 **Phase 1: Content Analysis & Extraction** (1 week)
+
 ```bash
 # Smart documentation parser
 docs_converter.py:
-  - Parse markdown files in docs/ 
+  - Parse markdown files in docs/
   - Extract code examples and format for web
   - Identify user vs contributor content
   - Generate structured JSON datasets
   - Create content hierarchy and navigation
 ```
 
-**Phase 2: Website-Optimized Content** (1 week)  
+**Phase 2: Website-Optimized Content** (1 week)
+
 ```bash
 # Content optimization for web consumption
 content_optimizer.py:
@@ -2988,11 +3178,12 @@ content_optimizer.py:
 ```
 
 **Phase 3: Dynamic Content Generation** (1 week)
+
 ```bash
 # Automated updates from repository
 auto_updater.py:
   - Monitor docs/ changes via GitHub webhook
-  - Regenerate JSON datasets automatically  
+  - Regenerate JSON datasets automatically
   - Update API reference from source code
   - Sync examples from examples/ folder
   - Deploy to website automatically
@@ -3001,14 +3192,16 @@ auto_updater.py:
 #### **Content Transformation Rules**
 
 **User Content (Website)**:
+
 - ✅ Quick reference guides and getting started
-- ✅ High-level architecture overview  
+- ✅ High-level architecture overview
 - ✅ Code examples and tutorials
 - ✅ API reference (simplified)
 - ✅ Performance benchmarks and comparisons
 - ✅ Use cases and project showcases
 
 **Developer Content (GitHub Only)**:
+
 - 🔒 Internal implementation details
 - 🔒 Development workflows and contribution guides
 - 🔒 Technical debt and TODO lists
@@ -3024,8 +3217,9 @@ WEBSITE DOCUMENTATION CONVERSION PROMPT:
 Transform the DemiEngine docs/ folder into user-friendly website content:
 
 GOALS:
+
 1. Convert technical docs to JSON datasets for website consumption
-2. Separate user-facing content from contributor/internal documentation  
+2. Separate user-facing content from contributor/internal documentation
 3. Create interactive examples and progressive disclosure
 4. Maintain accuracy while improving accessibility
 
@@ -3033,6 +3227,7 @@ INPUT: /workspaces/demi/docs/ folder contents
 OUTPUT: Structured JSON files for website integration
 
 GUIDELINES:
+
 - User content: Focus on "what" and "how to use"
 - Technical content: Keep detailed implementation on GitHub
 - Examples: Make interactive and copy-pastable
@@ -3041,14 +3236,16 @@ GUIDELINES:
 - Accessibility: Use plain language, avoid jargon
 
 CONTENT STRUCTURE:
+
 - quickStart.json: Getting started, first program, basic examples
 - apiReference.json: Simplified API docs with examples
-- features.json: Feature highlights and capabilities  
+- features.json: Feature highlights and capabilities
 - examples.json: Interactive code samples
 - performance.json: Benchmarks and comparisons
 - architecture.json: High-level system overview
 
 EXCLUSIONS (GitHub only):
+
 - Contributor guidelines and development workflows
 - Internal technical debt and implementation notes
 - Detailed testing and validation procedures
@@ -3077,10 +3274,10 @@ Whether you're interested in compiler construction, systems programming, languag
 
 ---
 
-*This roadmap is a living document that evolves with the project. For the latest updates, contribution guidelines, and technical discussions, visit our project repository and community channels.*
+_This roadmap is a living document that evolves with the project. For the latest updates, contribution guidelines, and technical discussions, visit our project repository and community channels._
 
 **Last Updated**: November 22, 2025
-**Next Review**: January 15, 2026  
+**Next Review**: January 15, 2026
 **Version**: 3.0 - Production Backend Complete with Advanced Testing & Error Handling
 
 ---
@@ -3090,6 +3287,7 @@ Whether you're interested in compiler construction, systems programming, languag
 ### 🎉 **Major Accomplishments Since August 2025**
 
 **✅ Production-Ready Backend Achieved:**
+
 - **Advanced Testing Framework**: 219 comprehensive tests (101 unit + 118 assembly) - 100% passing
 - **Structured Error Handling**: Complete ErrorHandler and DebugHandler with categorized error codes
 - **Comprehensive Documentation**: All features documented with troubleshooting guides and API references
@@ -3097,27 +3295,31 @@ Whether you're interested in compiler construction, systems programming, languag
 - **Version Management**: Automated changelog generation and semantic versioning
 
 **✅ Quality & Reliability Excellence:**
+
 - **100% Test Coverage**: All opcodes, edge cases, and error conditions validated
-- **Robust Error Detection**: 20+ negative test cases ensuring proper error handling  
+- **Robust Error Detection**: 20+ negative test cases ensuring proper error handling
 - **Performance Benchmarking**: Execution time tracking for optimization validation
 - **Documentation Accuracy**: All docs updated with current test counts and capabilities
 
 ### 🎯 **Immediate Next Steps** (December 2025 - February 2026)
 
 **Priority 1: VM Performance Optimization** (4-6 weeks)
+
 - Implement threaded code interpretation (2-3x performance gain)
-- Add instruction fusion for common patterns (1.5-2x gain)  
+- Add instruction fusion for common patterns (1.5-2x gain)
 - Optimize release builds with conditional compilation (2-3x gain)
 - **Target**: Reduce VM overhead from 5-20x to 2-5x vs native
 
-**Priority 2: Native Code Generation Foundation** (6-8 weeks) 
+**Priority 2: Native Code Generation Foundation** (6-8 weeks)
+
 - Design x86-64 code generation architecture
 - Implement basic instruction translation
 - Add register allocation and optimization
 - **Target**: Initial native code generation for core instructions
 
 **Priority 3: Extended Assembly Features** (Parallel track)
-- Advanced preprocessor capabilities  
+
+- Advanced preprocessor capabilities
 - Improved macro system
 - Enhanced debugging integration
 - **Target**: Developer productivity improvements
@@ -3125,8 +3327,9 @@ Whether you're interested in compiler construction, systems programming, languag
 ### 🚀 **Strategic Position for 2026**
 
 DemiEngine now has a **production-ready backend** that provides an exceptional foundation for:
+
 1. **High-Performance VM**: Optimized interpretation with native code generation
-2. **Demi Language Implementation**: Proven backend for revolutionary language frontend  
+2. **Demi Language Implementation**: Proven backend for revolutionary language frontend
 3. **Educational Platform**: Complete, well-tested system for learning compiler construction
 4. **Research Platform**: Solid foundation for programming language experimentation
 
