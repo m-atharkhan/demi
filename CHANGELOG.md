@@ -5,7 +5,7 @@ All notable changes to DemiEngine will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-12-12
+## [1.0.0] - 2025-12-13
 
 ### ✨ Features
 
@@ -100,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix argument parsing and include directive processing (d6cd95e) - Owen Boreham
 - update LOAD_IMM to 6-byte format and fix FPU handlers (0886f42) - Owen Boreham
 - Resolve all compiler warnings for clean build (89196e0) - Owen Boreham
+- Multiple critical bug fixes for x86 calculator and assembler (0d1347f) - Owen Boreham
 
 ### 🧪 Tests
 
@@ -174,6 +175,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - update changelog, examples, and project documentation (795f490) - Owen Boreham
 - regenerate changelog with latest commits (ca7b687) - Owen Boreham
 - Update test coverage to 322 tests (145 unit + 177 assembly) (3591b4f) - Owen Boreham
+- Update changelog with recent commits (da67f36) - Owen Boreham
 
 ### ♻️ Code Refactoring
 
