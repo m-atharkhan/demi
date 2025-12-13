@@ -937,12 +937,27 @@ void CPU::handle_syscall(bool& running) {
             
         case Syscall::SYS_READ:
             if (arg2 < memory.size() && arg2 + arg3 <= memory.size()) {
-                result = syscall(SYS_read, arg1, &memory[arg2], arg3);
+                // Line-buffered read: read byte by byte until newline or limit reached
+                // This makes sys_read work correctly with piped input
+                result = 0;
+                for (uint64_t i = 0; i < arg3; i++) {
+                    char ch;
+                    ssize_t bytes = read(arg1, &ch, 1);
+                    if (bytes <= 0) {
+                        break;  // EOF or error
+                    }
+                    memory[arg2 + i] = static_cast<uint8_t>(ch);
+                    result++;
+                    if (ch == '\n') {
+                        break;  // Stop at newline (line-buffered behavior)
+                    }
+                }
                 Logging::DebugHandler::instance().report(
                     Logging::DebugCategory::CPU_EXECUTION,
-                    fmt::format("[SYSCALL] {}(fd={}, buf=0x{:08X}, count={}) = {}",
+                    fmt::format("[SYSCALL] {}(fd={}, buf=0x{:08X}, count={}) = {} (line-buffered)",
                         sc_name, arg1, arg2, arg3, result),
                     Logging::DebugLevel::INFO);
+
             } else {
                 Logging::ErrorHandler::instance().report_runtime(
                     Logging::ErrorCode::IO_GENERIC,

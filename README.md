@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/bobrossrtx/demi/actions/workflows/build.yml/badge.svg)](https://github.com/bobrossrtx/demi-engine/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Test Coverage](https://img.shields.io/badge/test_coverage-100%25-brightgreen.svg)](#testing)
+[![Test Coverage](https://img.shields.io/badge/test_coverage-99.7%25-brightgreen.svg)](#testing)
 
 ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white)
 ![OpenGL](https://img.shields.io/badge/OpenGL-%23FFFFFF.svg?style=for-the-badge&logo=opengl)
@@ -13,7 +13,7 @@ _Complete custom toolchain for the future Demi programming language - the Vim of
 
 **Demi will be the Vim of programming languages** - infinitely customizable, with every aspect configurable to match your exact needs. Just as Vim lets you tailor your editor to perfection, Demi will let you customize syntax, semantics, behavior, and tooling on a per-project basis.
 
-DemiEngine is the foundational backend for **Demi**, a revolutionary programming language that will offer unprecedented customization capabilities. With a rock-solid virtual machine featuring 134 registers, 94+ implemented opcodes (including 8 SIMD foundation operations and 23+ FPU floating-point instructions), and **322 comprehensive tests (145 unit tests + 177 assembly tests, 100% pass rate)**, DemiEngine provides the infrastructure for a dual-mode execution system: rapid interpretation for development and native compilation for production performance.
+DemiEngine is the foundational backend for **Demi**, a revolutionary programming language that will offer unprecedented customization capabilities. With a rock-solid virtual machine featuring 134 registers, 94+ implemented opcodes (including 8 SIMD foundation operations and 23+ FPU floating-point instructions), and **321 comprehensive tests (144 unit tests + 177 assembly tests, 99.7% pass rate)**, DemiEngine provides the infrastructure for a dual-mode execution system: rapid interpretation for development and native compilation for production performance.
 
 ---
 
@@ -236,7 +236,7 @@ Debugging:
 
 ## 🧪 **Testing**
 
-DemiEngine maintains exceptional quality through comprehensive testing with **perfect 100% test coverage**:
+DemiEngine maintains exceptional quality through comprehensive testing with **99.7% test coverage**:
 
 ### Test Coverage
 
@@ -260,11 +260,11 @@ DemiEngine maintains exceptional quality through comprehensive testing with **pe
 
 # Achieved results:
 ┌──────────────────────────────────────────────────────────┐
-│     DemiEngine Test Results - PERFECT COVERAGE           │
+│     DemiEngine Test Results - NEAR PERFECT COVERAGE      │
 └──────────────────────────────────────────────────────────┘
-Unit Tests: 145 passed / 145 total [optimized execution]
+Unit Tests: 144 passed / 145 total [optimized execution]
 Assembly Tests: 177 passed / 177 total [34 test files]
-TOTAL: 322 tests passing (100% coverage, 0 failures)
+TOTAL: 321 tests passing (99.7% coverage, 1 failure)
 ```
 
 ### Test Suite Flags
@@ -304,9 +304,9 @@ TOTAL: 322 tests passing (100% coverage, 0 failures)
 
 ### Test Coverage Achievements
 
-- **🏆 100% Unit Test Coverage**: All core functionality validated
-- **🏆 100% Integration Test Coverage**: All real-world scenarios tested
-- **🏆 Perfect Test Suite**: Zero failing tests across all categories
+- **🏆 99.3% Unit Test Coverage**: 144/145 tests passing - Core functionality validated
+- **🏆 100% Assembly Test Coverage**: 177/177 tests passing - All real-world scenarios tested
+- **🏆 Near Perfect Test Suite**: 321/322 tests passing across all categories
 - **🏆 Comprehensive Validation**: Every major feature and edge case covered
 - **🏆 Production Ready**: Highest quality standards achieved
 - **🏆 Professional Test Organization**: Organized test suites in `tests/`, `examples/`, `benchmarks/`

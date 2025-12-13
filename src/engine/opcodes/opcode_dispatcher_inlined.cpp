@@ -801,6 +801,7 @@ init_dispatch_table:
         dispatch_table[static_cast<uint8_t>(Opcode::DB)] = &&op_handler;    // DB
         dispatch_table[0x41] = &&op_handler;    // LOADR
         dispatch_table[0x42] = &&op_debug;      // DEBUG
+        dispatch_table[0x43] = &&op_handler;    // STORER
         
         // 64-bit operations (0x50-0x5F range)
         dispatch_table[0x50] = &&op_handler;    // ADD64
