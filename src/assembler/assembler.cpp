@@ -255,12 +255,53 @@ void AssemblerEngine::first_pass(const Program& program) {
     uint32_t highest_address = 0;
     for (size_t i = 0; i < program.statements.size(); ++i) {
         const auto& stmt = program.statements[i];
-        // DB/RESB: skip size accounting, address is explicit or auto
-        if ((stmt->type == ASTNodeType::INSTRUCTION && 
-             (static_cast<const Instruction&>(*stmt).mnemonic == "DB" ||
-              static_cast<const Instruction&>(*stmt).mnemonic == "RESB")) ||
-            (stmt->type == ASTNodeType::DIRECTIVE && static_cast<const Directive&>(*stmt).name == ".db")) {
-            continue;
+        
+        // Handle DB and RESB size calculation
+        if (stmt->type == ASTNodeType::INSTRUCTION) {
+            const auto& instruction = static_cast<const Instruction&>(*stmt);
+            if (instruction.mnemonic == "DB") {
+                // Calculate DB size from operands
+                for (const auto& operand : instruction.operands) {
+                    if (auto str_lit = dynamic_cast<const StringLiteralExpression*>(operand.get())) {
+                        current_address += str_lit->value.length();
+                    } else {
+                        current_address += 1; // Single byte
+                    }
+                }
+                if (current_address > highest_address) highest_address = current_address;
+                continue;
+            } else if (instruction.mnemonic == "RESB") {
+                // RESB reserves bytes
+                if (instruction.operands.size() == 1) {
+                    bool is_symbol;
+                    std::string symbol_name;
+                    int64_t bytes_to_reserve = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
+                    if (!is_symbol && bytes_to_reserve >= 0) {
+                        current_address += static_cast<uint32_t>(bytes_to_reserve);
+                        if (current_address > highest_address) highest_address = current_address;
+                    }
+                }
+                continue;
+            }
+        }
+        // Process labels in first pass to assign correct addresses
+        if (stmt->type == ASTNodeType::LABEL) {
+            const auto& label = static_cast<const Label&>(*stmt);
+            // Add label to symbol table with current address
+            if (symbol_table.find(label.name) != symbol_table.end()) {
+                // If it exists and is already defined, error (will be caught in second pass)
+                if (!symbol_table[label.name].defined) {
+                    // It was declared (e.g. global/extern), now we define it
+                    symbol_table[label.name].address = current_address;
+                    symbol_table[label.name].defined = true;
+                    symbol_table[label.name].section = current_section;
+                }
+            } else {
+                symbol_table[label.name] = Symbol(label.name, current_address, true);
+                symbol_table[label.name].section = current_section;
+            }
+            last_label_name = label.name;
+            continue; // Labels don't change current_address
         }
         // Normal instruction/directive size logic
         if (stmt->type == ASTNodeType::INSTRUCTION) {
@@ -313,10 +354,24 @@ void AssemblerEngine::first_pass(const Program& program) {
             } else if (directive.name == ".data") {
                 handle_data_section();
             } else if (directive.name == ".text") {
+                // Calculate .data section size before switching to .text
+                if (current_section == ".data" && has_explicit_sections) {
+                    data_section_size = current_address - data_section_base;
+                }
                 handle_text_section();
             }
         }
     }
+    
+    // Calculate final section sizes
+    if (has_explicit_sections) {
+        if (current_section == ".data") {
+            data_section_size = current_address - data_section_base;
+        } else if (current_section == ".text") {
+            text_section_size = current_address - text_section_base;
+        }
+    }
+    
     // Now set db_next_addr to highest_address, so DB data is placed after code and buffer zones
     db_next_addr = highest_address;
     // DB labels will be fixed during second pass when actual data locations are known
@@ -337,10 +392,18 @@ void Assembler::AssemblerEngine::second_pass(const Assembler::Program& program) 
             process_directive(directive);
         } else if (stmt->type == Assembler::ASTNodeType::LABEL) {
             const auto& label = static_cast<const Assembler::Label&>(*stmt);
-            process_label(label); // Process the label to add it to symbol table
+            // Labels are already processed in first pass, just track for DB assignment
             last_label_name = label.name; // Remember this label for potential DB assignment
+            // Update current_address to match the label's address from first pass
+            auto it = symbol_table.find(label.name);
+            if (it != symbol_table.end() && it->second.defined) {
+                current_address = it->second.address;
+            }
         } else if (stmt->type == Assembler::ASTNodeType::INSTRUCTION) {
             const auto& instruction = static_cast<const Instruction&>(*stmt);
+            DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING,
+                "[PASS2_ADDR] before {} at current_address=0x{:04X}, bytecode.size()=0x{:04X}",
+                instruction.mnemonic, current_address, bytecode.size());
             if (instruction.mnemonic != "DB") {
                 // Pad bytecode to current_address before emitting
                 while (bytecode.size() < current_address) {
@@ -353,20 +416,36 @@ void Assembler::AssemblerEngine::second_pass(const Assembler::Program& program) 
                 }
             }
             process_instruction(instruction);
+            DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING,
+                "[PASS2_ADDR] after {} at current_address=0x{:04X}, bytecode.size()=0x{:04X}",
+                instruction.mnemonic, current_address, bytecode.size());
         }
     }
     
     // After processing all statements, resolve entry point
+    DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING,
+        "[ENTRY_POINT] Looking for entry point symbol: '{}'", entry_point_symbol);
+    DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING,
+        "[ENTRY_POINT] first_instruction_address_set={}, first_instruction_address=0x{:04X}", 
+        first_instruction_address_set, first_instruction_address);
+    
     auto entry_it = symbol_table.find(entry_point_symbol);
     if (entry_it != symbol_table.end() && entry_it->second.defined) {
         // Use the specified entry point symbol if it exists and is defined
         entry_address = entry_it->second.address;
+        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING,
+            "[ENTRY_POINT] Found symbol '{}' at address 0x{:04X}", entry_point_symbol, entry_address);
     } else if (first_instruction_address_set) {
         // Fall back to first instruction
         entry_address = first_instruction_address;
+        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING,
+            "[ENTRY_POINT] Symbol '{}' not found, using first instruction at 0x{:04X}", 
+            entry_point_symbol, entry_address);
     } else {
         // No instructions at all - default to 0
         entry_address = 0;
+        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING,
+            "[ENTRY_POINT] No entry symbol or instructions found, using address 0");
     }
 }
 
@@ -557,8 +636,82 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         return;
     }
 
-    // Don't emit opcode for instructions that handle it themselves (like MOV which can be LOAD_IMM/LOAD/etc)
-    if (mnemonic != "MOV" && mnemonic != "MOV64" && mnemonic != "MOVEX") {
+    // Special handling for CMP with immediate operand BEFORE emitting opcode
+    if ((mnemonic == "CMP" || mnemonic == "CMP64" || mnemonic == "CMPEX") &&
+        instruction.operands.size() == 2 &&
+        !dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[1].get())) {
+        
+        // Handle CMP reg, immediate by loading immediate into a temporary register first
+        auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get());
+        if (!reg_expr) {
+            add_error(mnemonic + " first operand must be a register", instruction.line, instruction.column);
+            return;
+        }
+        
+        uint8_t dest_reg = get_register_number(reg_expr->name);
+        
+        // Choose a temporary register intelligently based on architecture and usage
+        uint8_t temp_reg;
+        if (Config::architecture == Architecture::X64) {
+            // In x64 mode, prefer R15 (extended register, rarely used)
+            // If R15 is already the dest_reg, find the closest unused extended register
+            if (dest_reg == 15) {
+                // Try R14, R13, R12, R11, R10, R9, R8, avoiding RSP(4) and RBP(5)
+                for (uint8_t reg = 14; reg >= 8; reg--) {
+                    if (reg != dest_reg) {
+                        temp_reg = reg;
+                        break;
+                    }
+                }
+                // If somehow all extended registers are used (unlikely), fallback to RDX
+                if (dest_reg == 15 && temp_reg == 15) {
+                    temp_reg = 2;  // RDX
+                }
+            } else {
+                temp_reg = 15;  // R15 - default choice for x64
+            }
+        } else {
+            // In x86 mode, only registers 0-7 are available (RAX-RDI)
+            // Must avoid RSP(4) and RBP(5), and prefer not clobbering dest_reg
+            // Strategy: prefer RDX(2), then RAX(0), then RCX(1), then RBX(3)
+            const uint8_t rsp_reg = 4;
+            const uint8_t rbp_reg = 5;
+            const uint8_t preferred_temps[] = {2, 0, 1, 3, 6, 7};  // RDX, RAX, RCX, RBX, RSI, RDI
+            
+            temp_reg = 2;  // Default to RDX
+            for (uint8_t candidate : preferred_temps) {
+                if (candidate != dest_reg && candidate != rsp_reg && candidate != rbp_reg) {
+                    temp_reg = candidate;
+                    break;
+                }
+            }
+        }
+        
+        // Evaluate the immediate value
+        bool is_symbol;
+        std::string symbol_name;
+        int64_t imm_value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
+        
+        // Emit LOAD_IMM temp_reg, immediate
+        emit_byte(static_cast<uint8_t>(Opcode::LOAD_IMM));
+        emit_byte(temp_reg);
+        if (is_symbol) {
+            emit_forward_ref(symbol_name, 4);
+        } else {
+            emit_dword(static_cast<uint32_t>(imm_value));
+        }
+        
+        // Emit CMP dest_reg, temp_reg
+        emit_byte(opcode); // CMP opcode
+        emit_byte(dest_reg);
+        emit_byte(temp_reg);
+        
+        return; // Early return, we've handled the entire instruction
+    }
+
+    // Don't emit opcode for instructions that handle it themselves (like MOV which can be LOAD_IMM/LOAD/etc, or LOAD which can become LOADR)
+    if (mnemonic != "MOV" && mnemonic != "MOV64" && mnemonic != "MOVEX" &&
+        mnemonic != "LOAD" && mnemonic != "STORE" && mnemonic != "LOADR" && mnemonic != "STORER") {
         emit_byte(opcode);
     }
     // Handle different instruction formats
@@ -922,11 +1075,13 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                mnemonic == "ADDEX" ||
                mnemonic == "SUBEX" || mnemonic == "CMPEX") {
         // Format: INSTRUCTION reg1, reg2
+        // Note: CMP with immediate second operand is handled earlier in encode_instruction()
         if (instruction.operands.size() != 2) {
             add_error(mnemonic + " requires 2 operands", instruction.line, instruction.column);
             return;
         }
 
+        // Standard two-register handling
         for (size_t i = 0; i < instruction.operands.size(); ++i) {
             const auto& operand = instruction.operands[i];
             if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(operand.get())) {
@@ -1029,18 +1184,52 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             return;
         }
 
-        // Register operand
+        // Get destination register
+        uint8_t dst_reg_num;
         if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
-            emit_byte(get_register_number(reg_expr->name));
+            dst_reg_num = get_register_number(reg_expr->name);
         } else {
             add_error("First operand must be a register", instruction.line, instruction.column);
             return;
         }
 
+        // Second operand: Check if it's a memory reference with a register (e.g., LOAD EBX, [ESI])
+        auto& second_operand = instruction.operands[1];
+        if (is_bracket_register_syntax(second_operand.get())) {
+            // Emit LOADR or STORER instead of LOAD/STORE
+            auto mem_expr = static_cast<const MemoryReferenceExpression*>(second_operand.get());
+            auto base_reg = static_cast<const RegisterExpression*>(mem_expr->base.get());
+            uint8_t addr_reg_num = get_register_number(base_reg->name);
+            
+            if (mnemonic == "LOAD") {
+                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS2_EMIT] LOAD with bracket syntax -> emitting LOADR (3 bytes) at 0x{:04X}", current_address);
+                emit_byte(static_cast<uint8_t>(Opcode::LOADR));
+                emit_byte(dst_reg_num);
+                emit_byte(addr_reg_num);
+            } else if (mnemonic == "STORE") {
+                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS2_EMIT] STORE with bracket syntax -> emitting STORER (3 bytes) at 0x{:04X}", current_address);
+                emit_byte(static_cast<uint8_t>(Opcode::STORER));
+                emit_byte(dst_reg_num);
+                emit_byte(addr_reg_num);
+            } else {
+                add_error(mnemonic + " with register indirect addressing not supported", instruction.line, instruction.column);
+            }
+            return;
+        }
+        
+        // Fall through to address handling for non-bracket syntax
+        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS2_EMIT] {} without bracket syntax -> emitting normal LOAD/STORE (6 bytes) at 0x{:04X}", mnemonic, current_address);
+        
+        // Emit the opcode for this instruction (LOAD/STORE/LEA/SWAP/LOADR/STORER)
+        emit_byte(opcode);
+        
+        // Emit register byte
+        emit_byte(dst_reg_num);
+        
         // Second operand: For LOADR/STORER it's a register, for others it's an address
         if (mnemonic == "LOADR" || mnemonic == "STORER") {
             // Second operand must be a register
-            if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get())) {
+            if (auto reg_expr = dynamic_cast<const RegisterExpression*>(second_operand.get())) {
                 emit_byte(get_register_number(reg_expr->name));
             } else {
                 add_error("Second operand must be a register for " + mnemonic, instruction.line, instruction.column);
@@ -1050,7 +1239,7 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             // Address operand
             bool is_symbol;
             std::string symbol_name;
-            int64_t addr_value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
+            int64_t addr_value = evaluate_expression(*second_operand, is_symbol, symbol_name);
 
             if (is_symbol) {
                 emit_forward_ref(symbol_name, 4); // Use 32-bit addresses
@@ -1511,6 +1700,20 @@ void Assembler::AssemblerEngine::emit_forward_ref(const std::string& symbol, siz
     }
 }
 
+/**
+ * @brief Helper function to detect if an instruction operand uses bracket syntax (register indirect addressing)
+ * @param operand The operand expression to check
+ * @return true if operand is [register], false otherwise
+ */
+bool Assembler::AssemblerEngine::is_bracket_register_syntax(const Assembler::Expression* operand) {
+    if (auto mem_expr = dynamic_cast<const Assembler::MemoryReferenceExpression*>(operand)) {
+        if (dynamic_cast<const Assembler::RegisterExpression*>(mem_expr->base.get())) {
+            return true;
+        }
+    }
+    return false;
+}
+
 size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemonic, const std::vector<std::unique_ptr<Assembler::Expression>>& operands) {
     // Basic instruction size calculations for Demi Engine
     if (mnemonic == "NOP" || mnemonic == "HALT" || mnemonic == "RET" ||
@@ -1537,11 +1740,21 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
         return 3; // default: opcode + register + 1-byte immediate
     } else if (mnemonic == "LOAD_IMM64") {
         return 10; // opcode + register + 8-byte immediate
+    } else if (mnemonic == "CMP" || mnemonic == "CMP64" || mnemonic == "CMPEX") {
+        // CMP with immediate requires LOAD_IMM + CMP (9 bytes total)
+        // CMP with register is just CMP (3 bytes)
+        if (operands.size() >= 2) {
+            bool second_is_reg = dynamic_cast<const RegisterExpression*>(operands[1].get()) != nullptr;
+            if (!second_is_reg) {
+                return 9; // LOAD_IMM (6 bytes) + CMP (3 bytes)
+            }
+        }
+        return 3; // opcode + reg1 + reg2
     } else if (mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "MOV" ||
-               mnemonic == "CMP" || mnemonic == "MUL" || mnemonic == "DIV" ||
+               mnemonic == "MUL" || mnemonic == "DIV" ||
                mnemonic == "MOD" || mnemonic == "AND" || mnemonic == "OR" ||
                mnemonic == "XOR" || mnemonic == "ADD64" || mnemonic == "SUB64" ||
-               mnemonic == "MOV64" || mnemonic == "CMP64" || mnemonic == "MUL64" ||
+               mnemonic == "MOV64" || mnemonic == "MUL64" ||
                mnemonic == "DIV64" || mnemonic == "MOD64" || mnemonic == "AND64" ||
                mnemonic == "OR64" || mnemonic == "XOR64") {
         return 3; // opcode + reg1 + reg2 (2-operand instructions)
@@ -1558,14 +1771,32 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
                mnemonic == "DEC" || mnemonic == "NOT" || mnemonic == "INC64" ||
                mnemonic == "DEC64" || mnemonic == "NOT64") {
         return 2; // opcode + register
+    } else if (mnemonic == "LOADR" || mnemonic == "STORER") {
+        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} -> 3 bytes (explicit LOADR/STORER)", mnemonic);
+        return 3; // opcode + register + register
+    } else if (mnemonic == "LOAD" || mnemonic == "STORE" || mnemonic == "LEA") {
+        // Check if EITHER operand is [register] syntax -> will become LOADR/STORER (3 bytes)
+        if (operands.size() >= 2) {
+            // Check operand 0 (for STORE [reg], value syntax if it exists)
+            if (is_bracket_register_syntax(operands[0].get())) {
+                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} with operand[0] bracket syntax -> 3 bytes (will become LOADR/STORER)", mnemonic);
+                return 3; // opcode + dest_reg + addr_reg
+            }
+            // Check operand 1 (for LOAD reg, [reg] or STORE reg, [reg] syntax)
+            if (is_bracket_register_syntax(operands[1].get())) {
+                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} with operand[1] bracket syntax -> 3 bytes (will become LOADR/STORER)", mnemonic);
+                return 3; // opcode + dest_reg + addr_reg
+            }
+        }
+        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} without bracket syntax -> 6 bytes (normal LOAD/STORE)", mnemonic);
+        return 6; // opcode + register + 4-byte address
     } else if (mnemonic == "OUT" || mnemonic == "IN" || mnemonic == "OUTB" ||
                mnemonic == "INB" || mnemonic == "OUTW" || mnemonic == "INW" ||
                mnemonic == "OUTL" || mnemonic == "INL" || mnemonic == "OUTSTR" ||
-               mnemonic == "INSTR" || mnemonic == "LOAD" || mnemonic == "LOADR" ||
-               mnemonic == "STORER" || mnemonic == "STORE" ||
-               mnemonic == "LEA" || mnemonic == "SWAP" || mnemonic == "SHL" ||
+               mnemonic == "INSTR" ||
+               mnemonic == "SWAP" || mnemonic == "SHL" ||
                mnemonic == "SHR") {
-        return 3; // opcode + register + address/port/immediate/register
+        return 3; // opcode + register + port/immediate/register
     } else if (mnemonic == "LOADEX" || mnemonic == "STOREX") {
         return 10; // opcode + register + 8-byte address
     }
@@ -1983,10 +2214,34 @@ void Assembler::AssemblerEngine::handle_extern_directive(const std::vector<std::
 
 void Assembler::AssemblerEngine::handle_data_section() {
     current_section = ".data";
+    has_explicit_sections = true;
+    // Set current_address to data section base (0x100)
+    if (current_address < data_section_base) {
+        current_address = data_section_base;
+    }
 }
 
 void Assembler::AssemblerEngine::handle_text_section() {
     current_section = ".text";
+    has_explicit_sections = true;
+    
+    // Calculate .text section base dynamically
+    // It starts after .data section, aligned to section boundary
+    if (data_section_size > 0) {
+        // .text starts after .data, with alignment
+        uint32_t data_end = data_section_base + data_section_size;
+        // Align to section_alignment boundary (e.g., 0x100 = 256 bytes)
+        text_section_base = ((data_end + section_alignment - 1) / section_alignment) * section_alignment;
+    } else {
+        // No .data section yet, use default minimum base
+        // Start at least at 0x100 to leave room for potential .data
+        text_section_base = data_section_base;
+    }
+    
+    // Set current_address to text section base
+    if (current_address < text_section_base) {
+        current_address = text_section_base;
+    }
 }
 
 Architecture Assembler::AssemblerEngine::detect_architecture(const Program& program) {

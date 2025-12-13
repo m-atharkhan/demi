@@ -850,6 +850,12 @@ public:
                 Config::assembly_file = value;
             });
 
+        // Assembly output argument
+        parser.add_value_arg("assembly_output", "--assembly-output", "-ao", "Output assembled bytecode to file (default: out.hex)", "Execution",
+            [this](const std::string& value) {
+                Config::assembly_output = value.empty() ? "out.hex" : value;
+            });
+
         // Compile argument
         parser.add_value_arg("compile", "--compile", "-o", "Compile program into a standalone executable (optionally specify output name)", "Execution",
             [this](const std::string& value) {
@@ -1327,6 +1333,39 @@ private:
                 for (const auto& [name, symbol] : symbols) {
                     std::cout << "  " << name << " = 0x" << std::hex << symbol.address << std::dec << std::endl;
                 }
+            }
+        }
+
+        // Save bytecode to file if -ao option is specified
+        if (!Config::assembly_output.empty()) {
+            try {
+                std::ofstream outfile(Config::assembly_output, std::ios::binary);
+                if (!outfile) {
+                    std::cerr << "Error: Could not open output file: " << Config::assembly_output << std::endl;
+                    return;
+                }
+                
+                outfile.write(reinterpret_cast<const char*>(bytecode.data()), bytecode.size());
+                outfile.close();
+                
+                std::cout << "Bytecode written to: " << Config::assembly_output << " (" << bytecode.size() << " bytes)" << std::endl;
+
+                // Print symbol table for debugging
+                const auto& symbols = assembler.get_symbols();
+                if (!symbols.empty()) {
+                    std::cout << "\nSymbol Table:" << std::endl;
+                    std::cout << std::string(60, '=') << std::endl;
+                    for (const auto& [name, symbol] : symbols) {
+                        std::cout << fmt::format("{:<30} 0x{:04X}  ({})", name, symbol.address, symbol.defined ? "defined" : "undefined") << std::endl;
+                    }
+                    std::cout << std::string(60, '=') << std::endl;
+                }
+
+                // If assembly output is specified, don't execute (assemble-only mode)
+                return;
+            } catch (const std::exception& e) {
+                std::cerr << "Error writing output file: " << e.what() << std::endl;
+                return;
             }
         }
 

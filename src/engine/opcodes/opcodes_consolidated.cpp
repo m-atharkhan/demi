@@ -307,9 +307,8 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     sp -= 4;
     cpu.set_sp(sp);
     cpu.get_registers()[4] = sp;
-    cpu.write_mem32(sp, pc + 5);
-
-    // Set new FP
+        uint32_t return_addr = pc + 5;
+        cpu.write_mem32(sp, return_addr);    // Set new FP
     cpu.set_fp(sp);
     
     // Increment call depth
@@ -391,6 +390,8 @@ void handle_cmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             DEBUG_DETAIL(Logging::DebugCategory::CPU_FLAGS, "CMP R{}={} R{}={} Result={} SF={} ZF={} OF={}", 
                 (int)reg1, val1, (int)reg2, val2, (int64_t)masked_result,
                 ((flags & FLAG_SIGN) ? 1 : 0), ((flags & FLAG_ZERO) ? 1 : 0), ((flags & FLAG_OVERFLOW) ? 1 : 0));
+
+
 
             cpu.set_flags(flags);
         }
@@ -497,10 +498,13 @@ void handle_div(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                 throw CPUException(message);
             }
             
-            uint64_t result = val1 / val2;
-            cpu.set_register_mode_aware(static_cast<Register>(reg1), result);
+            uint64_t quotient = val1 / val2;
+            uint64_t remainder = val1 % val2;
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), quotient);
+            // Set remainder in RDX (register 2) to match x86 DIV behavior
+            cpu.set_register_mode_aware(static_cast<Register>(2), remainder);
             
-            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} / {} = {}", reg1, val1, val2, result);
+            DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} / {} = {} (remainder in RDX: {})", reg1, val1, val2, quotient, remainder);
         }
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
@@ -998,6 +1002,8 @@ void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         
         cpu.set_register_mode_aware(static_cast<Register>(reg), cpu.get_memory()[addr]);
         
+
+        
         cpu.set_pc(cpu.get_pc() + 2 + addr_size);
     } else {
         running = false;
@@ -1044,7 +1050,9 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         }
         
         // Load value from memory address into destination register
-        cpu.get_registers()[dest_reg] = cpu.get_memory()[addr];
+        // LOADR loads a single byte, so we need to zero-extend it properly
+        uint8_t byte_value = cpu.get_memory()[addr];
+        cpu.set_register_mode_aware(static_cast<Register>(dest_reg), static_cast<uint32_t>(byte_value));
         cpu.set_pc(cpu.get_pc() + 3);
         
         DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(

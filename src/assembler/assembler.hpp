@@ -61,6 +61,14 @@ private:
     size_t memory_size = 0; // Memory size set by .memory directive (0 = use default)
     std::string current_section = ".text"; // Current section name
     
+    // Section base addresses for memory layout
+    uint32_t data_section_base = 0x100;  // .data starts at 0x100 (fixed)
+    uint32_t text_section_base = 0;      // .text base (calculated dynamically)
+    uint32_t data_section_size = 0;      // Track .data section size
+    uint32_t text_section_size = 0;      // Track .text section size
+    bool has_explicit_sections = false;   // Track if .data/.text used
+    uint32_t section_alignment = 0x100;  // Align sections to 256-byte boundaries
+    
     // DB format detection
     bool use_simple_db_format = false; // True for multiple DBs or with .org
     
@@ -131,6 +139,9 @@ private:
     void add_error(const std::string& message, size_t line, size_t column);
     void init_opcode_table();
     void init_register_table();
+    
+    // Bracket syntax detection helper (static for use in both passes)
+    static bool is_bracket_register_syntax(const Expression* operand);
 };
 
 } // namespace Assembler

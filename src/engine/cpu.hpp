@@ -320,9 +320,9 @@ public:
 
     void set_register_64(Register reg, uint64_t value) { set_register(reg, value); }
     void set_register_32(Register reg, uint32_t value) {
-        // Preserve upper 32 bits when setting lower 32 bits
-        uint64_t current = get_register(reg);
-        set_register(reg, (current & 0xFFFFFFFF00000000ULL) | value);
+        // In x86-64, writing to 32-bit register zeros the upper 32 bits
+        // This is standard x86-64 behavior
+        set_register(reg, static_cast<uint64_t>(value));
     }
     void set_register_16(Register reg, uint16_t value) {
         // Preserve upper 48 bits when setting lower 16 bits
