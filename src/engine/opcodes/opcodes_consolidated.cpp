@@ -1119,53 +1119,33 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
 
 // Implementation from load_imm.cpp
 void handle_load_imm(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // LOAD_IMM supports variable-length immediates based on register:
-    // - 4-byte immediate for legacy registers (R0-R7)
-    // - 1-byte immediate for extended registers (R8-R15) - matching Assembler behavior
+    // LOAD_IMM always uses 4-byte immediate for all registers (6 bytes total)
+    // This matches the current assembler behavior
     
-    if (cpu.get_pc() + 2 < program.size()) {
-        uint8_t reg = program[cpu.get_pc() + 1];
+    if (cpu.get_pc() + 5 >= program.size()) {
+        std::string message = "Unexpected end of program reading LOAD_IMM";
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), "");
+        running = false;
+        return;
+    }
+    
+    uint8_t reg = program[cpu.get_pc() + 1];
+    
+    if (reg < cpu.get_registers_64().size()) {
+        uint32_t value = static_cast<uint32_t>(program[cpu.get_pc() + 2]) |
+                        (static_cast<uint32_t>(program[cpu.get_pc() + 3]) << 8) |
+                        (static_cast<uint32_t>(program[cpu.get_pc() + 4]) << 16) |
+                        (static_cast<uint32_t>(program[cpu.get_pc() + 5]) << 24);
         
-        // Determine immediate size based on register
-        // R0-R7 (0-7) are legacy 32-bit registers -> 4 byte immediate
-        bool is_32bit_reg = (reg < 8);
+        DEBUG_INSTRUCTION("LOAD_IMM", cpu.get_pc(), fmt::format("R{}, 0x{:08X}", reg, value), "");
         
-        if (reg < cpu.get_registers().size()) {
-            uint32_t value;
-            size_t pc_increment;
-            
-            if (is_32bit_reg) {
-                // Expect 4-byte immediate
-                if (cpu.get_pc() + 5 >= program.size()) {
-                     // Error: not enough bytes
-                     std::string message = "Unexpected end of program reading LOAD_IMM 32-bit immediate";
-                     ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), "");
-                     running = false;
-                     return;
-                }
-                value = static_cast<uint32_t>(program[cpu.get_pc() + 2]) |
-                       (static_cast<uint32_t>(program[cpu.get_pc() + 3]) << 8) |
-                       (static_cast<uint32_t>(program[cpu.get_pc() + 4]) << 16) |
-                       (static_cast<uint32_t>(program[cpu.get_pc() + 5]) << 24);
-                pc_increment = 6;
-                DEBUG_INSTRUCTION("LOAD_IMM", cpu.get_pc(), fmt::format("R{}, 0x{:08X} (32-bit)", reg, value), "");
-            } else {
-                // Expect 1-byte immediate
-                value = program[cpu.get_pc() + 2];
-                pc_increment = 3;
-                DEBUG_INSTRUCTION("LOAD_IMM", cpu.get_pc(), fmt::format("R{}, 0x{:02X} (8-bit)", reg, value), "");
-            }
-            
-            cpu.set_register_mode_aware(static_cast<Register>(reg), value);
-            cpu.sync_legacy_registers();
-            
-            cpu.set_pc(cpu.get_pc() + pc_increment);
-        } else {
-            cpu.set_pc(cpu.get_pc() + 3);
-        }
+        cpu.set_register_mode_aware(static_cast<Register>(reg), value);
+        cpu.sync_legacy_registers();
+        cpu.set_pc(cpu.get_pc() + 6);
     } else {
         running = false;
     }
+    
     cpu.print_state("LOAD_IMM");
 }
 

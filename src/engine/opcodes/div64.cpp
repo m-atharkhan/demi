@@ -57,14 +57,21 @@ void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
 
     // Perform 64-bit division
     uint64_t result = dividend / divisor;
+    uint64_t remainder = dividend % divisor;
 
     // Set result in 64-bit register array
     cpu.get_registers_64()[dest_reg] = result;
+
+    // Store remainder in RDX (register 2), following x86 convention
+    cpu.get_registers_64()[2] = remainder;
 
     // Also update legacy register if it's a legacy register (R0-R7)
     if (dest_reg < 8) {
         cpu.get_registers()[dest_reg] = static_cast<uint32_t>(result);
     }
+    
+    // Update legacy RDX as well
+    cpu.get_registers()[2] = static_cast<uint32_t>(remainder);
 
     // Set flags based on the result
     bool zero = (result == 0);
@@ -81,8 +88,8 @@ void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     cpu.set_flags(flags);
 
     Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
-        fmt::format("[PC=0x{:04X}] [DIV64] Result: R{} = 0x{:016X} (Flags: C={} O={} S={} Z={})",
-        pc, dest_reg, result,
+        fmt::format("[PC=0x{:04X}] [DIV64] Result: R{} = 0x{:016X}, RDX (remainder) = 0x{:016X} (Flags: C={} O={} S={} Z={})",
+        pc, dest_reg, result, remainder,
         (flags & FLAG_CARRY) ? 1 : 0,
         (flags & FLAG_OVERFLOW) ? 1 : 0,
         (flags & FLAG_SIGN) ? 1 : 0,

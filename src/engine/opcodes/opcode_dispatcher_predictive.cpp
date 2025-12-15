@@ -92,7 +92,7 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             value |= static_cast<uint32_t>(program[pc + 5]) << 24;
             
             #ifndef NDEBUG
-            if (__builtin_expect(reg >= cpu.get_registers().size(), 0)) {
+            if (__builtin_expect(reg >= cpu.get_registers_64().size(), 0)) {
                 #ifdef VM_DEBUG_BOUNDS
                 Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
                     fmt::format("[LOAD_IMM] Invalid register R{}", reg), Logging::DebugLevel::CRITICAL);
@@ -109,11 +109,7 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             }
             #endif
             
-            cpu.get_registers()[reg] = value;
-            // Also update the 64-bit register array to maintain consistency
-            if (reg < cpu.get_registers_64().size()) {
-                cpu.get_registers_64()[reg] = static_cast<uint64_t>(value);
-            }
+            cpu.set_register_mode_aware(static_cast<Register>(reg), value);
             cpu.set_pc(pc + 6);
             break;
         }
