@@ -1715,89 +1715,124 @@ bool Assembler::AssemblerEngine::is_bracket_register_syntax(const Assembler::Exp
 }
 
 size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemonic, const std::vector<std::unique_ptr<Assembler::Expression>>& operands) {
-    // Basic instruction size calculations for Demi Engine
-    if (mnemonic == "NOP" || mnemonic == "HALT" || mnemonic == "RET" ||
-        mnemonic == "PUSH_FLAG" || mnemonic == "POP_FLAG" ||
-        // Interrupt operations (no operands)
-        mnemonic == "CLI" || mnemonic == "STI" || mnemonic == "IRET" ||
-        // SIMD instructions with no operands
-        mnemonic == "VADD" || mnemonic == "VMUL" || mnemonic == "VDOT" ||
-        mnemonic == "VMAX" || mnemonic == "VBROADCAST" || mnemonic == "VCMPGT" ||
-        mnemonic == "PACKB" || mnemonic == "UNPACKB") {
-        return 1;
-    } else if (mnemonic == "INT") {
-        return 2; // opcode + vector byte
-    } else if (mnemonic == "LOAD_IMM") {
-        // Size depends on register type: 1-byte for 8-bit regs, 4-byte for 32-bit regs
-        if (operands.size() >= 1) {
-            if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(operands[0].get())) {
-                // Use register_sizes map to correctly identify 32-bit registers
-                bool is_32bit_reg = (register_sizes.find(reg_expr->name) != register_sizes.end() && 
-                                     register_sizes[reg_expr->name] == 32);
-                return is_32bit_reg ? 6 : 3; // opcode + register + (4 or 1)-byte immediate
+    // Mirror encode_instruction()'s x64 auto-upgrade logic so label addresses
+    // computed during the first pass match the bytes emitted in the second pass.
+    std::string effective_mnemonic = mnemonic;
+    bool use_64bit = false;
+    for (const auto& operand : operands) {
+        if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(operand.get())) {
+            auto it = register_sizes.find(reg_expr->name);
+            if (it != register_sizes.end() && it->second == 64) {
+                use_64bit = true;
+                break;
             }
         }
-        return 3; // default: opcode + register + 1-byte immediate
-    } else if (mnemonic == "LOAD_IMM64") {
+    }
+
+    if (use_64bit) {
+        if (effective_mnemonic == "MOV") effective_mnemonic = "MOV64";
+        else if (effective_mnemonic == "ADD") effective_mnemonic = "ADD64";
+        else if (effective_mnemonic == "SUB") effective_mnemonic = "SUB64";
+        else if (effective_mnemonic == "MUL") effective_mnemonic = "MUL64";
+        else if (effective_mnemonic == "DIV") effective_mnemonic = "DIV64";
+        else if (effective_mnemonic == "AND") effective_mnemonic = "AND64";
+        else if (effective_mnemonic == "OR") effective_mnemonic = "OR64";
+        else if (effective_mnemonic == "XOR") effective_mnemonic = "XOR64";
+        else if (effective_mnemonic == "SHL") effective_mnemonic = "SHL64";
+        else if (effective_mnemonic == "SHR") effective_mnemonic = "SHR64";
+        else if (effective_mnemonic == "CMP") effective_mnemonic = "CMP64";
+        else if (effective_mnemonic == "NOT") effective_mnemonic = "NOT64";
+        else if (effective_mnemonic == "INC") effective_mnemonic = "INC64";
+        else if (effective_mnemonic == "DEC") effective_mnemonic = "DEC64";
+        else if (effective_mnemonic == "MOD") effective_mnemonic = "MOD64";
+        else if (effective_mnemonic == "LOAD_IMM") effective_mnemonic = "LOAD_IMM64";
+        else if (effective_mnemonic == "LOAD") effective_mnemonic = "LOADEX";
+        else if (effective_mnemonic == "STORE") effective_mnemonic = "STOREEX";
+    }
+
+    // Basic instruction size calculations for Demi Engine
+    if (effective_mnemonic == "NOP" || effective_mnemonic == "HALT" || effective_mnemonic == "RET" ||
+        effective_mnemonic == "PUSH_FLAG" || effective_mnemonic == "POP_FLAG" ||
+        // Interrupt operations (no operands)
+        effective_mnemonic == "CLI" || effective_mnemonic == "STI" || effective_mnemonic == "IRET" ||
+        // SIMD instructions with no operands
+        effective_mnemonic == "VADD" || effective_mnemonic == "VMUL" || effective_mnemonic == "VDOT" ||
+        effective_mnemonic == "VMAX" || effective_mnemonic == "VBROADCAST" || effective_mnemonic == "VCMPGT" ||
+        effective_mnemonic == "PACKB" || effective_mnemonic == "UNPACKB") {
+        return 1;
+    } else if (effective_mnemonic == "INT") {
+        return 2; // opcode + vector byte
+    } else if (effective_mnemonic == "LOAD_IMM") {
+        // LOAD_IMM always uses 4-byte immediate (6 bytes total) for GPRs
+        // This matches what encode_instruction emits (emit_dword for CMP rewrite)
+        return 6; // opcode + register + 4-byte immediate
+    } else if (effective_mnemonic == "LOAD_IMM64") {
         return 10; // opcode + register + 8-byte immediate
-    } else if (mnemonic == "CMP" || mnemonic == "CMP64" || mnemonic == "CMPEX") {
-        // CMP with immediate requires LOAD_IMM + CMP (9 bytes total)
-        // CMP with register is just CMP (3 bytes)
+    } else if (effective_mnemonic == "CMP" || effective_mnemonic == "CMP64" || effective_mnemonic == "CMPEX") {
+        // CMP with immediate requires LOAD_IMM + CMP
+        // CMP64 with imm: LOAD_IMM64 (10 bytes) + CMP64 (3 bytes) = 13 bytes
+        // CMP with imm: LOAD_IMM (6 bytes) + CMP (3 bytes) = 9 bytes
         if (operands.size() >= 2) {
             bool second_is_reg = dynamic_cast<const RegisterExpression*>(operands[1].get()) != nullptr;
             if (!second_is_reg) {
+                // Check if using 64-bit variant
+                if (effective_mnemonic == "CMP64" || effective_mnemonic == "CMPEX") {
+                    return 13; // LOAD_IMM64 (10) + CMP64 (3)
+                }
                 return 9; // LOAD_IMM (6 bytes) + CMP (3 bytes)
             }
         }
         return 3; // opcode + reg1 + reg2
-    } else if (mnemonic == "ADD" || mnemonic == "SUB" || mnemonic == "MOV" ||
-               mnemonic == "MUL" || mnemonic == "DIV" ||
-               mnemonic == "MOD" || mnemonic == "AND" || mnemonic == "OR" ||
-               mnemonic == "XOR" || mnemonic == "ADD64" || mnemonic == "SUB64" ||
-               mnemonic == "MOV64" || mnemonic == "MUL64" ||
-               mnemonic == "DIV64" || mnemonic == "MOD64" || mnemonic == "AND64" ||
-               mnemonic == "OR64" || mnemonic == "XOR64") {
+    } else if (effective_mnemonic == "MUL64" || effective_mnemonic == "DIV64" ||
+               effective_mnemonic == "AND64" || effective_mnemonic == "OR64" ||
+               effective_mnemonic == "XOR64" || effective_mnemonic == "MOD64" ||
+               effective_mnemonic == "MULEX" || effective_mnemonic == "DIVEX") {
+        return 4; // opcode + dest_reg + src_reg1 + src_reg2
+    } else if (effective_mnemonic == "ADD" || effective_mnemonic == "SUB" || effective_mnemonic == "MOV" ||
+               effective_mnemonic == "MUL" || effective_mnemonic == "DIV" ||
+               effective_mnemonic == "MOD" || effective_mnemonic == "AND" || effective_mnemonic == "OR" ||
+               effective_mnemonic == "XOR" || effective_mnemonic == "ADD64" || effective_mnemonic == "SUB64" ||
+               effective_mnemonic == "MOV64") {
         return 3; // opcode + reg1 + reg2 (2-operand instructions)
-    } else if (mnemonic == "MULEX" || mnemonic == "DIVEX") {
-        return 4; // opcode + dest_reg + src_reg1 + src_reg2 (3-operand instructions)
-    } else if (mnemonic == "JMP" || mnemonic == "JZ" || mnemonic == "JE" ||
-               mnemonic == "JNZ" || mnemonic == "JNE" ||
-               mnemonic == "JS" || mnemonic == "JNS" || mnemonic == "JC" ||
-               mnemonic == "JNC" || mnemonic == "JO" || mnemonic == "JNO" ||
-               mnemonic == "JG" || mnemonic == "JL" || mnemonic == "JGE" ||
-               mnemonic == "JLE" || mnemonic == "CALL") {
+    } else if (effective_mnemonic == "JMP" || effective_mnemonic == "JZ" || effective_mnemonic == "JE" ||
+               effective_mnemonic == "JNZ" || effective_mnemonic == "JNE" ||
+               effective_mnemonic == "JS" || effective_mnemonic == "JNS" || effective_mnemonic == "JC" ||
+               effective_mnemonic == "JNC" || effective_mnemonic == "JO" || effective_mnemonic == "JNO" ||
+               effective_mnemonic == "JG" || effective_mnemonic == "JL" || effective_mnemonic == "JGE" ||
+               effective_mnemonic == "JLE" || effective_mnemonic == "CALL") {
         return 5; // opcode + 4-byte address
-    } else if (mnemonic == "PUSH" || mnemonic == "POP" || mnemonic == "INC" ||
-               mnemonic == "DEC" || mnemonic == "NOT" || mnemonic == "INC64" ||
-               mnemonic == "DEC64" || mnemonic == "NOT64") {
+    } else if (effective_mnemonic == "PUSH" || effective_mnemonic == "POP" || effective_mnemonic == "INC" ||
+               effective_mnemonic == "DEC" || effective_mnemonic == "NOT" || effective_mnemonic == "INC64" ||
+               effective_mnemonic == "DEC64" || effective_mnemonic == "NOT64") {
         return 2; // opcode + register
-    } else if (mnemonic == "LOADR" || mnemonic == "STORER") {
-        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} -> 3 bytes (explicit LOADR/STORER)", mnemonic);
+    } else if (effective_mnemonic == "LOADR" || effective_mnemonic == "STORER") {
+        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} -> 3 bytes (explicit LOADR/STORER)", effective_mnemonic);
         return 3; // opcode + register + register
-    } else if (mnemonic == "LOAD" || mnemonic == "STORE" || mnemonic == "LEA") {
+    } else if (effective_mnemonic == "LOAD" || effective_mnemonic == "STORE" || effective_mnemonic == "LEA") {
         // Check if EITHER operand is [register] syntax -> will become LOADR/STORER (3 bytes)
         if (operands.size() >= 2) {
             // Check operand 0 (for STORE [reg], value syntax if it exists)
             if (is_bracket_register_syntax(operands[0].get())) {
-                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} with operand[0] bracket syntax -> 3 bytes (will become LOADR/STORER)", mnemonic);
+                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} with operand[0] bracket syntax -> 3 bytes (will become LOADR/STORER)", effective_mnemonic);
                 return 3; // opcode + dest_reg + addr_reg
             }
             // Check operand 1 (for LOAD reg, [reg] or STORE reg, [reg] syntax)
             if (is_bracket_register_syntax(operands[1].get())) {
-                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} with operand[1] bracket syntax -> 3 bytes (will become LOADR/STORER)", mnemonic);
+                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} with operand[1] bracket syntax -> 3 bytes (will become LOADR/STORER)", effective_mnemonic);
                 return 3; // opcode + dest_reg + addr_reg
             }
         }
-        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} without bracket syntax -> 6 bytes (normal LOAD/STORE)", mnemonic);
+        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} without bracket syntax -> 6 bytes (normal LOAD/STORE)", effective_mnemonic);
         return 6; // opcode + register + 4-byte address
-    } else if (mnemonic == "OUT" || mnemonic == "IN" || mnemonic == "OUTB" ||
-               mnemonic == "INB" || mnemonic == "OUTW" || mnemonic == "INW" ||
-               mnemonic == "OUTL" || mnemonic == "INL" || mnemonic == "OUTSTR" ||
-               mnemonic == "INSTR" ||
-               mnemonic == "SWAP" || mnemonic == "SHL" ||
-               mnemonic == "SHR") {
+    } else if (effective_mnemonic == "OUT" || effective_mnemonic == "IN" || effective_mnemonic == "OUTB" ||
+               effective_mnemonic == "INB" || effective_mnemonic == "OUTW" || effective_mnemonic == "INW" ||
+               effective_mnemonic == "OUTL" || effective_mnemonic == "INL" || effective_mnemonic == "OUTSTR" ||
+               effective_mnemonic == "INSTR" ||
+               effective_mnemonic == "SWAP" || effective_mnemonic == "SHL" ||
+               effective_mnemonic == "SHR" || effective_mnemonic == "SHL64" ||
+               effective_mnemonic == "SHR64") {
         return 3; // opcode + register + port/immediate/register
-    } else if (mnemonic == "LOADEX" || mnemonic == "STOREX") {
+    } else if (effective_mnemonic == "LOADEX" || effective_mnemonic == "STOREX" || effective_mnemonic == "STOREEX") {
         return 10; // opcode + register + 8-byte address
     }
 
