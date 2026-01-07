@@ -2,6 +2,8 @@
 
 ## Date: October 3, 2025
 
+**Note:** This document is a historical snapshot (Oct 2025). For current test counts and status, see `docs/testing/TEST_FRAMEWORK_STATUS.md`.
+
 ## Mission Accomplished ✅
 
 **All 79 unit tests passing (100%)**

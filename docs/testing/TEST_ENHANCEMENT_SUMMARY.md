@@ -2,6 +2,8 @@
 
 ## Date: October 3, 2025
 
+**Note:** This document is a historical snapshot (Oct 2025). For current test counts and status, see `docs/testing/TEST_FRAMEWORK_STATUS.md`.
+
 ## Overview
 
 This document summarizes the recent enhancements to the DemiEngine test framework, including the implementation of negative tests and the groundwork for in-assembly test case support.

@@ -26,10 +26,10 @@ This directory contains all testing-related documentation for DemiEngine, includ
 
 ## Current Test Status
 
-**Total**: 219/219 tests passing (100% coverage)
+**Total**: 516 passed, 3 skipped, 0 failed (519 total)
 
-- **Unit Tests**: 101/101 ✅
-- **Assembly Tests**: 118/118 ✅
+- **Unit Tests**: 145/145 ✅
+- **In-Assembly Tests**: 371 passed, 3 skipped, 0 failed (374 total)
 
 **Last Updated**: Documentation update reflecting current test status
 
@@ -38,6 +38,10 @@ This directory contains all testing-related documentation for DemiEngine, includ
 ### Running Tests
 
 ```bash
+# Filter output (applies to both -ut and -at)
+./bin/demi-engine --test-filter fails   # show only failing tests
+./bin/demi-engine --test-filter success # show only passing tests (alias: 'pass')
+
 # Run all tests
 ./bin/demi-engine --test
 

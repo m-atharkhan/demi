@@ -24,7 +24,7 @@ Complete testing framework documentation, test writing guides, and status report
 
 - **[Test Framework Design](./testing/TEST_FRAMEWORK_DESIGN.md)** - Architecture and design
 - **[Test Quick Reference](./testing/TEST_QUICK_REFERENCE.md)** - Running and writing tests
-- **Current Status**: 219/219 tests passing (118 assembly + 101 unit tests)
+- **Current Status**: 516 passed, 3 skipped, 0 failed (145 unit + 371 in-assembly; 519 total)
 
 ### 💻 [Codebase Documentation](./codebase/README.md)
 
@@ -54,12 +54,12 @@ make
 # Run hex program
 ./bin/demi-engine -H tests/hex/helloworld.hex
 
-# Run all tests (219 tests)
+# Run all tests
 ./bin/demi-engine -ut && ./bin/demi-engine -at
 
 # Run specific test category
-./bin/demi-engine --unit-test           # 101 unit tests
-./bin/demi-engine --assembly-test       # 118 assembly tests
+./bin/demi-engine --unit-test           # 145 unit tests
+./bin/demi-engine --assembly-test       # 374 in-assembly tests (3 skipped)
 
 # Show help
 ./bin/demi-engine --help
@@ -75,7 +75,7 @@ make
 - **63 Opcodes**: Core instruction set (arithmetic, logic, memory, control flow, I/O, stack)
 - **Assembly Toolchain**: Lexer → Parser → Assembler → Bytecode
 - **Device I/O**: Extensible device framework
-- **Testing**: 219/219 tests passing (118 assembly + 101 unit tests, 100% coverage)
+- **Testing**: 516 passed, 3 skipped, 0 failed (145 unit + 371 in-assembly; 519 total)
 - **Native Executables**: x86-64 ELF generation with embedded VM
 
 ### Planned Features 🔄
