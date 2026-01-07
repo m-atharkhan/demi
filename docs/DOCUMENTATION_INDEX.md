@@ -37,7 +37,7 @@ Refer to the sections below for detailed navigation and descriptions of each doc
 | **Testing**         | [Test Framework Design](testing/TEST_FRAMEWORK_DESIGN.md)      | Complete testing architecture          |
 |                     | [Test Quick Reference](testing/TEST_QUICK_REFERENCE.md)        | Running and writing tests              |
 |                     | [Test Flags](testing/TEST_FLAGS.md)                            | CPU flags testing guide                |
-|                     | [Test Status](testing/TEST_FRAMEWORK_STATUS.md)                | Current test coverage (188/188)        |
+|                     | [Test Status](testing/TEST_FRAMEWORK_STATUS.md)                | Current test status (516 passed, 3 skipped, 0 failed; 519 total) |
 | **Codebase**        | [Architecture](codebase/README.md)                             | Core system design                     |
 |                     | [API Reference](codebase/API_REFERENCE.md)                     | Complete API documentation             |
 |                     | [Error Handling](development/ERROR_HANDLING_IMPLEMENTATION.md) | Error & debug system implementation    |
@@ -180,10 +180,9 @@ docs/
 
 - **Opcodes**: 63 implemented / 151 defined (42%)
 - **Registers**: 134 (x86-64 style architecture)
-- **Tests**: 188/188 passing (100% coverage)
-  - Unit: 78/78
-  - Assembly: 68/68
-  - Integration: 42/42
+- **Tests**: 516 passed, 3 skipped, 0 failed (519 total)
+  - Unit: 145 passed, 0 failed (145 total)
+  - In-assembly: 371 passed, 3 skipped, 0 failed (374 total)
 
 ---
 
