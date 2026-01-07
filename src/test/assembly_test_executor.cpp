@@ -104,10 +104,12 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
     
     TestResult result(test_case.name);
     result.set_metadata(test_case.description, test_case.author, test_case.category, test_case.tags);
+
+    const bool defer_test_line_output = (Config::test_show_mode != TestShowMode::ALL);
     
     // Check if test is marked to skip
     if (test_case.get_skip()) {
-        if (!Config::quiet_assembly_test) {
+        if (!defer_test_line_output && !Config::quiet_assembly_test) {
             std::cout << test_case.name << " (skipped)" << std::endl;
         }
         result.skipped = true;
@@ -117,11 +119,9 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
     
     auto start_time = std::chrono::high_resolution_clock::now();
     
-    // Print test name at the start (in both normal and quiet modes, but suppress detailed output)
-    if (Config::quiet_assembly_test) {
-        std::cout << test_case.name << " ";
-        std::cout.flush();
-    } else {
+    // In ALL mode, print the test name immediately (progress-style output).
+    // In filtered modes, defer printing until we know whether this test matches the filter.
+    if (!defer_test_line_output) {
         std::cout << test_case.name << " ";
         std::cout.flush();
     }
@@ -266,13 +266,35 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
     auto end_time = std::chrono::high_resolution_clock::now();
     result.execution_time_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
     
-    // Print progress indicator (checkmark or cross) - always print in both normal and quiet modes
-    if (result.passed) {
-        std::cout << "\033[32m✓\033[0m" << std::endl;  // Green checkmark for passed
-    } else {
-        std::cout << "\033[31m✗\033[0m" << std::endl;  // Red X for failed
+    // Print progress indicator (checkmark or cross).
+    // In filtered modes, only print if the test matches the show filter.
+    bool should_show = false;
+    if (!result.skipped) {
+        switch (Config::test_show_mode) {
+            case TestShowMode::ALL:
+                should_show = true;
+                break;
+            case TestShowMode::FAILS:
+                should_show = !result.passed;
+                break;
+            case TestShowMode::SUCCESS:
+                should_show = result.passed;
+                break;
+        }
     }
-    std::cout.flush();
+
+    if (should_show) {
+        if (defer_test_line_output) {
+            std::cout << test_case.name << " ";
+        }
+
+        if (result.passed) {
+            std::cout << "\033[32m✓\033[0m" << std::endl;  // Green checkmark for passed
+        } else {
+            std::cout << "\033[31m✗\033[0m" << std::endl;  // Red X for failed
+        }
+        std::cout.flush();
+    }
     
     return result;
 }
