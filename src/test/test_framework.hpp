@@ -724,6 +724,32 @@ public:
     void print_results(const std::vector<TestResult>& results) {
         int passed = 0, failed = 0;
 
+        auto matches_show_mode = [](const TestResult& result) {
+            switch (Config::test_show_mode) {
+                case TestShowMode::ALL:
+                    return true;
+                case TestShowMode::FAILS:
+                    return !result.passed;
+                case TestShowMode::SUCCESS:
+                    return result.passed;
+                default:
+                    return true;
+            }
+        };
+
+        std::vector<TestResult> shown_results;
+        shown_results.reserve(results.size());
+        if (Config::test_show_mode != TestShowMode::ALL) {
+            for (const auto& result : results) {
+                if (matches_show_mode(result)) {
+                    shown_results.push_back(result);
+                }
+            }
+        }
+
+        const std::vector<TestResult>& display_results =
+            (Config::test_show_mode == TestShowMode::ALL) ? results : shown_results;
+
         // Print header (skip in quiet mode)
         if (!Config::quiet) {
             std::cout << "\n" << fmt::format("{}┌────────────────────────────────────────────────────────────┐{}\n",
@@ -734,26 +760,37 @@ public:
                                     "\033[36m", "\033[0m");
         }
 
-        // Collect failures and organize tests by category
+        // Always compute overall stats from all results (even if filtering display)
+        for (const auto& result : results) {
+            if (result.passed) {
+                ++passed;
+            } else {
+                ++failed;
+            }
+        }
+
+        // Collect failures and organize displayed tests by category
+        int shown_passed = 0;
+        int shown_failed = 0;
         std::vector<TestResult> failures;
         // category -> (passed, total, total_time_ms, vector of results)
         std::map<std::string, std::tuple<int, int, double, std::vector<TestResult>>> category_data;
 
-        // Organize results by category
-        for (const auto& result : results) {
-            // Track statistics
-            if (result.passed) ++passed;
-            else {
-                ++failed;
+        for (const auto& result : display_results) {
+            if (result.passed) {
+                ++shown_passed;
+            } else {
+                ++shown_failed;
                 failures.push_back(result);
             }
 
-            // Track category data
             auto& data = category_data[result.category];
             std::get<1>(data)++; // total count
             std::get<2>(data) += result.duration_ms; // total time
-            if (result.passed) std::get<0>(data)++; // passed count
-            std::get<3>(data).push_back(result); // store the result
+            if (result.passed) {
+                std::get<0>(data)++; // passed count
+            }
+            std::get<3>(data).push_back(result);
         }
 
         // In normal mode, show tree structure with categories and tests
@@ -861,15 +898,41 @@ public:
             }
         }
         
-        const char* summary_color = (failed == 0) ? "\033[32m" : "\033[33m";
-        std::cout << fmt::format("\n{}Unit Tests: {} passed / {}{} \033[90m[{:.1f}ms total, {:.2f}ms avg]\033[0m\n",
-                                summary_color, passed, results.size(), "\033[0m",
-                                total_time, total_time / results.size());
-        
-        if (failed > 0) {
-            std::cout << fmt::format("\033[31m{} test(s) failed\033[0m\n", failed);
+        if (Config::test_show_mode != TestShowMode::ALL) {
+            std::string mode_name;
+            switch (Config::test_show_mode) {
+                case TestShowMode::FAILS: mode_name = "Failed"; break;
+                case TestShowMode::SUCCESS: mode_name = "Successful"; break;
+                default: mode_name = "Shown"; break;
+            }
+
+            std::cout << fmt::format("\n{} Tests: {} (\033[32mpassed: {}\033[0m, \033[31mfailed: {}\033[0m) \033[90m[{:.1f}ms total]\033[0m\n",
+                                    mode_name, display_results.size(), shown_passed, shown_failed, total_time);
+
+            if (display_results.empty()) {
+                std::string mode_name_lower;
+                switch (Config::test_show_mode) {
+                    case TestShowMode::FAILS: mode_name_lower = "failed"; break;
+                    case TestShowMode::SUCCESS: mode_name_lower = "successful"; break;
+                    default: mode_name_lower = "matching"; break;
+                }
+                std::cout << fmt::format("\033[1;36mNo {} unit tests found.\033[0m\n", mode_name_lower);
+            } else if (shown_failed == 0) {
+                std::cout << fmt::format("\033[1;32m✓ All {} shown unit tests passed!\033[0m\n", display_results.size());
+            } else {
+                std::cout << fmt::format("\033[1;31m✗ {} unit test(s) failed\033[0m\n", shown_failed);
+            }
+        } else {
+            const char* summary_color = (failed == 0) ? "\033[32m" : "\033[33m";
+            std::cout << fmt::format("\n{}Unit Tests: {} passed / {}{} \033[90m[{:.1f}ms total, {:.2f}ms avg]\033[0m\n",
+                                    summary_color, passed, results.size(), "\033[0m",
+                                    total_time, total_time / results.size());
+            
+            if (failed > 0) {
+                std::cout << fmt::format("\033[31m{} test(s) failed\033[0m\n", failed);
+            }
         }
-        
+
         if (!Config::quiet && slowest) {
             std::cout << fmt::format("\033[90mSlowest test: {} [{:.1f}ms]\033[0m\n", 
                                    slowest->name, slowest->duration_ms);
@@ -910,33 +973,48 @@ private:
                 Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, fmt::format("Unit Test: {} ({})", test.name, test.category), Logging::DebugLevel::INFO);
             }
 
-            // Track if test produces output
+            // Track if test produces output (used for pretty separators in ALL mode)
             bool has_output = false;
-            
-            // Create a custom buffer that tracks writes and also outputs normally
+
+            const bool suppress_stream_output =
+                test.expect_error || (Config::test_show_mode != TestShowMode::ALL);
+
+            // Create custom buffers
             class TrackingBuf : public std::streambuf {
                 std::streambuf* original;
                 bool* output_flag;
             public:
                 TrackingBuf(std::streambuf* orig, bool* flag) : original(orig), output_flag(flag) {}
-                
+
                 int overflow(int c) override {
                     *output_flag = true;
                     return original->sputc(c);
                 }
-                
+
                 std::streamsize xsputn(const char* s, std::streamsize n) override {
                     if (n > 0) *output_flag = true;
                     return original->sputn(s, n);
                 }
             };
-            
+
+            class NullBuf : public std::streambuf {
+            public:
+                int overflow(int c) override { return c; }
+                std::streamsize xsputn(const char* /*s*/, std::streamsize n) override { return n; }
+            };
+
             TrackingBuf tracking_cout(cout_buf, &has_output);
             TrackingBuf tracking_cerr(cerr_buf, &has_output);
-            
-            // Redirect to tracking buffers
-            std::cout.rdbuf(&tracking_cout);
-            std::cerr.rdbuf(&tracking_cerr);
+            NullBuf null_buf;
+
+            // Redirect output
+            if (suppress_stream_output) {
+                std::cout.rdbuf(&null_buf);
+                std::cerr.rdbuf(&null_buf);
+            } else {
+                std::cout.rdbuf(&tracking_cout);
+                std::cerr.rdbuf(&tracking_cerr);
+            }
 
             // Reset global state
             Config::error_count = 0;
@@ -951,8 +1029,8 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
 
-            // Only print separators if test produced output
-            if (has_output) {
+            // Only print separators if test produced output (and output wasn't suppressed)
+            if (!suppress_stream_output && has_output) {
                 // Print footer separator with centered test name
                 const int total_width = 60;
                 const int label_width = test.name.length() + 4; // "[name] "
