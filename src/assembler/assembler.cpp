@@ -288,14 +288,27 @@ void AssemblerEngine::first_pass(const Program& program) {
         if (stmt->type == ASTNodeType::LABEL) {
             const auto& label = static_cast<const Label&>(*stmt);
             // Add label to symbol table with current address
-            if (symbol_table.find(label.name) != symbol_table.end()) {
-                // If it exists and is already defined, error (will be caught in second pass)
-                if (!symbol_table[label.name].defined) {
-                    // It was declared (e.g. global/extern), now we define it
-                    symbol_table[label.name].address = current_address;
-                    symbol_table[label.name].defined = true;
-                    symbol_table[label.name].section = current_section;
+            auto it = symbol_table.find(label.name);
+            if (it != symbol_table.end()) {
+                // Duplicate definition of an already-defined label is an error.
+                // (Allow a previously-declared global/extern symbol to be defined once.)
+                if (it->second.defined) {
+                    const std::string message = "Duplicate label: " + label.name;
+                    errors.push_back("Line " + std::to_string(label.line) + ", Column " + std::to_string(label.column) + ": " + message);
+                    Logging::ErrorHandler::instance().report_parse(
+                        Logging::ErrorCode::PARSE_DUPLICATE_LABEL,
+                        message,
+                        "",
+                        label.line,
+                        label.column);
+                    last_label_name = label.name;
+                    continue; // Keep scanning to accumulate errors, but don't redefine the symbol.
                 }
+
+                // It was declared (e.g. global/extern), now we define it.
+                it->second.address = current_address;
+                it->second.defined = true;
+                it->second.section = current_section;
             } else {
                 symbol_table[label.name] = Symbol(label.name, current_address, true);
                 symbol_table[label.name].section = current_section;
@@ -709,9 +722,22 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         return; // Early return, we've handled the entire instruction
     }
 
-    // Don't emit opcode for instructions that handle it themselves (like MOV which can be LOAD_IMM/LOAD/etc, or LOAD which can become LOADR)
+    // Don't emit opcode for instructions that handle it themselves (like MOV which can be LOAD_IMM/LOAD/etc, or LOAD which can become LOADR).
+    // Also skip early emission for ALU-like ops, since some forms expand to multiple instructions.
+    const bool is_alu_like = (mnemonic == "ADD" || mnemonic == "SUB" ||
+                             mnemonic == "CMP" ||
+                             mnemonic == "MUL" || mnemonic == "DIV" ||
+                             mnemonic == "MOD" || mnemonic == "AND" ||
+                             mnemonic == "OR" || mnemonic == "XOR" ||
+                             mnemonic == "ADD64" || mnemonic == "SUB64" ||
+                             mnemonic == "CMP64" || mnemonic == "MODECMP" ||
+                             mnemonic == "ADDEX" ||
+                             mnemonic == "SUBEX" || mnemonic == "CMPEX");
+
     if (mnemonic != "MOV" && mnemonic != "MOV64" && mnemonic != "MOVEX" &&
-        mnemonic != "LOAD" && mnemonic != "STORE" && mnemonic != "LOADR" && mnemonic != "STORER") {
+        mnemonic != "LOAD" && mnemonic != "STORE" && mnemonic != "LOADR" && mnemonic != "STORER" &&
+        mnemonic != "LEA" && mnemonic != "SWAP" &&
+        !is_alu_like) {
         emit_byte(opcode);
     }
     // Handle different instruction formats
@@ -1074,20 +1100,31 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                mnemonic == "CMP64" || mnemonic == "MODECMP" ||
                mnemonic == "ADDEX" ||
                mnemonic == "SUBEX" || mnemonic == "CMPEX") {
-        // Format: INSTRUCTION reg1, reg2
+        // Format: INSTRUCTION dest, src (2 operands - dest = dest op src)
+        //     OR: INSTRUCTION dest, src1, src2 (3 operands - dest = src1 op src2)
         // Note: CMP with immediate second operand is handled earlier in encode_instruction()
-        if (instruction.operands.size() != 2) {
-            add_error(mnemonic + " requires 2 operands", instruction.line, instruction.column);
+
+        const bool supports_three_operand = (mnemonic == "MOD" ||
+                             mnemonic == "ADD64" || mnemonic == "SUB64" ||
+                             mnemonic == "MUL64" || mnemonic == "DIV64" ||
+                             mnemonic == "MOD64" || mnemonic == "AND64" ||
+                             mnemonic == "OR64" || mnemonic == "XOR64");
+
+        // Support 2-operand form for all ALU-like ops, and 3-operand form only for select 64-bit ops.
+        if (instruction.operands.size() != 2 && instruction.operands.size() != 3) {
+            add_error(mnemonic + " requires 2 or 3 operands", instruction.line, instruction.column);
             return;
         }
 
-        // Standard two-register handling
+        if (instruction.operands.size() == 3 && !supports_three_operand) {
+            add_error(mnemonic + " 3-operand form is only supported for MOD and select 64-bit ALU ops", instruction.line, instruction.column);
+            return;
+        }
+
+        // Validate all operands are registers
         for (size_t i = 0; i < instruction.operands.size(); ++i) {
             const auto& operand = instruction.operands[i];
-            if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(operand.get())) {
-                emit_byte(get_register_number(reg_expr->name));
-            } else {
-                // Debug: print what type of operand we got
+            if (!dynamic_cast<const Assembler::RegisterExpression*>(operand.get())) {
                 std::string operand_type = "unknown";
                 if (dynamic_cast<const Assembler::ImmediateExpression*>(operand.get())) {
                     operand_type = "immediate";
@@ -1100,6 +1137,47 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                          instruction.line, instruction.column);
                 return;
             }
+        }
+
+        if (instruction.operands.size() == 2) {
+            // 2-operand form: dest, src -> emit dest, src (dest = dest op src)
+            emit_byte(opcode);
+            auto dest_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get());
+            auto src_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[1].get());
+            emit_byte(get_register_number(dest_reg->name));
+            emit_byte(get_register_number(src_reg->name));
+        } else {
+            // 3-operand form: dest, src1, src2 -> (dest = src1 op src2)
+            // The CPU expects 2 registers where first is both source and dest, so we need to:
+            // 1. If dest != src1: emit MOV64 dest, src1 to copy src1 to dest
+            // 2. Emit OP dest, src2
+            auto dest_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get());
+            auto src1_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[1].get());
+            auto src2_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[2].get());
+            
+            uint8_t dest_num = get_register_number(dest_reg->name);
+            uint8_t src1_num = get_register_number(src1_reg->name);
+            uint8_t src2_num = get_register_number(src2_reg->name);
+
+            if (dest_num != src1_num) {
+                const bool is_extended = (dest_num >= 8 || src1_num >= 8);
+                int dest_bits = 0;
+                int src1_bits = 0;
+                auto dest_it = register_sizes.find(dest_reg->name);
+                if (dest_it != register_sizes.end()) dest_bits = dest_it->second;
+                auto src1_it = register_sizes.find(src1_reg->name);
+                if (src1_it != register_sizes.end()) src1_bits = src1_it->second;
+
+                const bool is_64bit_move = (dest_bits == 64 || src1_bits == 64);
+                emit_byte(static_cast<uint8_t>(is_extended ? Opcode::MOVEX : (is_64bit_move ? Opcode::MOV64 : Opcode::MOV)));
+                emit_byte(dest_num);
+                emit_byte(src1_num);
+            }
+            
+            // 2. OP dest, src2
+            emit_byte(opcode);
+            emit_byte(dest_num);
+            emit_byte(src2_num);
         }
     } else if (mnemonic == "MODE32" || mnemonic == "MODE64") {
         // Format: MODE32 or MODE64 (no operands)

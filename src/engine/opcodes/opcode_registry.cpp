@@ -64,6 +64,7 @@ extern void handle_add64(CPU& cpu, const std::vector<uint8_t>& program, bool& ru
 extern void handle_sub64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_mul64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_mod64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_cmp64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
@@ -221,6 +222,7 @@ void OpcodeRegistry::initialize_handlers() {
     REGISTER_OPCODE(0x54, handle_mul64);      // MUL64
     REGISTER_OPCODE(0x55, handle_div64);      // DIV64
     REGISTER_OPCODE(0x56, handle_and64);      // AND64
+    REGISTER_OPCODE(0x5F, handle_mod64);      // MOD64
     REGISTER_OPCODE(0x5C, handle_cmp64);      // CMP64
     REGISTER_OPCODE(0x5D, handle_inc64);      // INC64
     REGISTER_OPCODE(0x5E, handle_dec64);      // DEC64

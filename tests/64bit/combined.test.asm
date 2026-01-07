@@ -36,10 +36,10 @@
     ; Load dividend and perform division
     LOADEX EBX, 2000
     LOAD_IMM64 ECX, 1000
-    DIV64 EDX, EBX, ECX      ; EDX = 100,000 / 1,000 = 100
+    DIV64 ESI, EBX, ECX      ; ESI = 100,000 / 1,000 = 100
     HALT
     
-    .assert_reg EDX, 100
+    .assert_reg ESI, 100
 }
 
 .test "combined and64 with memory ops" {
