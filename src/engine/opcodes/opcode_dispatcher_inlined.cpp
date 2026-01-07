@@ -41,6 +41,7 @@ extern void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& ru
 extern void handle_mul64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_mod64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_cmp64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_loadex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_storex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
@@ -101,27 +102,21 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         #endif
         
         uint8_t reg = program[pc + 1];
-        bool is_32bit_reg = (reg < 8);
         uint32_t value = 0;
-        size_t pc_increment = 3;
+        size_t pc_increment = 6; // LOAD_IMM always uses 4-byte immediate
 
-        if (is_32bit_reg) {
-             if (__builtin_expect(pc + 5 >= program.size(), 0)) {
-                #ifdef VM_DEBUG_BOUNDS
-                Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
-                    fmt::format("[LOAD_IMM] Out of bounds reading 32-bit imm at PC={}", pc), Logging::DebugLevel::CRITICAL);
-                #endif
-                 running = false;
-                 return;
-             }
-             value |= static_cast<uint32_t>(program[pc + 2]);
-             value |= static_cast<uint32_t>(program[pc + 3]) << 8;
-             value |= static_cast<uint32_t>(program[pc + 4]) << 16;
-             value |= static_cast<uint32_t>(program[pc + 5]) << 24;
-             pc_increment = 6;
-        } else {
-             value = program[pc + 2];
+        if (__builtin_expect(pc + 5 >= program.size(), 0)) {
+            #ifdef VM_DEBUG_BOUNDS
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+                fmt::format("[LOAD_IMM] Out of bounds reading imm at PC={}", pc), Logging::DebugLevel::CRITICAL);
+            #endif
+            running = false;
+            return;
         }
+        value |= static_cast<uint32_t>(program[pc + 2]);
+        value |= static_cast<uint32_t>(program[pc + 3]) << 8;
+        value |= static_cast<uint32_t>(program[pc + 4]) << 16;
+        value |= static_cast<uint32_t>(program[pc + 5]) << 24;
         
         #ifndef NDEBUG
         if (__builtin_expect(reg >= cpu.get_registers_64().size(), 0)) {
@@ -682,6 +677,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
             case 0x54: handle_mul64(cpu, program, running); break;  // MUL64
             case 0x55: handle_div64(cpu, program, running); break;  // DIV64
             case 0x56: handle_and64(cpu, program, running); break;  // AND64
+            case 0x5F: handle_mod64(cpu, program, running); break;  // MOD64
             case 0x5B: handle_cmp64(cpu, program, running); break;  // CMP64
             
             // Extended operations (0x60-0x6F range)  

@@ -18,6 +18,9 @@ using Logging::DebugLevel;
 using Logging::ErrorHandler;
 using Logging::ErrorCode;
 
+// Forward declarations for handlers referenced before definition
+void handle_mod64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+
 // Include all opcode header files
 #include "add.hpp"
 #include "and.hpp"
@@ -1151,21 +1154,27 @@ void handle_load_imm(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
 
 // Implementation for LEA (Load Effective Address)
 void handle_lea(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    size_t addr_size = cpu.get_address_size();
+    // LEA always uses 32-bit addresses (4 bytes) regardless of CPU mode
+    const size_t addr_size = 4;
     
     if (cpu.get_pc() + 1 + addr_size < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
-        uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
+        
+        // Read 32-bit address
+        uint32_t addr = 0;
+        for (size_t i = 0; i < 4; i++) {
+            addr |= (static_cast<uint32_t>(program[cpu.get_pc() + 2 + i]) << (i * 8));
+        }
         
         DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
-            "[PC=0x{:04X}] [LEA] PC={} Loading address {} into R{}",
+            "[PC=0x{:04X}] [LEA] PC={} Loading address 0x{:X} into R{}",
             cpu.get_pc(), cpu.get_pc(), addr, reg
         ), DebugLevel::DETAIL);
         
         if (reg < cpu.get_registers().size()) {
-            cpu.set_register_mode_aware(static_cast<Register>(reg), addr);  // Load the address itself
+            cpu.set_register_mode_aware(static_cast<Register>(reg), static_cast<uint64_t>(addr));  // Load the address itself
             DebugHandler::instance().report(DebugCategory::CPU_REGISTERS, fmt::format(
-                "[PC=0x{:04X}] [LEA] R{} = 0x{:02X} (address)",
+                "[PC=0x{:04X}] [LEA] R{} = 0x{:X} (address)",
                 cpu.get_pc(), reg, addr
             ), DebugLevel::DETAIL);
         }
@@ -1909,14 +1918,20 @@ void handle_sub(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Implementation for SWAP
 void handle_swap(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    size_t addr_size = cpu.get_address_size();
+    // SWAP always uses 32-bit addresses (4 bytes) regardless of CPU mode
+    const size_t addr_size = 4;
     
     if (cpu.get_pc() + 1 + addr_size < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
-        uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
+        
+        // Read 32-bit address
+        uint32_t addr = 0;
+        for (size_t i = 0; i < 4; i++) {
+            addr |= (static_cast<uint32_t>(program[cpu.get_pc() + 2 + i]) << (i * 8));
+        }
         
         DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
-            "[PC=0x{:04X}] [SWAP] PC={} Swapping R{} with memory[{}]",
+            "[PC=0x{:04X}] [SWAP] PC={} Swapping R{} with memory[0x{:X}]",
             cpu.get_pc(), cpu.get_pc(), reg, addr
         ), DebugLevel::DETAIL);
 
@@ -1929,7 +1944,7 @@ void handle_swap(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             cpu.get_memory()[addr] = static_cast<uint8_t>(reg_val & 0xFF);
             
             DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
-                "[PC=0x{:04X}] [SWAP] R{} = {}, memory[{}] = {}",
+                "[PC=0x{:04X}] [SWAP] R{} = {}, memory[0x{:X}] = {}",
                 cpu.get_pc(), reg, mem_val, addr, static_cast<uint8_t>(reg_val & 0xFF)
             ), DebugLevel::DETAIL);
         }
@@ -2473,6 +2488,9 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
         case Opcode::DIV64:
             handle_div64(cpu, program, running);
             break;
+        case Opcode::MOD64:
+            handle_mod64(cpu, program, running);
+            break;
         case Opcode::AND64:
             handle_and64(cpu, program, running);
             break;
@@ -2697,6 +2715,64 @@ void handle_add64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     }
 
     cpu.print_state("ADD64");
+}
+
+// Implementation for MOD64 opcode - 64-bit modulo (remainder)
+// Format: MOD64 dest, src1, src2  (dest = src1 % src2)
+void handle_mod64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    uint32_t pc = cpu.get_pc();
+
+    // Check bounds for 3-operand instruction (opcode + 3 registers)
+    if (pc + 3 >= program.size()) {
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] MOD64: Not enough bytes for instruction", pc), Logging::DebugLevel::CRITICAL);
+        running = false;
+        return;
+    }
+
+    uint8_t dest_reg = program[pc + 1];
+    uint8_t src1_reg = program[pc + 2];
+    uint8_t src2_reg = program[pc + 3];
+
+    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+        fmt::format("[PC=0x{:04X}] [MOD64] R{} = R{} % R{}", pc, dest_reg, src1_reg, src2_reg),
+        Logging::DebugLevel::DETAIL);
+
+    if (dest_reg >= cpu.get_registers_64().size() ||
+        src1_reg >= cpu.get_registers_64().size() ||
+        src2_reg >= cpu.get_registers_64().size()) {
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[PC=0x{:04X}] MOD64: Invalid register numbers - dest:{} src1:{} src2:{}",
+                        pc, dest_reg, src1_reg, src2_reg),
+            Logging::DebugLevel::CRITICAL);
+        running = false;
+        return;
+    }
+
+    uint64_t dividend = cpu.get_registers_64()[src1_reg];
+    uint64_t divisor = cpu.get_registers_64()[src2_reg];
+
+    if (divisor == 0) {
+        std::string error_msg = fmt::format("[PC=0x{:04X}] MOD64: Modulo by zero", pc);
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, error_msg, Logging::DebugLevel::CRITICAL);
+        throw CPUException(error_msg);
+    }
+
+    uint64_t result = dividend % divisor;
+    cpu.get_registers_64()[dest_reg] = result;
+
+    if (dest_reg < 8) {
+        cpu.get_registers()[dest_reg] = static_cast<uint32_t>(result);
+    }
+
+    // Update flags (minimal: Z/S; clear C/O)
+    uint32_t flags = cpu.get_flags();
+    flags &= ~(FLAG_ZERO | FLAG_SIGN | FLAG_OVERFLOW | FLAG_CARRY);
+    if (result == 0) flags |= FLAG_ZERO;
+    if (static_cast<int64_t>(result) < 0) flags |= FLAG_SIGN;
+    cpu.set_flags(flags);
+
+    cpu.set_pc(pc + 4);
 }
 
 // Implementation for SUB64 opcode - 64-bit subtraction
