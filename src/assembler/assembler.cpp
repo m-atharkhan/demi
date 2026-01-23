@@ -126,6 +126,39 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["MODE64"] = static_cast<uint8_t>(Opcode::MODE64);
     mnemonic_to_opcode["MODECMP"] = static_cast<uint8_t>(Opcode::MODECMP);
 
+    // SSE-style SIMD Operations (0x80-0x99 range)
+    mnemonic_to_opcode["MOVAPS"] = static_cast<uint8_t>(Opcode::MOVAPS);
+    mnemonic_to_opcode["MOVUPS"] = static_cast<uint8_t>(Opcode::MOVUPS);
+    mnemonic_to_opcode["ADDPS"] = static_cast<uint8_t>(Opcode::ADDPS);
+    mnemonic_to_opcode["SUBPS"] = static_cast<uint8_t>(Opcode::SUBPS);
+    mnemonic_to_opcode["MULPS"] = static_cast<uint8_t>(Opcode::MULPS);
+    mnemonic_to_opcode["DIVPS"] = static_cast<uint8_t>(Opcode::DIVPS);
+    mnemonic_to_opcode["SQRTPS"] = static_cast<uint8_t>(Opcode::SQRTPS);
+    mnemonic_to_opcode["MAXPS"] = static_cast<uint8_t>(Opcode::MAXPS);
+    mnemonic_to_opcode["MINPS"] = static_cast<uint8_t>(Opcode::MINPS);
+    mnemonic_to_opcode["ANDPS"] = static_cast<uint8_t>(Opcode::ANDPS);
+    mnemonic_to_opcode["ORPS"] = static_cast<uint8_t>(Opcode::ORPS);
+    mnemonic_to_opcode["XORPS"] = static_cast<uint8_t>(Opcode::XORPS);
+    mnemonic_to_opcode["CMPPS"] = static_cast<uint8_t>(Opcode::CMPPS);
+
+    // Documentation alias (not a distinct opcode in engine)
+    mnemonic_to_opcode["MOVPS"] = static_cast<uint8_t>(Opcode::MOVAPS);
+
+    // Packed Double Operations (0x8D-0x99 range)
+    mnemonic_to_opcode["MOVAPD"] = static_cast<uint8_t>(Opcode::MOVAPD);
+    mnemonic_to_opcode["MOVUPD"] = static_cast<uint8_t>(Opcode::MOVUPD);
+    mnemonic_to_opcode["ADDPD"] = static_cast<uint8_t>(Opcode::ADDPD);
+    mnemonic_to_opcode["SUBPD"] = static_cast<uint8_t>(Opcode::SUBPD);
+    mnemonic_to_opcode["MULPD"] = static_cast<uint8_t>(Opcode::MULPD);
+    mnemonic_to_opcode["DIVPD"] = static_cast<uint8_t>(Opcode::DIVPD);
+    mnemonic_to_opcode["SQRTPD"] = static_cast<uint8_t>(Opcode::SQRTPD);
+    mnemonic_to_opcode["MAXPD"] = static_cast<uint8_t>(Opcode::MAXPD);
+    mnemonic_to_opcode["MINPD"] = static_cast<uint8_t>(Opcode::MINPD);
+    mnemonic_to_opcode["ANDPD"] = static_cast<uint8_t>(Opcode::ANDPD);
+    mnemonic_to_opcode["ORPD"] = static_cast<uint8_t>(Opcode::ORPD);
+    mnemonic_to_opcode["XORPD"] = static_cast<uint8_t>(Opcode::XORPD);
+    mnemonic_to_opcode["CMPPD"] = static_cast<uint8_t>(Opcode::CMPPD);
+
     // FPU Operations
     mnemonic_to_opcode["FINIT"] = static_cast<uint8_t>(Opcode::FINIT);
     mnemonic_to_opcode["FLD"] = static_cast<uint8_t>(Opcode::FLD);
@@ -160,6 +193,36 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["VCMPGT"] = 0xD9;
     mnemonic_to_opcode["PACKB"] = 0xDA;
     mnemonic_to_opcode["UNPACKB"] = 0xDB;
+
+    // SSE/SIMD Operations (0x80-0x99 range per cpu.hpp)
+    mnemonic_to_opcode["MOVAPS"] = 0x80;  // Move Aligned Packed Single
+    mnemonic_to_opcode["MOVUPS"] = 0x81;  // Move Unaligned Packed Single
+    mnemonic_to_opcode["ADDPS"] = 0x82;   // Add Packed Single
+    mnemonic_to_opcode["SUBPS"] = 0x83;   // Subtract Packed Single
+    mnemonic_to_opcode["MULPS"] = 0x84;   // Multiply Packed Single
+    mnemonic_to_opcode["DIVPS"] = 0x85;   // Divide Packed Single
+    mnemonic_to_opcode["SQRTPS"] = 0x86;  // Square Root Packed Single
+    mnemonic_to_opcode["MAXPS"] = 0x87;   // Maximum Packed Single
+    mnemonic_to_opcode["MINPS"] = 0x88;   // Minimum Packed Single
+    mnemonic_to_opcode["ANDPS"] = 0x89;   // Bitwise AND Packed Single
+    mnemonic_to_opcode["ORPS"] = 0x8A;    // Bitwise OR Packed Single
+    mnemonic_to_opcode["XORPS"] = 0x8B;   // Bitwise XOR Packed Single
+    mnemonic_to_opcode["CMPPS"] = 0x8C;   // Compare Packed Single
+
+    // Packed Double Operations
+    mnemonic_to_opcode["MOVAPD"] = 0x8D;  // Move Aligned Packed Double
+    mnemonic_to_opcode["MOVUPD"] = 0x8E;  // Move Unaligned Packed Double
+    mnemonic_to_opcode["ADDPD"] = 0x8F;   // Add Packed Double
+    mnemonic_to_opcode["SUBPD"] = 0x90;   // Subtract Packed Double
+    mnemonic_to_opcode["MULPD"] = 0x91;   // Multiply Packed Double
+    mnemonic_to_opcode["DIVPD"] = 0x92;   // Divide Packed Double
+    mnemonic_to_opcode["SQRTPD"] = 0x93;  // Square Root Packed Double
+    mnemonic_to_opcode["MAXPD"] = 0x94;   // Maximum Packed Double
+    mnemonic_to_opcode["MINPD"] = 0x95;   // Minimum Packed Double
+    mnemonic_to_opcode["ANDPD"] = 0x96;   // Bitwise AND Packed Double
+    mnemonic_to_opcode["ORPD"] = 0x97;    // Bitwise OR Packed Double
+    mnemonic_to_opcode["XORPD"] = 0x98;   // Bitwise XOR Packed Double
+    mnemonic_to_opcode["CMPPD"] = 0x99;   // Compare Packed Double
 }
 
 void AssemblerEngine::init_register_table() {
@@ -201,6 +264,26 @@ void AssemblerEngine::init_register_table() {
     register_to_number["EBP"] = 5; register_sizes["EBP"] = 32;
     register_to_number["ESI"] = 6; register_sizes["ESI"] = 32;
     register_to_number["EDI"] = 7; register_sizes["EDI"] = 32;
+
+    // XMM registers (stored as 2x64-bit parts in the VM)
+    for (int i = 0; i < 16; ++i) {
+        const int base = 50 + (i * 2); // Register::XMM0 is 50
+        const std::string xmm = "XMM" + std::to_string(i);
+        const std::string xmm_high = xmm + "_HIGH";
+        register_to_number[xmm] = static_cast<uint8_t>(base);
+        register_sizes[xmm] = 128;
+        register_to_number[xmm_high] = static_cast<uint8_t>(base + 1);
+        register_sizes[xmm_high] = 64;
+    }
+
+    // YMM register aliases (refer to the lower 128-bit XMM part)
+    for (int i = 0; i < 16; ++i) {
+        const int base = 50 + (i * 2); // Lower 128 bits
+        const std::string ymm = "YMM" + std::to_string(i);
+        register_to_number[ymm] = static_cast<uint8_t>(base);
+        // register_sizes is a byte-sized field; represent YMM aliases as 128-bit (lower XMM part).
+        register_sizes[ymm] = 128;
+    }
 }
 
 std::vector<uint8_t> AssemblerEngine::assemble(const Program& program) {
@@ -1000,6 +1083,19 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             if (auto src_reg = dynamic_cast<const Assembler::RegisterExpression*>(src)) {
                 uint8_t src_reg_num = get_register_number(src_reg->name);
                 bool src_extended = (src_reg_num >= 8 && src_reg_num <= 15);
+
+                // Explicit MOVEX is strict: it only supports integer extended registers R8-R15.
+                // This prevents accidental use with XMM/YMM or legacy registers.
+                if (mnemonic == "MOVEX") {
+                    if (!(is_extended && src_extended)) {
+                        add_error("MOVEX requires both operands to be extended integer registers R8-R15", instruction.line, instruction.column);
+                        return;
+                    }
+                    emit_byte(static_cast<uint8_t>(Opcode::MOVEX));
+                    emit_byte(dst_reg_num);
+                    emit_byte(src_reg_num);
+                    return;
+                }
                 
                 if (is_extended || src_extended) {
                     emit_byte(static_cast<uint8_t>(Opcode::MOVEX));
@@ -1287,8 +1383,9 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             } else if (mnemonic == "STORE") {
                 DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS2_EMIT] STORE with bracket syntax -> emitting STORER (3 bytes) at 0x{:04X}", current_address);
                 emit_byte(static_cast<uint8_t>(Opcode::STORER));
-                emit_byte(dst_reg_num);
+                // STORER encodes as: [opcode] [addr_reg] [value_reg]
                 emit_byte(addr_reg_num);
+                emit_byte(dst_reg_num);
             } else {
                 add_error(mnemonic + " with register indirect addressing not supported", instruction.line, instruction.column);
             }
@@ -1629,6 +1726,48 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
             emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
             emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
         }
+    } else if (instruction.mnemonic == "CMPPS" || instruction.mnemonic == "CMPPD") {
+        // SSE comparison instructions: reg, reg, imm8
+        if (instruction.operands.size() != 3) {
+            add_error(instruction.mnemonic + " requires 3 operands (dst, src, predicate)", instruction.line, instruction.column);
+            return;
+        }
+
+        auto dst = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get());
+        auto src = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get());
+        auto pred = dynamic_cast<const ImmediateExpression*>(instruction.operands[2].get());
+        if (!dst || !src || !pred) {
+            add_error(instruction.mnemonic + " operands must be: register, register, immediate", instruction.line, instruction.column);
+            return;
+        }
+
+        emit_byte(get_register_number(dst->name));
+        emit_byte(get_register_number(src->name));
+        emit_byte(static_cast<uint8_t>(pred->value & 0xFF)); // Predicate (0-7)
+    } else if (instruction.mnemonic == "MOVAPS" || instruction.mnemonic == "MOVUPS" || instruction.mnemonic == "MOVPS" ||
+               instruction.mnemonic == "ADDPS" || instruction.mnemonic == "SUBPS" || instruction.mnemonic == "MULPS" ||
+               instruction.mnemonic == "DIVPS" || instruction.mnemonic == "SQRTPS" || instruction.mnemonic == "MAXPS" ||
+               instruction.mnemonic == "MINPS" || instruction.mnemonic == "ANDPS" || instruction.mnemonic == "ORPS" ||
+               instruction.mnemonic == "XORPS" ||
+               instruction.mnemonic == "MOVAPD" || instruction.mnemonic == "MOVUPD" || instruction.mnemonic == "ADDPD" ||
+               instruction.mnemonic == "SUBPD" || instruction.mnemonic == "MULPD" || instruction.mnemonic == "DIVPD" ||
+               instruction.mnemonic == "SQRTPD" || instruction.mnemonic == "MAXPD" || instruction.mnemonic == "MINPD" ||
+               instruction.mnemonic == "ANDPD" || instruction.mnemonic == "ORPD" || instruction.mnemonic == "XORPD") {
+        // SSE-style reg, reg SIMD instructions
+        if (instruction.operands.size() != 2) {
+            add_error(instruction.mnemonic + " requires 2 operands", instruction.line, instruction.column);
+            return;
+        }
+
+        auto dst = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get());
+        auto src = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get());
+        if (!dst || !src) {
+            add_error(instruction.mnemonic + " operands must be registers", instruction.line, instruction.column);
+            return;
+        }
+
+        emit_byte(get_register_number(dst->name));
+        emit_byte(get_register_number(src->name));
     } else if (instruction.mnemonic == "NOP" || instruction.mnemonic == "HALT" || 
                instruction.mnemonic == "RET" || instruction.mnemonic == "PUSH_FLAG" || 
                instruction.mnemonic == "POP_FLAG" || instruction.mnemonic == "FINIT" ||
@@ -1870,7 +2009,18 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
                effective_mnemonic == "MUL" || effective_mnemonic == "DIV" ||
                effective_mnemonic == "MOD" || effective_mnemonic == "AND" || effective_mnemonic == "OR" ||
                effective_mnemonic == "XOR" || effective_mnemonic == "ADD64" || effective_mnemonic == "SUB64" ||
-               effective_mnemonic == "MOV64") {
+               effective_mnemonic == "MOV64" ||
+               // SSE-style reg-reg SIMD (opcode + dst + src)
+               effective_mnemonic == "MOVAPS" || effective_mnemonic == "MOVUPS" || effective_mnemonic == "MOVPS" ||
+               effective_mnemonic == "ADDPS" || effective_mnemonic == "SUBPS" || effective_mnemonic == "MULPS" ||
+               effective_mnemonic == "DIVPS" || effective_mnemonic == "SQRTPS" || effective_mnemonic == "MAXPS" ||
+               effective_mnemonic == "MINPS" || effective_mnemonic == "ANDPS" || effective_mnemonic == "ORPS" ||
+               effective_mnemonic == "XORPS" || effective_mnemonic == "CMPPS" ||
+               effective_mnemonic == "MOVAPD" || effective_mnemonic == "MOVUPD" || effective_mnemonic == "ADDPD" ||
+               effective_mnemonic == "SUBPD" || effective_mnemonic == "MULPD" || effective_mnemonic == "DIVPD" ||
+               effective_mnemonic == "SQRTPD" || effective_mnemonic == "MAXPD" || effective_mnemonic == "MINPD" ||
+               effective_mnemonic == "ANDPD" || effective_mnemonic == "ORPD" || effective_mnemonic == "XORPD" ||
+               effective_mnemonic == "CMPPD") {
         return 3; // opcode + reg1 + reg2 (2-operand instructions)
     } else if (effective_mnemonic == "JMP" || effective_mnemonic == "JZ" || effective_mnemonic == "JE" ||
                effective_mnemonic == "JNZ" || effective_mnemonic == "JNE" ||
