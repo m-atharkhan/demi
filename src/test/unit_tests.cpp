@@ -1879,6 +1879,26 @@ TEST_CASE(mov64_chain, "64bit_operations") {
     ctx.assert_register_64_eq(13, 999999);
 }
 
+TEST_CASE(mul64_pop_restores_operand, "64bit_operations") {
+    // Regression test:
+    // PUSH/POP are word-oriented stack ops, but in x64 mode MUL64 reads from the unified 64-bit registers.
+    // POP must update the mode-aware register state, otherwise MUL64 sees stale values.
+    ctx.assemble_code(R"(
+        MODE64
+        LOAD_IMM RAX, 6
+        LOAD_IMM RDX, 5
+        PUSH RDX
+        LOAD_IMM RDX, 0
+        POP RDX
+        MUL64 RAX, RAX, RDX
+        HALT
+    )");
+    ctx.execute_program();
+
+    ctx.assert_register_64_eq(0, 30);
+    ctx.assert_register_64_eq(2, 5);
+}
+
 TEST_CASE(modecmp_32bit_equal, "mode_operations") {
     // Test MODECMP in 32-bit mode with equal values
     ctx.assemble_code(R"(
