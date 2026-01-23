@@ -11,6 +11,8 @@
 #include "../../debug/error_handler.hpp"
 #include <fmt/core.h>
 #include <iomanip>
+#include <cmath>
+#include <cstring>
 
 using Logging::DebugHandler;
 using Logging::DebugCategory;
@@ -1070,25 +1072,25 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
 
 // Implementation of STORER - Store value from register to memory (indirect addressing)
 void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
-    // STORER value_reg, addr_reg
+    // STORER addr_reg, value_reg
     // Store value from value_reg into memory address stored in addr_reg
     if (cpu.get_pc() + 2 < program.size()) {
-        uint8_t value_reg = program[cpu.get_pc() + 1];
-        uint8_t addr_reg = program[cpu.get_pc() + 2];
-        
-        // Check value register bounds
-        if (value_reg >= cpu.get_registers().size()) {
-            std::string context = fmt::format("Register R{} out of range (0-{})", value_reg, cpu.get_registers().size() - 1);
-            std::string message = "Invalid value register in STORER instruction";
-            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
-            running = false;
-            throw CPUException(message);
-        }
+        uint8_t addr_reg = program[cpu.get_pc() + 1];
+        uint8_t value_reg = program[cpu.get_pc() + 2];
         
         // Check address register bounds
         if (addr_reg >= cpu.get_registers().size()) {
             std::string context = fmt::format("Register R{} out of range (0-{})", addr_reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid address register in STORER instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
+            running = false;
+            throw CPUException(message);
+        }
+
+        // Check value register bounds
+        if (value_reg >= cpu.get_registers().size()) {
+            std::string context = fmt::format("Register R{} out of range (0-{})", value_reg, cpu.get_registers().size() - 1);
+            std::string message = "Invalid value register in STORER instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
             throw CPUException(message);
@@ -1107,7 +1109,7 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
         }
         
         // Store value from value_reg into memory address
-        cpu.get_memory()[addr] = static_cast<uint8_t>(cpu.get_registers()[value_reg]);
+        cpu.get_memory()[addr] = static_cast<uint8_t>(cpu.get_register_mode_aware(static_cast<Register>(value_reg)) & 0xFF);
         cpu.set_pc(cpu.get_pc() + 3);
         
         DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
@@ -1190,8 +1192,9 @@ void handle_mov(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 2 < program.size()) {
         uint8_t reg1 = program[cpu.get_pc() + 1];
         uint8_t reg2 = program[cpu.get_pc() + 2];
-        if (reg1 < cpu.get_registers().size() && reg2 < cpu.get_registers().size()) {
-            cpu.get_registers()[reg1] = cpu.get_registers()[reg2];
+        if (cpu.is_valid_register(static_cast<Register>(reg1)) && cpu.is_valid_register(static_cast<Register>(reg2))) {
+            uint64_t value = cpu.get_register_mode_aware(static_cast<Register>(reg2));
+            cpu.set_register_mode_aware(static_cast<Register>(reg1), value);
         }
         cpu.set_pc(cpu.get_pc() + 3);
     } else {
@@ -1510,12 +1513,12 @@ void handle_pop_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& progr
             throw CPUException(message);
         }
         
-        cpu.get_registers()[reg] = cpu.read_mem32(cpu.get_sp());
+        cpu.set_register_mode_aware(static_cast<Register>(reg), cpu.read_mem32(cpu.get_sp()));
         cpu.set_sp(cpu.get_sp() + 4);
 
         DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
             "[PC=0x{:04X}] [POP_ARG] Standalone context: popped from SP={} value={}",
-            pc, cpu.get_sp() - 4, cpu.get_registers()[reg]
+            pc, cpu.get_sp() - 4, cpu.get_register_mode_aware(static_cast<Register>(reg))
         ), DebugLevel::DETAIL);
     }
 
@@ -1539,7 +1542,14 @@ void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         }
         
         uint32_t value = cpu.read_mem32(cpu.get_sp());
-        cpu.get_registers()[reg] = value;
+        if (!cpu.is_valid_register(static_cast<Register>(reg))) {
+            std::string context = fmt::format("Register R{} out of range", reg);
+            std::string message = "Invalid register in POP instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
+            running = false;
+            throw CPUException(message);
+        }
+        cpu.set_register_mode_aware(static_cast<Register>(reg), value);
         DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
             "[PC=0x{:04X}] [POP] PC={} Popping to R{}={}",
             cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), value
@@ -1597,9 +1607,18 @@ void handle_push_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& prog
 void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     if (cpu.get_pc() + 1 < program.size()) {
         uint8_t reg = program[cpu.get_pc() + 1];
+        if (!cpu.is_valid_register(static_cast<Register>(reg))) {
+            std::string context = fmt::format("Register R{} out of range", reg);
+            std::string message = "Invalid register in PUSH instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
+            running = false;
+            throw CPUException(message);
+        }
+
+        uint32_t value = static_cast<uint32_t>(cpu.get_register_mode_aware(static_cast<Register>(reg)) & 0xFFFFFFFFU);
         DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
             "[PC=0x{:04X}] [PUSH] PC={} Pushing R{}={}",
-            cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), cpu.get_registers()[reg]
+            cpu.get_pc(), cpu.get_pc(), static_cast<int>(reg), value
         ), DebugLevel::DETAIL);
         
         // Check for stack overflow (SP going below reasonable minimum)
@@ -1614,7 +1633,7 @@ void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         cpu.set_sp(cpu.get_sp() - 4);
         // Sync only SP to legacy R4 (don't overwrite other legacy registers)
         cpu.get_registers()[4] = cpu.get_sp();
-        cpu.write_mem32(cpu.get_sp(), cpu.get_registers()[reg]);
+        cpu.write_mem32(cpu.get_sp(), value);
         cpu.set_pc(cpu.get_pc() + 2);
     } else {
         running = false;
@@ -2275,6 +2294,648 @@ void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 void handle_inc64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 void handle_dec64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 
+namespace {
+
+inline Register normalize_simd_base(Register reg) {
+    // XMM registers are stored as pairs (low/high). If the high part is passed,
+    // normalize to the base (low) register.
+    const size_t idx = static_cast<size_t>(reg);
+    if ((idx & 1U) != 0U) {
+        return static_cast<Register>(idx - 1);
+    }
+    return reg;
+}
+
+inline bool validate_simd_reg(CPU& cpu, uint8_t reg_byte, const char* opname) {
+    if (reg_byte >= cpu.get_registers_64().size()) {
+        std::string context = fmt::format("Register R{} out of range (max: R{})", reg_byte, cpu.get_registers_64().size() - 1);
+        std::string message = fmt::format("Invalid register access in {} instruction", opname);
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
+        return false;
+    }
+    Register reg = static_cast<Register>(reg_byte);
+    if (!RegisterNames::is_simd(reg)) {
+        std::string context = fmt::format("Register R{} is not a SIMD register", reg_byte);
+        std::string message = fmt::format("Invalid SIMD register in {} instruction", opname);
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
+        return false;
+    }
+    return true;
+}
+
+inline void unpack_ps(uint64_t low, uint64_t high, float out[4]) {
+    uint32_t bits[4];
+    bits[0] = static_cast<uint32_t>(low & 0xFFFFFFFFULL);
+    bits[1] = static_cast<uint32_t>((low >> 32) & 0xFFFFFFFFULL);
+    bits[2] = static_cast<uint32_t>(high & 0xFFFFFFFFULL);
+    bits[3] = static_cast<uint32_t>((high >> 32) & 0xFFFFFFFFULL);
+    std::memcpy(&out[0], &bits[0], sizeof(uint32_t));
+    std::memcpy(&out[1], &bits[1], sizeof(uint32_t));
+    std::memcpy(&out[2], &bits[2], sizeof(uint32_t));
+    std::memcpy(&out[3], &bits[3], sizeof(uint32_t));
+}
+
+inline void pack_ps(const float in[4], uint64_t& low, uint64_t& high) {
+    uint32_t bits[4];
+    std::memcpy(&bits[0], &in[0], sizeof(uint32_t));
+    std::memcpy(&bits[1], &in[1], sizeof(uint32_t));
+    std::memcpy(&bits[2], &in[2], sizeof(uint32_t));
+    std::memcpy(&bits[3], &in[3], sizeof(uint32_t));
+    low = (static_cast<uint64_t>(bits[1]) << 32) | static_cast<uint64_t>(bits[0]);
+    high = (static_cast<uint64_t>(bits[3]) << 32) | static_cast<uint64_t>(bits[2]);
+}
+
+inline void unpack_pd(uint64_t low, uint64_t high, double out[2]) {
+    std::memcpy(&out[0], &low, sizeof(uint64_t));
+    std::memcpy(&out[1], &high, sizeof(uint64_t));
+}
+
+inline void pack_pd(const double in[2], uint64_t& low, uint64_t& high) {
+    std::memcpy(&low, &in[0], sizeof(uint64_t));
+    std::memcpy(&high, &in[1], sizeof(uint64_t));
+}
+
+} // namespace
+
+// SSE-style SIMD handlers (reg, reg; dst is updated)
+static void handle_MOVAPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "MOVAPS") || !validate_simd_reg(cpu, src_b, "MOVAPS")) {
+        running = false;
+        return;
+    }
+
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t low = 0, high = 0;
+    cpu.get_xmm_register(src, low, high);
+    cpu.set_xmm_register(dst, low, high);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("MOVAPS");
+}
+
+static void handle_MOVUPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    // VM does not model alignment, so MOVUPS behaves like MOVAPS.
+    handle_MOVAPS(cpu, program, running);
+}
+
+static void handle_ADDPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "ADDPS") || !validate_simd_reg(cpu, src_b, "ADDPS")) {
+        running = false;
+        return;
+    }
+
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+
+    float a[4], b[4];
+    unpack_ps(dlow, dhigh, a);
+    unpack_ps(slow, shigh, b);
+    for (int i = 0; i < 4; ++i) a[i] = a[i] + b[i];
+    pack_ps(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("ADDPS");
+}
+
+static void handle_SUBPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "SUBPS") || !validate_simd_reg(cpu, src_b, "SUBPS")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+
+    float a[4], b[4];
+    unpack_ps(dlow, dhigh, a);
+    unpack_ps(slow, shigh, b);
+    for (int i = 0; i < 4; ++i) a[i] = a[i] - b[i];
+    pack_ps(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("SUBPS");
+}
+
+static void handle_MULPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "MULPS") || !validate_simd_reg(cpu, src_b, "MULPS")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+
+    float a[4], b[4];
+    unpack_ps(dlow, dhigh, a);
+    unpack_ps(slow, shigh, b);
+    for (int i = 0; i < 4; ++i) a[i] = a[i] * b[i];
+    pack_ps(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("MULPS");
+}
+
+static void handle_DIVPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "DIVPS") || !validate_simd_reg(cpu, src_b, "DIVPS")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    float a[4], b[4];
+    unpack_ps(dlow, dhigh, a);
+    unpack_ps(slow, shigh, b);
+    for (int i = 0; i < 4; ++i) a[i] = a[i] / b[i];
+    pack_ps(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("DIVPS");
+}
+
+static void handle_SQRTPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "SQRTPS") || !validate_simd_reg(cpu, src_b, "SQRTPS")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t slow = 0, shigh = 0;
+    cpu.get_xmm_register(src, slow, shigh);
+    float a[4];
+    unpack_ps(slow, shigh, a);
+    for (int i = 0; i < 4; ++i) a[i] = std::sqrt(a[i]);
+    uint64_t dlow = 0, dhigh = 0;
+    pack_ps(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("SQRTPS");
+}
+
+static void handle_MAXPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "MAXPS") || !validate_simd_reg(cpu, src_b, "MAXPS")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    float a[4], b[4];
+    unpack_ps(dlow, dhigh, a);
+    unpack_ps(slow, shigh, b);
+    for (int i = 0; i < 4; ++i) a[i] = std::fmax(a[i], b[i]);
+    pack_ps(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("MAXPS");
+}
+
+static void handle_MINPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "MINPS") || !validate_simd_reg(cpu, src_b, "MINPS")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    float a[4], b[4];
+    unpack_ps(dlow, dhigh, a);
+    unpack_ps(slow, shigh, b);
+    for (int i = 0; i < 4; ++i) a[i] = std::fmin(a[i], b[i]);
+    pack_ps(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("MINPS");
+}
+
+static void handle_ANDPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "ANDPS") || !validate_simd_reg(cpu, src_b, "ANDPS")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    cpu.set_xmm_register(dst, dlow & slow, dhigh & shigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("ANDPS");
+}
+
+static void handle_ORPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "ORPS") || !validate_simd_reg(cpu, src_b, "ORPS")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    cpu.set_xmm_register(dst, dlow | slow, dhigh | shigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("ORPS");
+}
+
+static void handle_XORPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "XORPS") || !validate_simd_reg(cpu, src_b, "XORPS")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    cpu.set_xmm_register(dst, dlow ^ slow, dhigh ^ shigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("XORPS");
+}
+
+static void handle_MOVAPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    handle_MOVAPS(cpu, program, running);
+}
+
+static void handle_MOVUPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    handle_MOVAPS(cpu, program, running);
+}
+
+static void handle_ADDPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "ADDPD") || !validate_simd_reg(cpu, src_b, "ADDPD")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    double a[2], b[2];
+    unpack_pd(dlow, dhigh, a);
+    unpack_pd(slow, shigh, b);
+    a[0] = a[0] + b[0];
+    a[1] = a[1] + b[1];
+    pack_pd(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("ADDPD");
+}
+
+static void handle_SUBPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "SUBPD") || !validate_simd_reg(cpu, src_b, "SUBPD")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    double a[2], b[2];
+    unpack_pd(dlow, dhigh, a);
+    unpack_pd(slow, shigh, b);
+    a[0] = a[0] - b[0];
+    a[1] = a[1] - b[1];
+    pack_pd(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("SUBPD");
+}
+
+static void handle_MULPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "MULPD") || !validate_simd_reg(cpu, src_b, "MULPD")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    double a[2], b[2];
+    unpack_pd(dlow, dhigh, a);
+    unpack_pd(slow, shigh, b);
+    a[0] = a[0] * b[0];
+    a[1] = a[1] * b[1];
+    pack_pd(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("MULPD");
+}
+
+static void handle_DIVPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "DIVPD") || !validate_simd_reg(cpu, src_b, "DIVPD")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    double a[2], b[2];
+    unpack_pd(dlow, dhigh, a);
+    unpack_pd(slow, shigh, b);
+    a[0] = a[0] / b[0];
+    a[1] = a[1] / b[1];
+    pack_pd(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("DIVPD");
+}
+
+static void handle_SQRTPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "SQRTPD") || !validate_simd_reg(cpu, src_b, "SQRTPD")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t slow = 0, shigh = 0;
+    cpu.get_xmm_register(src, slow, shigh);
+    double a[2];
+    unpack_pd(slow, shigh, a);
+    a[0] = std::sqrt(a[0]);
+    a[1] = std::sqrt(a[1]);
+    uint64_t dlow = 0, dhigh = 0;
+    pack_pd(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("SQRTPD");
+}
+
+static void handle_MAXPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "MAXPD") || !validate_simd_reg(cpu, src_b, "MAXPD")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    double a[2], b[2];
+    unpack_pd(dlow, dhigh, a);
+    unpack_pd(slow, shigh, b);
+    a[0] = std::fmax(a[0], b[0]);
+    a[1] = std::fmax(a[1], b[1]);
+    pack_pd(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("MAXPD");
+}
+
+static void handle_MINPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 2 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    if (!validate_simd_reg(cpu, dst_b, "MINPD") || !validate_simd_reg(cpu, src_b, "MINPD")) {
+        running = false;
+        return;
+    }
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+    double a[2], b[2];
+    unpack_pd(dlow, dhigh, a);
+    unpack_pd(slow, shigh, b);
+    a[0] = std::fmin(a[0], b[0]);
+    a[1] = std::fmin(a[1], b[1]);
+    pack_pd(a, dlow, dhigh);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+    cpu.set_pc(cpu.get_pc() + 3);
+    cpu.print_state("MINPD");
+}
+
+static void handle_ANDPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    handle_ANDPS(cpu, program, running);
+}
+static void handle_ORPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    handle_ORPS(cpu, program, running);
+}
+static void handle_XORPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    handle_XORPS(cpu, program, running);
+}
+
+static void handle_CMPPS(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 3 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    const uint8_t imm8 = program[cpu.get_pc() + 3]; // Comparison predicate
+    if (!validate_simd_reg(cpu, dst_b, "CMPPS") || !validate_simd_reg(cpu, src_b, "CMPPS")) {
+        running = false;
+        return;
+    }
+
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+
+    float a[4], b[4];
+    unpack_ps(dlow, dhigh, a);
+    unpack_ps(slow, shigh, b);
+
+    // Compare and set all bits to 1 if true, 0 if false
+    uint32_t result[4];
+    for (int i = 0; i < 4; ++i) {
+        bool cmp_result = false;
+        switch (imm8 & 0x7) { // Lower 3 bits determine comparison type
+            case 0: cmp_result = (a[i] == b[i]); break; // EQ
+            case 1: cmp_result = (a[i] < b[i]); break;  // LT
+            case 2: cmp_result = (a[i] <= b[i]); break; // LE
+            case 3: cmp_result = std::isunordered(a[i], b[i]); break; // UNORD
+            case 4: cmp_result = (a[i] != b[i]); break; // NEQ
+            case 5: cmp_result = !(a[i] < b[i]); break; // NLT (GE)
+            case 6: cmp_result = !(a[i] <= b[i]); break; // NLE (GT)
+            case 7: cmp_result = !std::isunordered(a[i], b[i]); break; // ORD
+        }
+        result[i] = cmp_result ? 0xFFFFFFFF : 0x00000000;
+    }
+
+    dlow = (static_cast<uint64_t>(result[1]) << 32) | static_cast<uint64_t>(result[0]);
+    dhigh = (static_cast<uint64_t>(result[3]) << 32) | static_cast<uint64_t>(result[2]);
+    cpu.set_xmm_register(dst, dlow, dhigh);
+
+    cpu.set_pc(cpu.get_pc() + 4);
+    cpu.print_state("CMPPS");
+}
+
+static void handle_CMPPD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    if (cpu.get_pc() + 3 >= program.size()) {
+        running = false;
+        return;
+    }
+    const uint8_t dst_b = program[cpu.get_pc() + 1];
+    const uint8_t src_b = program[cpu.get_pc() + 2];
+    const uint8_t imm8 = program[cpu.get_pc() + 3]; // Comparison predicate
+    if (!validate_simd_reg(cpu, dst_b, "CMPPD") || !validate_simd_reg(cpu, src_b, "CMPPD")) {
+        running = false;
+        return;
+    }
+
+    Register dst = normalize_simd_base(static_cast<Register>(dst_b));
+    Register src = normalize_simd_base(static_cast<Register>(src_b));
+    uint64_t dlow = 0, dhigh = 0, slow = 0, shigh = 0;
+    cpu.get_xmm_register(dst, dlow, dhigh);
+    cpu.get_xmm_register(src, slow, shigh);
+
+    double a[2], b[2];
+    unpack_pd(dlow, dhigh, a);
+    unpack_pd(slow, shigh, b);
+
+    // Compare and set all bits to 1 if true, 0 if false
+    uint64_t result[2];
+    for (int i = 0; i < 2; ++i) {
+        bool cmp_result = false;
+        switch (imm8 & 0x7) { // Lower 3 bits determine comparison type
+            case 0: cmp_result = (a[i] == b[i]); break; // EQ
+            case 1: cmp_result = (a[i] < b[i]); break;  // LT
+            case 2: cmp_result = (a[i] <= b[i]); break; // LE
+            case 3: cmp_result = std::isunordered(a[i], b[i]); break; // UNORD
+            case 4: cmp_result = (a[i] != b[i]); break; // NEQ
+            case 5: cmp_result = !(a[i] < b[i]); break; // NLT (GE)
+            case 6: cmp_result = !(a[i] <= b[i]); break; // NLE (GT)
+            case 7: cmp_result = !std::isunordered(a[i], b[i]); break; // ORD
+        }
+        result[i] = cmp_result ? 0xFFFFFFFFFFFFFFFFULL : 0x0000000000000000ULL;
+    }
+
+    dlow = result[0];
+    dhigh = result[1];
+    cpu.set_xmm_register(dst, dlow, dhigh);
+
+    cpu.set_pc(cpu.get_pc() + 4);
+    cpu.print_state("CMPPD");
+}
+
 // Dispatcher function (copied from opcode_dispatcher.cpp)
 void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     DebugHandler::instance().report(DebugCategory::CPU_DISPATCHER, fmt::format(
@@ -2593,6 +3254,86 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
             break;
         case Opcode::FSTSW:
             handle_FSTSW(cpu, program, running);
+            break;
+
+        // SSE-style SIMD (XMM) operations
+        case Opcode::MOVAPS:
+            handle_MOVAPS(cpu, program, running);
+            break;
+        case Opcode::MOVUPS:
+            handle_MOVUPS(cpu, program, running);
+            break;
+        case Opcode::ADDPS:
+            handle_ADDPS(cpu, program, running);
+            break;
+        case Opcode::SUBPS:
+            handle_SUBPS(cpu, program, running);
+            break;
+        case Opcode::MULPS:
+            handle_MULPS(cpu, program, running);
+            break;
+        case Opcode::DIVPS:
+            handle_DIVPS(cpu, program, running);
+            break;
+        case Opcode::SQRTPS:
+            handle_SQRTPS(cpu, program, running);
+            break;
+        case Opcode::MAXPS:
+            handle_MAXPS(cpu, program, running);
+            break;
+        case Opcode::MINPS:
+            handle_MINPS(cpu, program, running);
+            break;
+        case Opcode::ANDPS:
+            handle_ANDPS(cpu, program, running);
+            break;
+        case Opcode::ORPS:
+            handle_ORPS(cpu, program, running);
+            break;
+        case Opcode::XORPS:
+            handle_XORPS(cpu, program, running);
+            break;
+        case Opcode::CMPPS:
+            handle_CMPPS(cpu, program, running);
+            break;
+        case Opcode::MOVAPD:
+            handle_MOVAPD(cpu, program, running);
+            break;
+        case Opcode::MOVUPD:
+            handle_MOVUPD(cpu, program, running);
+            break;
+        case Opcode::ADDPD:
+            handle_ADDPD(cpu, program, running);
+            break;
+        case Opcode::SUBPD:
+            handle_SUBPD(cpu, program, running);
+            break;
+        case Opcode::MULPD:
+            handle_MULPD(cpu, program, running);
+            break;
+        case Opcode::DIVPD:
+            handle_DIVPD(cpu, program, running);
+            break;
+        case Opcode::SQRTPD:
+            handle_SQRTPD(cpu, program, running);
+            break;
+        case Opcode::MAXPD:
+            handle_MAXPD(cpu, program, running);
+            break;
+        case Opcode::MINPD:
+            handle_MINPD(cpu, program, running);
+            break;
+        case Opcode::ANDPD:
+            handle_ANDPD(cpu, program, running);
+            break;
+        case Opcode::ORPD:
+            handle_ORPD(cpu, program, running);
+            break;
+        case Opcode::XORPD:
+            handle_XORPD(cpu, program, running);
+            break;
+        case Opcode::CMPPD:
+            handle_CMPPD(cpu, program, running);
             break;
 
         // SIMD Vector Operations
