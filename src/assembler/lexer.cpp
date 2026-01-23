@@ -231,6 +231,37 @@ void Lexer::init_tables() {
     mnemonics["PACKB"] = TokenType::MNEMONIC;
     mnemonics["UNPACKB"] = TokenType::MNEMONIC;
 
+    // SSE Packed Single (float) Operations (0x80-0x8C)
+    mnemonics["MOVAPS"] = TokenType::MNEMONIC;
+    mnemonics["MOVUPS"] = TokenType::MNEMONIC;
+    mnemonics["ADDPS"] = TokenType::MNEMONIC;
+    mnemonics["SUBPS"] = TokenType::MNEMONIC;
+    mnemonics["MULPS"] = TokenType::MNEMONIC;
+    mnemonics["DIVPS"] = TokenType::MNEMONIC;
+    mnemonics["SQRTPS"] = TokenType::MNEMONIC;
+    mnemonics["MAXPS"] = TokenType::MNEMONIC;
+    mnemonics["MINPS"] = TokenType::MNEMONIC;
+    mnemonics["ANDPS"] = TokenType::MNEMONIC;
+    mnemonics["ORPS"] = TokenType::MNEMONIC;
+    mnemonics["XORPS"] = TokenType::MNEMONIC;
+    mnemonics["CMPPS"] = TokenType::MNEMONIC;
+    mnemonics["MOVPS"] = TokenType::MNEMONIC; // Alias for MOVAPS
+
+    // SSE Packed Double Operations (0x8D-0x99)
+    mnemonics["MOVAPD"] = TokenType::MNEMONIC;
+    mnemonics["MOVUPD"] = TokenType::MNEMONIC;
+    mnemonics["ADDPD"] = TokenType::MNEMONIC;
+    mnemonics["SUBPD"] = TokenType::MNEMONIC;
+    mnemonics["MULPD"] = TokenType::MNEMONIC;
+    mnemonics["DIVPD"] = TokenType::MNEMONIC;
+    mnemonics["SQRTPD"] = TokenType::MNEMONIC;
+    mnemonics["MAXPD"] = TokenType::MNEMONIC;
+    mnemonics["MINPD"] = TokenType::MNEMONIC;
+    mnemonics["ANDPD"] = TokenType::MNEMONIC;
+    mnemonics["ORPD"] = TokenType::MNEMONIC;
+    mnemonics["XORPD"] = TokenType::MNEMONIC;
+    mnemonics["CMPPD"] = TokenType::MNEMONIC;
+
     // Legacy 8-register names (R0-R7)
     for (int i = 0; i < 8; ++i) {
         registers["R" + std::to_string(i)] = TokenType::REGISTER;
@@ -265,6 +296,17 @@ void Lexer::init_tables() {
     registers["EDI"] = TokenType::REGISTER;
     registers["ESP"] = TokenType::REGISTER;
     registers["EBP"] = TokenType::REGISTER;
+
+    // XMM registers (128-bit SIMD)
+    for (int i = 0; i < 16; ++i) {
+        registers["XMM" + std::to_string(i)] = TokenType::REGISTER;
+        registers["XMM" + std::to_string(i) + "_HIGH"] = TokenType::REGISTER;
+    }
+
+    // YMM registers (256-bit SIMD, aliases for XMM lower parts)
+    for (int i = 0; i < 16; ++i) {
+        registers["YMM" + std::to_string(i)] = TokenType::REGISTER;
+    }
 
     tables_initialized = true;
 }
