@@ -15,7 +15,7 @@
 - Instructions are written in hexadecimal
 - Comments start with `#`
 - Registers: R0-R7 (basic), R0-R15 (extended), plus special/system registers
-- LOAD_IMM uses 3-byte format: opcode + register + immediate_value (8-bit)
+- LOAD_IMM uses a 6-byte format: opcode + register + immediate_value (32-bit little-endian)
 
 ## Implemented Instruction Categories
 
@@ -24,7 +24,7 @@
 ```hex
 00                    # NOP - No operation
 FF                    # HALT - Stop execution
-01 <reg> <imm8>       # LOAD_IMM - Load immediate value (8-bit)
+01 <reg> <imm32>      # LOAD_IMM - Load immediate value (32-bit LE)
 04 <dst> <src>        # MOV - Copy register
 ```
 
@@ -43,11 +43,12 @@ FF                    # HALT - Stop execution
 ### Memory Operations
 
 ```hex
-06 <dst> <addr>       # LOAD - Load from memory
-07 <addr> <src>       # STORE - Store to memory
+06 <dst> <addr32/64>  # LOAD - Load 1 byte from memory (zero-extend)
+07 <src> <addr32/64>  # STORE - Store low byte of register to memory
 20 <reg> <addr>       # LEA - Load Effective Address
 21 <reg> <addr>       # SWAP - Swap register with memory
-41 <reg>              # LOADR - Load indirect (address in register)
+41 <dst> <addr_reg>   # LOADR - Load indirect (1 byte) via address register
+43 <addr_reg> <src>   # STORER - Store indirect (low byte) via address register
 ```
 
 ### Control Flow
