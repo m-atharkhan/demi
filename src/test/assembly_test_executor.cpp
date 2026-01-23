@@ -9,6 +9,7 @@
 #include <sstream>
 #include <map>
 #include <filesystem>
+#include <cctype>
 
 namespace Testing {
 
@@ -786,6 +787,44 @@ int TestExecutor::get_register_number(const Assembler::Expression& expr) {
         if (reg->name == "RIP") return 47;
         if (reg->name == "RFLAGS" || reg->name == "FLAGS") return 48;
         if (reg->name == "MSW") return 49;
+
+        // XMM / YMM registers
+        // Engine register enum: XMM0 starts at 50 and uses pairs (low/high 64-bit parts)
+        // XMMn -> 50 + 2*n, XMMn_HIGH -> 50 + 2*n + 1, YMMn aliases the low part.
+        auto is_all_digits = [](const std::string& s) -> bool {
+            if (s.empty()) return false;
+            for (unsigned char c : s) {
+                if (!std::isdigit(c)) return false;
+            }
+            return true;
+        };
+
+        if (reg->name.rfind("XMM", 0) == 0) {
+            std::string suffix = reg->name.substr(3);
+            bool high = false;
+            const std::string high_tag = "_HIGH";
+            if (suffix.size() > high_tag.size() &&
+                suffix.compare(suffix.size() - high_tag.size(), high_tag.size(), high_tag) == 0) {
+                high = true;
+                suffix = suffix.substr(0, suffix.size() - high_tag.size());
+            }
+            if (is_all_digits(suffix)) {
+                const int idx = std::stoi(suffix);
+                if (idx >= 0 && idx < 16) {
+                    return 50 + idx * 2 + (high ? 1 : 0);
+                }
+            }
+        }
+
+        if (reg->name.rfind("YMM", 0) == 0) {
+            const std::string suffix = reg->name.substr(3);
+            if (is_all_digits(suffix)) {
+                const int idx = std::stoi(suffix);
+                if (idx >= 0 && idx < 16) {
+                    return 50 + idx * 2;
+                }
+            }
+        }
 
         // Extract register number from name (e.g., "R0" -> 0)
         if (reg->name.size() > 1 && reg->name[0] == 'R') {
