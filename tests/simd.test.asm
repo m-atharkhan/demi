@@ -126,6 +126,32 @@
     .assert_reg R7, 99
 }
 
+.test "xmm addps (packed floats)" {
+    .description "Test ADDPS on XMM registers by validating packed float bit patterns"
+    .author "copilot"
+    .category "SIMD"
+    .tag "xmm"
+    .tag "addps"
+
+    ; XMM0 = [1.0, 2.0, 3.0, 4.0]
+    ; Packed as 2x64-bit: low holds floats 0..1, high holds floats 2..3
+    ; 1.0f=0x3F800000, 2.0f=0x40000000, 3.0f=0x40400000, 4.0f=0x40800000
+    LOAD_IMM64 XMM0,      0x400000003F800000
+    LOAD_IMM64 XMM0_HIGH, 0x4080000040400000
+
+    ; XMM1 = [10.0, 20.0, 30.0, 40.0]
+    ; 10.0f=0x41200000, 20.0f=0x41A00000, 30.0f=0x41F00000, 40.0f=0x42200000
+    LOAD_IMM64 XMM1,      0x41A0000041200000
+    LOAD_IMM64 XMM1_HIGH, 0x4220000041F00000
+
+    ADDPS XMM0, XMM1
+
+    ; Expected XMM0 = [11.0, 22.0, 33.0, 44.0]
+    ; 11.0f=0x41300000, 22.0f=0x41B00000, 33.0f=0x42040000, 44.0f=0x42300000
+    .assert_reg XMM0,      0x41B0000041300000
+    .assert_reg XMM0_HIGH, 0x4230000042040000
+}
+
 .test "packed byte operations" {
     .description "Test packing and unpacking bytes using PACKB and UNPACKB"
     .author "bobrossrtx"
