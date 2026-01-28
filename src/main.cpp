@@ -725,7 +725,7 @@ public:
                 // Engine capabilities
                 std::cout << "\nEngine Capabilities:\n";
                 std::cout << "  Registers:         134 (GP: 16, FPU: 8, XMM: 16, Misc)\n";
-                std::cout << "  Opcodes:           94+ implemented\n";
+                std::cout << "  Opcodes:           133 implemented (24 reserved)\n";
                 std::cout << "  SIMD Support:      " << (DEMI_SIMD_SUPPORT ? "Enabled" : "Disabled") << "\n";
                 std::cout << "  FPU Support:       Enabled (23+ operations)\n";
                 std::cout << "  Preprocessor:      " << (DEMI_PREPROCESSOR_SUPPORT ? "Enabled" : "Disabled") << "\n";
