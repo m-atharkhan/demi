@@ -2,13 +2,24 @@
 
 ## Overview
 
-**Currently Implemented**: 94 opcodes (fully functional)
+**Currently Implemented**: 133 opcodes (fully functional)
 
-- 63 Core opcodes (basic operations, arithmetic, memory, control flow, stack, bitwise, I/O)
+- 47 Core opcodes (basic operations, arithmetic, memory, control flow, stack, bitwise, I/O)
+- 13 64-bit opcodes (extended precision operations)
+- 7 Extended register opcodes (R8-R15 operations)
+- 27 SSE opcodes (128-bit SIMD operations)
 - 23 FPU opcodes (floating-point arithmetic and control)
-- 8 SIMD opcodes (vector operations)
+- 8 SIMD vector opcodes (custom vector operations)
+- 3 CPU mode control opcodes
+- 5 Misc/system opcodes
 
-**Defined but Not Implemented**: 57 opcodes (SSE, AVX, MMX - planned for future)
+**Reserved (Not Yet Implemented)**: 24 opcodes
+- 23 AVX opcodes (256-bit SIMD - planned for Phase 4)
+- 11 MMX opcodes (legacy 64-bit SIMD - planned for Phase 4)
+- 5 64-bit operations (OR64, XOR64, NOT64, SHL64, SHR64 - planned for Phase 3)
+- 5 Extended register operations (MULEX, DIVEX, CMPEX, PUSHEX, POPEX - planned for Phase 3)
+
+**For comprehensive opcode status, see [OPCODE_STATUS.md](OPCODE_STATUS.md)**
 
 ## Basic Syntax
 

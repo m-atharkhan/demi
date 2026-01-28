@@ -1,7 +1,7 @@
 # Opcode Edge Cases Documentation
 
 **Document Status:** Active Reference  
-**Last Updated:** January 14, 2026  
+**Last Updated:** January 28, 2026  
 **Purpose:** Comprehensive documentation of all implemented opcodes and their edge case test coverage
 
 ---
@@ -19,6 +19,7 @@
 9. [SIMD Vector Operations (0xD4-0xDB)](#simd-vector-operations-0xd4-0xdb)
 10. [Test Coverage Summary](#test-coverage-summary)
 11. [Missing Edge Cases](#missing-edge-cases)
+12. [Reserved Opcodes](#reserved-opcodes)
 
 ---
 
@@ -31,6 +32,8 @@ This document catalogs all **133 implemented opcodes** in the DemiEngine virtual
 - **Edge Cases Tested:** Currently covered test scenarios
 - **Edge Cases Needed:** Recommended additional test coverage
 - **Related Tests:** Test files that exercise this opcode
+
+**For a comprehensive overview of all defined opcodes (including 24 reserved), see [OPCODE_STATUS.md](OPCODE_STATUS.md)**
 
 ### Legend
 
@@ -2041,6 +2044,75 @@ The DemiEngine has **133 implemented opcodes** with a current test coverage of:
 4. Add negative test cases (error conditions)
 5. Enhance test framework for flag/exception verification
 6. Achieve >90% comprehensive edge case coverage
+
+---
+
+## Reserved Opcodes
+
+The following opcodes are **defined but not yet implemented**. They are reserved for future phases:
+
+### 64-bit Operations (5 reserved)
+
+- **OR64 (0x57)** - 64-bit bitwise OR
+- **XOR64 (0x58)** - 64-bit bitwise XOR
+- **NOT64 (0x59)** - 64-bit bitwise NOT
+- **SHL64 (0x5A)** - 64-bit shift left
+- **SHR64 (0x5B)** - 64-bit shift right
+
+**Status:** Planned for Phase 3 (Q1 2026)  
+**Priority:** High - Required to complete 64-bit instruction set
+
+### Extended Register Operations (5 reserved)
+
+- **MULEX (0x63)** - Multiply with R8-R15 registers
+- **DIVEX (0x64)** - Divide with R8-R15 registers
+- **CMPEX (0x65)** - Compare R8-R15 registers
+- **PUSHEX (0x68)** - Push R8-R15 to stack
+- **POPEX (0x69)** - Pop to R8-R15 from stack
+
+**Status:** Planned for Phase 3 (Q1 2026)  
+**Priority:** Medium - Completes extended register support
+
+### AVX Operations (23 reserved)
+
+**256-bit SIMD operations** - 0xC0 through 0xD3
+
+- VADDPS, VSUBPS, VMULPS, VDIVPS (packed single)
+- VADDPD, VSUBPD, VMULPD, VDIVPD (packed double)
+- VSQRTPS, VSQRTPD (square root)
+- VMAXPS, VMINPS, VMAXPD, VMINPD (min/max)
+- VANDPS, VORPS, VXORPS (logical ops, single)
+- VANDPD, VORPD, VXORPD (logical ops, double)
+
+**Status:** Planned for Phase 4 (Q2-Q3 2026)  
+**Priority:** Medium-Low - Requires YMM register architecture  
+**Note:** Can be emulated using two SSE operations initially
+
+### MMX Operations (11 reserved)
+
+**64-bit SIMD operations** - 0xE0 through 0xEA
+
+- MOVQ (0xE0) - Move quadword
+- PADDB, PADDW, PADDD (0xE1-0xE3) - Packed add
+- PSUBB, PSUBW, PSUBD (0xE4-0xE6) - Packed subtract
+- PCMPEQB, PCMPEQW, PCMPEQD (0xE7-0xE9) - Packed compare
+- EMMS (0xEA) - Empty MMX state
+
+**Status:** Planned for Phase 4 (Q2-Q3 2026)  
+**Priority:** Low - Legacy technology superseded by SSE  
+**Note:** MM registers overlap with FPU stack
+
+### Other Reserved (2 opcodes)
+
+- **DEBUG (0x42)** - Debug directive (print, break, dump)
+- **MODEFLAG (0x73)** - Set mode flag in RFLAGS register
+
+**Status:** Low priority  
+**Note:** DEBUG may be implemented as needed for debugging support
+
+---
+
+**For comprehensive opcode implementation status, roadmap, and priorities, see [OPCODE_STATUS.md](OPCODE_STATUS.md)**
 
 ---
 
