@@ -23,7 +23,6 @@ namespace fs = std::experimental::filesystem;
 #include "engine/device_factory.hpp"
 
 // Include the debug framework
-#include "debug/logger.hpp"
 #include "debug/debug_handler.hpp"
 #include "debug/hexdumper.hpp"
 
@@ -44,8 +43,6 @@ namespace fs = std::experimental::filesystem;
 #include <sys/wait.h>
 #include <unistd.h>
 
-
-using Logging::Logger;
 
 class ArgParser;
 
@@ -663,6 +660,11 @@ public:
             [this]() {
                 std::cout << "Demi Virtualized Compiler v" << DEMI_VERSION_STRING << std::endl;
                 std::cout << "Built with C++ " << __cplusplus << std::endl;
+                #ifdef NDEBUG
+                std::cout << "Build Type: Release" << std::endl;
+                #else
+                std::cout << "Build Type: Debug" << std::endl;
+                #endif
                 show_version = true;
             });
             
