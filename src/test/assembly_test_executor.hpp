@@ -2,7 +2,6 @@
 #include "../assembler/ast.hpp"
 #include "../assembler/demi_assembler.hpp"
 #include "../engine/cpu.hpp"
-#include "../debug/logger.hpp"
 #include <string>
 #include <vector>
 #include <memory>
@@ -15,7 +14,6 @@
 namespace Testing {
 
 using namespace Assembler;
-using Logging::Logger;
 
 /**
  * Result of a single test assertion
