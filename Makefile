@@ -25,6 +25,17 @@ TEST_DIR := tests
 # Build configuration
 BUILD_TYPE ?= debug
 CONFIG_FILE := .build_config
+PLATFORM ?= linux
+
+EXE_EXT :=
+STATIC_EXT := .a
+SHARED_EXT := .so
+ifeq ($(PLATFORM),windows)
+    EXE_EXT := .exe
+    SHARED_EXT := .dll
+    # Change compiler to mingw for windows cross-compilation if requested
+    CXX := x86_64-w64-mingw32-g++
+endif
 
 # =============================================================================
 # Build Configuration Profiles
@@ -69,6 +80,12 @@ endif
 # Common linker flags
 LDFLAGS += -lstdc++fs -pthread
 
+ifneq ($(PLATFORM),windows)
+    CXXFLAGS += -fPIC
+else
+    LDFLAGS += -static-libgcc -static-libstdc++
+endif
+
 # =============================================================================
 # External Dependencies
 # =============================================================================
@@ -102,15 +119,21 @@ ALL_DEPS := $(ALL_OBJS:.o=.d) $(FMT_DEPS)
 # =============================================================================
 
 # Main executable
-TARGET := $(BIN_DIR)/demi-engine$(BUILD_SUFFIX)
-MAIN_TARGET_OBJS := $(filter-out $(BUILD_DIR)/test/test_assembler.o,$(MAIN_OBJS)) $(BUILD_DIR)/main.o
+TARGET := $(BIN_DIR)/demi-engine$(BUILD_SUFFIX)$(EXE_EXT)
+MAIN_TARGET_OBJS := $(filter-out $(BUILD_DIR)/test/test_assembler.o,$(MAIN_OBJS))
 
 # Test targets
-TEST_TARGET := $(BIN_DIR)/test_runner$(BUILD_SUFFIX)
-ASSEMBLER_TEST_TARGET := $(BIN_DIR)/test_assembler$(BUILD_SUFFIX)
+TEST_TARGET := $(BIN_DIR)/test_runner$(BUILD_SUFFIX)$(EXE_EXT)
+ASSEMBLER_TEST_TARGET := $(BIN_DIR)/test_assembler$(BUILD_SUFFIX)$(EXE_EXT)
 
 # Library objects (everything except main.o and test_assembler.o)
-LIB_OBJS := $(filter-out $(BUILD_DIR)/main.o $(BUILD_DIR)/test/test_assembler.o,$(MAIN_OBJS))
+# LIB_OBJS := $(filter-out $(BUILD_DIR)/main.o $(BUILD_DIR)/test/test_assembler.o,$(MAIN_OBJS))
+# Library objects (everything except main.o and any test files)
+LIB_OBJS := $(filter-out $(BUILD_DIR)/main.o $(BUILD_DIR)/test/%,$(MAIN_OBJS))
+
+# Library targets (shared and static)
+LIB_STATIC := $(BIN_DIR)/libdemi$(BUILD_SUFFIX)$(STATIC_EXT)
+LIB_SHARED := $(BIN_DIR)/libdemi$(BUILD_SUFFIX)$(SHARED_EXT)
 
 # =============================================================================
 # Default Target and Build Goals
@@ -119,7 +142,7 @@ LIB_OBJS := $(filter-out $(BUILD_DIR)/main.o $(BUILD_DIR)/test/test_assembler.o,
 .DEFAULT_GOAL := all
 .PHONY: all clean build install test unit-test integration-test benchmark
 .PHONY: debug release profile sanitize prereqs help version info
-.PHONY: test-all test-assembler force-rebuild check-deps
+.PHONY: test-all test-assembler force-rebuild check-deps lib-all
 .PHONY: benchmark-binaries docs lint format
 .PHONY: debug-symbols debug-dependencies debug-linking debug-undefined
 .PHONY: debug-undefined-detailed debug-problematic-objects debug-minimal-link
@@ -139,7 +162,23 @@ build: all
 $(TARGET): $(MAIN_TARGET_OBJS) $(FMT_OBJS) | $(BIN_DIR)
 	@echo "🔗 Linking $(notdir $@)..."
 	@$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
-	@echo "✅ Build complete: $@"
+        @echo "✅ Build complete: $@"
+
+# Library targets
+lib-all: $(LIB_STATIC) $(LIB_SHARED)
+	@mkdir -p /usr/local/include/demi 2>/dev/null || true
+	@cp src/engine/engine.hpp src/engine/engine_c_api.h /usr/local/include/demi/ 2>/dev/null || true
+	@echo "✅ Libraries built and headers copied"
+
+$(LIB_STATIC): $(LIB_OBJS) $(FMT_OBJS) | $(BIN_DIR)
+	@echo "📦 Creating static library..."
+	@ar rcs $@ $^
+	@echo "✅ Static library built: $@"
+
+$(LIB_SHARED): $(LIB_OBJS) $(FMT_OBJS) | $(BIN_DIR)
+	@echo "🔗 Linking shared library..."
+	@$(CXX) -shared $(CXXFLAGS) -DDEMI_BUILD_SHARED -o $@ $^ $(LDFLAGS)
+	@echo "✅ Shared library built: $@"
 
 # Test runner
 $(TEST_TARGET): $(LIB_OBJS) $(TEST_OBJS) $(FMT_OBJS) | $(BIN_DIR)
