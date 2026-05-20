@@ -6,7 +6,17 @@
 #include <unordered_set>
 #include <fmt/core.h>
 #include <unistd.h>
-#include <sys/syscall.h>
+#include <fcntl.h>
+#ifdef _WIN32
+    #include <io.h>
+    // Dummy syscall implementation for Windows compatibility
+    template<typename... Args>
+    inline long syscall(long number, Args... args) {
+        return -1; // ENOSYS equivalent if it ever reached this directly instead of POSIX wrappers
+    }
+#else
+    #include <sys/syscall.h>
+#endif
 #include <errno.h>
 
 #include "cpu.hpp"
@@ -915,6 +925,29 @@ void CPU::handle_syscall(bool& running) {
     
     Syscall sc = to_syscall(syscall_num);
     const char* sc_name = syscall_name(sc);
+
+    if (syscall_hook_) {
+        int32_t hook_result = 0;
+        if (syscall_hook_(syscall_num, arg1, arg2, arg3, arg4, arg5, hook_result)) {
+            set_register_32(Register::RAX, static_cast<uint32_t>(hook_result));
+            return;
+        }
+    }
+
+    if (sandbox_dispatcher_) {
+        auto check = sandbox_dispatcher_->validate_syscall(syscall_num);
+        if (check == demi::sandbox::SyscallResult::DENIED) {
+            Logging::ErrorHandler::instance().report_runtime(
+                Logging::ErrorCode::IO_GENERIC, // Using a generic IO error mapping
+                fmt::format("[SECURITY FAULT] Denied syscall: {}({})", sc_name, syscall_num),
+                get_pc(),
+                "Sandbox security bounds exceeded");
+            set_register_32(Register::RAX, static_cast<uint32_t>(-EACCES));
+            has_security_fault_ = true;
+            running = false;
+            return;
+        }
+    }
     
     Logging::DebugHandler::instance().report(
         Logging::DebugCategory::CPU_EXECUTION,
@@ -937,19 +970,33 @@ void CPU::handle_syscall(bool& running) {
             
         case Syscall::SYS_READ:
             if (arg2 < memory.size() && arg2 + arg3 <= memory.size()) {
-                // Line-buffered read: read byte by byte until newline or limit reached
-                // This makes sys_read work correctly with piped input
-                result = 0;
-                for (uint64_t i = 0; i < arg3; i++) {
-                    char ch;
-                    ssize_t bytes = read(arg1, &ch, 1);
-                    if (bytes <= 0) {
-                        break;  // EOF or error
+                if (stdin_hook_ && arg1 == 0) {
+                    std::vector<uint8_t> data;
+                    stdin_hook_(arg3, data);
+                    size_t count = std::min(static_cast<size_t>(arg3), data.size());
+                    if (count > 0) {
+                        std::copy(data.begin(), data.begin() + count, memory.begin() + arg2);
                     }
-                    memory[arg2 + i] = static_cast<uint8_t>(ch);
-                    result++;
-                    if (ch == '\n') {
-                        break;  // Stop at newline (line-buffered behavior)
+                    result = count;
+                } else {
+                    // Line-buffered read: read byte by byte until newline or limit reached
+                    // This makes sys_read work correctly with piped input
+                    result = 0;
+                    for (uint64_t i = 0; i < arg3; i++) {
+                        char ch;
+#ifdef _WIN32
+                        ssize_t bytes = ::_read(arg1, &ch, 1);
+#else
+                        ssize_t bytes = ::read(arg1, &ch, 1);
+#endif
+                        if (bytes <= 0) {
+                            break;  // EOF or error
+                        }
+                        memory[arg2 + i] = static_cast<uint8_t>(ch);
+                        result++;
+                        if (ch == '\n') {
+                            break;  // Stop at newline (line-buffered behavior)
+                        }
                     }
                 }
                 Logging::DebugHandler::instance().report(
@@ -971,7 +1018,17 @@ void CPU::handle_syscall(bool& running) {
             
         case Syscall::SYS_WRITE:
             if (arg2 < memory.size() && arg2 + arg3 <= memory.size()) {
-                result = syscall(SYS_write, arg1, &memory[arg2], arg3);
+                if (stdout_hook_ && (arg1 == 1 || arg1 == 2)) {
+                    std::vector<uint8_t> data(&memory[arg2], &memory[arg2 + arg3]);
+                    stdout_hook_(arg1, data);
+                    result = arg3;
+                } else {
+#ifdef _WIN32
+                    result = ::_write(arg1, &memory[arg2], arg3);
+#else
+                    result = ::write(arg1, &memory[arg2], arg3);
+#endif
+                }
                 Logging::DebugHandler::instance().report(
                     Logging::DebugCategory::CPU_EXECUTION,
                     fmt::format("[SYSCALL] {}(fd={}, buf=0x{:08X}, count={}) = {}",
@@ -996,11 +1053,31 @@ void CPU::handle_syscall(bool& running) {
                 size_t path_len = strnlen(pathname, max_len);
                 
                 if (path_len < max_len) {
-                    result = syscall(SYS_open, pathname, arg2, arg3);
+                    std::string final_path = pathname;
+                    if (io_vfs_) {
+                        auto safe_path = io_vfs_->resolve_safe_path(pathname);
+                        if (!safe_path) {
+                            Logging::ErrorHandler::instance().report_runtime(
+                                Logging::ErrorCode::IO_GENERIC,
+                                fmt::format("[SECURITY FAULT] Path traversal denied: '{}'", pathname),
+                                get_pc(),
+                                "Sandbox VFS bounds exceeded");
+                            result = -EACCES;
+                            set_register_32(Register::RAX, static_cast<uint32_t>(result));
+                            return;
+                        }
+                        final_path = safe_path->string();
+                    }
+
+#ifdef _WIN32
+                    result = ::_open(final_path.c_str(), arg2, arg3);
+#else
+                    result = ::open(final_path.c_str(), arg2, arg3);
+#endif
                     Logging::DebugHandler::instance().report(
                         Logging::DebugCategory::CPU_EXECUTION,
-                        fmt::format("[SYSCALL] {}('{}', flags=0x{:X}, mode=0{:o}) = {}",
-                            sc_name, pathname, arg2, arg3, result),
+                        fmt::format("[SYSCALL] {}('{}' -> '{}', flags=0x{:X}, mode=0{:o}) = {}",
+                            sc_name, pathname, final_path, arg2, arg3, result),
                         Logging::DebugLevel::INFO);
                 } else {
                     Logging::ErrorHandler::instance().report_runtime(
@@ -1020,9 +1097,13 @@ void CPU::handle_syscall(bool& running) {
                 result = -EFAULT;
             }
             break;
-            
+
         case Syscall::SYS_CLOSE:
-            result = syscall(SYS_close, arg1);
+#ifdef _WIN32
+            result = ::_close(arg1);
+#else
+            result = ::close(arg1);
+#endif
             Logging::DebugHandler::instance().report(
                 Logging::DebugCategory::CPU_EXECUTION,
                 fmt::format("[SYSCALL] {}(fd={}) = {}", sc_name, arg1, result),

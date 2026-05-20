@@ -933,10 +933,11 @@ void Parser::add_error(const std::string& message) {
 }
 
 void Parser::add_error(const std::string& message, const Token& token) {
+    std::string detailed_message = message + " (got '" + token.text + "')";
     std::string error_str = "Line " + std::to_string(token.line) + ", Column " + std::to_string(token.column) + 
-                    ": " + message + " (got '" + token.text + "')";
+                    ": " + detailed_message;
     errors.push_back(error_str);
-    Logging::ErrorHandler::instance().report_parse(Logging::ErrorCode::PARSE_UNEXPECTED_TOKEN, message, "", token.line, token.column);
+    Logging::ErrorHandler::instance().report_parse(Logging::ErrorCode::PARSE_UNEXPECTED_TOKEN, detailed_message, "", token.line, token.column);
 }
 
 } // namespace Assembler

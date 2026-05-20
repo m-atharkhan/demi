@@ -677,15 +677,24 @@ void DebugHandler::log_debug(const DebugContext& debug) {
     }
     
     // Improved format: [LEVEL] Category: Message (Function@File:Line)
-    fprintf(stderr, "%s[%s]%s %-12s: %s \033[90m(%s@%s:%zu)\033[0m\n", 
-            level_color,
-            level_name.c_str(),
-            reset_color,
-            category_name.c_str(),
-            debug.message.c_str(),
-            debug.function.c_str(),
-            filename.c_str(),
-            debug.line);
+    if (!debug.function.empty() || !filename.empty() || debug.line > 0) {
+        fprintf(stderr, "%s[%s]%s %-12s: %s \033[90m(%s@%s:%zu)\033[0m\n", 
+                level_color,
+                level_name.c_str(),
+                reset_color,
+                category_name.c_str(),
+                debug.message.c_str(),
+                debug.function.c_str(),
+                filename.c_str(),
+                debug.line);
+    } else {
+        fprintf(stderr, "%s[%s]%s %-12s: %s\n", 
+                level_color,
+                level_name.c_str(),
+                reset_color,
+                category_name.c_str(),
+                debug.message.c_str());
+    }
             
     fflush(stderr);
 }

@@ -12,6 +12,9 @@
 #include "interrupt_controller.hpp"  // Interrupt system support
 // #include "speculative_execution.hpp"  // Speculative execution support (temporarily disabled)
 
+#include "sandbox_policy.hpp"
+#include "vfs.hpp"
+
 using DemiEngine_Registers::Register;
 using DemiEngine_Registers::RegisterNames;
 using DemiEngine_Registers::TOTAL_REGISTERS;
@@ -549,6 +552,34 @@ public:
     // Speculative Execution Support (temporarily disabled)
     // SpeculativeExecution::SpeculativeExecutor& get_speculative_executor() { return speculative_executor; }
     // const SpeculativeExecution::SpeculativeExecutor& get_speculative_executor() const { return speculative_executor; }
+
+    // Sandbox & VFS attachments
+    demi::sandbox::SyscallDispatcher* sandbox_dispatcher_ = nullptr;
+    demi::sandbox::VirtualFileSystem* io_vfs_ = nullptr;
+    bool has_security_fault_ = false;
+
+    // Execution I/O hooks 
+    using SyscallHook = std::function<bool(uint32_t syscall_id, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4, uint32_t arg5, int32_t& result)>;
+    using StdoutHook = std::function<void(int fd, const std::vector<uint8_t>& data)>;
+    using StdinHook = std::function<void(size_t max_count, std::vector<uint8_t>& data)>;
+
+    SyscallHook syscall_hook_;
+    StdoutHook stdout_hook_;
+    StdinHook stdin_hook_;
+
+    void set_hooks(SyscallHook syscall_hook, StdoutHook stdout_hook, StdinHook stdin_hook) {
+        syscall_hook_ = std::move(syscall_hook);
+        stdout_hook_ = std::move(stdout_hook);
+        stdin_hook_ = std::move(stdin_hook);
+    }
+
+    void set_sandbox_environment(demi::sandbox::SyscallDispatcher* dispatcher, 
+                                 demi::sandbox::VirtualFileSystem* vfs) {
+        sandbox_dispatcher_ = dispatcher;
+        io_vfs_ = vfs;
+    }
+
+    bool has_security_fault() const { return has_security_fault_; }
 
     // Register synchronization (public for opcode handlers)
     void sync_legacy_registers();

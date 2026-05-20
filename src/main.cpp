@@ -46,29 +46,6 @@ namespace fs = std::experimental::filesystem;
 
 class ArgParser;
 
-void initialize_devices() {
-    using namespace vhw;
-
-    DeviceManager::instance().reset();  // Reset device manager to clear any previous state
-    auto console = DeviceFactory::createConsoleDevice(0x01);  // Console on port 0x01
-
-    auto counter = DeviceFactory::createCounterDevice(0x02);  // Counter on port 0x02
-
-    // Set up initial counter value (optional)
-    counter->setCounter(42);
-
-    // Create a file device for virtual file I/O
-    auto file = DeviceFactory::createFileDevice("virtual_storage/vhd.dat", 0x04);    // Create a RAM disk device for block storage
-    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_RAMDISK, "About to create RAMDisk...", Logging::DebugLevel::DETAIL);
-    auto ramdisk = DeviceFactory::createRamDiskDevice(8192, 0x05, 0x06);
-    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_RAMDISK, "RAMDisk created successfully", Logging::DebugLevel::DETAIL);
-
-    // Optionally, create a real serial port device if available
-    // Uncomment and modify the port name as needed for your system
-    // auto serial = DeviceFactory::createSerialPortDevice("/dev/ttyUSB0", 0x03);
-
-    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, "Device system initialized with standard and storage devices", Logging::DebugLevel::INFO);
-}
 
 enum class ArgType { Value, Action, MultiValue };
 
@@ -926,6 +903,12 @@ public:
                 Config::assembly_output = value.empty() ? "out.hex" : value;
             });
 
+        // Hex array output argument
+        parser.add_value_arg("hex_out", "--hex-out", "-hxo", "Output assembled bytecode to file as formatted hex bytes", "Execution",
+            [this](const std::string& value) {
+                Config::hex_out = value.empty() ? "out_array.hex" : value;
+            });
+
         // Compile argument
         parser.add_value_arg("compile", "--compile", "-o", "Compile program into a standalone executable (optionally specify output name)", "Execution",
             [this](const std::string& value) {
@@ -1435,6 +1418,44 @@ private:
                 return;
             } catch (const std::exception& e) {
                 std::cerr << "Error writing output file: " << e.what() << std::endl;
+                return;
+            }
+        }
+
+        // Save bytecode to hex array file if -hxo option is specified
+        if (!Config::hex_out.empty()) {
+            try {
+                std::ofstream outfile(Config::hex_out);
+                if (!outfile) {
+                    std::cerr << "Error: Could not open output file: " << Config::hex_out << std::endl;
+                    return;
+                }
+                
+                for (size_t i = 0; i < bytecode.size(); ++i) {
+                    outfile << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(bytecode[i]);
+                    if ((i + 1) % 16 == 0) outfile << std::endl;
+                    else outfile << " ";
+                }
+                if (bytecode.size() % 16 != 0) outfile << std::endl;
+                outfile.close();
+                
+                std::cout << "Hex output written to: " << Config::hex_out << " (" << bytecode.size() << " bytes)" << std::endl;
+
+                // Print symbol table for debugging
+                const auto& symbols = assembler.get_symbols();
+                if (!symbols.empty()) {
+                    std::cout << "\nSymbol Table:" << std::endl;
+                    std::cout << std::string(60, '=') << std::endl;
+                    for (const auto& [name, symbol] : symbols) {
+                        std::cout << fmt::format("{:<30} 0x{:04X}  ({})", name, symbol.address, symbol.defined ? "defined" : "undefined") << std::endl;
+                    }
+                    std::cout << std::string(60, '=') << std::endl;
+                }
+
+                // If hex output is specified, don't execute (assemble-only mode)
+                return;
+            } catch (const std::exception& e) {
+                std::cerr << "Error writing hex output file: " << e.what() << std::endl;
                 return;
             }
         }

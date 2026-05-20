@@ -2,6 +2,14 @@
 
 #include <cstdint>
 
+#ifdef _WIN32
+// MingW / Windows headers sometimes define these as macros, clashing with our enum
+#undef SYS_OPEN
+#undef SYS_CLOSE
+#undef SYS_READ
+#undef SYS_WRITE
+#endif
+
 namespace DemiEngine {
 
 // Linux i386 syscall numbers (INT 0x80)

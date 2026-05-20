@@ -541,7 +541,7 @@ void Assembler::AssemblerEngine::second_pass(const Assembler::Program& program) 
         // No instructions at all - default to 0
         entry_address = 0;
         DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING,
-            "[ENTRY_POINT] No entry symbol or instructions found, using address 0");
+            "[ENTRY_POINT] {}", "No entry symbol or instructions found, using address 0");
     }
 }
 
@@ -2281,9 +2281,22 @@ void Assembler::AssemblerEngine::handle_org_directive(const std::vector<std::uni
     
     // Check if .org is moving backwards
     if (new_address < current_address) {
-        add_error(".org directive cannot move address backwards from 0x" + 
-                  std::to_string(current_address) + " to 0x" + std::to_string(new_address));
-        return;
+        bool is_section_base_override = false;
+        if (current_section == ".data" && current_address == data_section_base) {
+            is_section_base_override = true;
+            data_section_base = new_address;
+        } else if (current_section == ".text" && current_address == text_section_base) {
+            is_section_base_override = true;
+            text_section_base = new_address;
+        }
+
+        if (!is_section_base_override) {
+            std::stringstream ss;
+            ss << ".org directive cannot move address backwards from 0x" << std::hex << std::uppercase << current_address 
+               << " to 0x" << std::hex << std::uppercase << new_address;
+            add_error(ss.str());
+            return;
+        }
     }
 
     current_address = new_address;

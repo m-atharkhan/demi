@@ -188,18 +188,28 @@ private:
         if (fs::exists(parentPath)) {
             struct stat st;
             std::string parentPathStr = parentPath.string(); // Convert to string to avoid use-after-free
+#ifdef _WIN32
+            // No symlink check for Windows
+#else
             if (lstat(parentPathStr.c_str(), &st) == 0) {
                 if (S_ISLNK(st.st_mode)) {
                     Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path parent directory is a symbolic link (security risk): '{}'", parentPath.string()), Logging::DebugLevel::CRITICAL);
                     return false;
                 }
             }
+#endif
         }
 
         // If file exists, check if it's a symlink or special file
         if (fs::exists(fullPath)) {
             struct stat st;
             std::string fullPathStr = fullPath.string(); // Convert to string to avoid use-after-free
+#ifdef _WIN32
+            if (stat(fullPathStr.c_str(), &st) == 0) {
+                // Windows stat handles mostly regular files here
+                // We'll trust fs::is_regular_file from C++17
+            }
+#else
             if (lstat(fullPathStr.c_str(), &st) == 0) {
                 if (S_ISLNK(st.st_mode)) {
                     Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path is a symbolic link (security risk): '{}'", path), Logging::DebugLevel::CRITICAL);
@@ -212,6 +222,7 @@ private:
                     return false;
                 }
             }
+#endif
         }
 
         return true;

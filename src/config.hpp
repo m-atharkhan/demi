@@ -62,6 +62,7 @@ public:
     inline static std::string program_file = "";  // Hex file input
     inline static std::string assembly_file = "";  // Assembly source file
     inline static std::string assembly_output = "";  // Assembly bytecode output file (for -ao option)
+    inline static std::string hex_out = "";  // Output assembled bytecode as a string hex byte array
     inline static std::string output_name = "";  // Output name for compiled executable
     inline static std::string entry_point_symbol = "_start";  // Entry point symbol name
     inline static int error_count = 0;
