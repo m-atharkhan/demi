@@ -484,3 +484,9 @@ All of these will become **implemented features** once Stage 1 (Assembly Languag
 
 **Last Updated**: October 3, 2025  
 **Status**: Planning and documentation phase complete, ready for implementation
+
+## Missing Core Operations (Pending)
+The following basic memory and arithmetic opcodes are lacking and currently break standard examples, needing urgent implementation:
+- STORE_INDIRECT - Store register value to memory using indirect addressing
+- LOAD_INDIRECT - Load value from memory to register using indirect addressing
+- ADD_IMM - Add immediate value to register

@@ -3341,3 +3341,8 @@ DemiEngine now has a **production-ready backend** that provides an exceptional f
 4. **Research Platform**: Solid foundation for programming language experimentation
 
 **The foundation is complete. Now we build the future of programming languages.**
+
+## Missing Core Operations (Urgent Prioritization)
+- STORE_INDIRECT - Store register value to memory using indirect addressing
+- LOAD_INDIRECT - Load value from memory to register using indirect addressing
+- ADD_IMM - Add immediate value to register

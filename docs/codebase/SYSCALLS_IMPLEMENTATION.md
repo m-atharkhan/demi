@@ -130,11 +130,21 @@ All Linux error codes are returned in R0:
 
 ### What's NOT Protected
 
-- ⚠️ VM can access host filesystem (same permissions as demi-engine process)
-- ⚠️ VM can write to any writable file
-- ⚠️ VM can read any readable file
+- ⚠️ **Without `--sandbox`**, VM can access host filesystem (same permissions as demi-engine process)
+- ⚠️ **Without `--sandbox`**, VM can write to any writable file
+- ⚠️ **Without `--sandbox`**, VM can read any readable file
 
-**Security Model**: The VM has the same file access permissions as the demi-engine binary. If you need isolation, run demi-engine in a container or with restricted permissions.
+**Security Model**: Without explicit configuration, the VM has the same file access permissions as the demi-engine binary. 
+If you need isolation, you must run it with the `--sandbox` and `--strict-io` flags, use `libdemi`, or run in a restricted container.
+
+## Subsystem: Sandbox Syscall Interception
+
+With the introduction of the Embedding API (`libdemi`), syscall dispatching is routed through the `SyscallDispatcher::validate()` gateway when `--sandbox` is enabled.
+
+When `--sandbox` is active:
+- Network and execution syscalls (`execve`, `socket`) result in a hardware `INT_SECURITY_FAULT`.
+- File operations (`open`, `read`, `write`) are intercepted and diverted to the Jailed VirtualFileSystem (VFS).
+- Strict bounds are maintained by preventing directory traversals.
 
 ## Test Files
 

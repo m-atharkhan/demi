@@ -7,11 +7,17 @@
   - Supported: `sys_read`, `sys_write`, `sys_open`, `sys_close`, `sys_exit`, `sys_ioctl`, `sys_brk` (simulated)
   - VM memory addresses are translated to host pointers for buffer/filename arguments
   - Error codes from Linux are returned in RAX (negative for errors)
-  - Security: VM can access host files with same permissions as demi-engine process
+  - Security: By default, the VM can access host files with the same permissions as the demi-engine process. **However**, using the `--sandbox` flag or `libdemi` API restricts network/process access and jails file I/O to a specific virtual directory.
   - All syscalls are dispatched via an efficient enum-based handler
   - **Limitation:** Only 8-bit immediates are supported for most instructions (e.g., LOAD_IMM), so flags/modes >255 require workarounds or new instructions (e.g., LOAD_IMM32/64)
   - Example programs in `examples/syscalls/` show real file I/O, stdout/stderr, etc.
   - Use `strace` to verify real kernel calls (e.g., `strace -e trace=write,open,close ./bin/demi-engine-debug -A examples/syscalls/01_hello_world.asm`)
+
+### Sandbox Mode (`--sandbox`) Status
+If executing DemiEngine in embedded environments (like Minecraft game servers, via JNI, or web backends), standard Linux syscall behavior is heavily restricted when `--sandbox` is enabled:
+- **File I/O**: Mapped strictly to the sandbox root. Absolute paths (e.g., `/etc/passwd`) are evaluated relatively to the sandbox VFS.
+- **Networking & Processes**: Always return `-EACCES` or immediately fault the VM with a security violation.
+- **CPU Watchdog**: Limits infinite looping via a tick quote system.
 
 ## Interrupts
 
