@@ -625,9 +625,9 @@ bool run_tests() {
     exit(0);
 }
 
-class DemiEngine {
+class DemiApp {
 public:
-    DemiEngine(int argc, char *argv[]) {
+    DemiApp(int argc, char *argv[]) {
         // Help argument
         parser.add_action_arg("help", "--help", "-h", "Shows help information", "General",
             [this]() { parser.print_help(); show_help = true; });
@@ -1534,7 +1534,7 @@ private:
 };
 
 int main(int argc, char *argv[]) {
-    DemiEngine app(argc, argv);
+    DemiApp app(argc, argv);
     app.run();
     return 0;
 }

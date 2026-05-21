@@ -1020,6 +1020,10 @@ void CPU::handle_syscall(bool& running) {
             if (arg2 < memory.size() && arg2 + arg3 <= memory.size()) {
                 if (stdout_hook_ && (arg1 == 1 || arg1 == 2)) {
                     std::vector<uint8_t> data(&memory[arg2], &memory[arg2 + arg3]);
+                    // Deep debug output for stdout hook
+                    std::cout << "[DEBUG][cpu.cpp] About to call stdout_hook_: fd=" << arg1 << ", buf=0x" << std::hex << arg2 << std::dec << ", count=" << arg3 << ", data(hex)=";
+                    for (auto b : data) std::cout << std::hex << (int)b << " ";
+                    std::cout << std::dec << std::endl;
                     stdout_hook_(arg1, data);
                     result = arg3;
                 } else {
