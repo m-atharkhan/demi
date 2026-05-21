@@ -24,29 +24,39 @@ public:
 
         namespace fs = std::filesystem;
         fs::path req(requested_path);
-        
+
         // Remove . and .. components lexically to prevent traversal mapping
         fs::path normalized_req = req.lexically_normal();
-        
+
         // Remove leading slash to make it relative to jail_root_ if it's absolute
-        fs::path relative_req = normalized_req.is_absolute() 
-            ? normalized_req.relative_path() 
+        fs::path relative_req = normalized_req.is_absolute()
+            ? normalized_req.relative_path()
             : normalized_req;
-        
+
         // Construct the absolute path within the jail
         fs::path absolute_target = jail_root_ / relative_req;
-        absolute_target = absolute_target.lexically_normal();
 
-        // Check if the resulting path actually starts with the jail_root_
-        auto root_str = jail_root_.string();
-        auto target_str = absolute_target.string();
-        
-        // Path containment check
-        if (target_str.compare(0, root_str.length(), root_str) == 0) {
-            return absolute_target;
+        try {
+            fs::path canonical_jail = fs::weakly_canonical(jail_root_);
+            fs::path canonical_target = fs::weakly_canonical(absolute_target);
+
+            // Check if canonical_target is within canonical_jail by comparing path components
+            auto jail_it = canonical_jail.begin();
+            auto jail_end = canonical_jail.end();
+            auto target_it = canonical_target.begin();
+            auto target_end = canonical_target.end();
+
+            for (; jail_it != jail_end; ++jail_it, ++target_it) {
+                if (target_it == target_end || *jail_it != *target_it) {
+                    return std::nullopt;
+                }
+            }
+            // All jail components matched, so target is inside jail
+            return canonical_target;
+        } catch (const fs::filesystem_error&) {
+            // If canonicalization fails, treat as unsafe
+            return std::nullopt;
         }
-        
-        return std::nullopt; // Directory traversal attempted or outside bounds
     }
 };
 
