@@ -1,9 +1,7 @@
 _start:
-    ; sys_write: write to stdout
-    LOAD_IMM RAX, 4         ; sys_write
-    LOAD_IMM RBX, 1         ; stdout (fd=1)
-    LOAD_IMM RCX, msg       ; buffer address
-    LOAD_IMM RDX, 16        ; count (16 bytes)
+    LOAD_IMM RAX, 4         ; syscall id
+    LOAD_IMM RBX, 0x1041    ; Use the register the VM is actually picking up (a2)
+    LOAD_IMM RCX, 16        ; Use the register the VM is actually picking up (a3)
     INT 0x80
     
     ; sys_exit

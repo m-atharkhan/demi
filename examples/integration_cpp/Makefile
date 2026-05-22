@@ -42,4 +42,4 @@ run: all assemble
 	./$(TARGET) hello.hex
 
 clean:
-	rm -f $(TARGET) hello.hex
+	rm -f $(TARGET)

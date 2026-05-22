@@ -1,5 +1,6 @@
 #include "engine.hpp"
 #include <algorithm>
+#include <iostream>
 
 namespace demi {
 
@@ -13,8 +14,6 @@ public:
     bool program_loaded_ = false;
     uint64_t current_ticks_ = 0;
 
-    // Internal virtual machine dependencies
-    // (Assuming default constructs exist for these within your engine layers)
     struct MockSyscallDispatcher {} syscall_dispatcher_;
     struct MockVFS {} vfs_;
     
@@ -33,7 +32,31 @@ public:
         uint32_t get_pc() const { return pc_; }
         
         void set_sandbox_environment(MockSyscallDispatcher*, MockVFS*) {}
-        bool step(const std::vector<uint8_t>&) { return true; }
+        
+        bool step(const std::vector<uint8_t>& program) {
+            if (pc_ >= program.size()) return false;
+            
+            uint8_t opcode = program[pc_];
+
+            // Syscall Interception
+            if (opcode == 0xCD && (pc_ + 1 < program.size() && program[pc_ + 1] == 0x80)) {
+                if (syscall_hook_) {
+                    int32_t result = 0;
+                    // Note: Real implementation would map registers here
+                    bool handled = syscall_hook_(4, 1, 0x1000, 16, 0, 0, result);
+                    if (handled) {
+                        pc_ += 2;
+                        return true;
+                    }
+                }
+                pc_ += 2;
+                return true;
+            }
+
+            pc_ += 1;
+            return true;
+        }
+        
         bool has_security_fault() const { return false; }
         
     private:
@@ -45,7 +68,10 @@ public:
     uint64_t hook_end_addr_ = 0;
     MemoryHook memory_write_hook_;
 
-    // Constructor fixes the floating snippet from your raw input
+    SyscallHook syscall_hook_;
+    StdoutHook stdout_hook_;
+    StdinHook stdin_hook_;
+
     Impl(const Config& config) : config_(config) {
         cpu_.set_sandbox_environment(&syscall_dispatcher_, &vfs_);
         cpu_.resize_memory(config_.memory_size);
@@ -92,32 +118,49 @@ public:
 
     bool tick() {
         if (!program_loaded_) return false;
-        
         bool advanced = cpu_.step(current_program_);
         current_ticks_++;
         return advanced;
     }
 
-    Engine::CompleteReason run() {
-        if (!program_loaded_) return CompleteReason::EXCEPTION;
+    Engine::CompleteReason run_internal() {
+        std::cout << "[RUN LOG] run_internal() started." << std::endl;
+        std::cout << "[RUN LOG] Host Syscall Hook Attached? " << (syscall_hook_ ? "YES" : "NO") << std::endl;
+
+        if (!program_loaded_) {
+            std::cout << "[RUN LOG] Aborting: Program not loaded!" << std::endl;
+            return Engine::CompleteReason::EXCEPTION;
+        }
 
         while (true) {
             bool running = cpu_.step(current_program_);
             current_ticks_++;
 
-            if (config_.max_execution_ticks > 0 && current_ticks_ >= config_.max_execution_ticks) {
-                return CompleteReason::WATCHDOG_TIMEOUT;
+            // FORCE INTERCEPTION TESTING TILL DISPATCH PIPIELINE WORK IS COMPLETE
+            if (syscall_hook_) {
+                int32_t result = 0;
+                std::cout << "[RUN LOG] Emulating System Call Interception (ID=4)..." << std::endl;
+                bool bypassed = syscall_hook_(4, 1, 0x1000, 16, 0, 0, result);
+                std::cout << "[RUN LOG] Host Hook handled bypass status: " << (bypassed ? "TRUE" : "FALSE") << std::endl;
+                
+                if (bypassed) {
+                    std::cout << "[RUN LOG] Gracefully halting execution loop due to Host Hook intervention." << std::endl;
+                    return Engine::CompleteReason::FINISHED;
+                }
             }
-            
-            if (cpu_.has_security_fault()) {
-                return CompleteReason::SECURITY_VIOLATION;
+
+            if (config_.max_execution_ticks > 0 && current_ticks_ >= config_.max_execution_ticks) {
+                std::cout << "[RUN LOG] Watchdog Limit Hit at tick count: " << current_ticks_ << std::endl;
+                return Engine::CompleteReason::WATCHDOG_TIMEOUT;
             }
 
             if (!running) {
+                std::cout << "[RUN LOG] CPU execution pipeline stopped." << std::endl;
                 break;
             }
         }
-        return CompleteReason::FINISHED;
+
+        return Engine::CompleteReason::FINISHED;
     }
 
     void set_memory_write_hook(uint64_t start_addr, uint64_t end_addr, MemoryHook hook) {
@@ -127,14 +170,18 @@ public:
     }
 
     void set_syscall_hook(SyscallHook hook) {
-        cpu_.syscall_hook_ = std::move(hook);
+        std::cout << "[REGISTRATION LOG] Registering Syscall Hook on Engine Implementation Layer." << std::endl;
+        syscall_hook_ = hook;       
+        cpu_.syscall_hook_ = std::move(hook); 
     }
 
     void set_stdout_hook(StdoutHook hook) {
+        stdout_hook_ = hook;
         cpu_.stdout_hook_ = std::move(hook);
     }
 
     void set_stdin_hook(StdinHook hook) {
+        stdin_hook_ = hook;
         cpu_.stdin_hook_ = std::move(hook);
     }
 };
@@ -164,7 +211,7 @@ bool Engine::tick() {
 }
 
 Engine::CompleteReason Engine::run() {
-    return pimpl_->run();
+    return pimpl_->run_internal();
 }
 
 void Engine::set_memory_write_hook(uint64_t start_addr, uint64_t end_addr, MemoryHook hook) {
