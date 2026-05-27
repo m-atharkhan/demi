@@ -76,6 +76,7 @@ test_*.asm
 src/program_data.hpp
 examples/embedding/*/*.hex
 examples/embedding/*/*_cpp
+examples/embedding/*/*_c
 examples/embedding/*/embedding_02_c
 examples/embedding/*/embedding_03_output_capture
 

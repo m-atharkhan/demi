@@ -160,6 +160,22 @@ vm.set_stdin_hook([](size_t max_count, std::vector<uint8_t>& data) {
 });
 ```
 
+```c
+static void on_stdin(size_t max_count, uint8_t* data, size_t* out_size, void* user_data) {
+    const char* text = (const char*)user_data;
+    size_t n = strlen(text);
+    if (n > max_count) n = max_count;
+    memcpy(data, text, n);
+    *out_size = n;
+}
+
+demi_engine_set_stdin_hook(vm, on_stdin, (void*)"hello from host\n");
+```
+
+See embedding examples:
+- `examples/embedding/embedding_05_stdin_cpp`
+- `examples/embedding/embedding_06_stdin_c`
+
 ### Full Syscall Hooking
 If you need complete control over how an operating system is emulated within your sandbox, you can override system calls directly and optionally bypass the VM's built-in handlers:
 
