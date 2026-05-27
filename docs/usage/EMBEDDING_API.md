@@ -12,6 +12,14 @@ You do **NOT** need to write JNI code directly inside the Demi Engine! By compil
 - **C# via P/Invoke**: Directly use DllImport on our exported C wrapper.
 - **C/C++**: Native API for game engines or low-level integrations.
 
+## Thread-safety contract
+
+One `demi::Engine` / `demi_engine_t` instance is not thread-safe. You must not call into the same engine concurrently from multiple threads.
+
+Multiple engine instances are safe to run in parallel (each instance owns its own CPU, memory, and sandbox state).
+
+All callbacks (hooks) execute synchronously on the calling thread, during the engine call that triggered them.
+
 ## Security Posture
 
 When hosting DemiEngine, it is highly recommended to instantiate the configuration with both Sandbox and Strict I/O enabled to prevent Remote Code Execution (RCE) and Denial of Service (DoS):
@@ -55,6 +63,86 @@ vm.set_memory_write_hook(0xA000, 0xB000, [](uint64_t addr, uint8_t value) {
 
 You can hook Linux-style syscalls (`INT 0x80`) and standard I/O (stdout, stdin) triggered by the VM. This is extremely powerful for redirecting print statements (`sys_write` to FD 1 or 2) directly into your parent application's logging or console windows, rather than the host's actual stdout.
 
+## Quickstart (C++)
+
+```cpp
+#include <demi/engine.hpp>
+#include <fstream>
+#include <iostream>
+#include <vector>
+
+static std::vector<uint8_t> read_file(const char* path) {
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) throw std::runtime_error("failed to open file");
+    auto size = static_cast<size_t>(f.tellg());
+    f.seekg(0, std::ios::beg);
+    std::vector<uint8_t> buf(size);
+    f.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(size));
+    return buf;
+}
+
+int main(int argc, char** argv) {
+    const char* program_path = (argc > 1) ? argv[1] : "hello.hex";
+
+    demi::Config cfg;
+    cfg.enable_sandbox = true;
+    cfg.strict_io = true;
+    cfg.io_root_path = "/safe/jail";
+    cfg.max_execution_ticks = 10'000'000;
+
+    demi::Engine vm(cfg);
+
+    vm.set_stdout_hook([](int fd, const std::vector<uint8_t>& data) {
+        std::cout << "[guest fd=" << fd << "] " << std::string(data.begin(), data.end());
+    });
+
+    auto program = read_file(program_path);
+    if (!vm.load_executable(program, 0x1000)) {
+        std::cerr << "load failed: " << vm.last_error() << "\n";
+        return 1;
+    }
+
+    auto result = vm.run();
+    (void)result;
+    return 0;
+}
+```
+
+## Quickstart (C)
+
+```c
+#include <demi/engine_c_api.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+static void on_stdout(int fd, const uint8_t* data, size_t size, void* user) {
+    (void)user;
+    fprintf(stdout, "[guest fd=%d] %.*s", fd, (int)size, (const char*)data);
+}
+
+int main(void) {
+    demi_config_t cfg = demi_engine_sandboxed_config(\"/safe/jail\");
+    cfg.max_execution_ticks = 10 * 1000 * 1000;
+
+    demi_engine_t vm = demi_engine_create(&cfg);
+    if (!vm) {
+        fprintf(stderr, \"failed to create engine\\n\");
+        return 1;
+    }
+
+    demi_engine_set_stdout_hook(vm, on_stdout, NULL);
+
+    /* Load your bytecode here (omitted for brevity). */
+    /* demi_engine_load_executable(vm, bytes, size, 0x1000); */
+
+    demi_result_t r = (demi_result_t)demi_engine_run(vm);
+    (void)r;
+
+    demi_engine_destroy(vm);
+    return 0;
+}
+```
+
 ### Standard I/O Hooks
 ```cpp
 // Redirect stdout/stderr from the VM
@@ -85,3 +173,33 @@ vm.set_syscall_hook([](uint32_t syscall_id, uint32_t arg1, uint32_t arg2, uint32
 ```
 
 Using the API ensures the complexities of internal subsystems (`cpu.hpp`, 134-registers, memory mappings) are cleanly decoupled from the embedding host.
+
+## Callback lifetime rules
+
+For both the C++ and C APIs, hooks are invoked synchronously. You must ensure:
+
+- The hook function pointer (C) or callable (C++) remains valid until you clear it or destroy the engine.
+- Any `user_data` passed to C hooks remains valid for the same lifetime.
+
+## Notes for common FFI layers
+
+### Python (ctypes)
+
+- Prefer `ctypes.CFUNCTYPE` for callbacks and keep a Python reference to the callback object for the entire time the engine might call it.
+- Treat `const uint8_t*` buffers passed to callbacks as valid only for the duration of the callback.
+
+### Java (JNA)
+
+- Use `Callback` interfaces for hooks.
+- Keep a strong reference to callback objects; do not let them be garbage collected.
+- Match `size_t` with `NativeLong` on the Java side.
+
+### C# (P/Invoke)
+
+- Use `UnmanagedFunctionPointer` delegates for hooks and store them in a field to avoid GC.
+- Use `UIntPtr` for `size_t` and `ulong` for `uint64_t`.
+
+### Rust (bindgen)
+
+- Prefer generating bindings from `src/engine/engine_c_api.h`.
+- Store callback function pointers in a stable location and pass a `*mut c_void` as context.
