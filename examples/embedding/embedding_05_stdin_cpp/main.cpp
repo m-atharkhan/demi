@@ -21,6 +21,8 @@ static std::vector<uint8_t> read_file(const std::string& path) {
 }
 
 int main(int argc, char** argv) {
+    constexpr uint32_t kEchoInputEntryPc = 0x200;
+
     const std::string program_path = (argc > 1) ? argv[1] : "echo_input.hex";
     std::string host_input = (argc > 2) ? argv[2] : "Input from C++ host stdin hook\n";
 
@@ -47,6 +49,11 @@ int main(int argc, char** argv) {
     if (!vm.load_executable(program, 0)) {
         std::cerr << "load failed: (" << vm.last_error_code() << ") "
                   << vm.last_error() << "\n";
+        return 1;
+    }
+    // echo_input.asm uses .data/.text; entry symbol _start is at 0x200.
+    if (!vm.set_pc(kEchoInputEntryPc)) {
+        std::cerr << "set_pc failed\n";
         return 1;
     }
 

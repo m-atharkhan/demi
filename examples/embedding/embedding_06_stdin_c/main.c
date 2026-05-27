@@ -44,6 +44,8 @@ static uint8_t* read_file(const char* path, size_t* out_size) {
 }
 
 int main(int argc, char** argv) {
+    const uint32_t echo_input_entry_pc = 0x200;
+
     const char* hex_path = (argc > 1) ? argv[1] : "echo_input.hex";
     const char* host_input = (argc > 2) ? argv[2] : "Input from C host stdin hook\n";
 
@@ -85,6 +87,15 @@ int main(int argc, char** argv) {
         return 1;
     }
     free(bytes);
+
+    // echo_input.asm uses .data/.text; entry symbol _start is at 0x200.
+    if (!demi_engine_set_pc(vm, echo_input_entry_pc)) {
+        fprintf(stderr, "set_pc failed: (%d) %s\n",
+                demi_engine_last_error_code(vm),
+                demi_engine_last_error(vm));
+        demi_engine_destroy(vm);
+        return 1;
+    }
 
     (void)demi_engine_run(vm);
 
