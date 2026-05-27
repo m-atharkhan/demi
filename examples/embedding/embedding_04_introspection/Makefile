@@ -15,7 +15,7 @@ endif
 LIB_STATIC := ../../../bin/libdemi$(LIB_SUFFIX).a
 TARGET := embedding_04_introspection
 
-.PHONY: all clean run
+.PHONY: all clean run lib
 
 all: $(TARGET)
 
@@ -28,7 +28,11 @@ $(LIB_STATIC):
 	@echo "📦 building Demi static library in root folder..."
 	$(MAKE) -C ../../.. lib-all BUILD_TYPE=$(BUILD_TYPE)
 
-run: all
+lib:
+	@echo "📦 refreshing Demi static library..."
+	$(MAKE) -C ../../.. lib-all BUILD_TYPE=$(BUILD_TYPE)
+
+run: lib all
 	@echo "🚀 Running $(TARGET)..."
 	./$(TARGET)
 

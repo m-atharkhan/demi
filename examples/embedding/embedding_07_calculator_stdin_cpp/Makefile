@@ -16,7 +16,7 @@ LIB_STATIC := ../../../bin/libdemi$(LIB_SUFFIX).a
 TARGET := embedding_07_calculator_stdin_cpp
 GUEST_ASM := ../../x64/syscalls/line_calculator.asm
 
-.PHONY: all clean run assemble
+.PHONY: all clean run assemble lib
 
 all: $(TARGET)
 
@@ -35,7 +35,11 @@ $(LIB_STATIC):
 	@echo "📦 building Demi static library in root folder..."
 	$(MAKE) -C ../../.. lib-all BUILD_TYPE=$(BUILD_TYPE)
 
-run: all assemble
+lib:
+	@echo "📦 refreshing Demi static library..."
+	$(MAKE) -C ../../.. lib-all BUILD_TYPE=$(BUILD_TYPE)
+
+run: lib all assemble
 	@echo "🚀 Running $(TARGET)..."
 	./$(TARGET) line_calculator.hex
 
