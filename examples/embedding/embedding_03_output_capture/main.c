@@ -4,9 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int g_debug = 0;
+
 static void on_stdout(int fd, const uint8_t* data, size_t size, void* user_data) {
     (void)user_data;
-    fprintf(stdout, "[guest fd=%d] %.*s", fd, (int)size, (const char*)data);
+    if (g_debug) {
+        fprintf(stdout, "[guest fd=%d] %.*s", fd, (int)size, (const char*)data);
+    }
 }
 
 static uint8_t* read_file(const char* path, size_t* out_size) {
@@ -25,7 +29,18 @@ static uint8_t* read_file(const char* path, size_t* out_size) {
 }
 
 int main(int argc, char** argv) {
-    const char* hex_path = (argc > 1) ? argv[1] : "hello.hex";
+    const char* hex_path = "hello.hex";
+    int positional = 0;
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--debug") == 0) {
+            g_debug = 1;
+        } else {
+            if (positional == 0) {
+                hex_path = argv[i];
+            }
+            positional++;
+        }
+    }
 
     demi_config_t cfg = demi_engine_default_config();
     cfg.enable_sandbox = true;
@@ -38,7 +53,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    demi_engine_set_stdout_hook(vm, on_stdout, NULL);
+    if (g_debug) {
+        demi_engine_set_stdout_hook(vm, on_stdout, NULL);
+    }
     demi_engine_enable_output_capture(vm, true);
 
     size_t size = 0;
@@ -68,7 +85,9 @@ int main(int argc, char** argv) {
     if (!out || out_n == 0) {
         fprintf(stderr, "no output captured\n");
     } else {
-        fprintf(stdout, "[captured %zu bytes] ", out_n);
+        if (g_debug) {
+            fprintf(stdout, "[captured %zu bytes] ", out_n);
+        }
         fwrite(out, 1, out_n, stdout);
         if (out[out_n - 1] != '\n') {
             fputc('\n', stdout);

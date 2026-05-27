@@ -13,3 +13,9 @@ From WSL:
 ```bash
 make run
 ```
+
+For extra step diagnostics:
+
+```bash
+./embedding_04_introspection --debug
+```

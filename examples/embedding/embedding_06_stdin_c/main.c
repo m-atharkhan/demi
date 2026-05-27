@@ -10,9 +10,15 @@ typedef struct stdin_state {
     int sent;
 } stdin_state_t;
 
+static int g_debug = 0;
+
 static void on_stdout(int fd, const uint8_t* data, size_t size, void* user_data) {
     (void)user_data;
-    fprintf(stdout, "[guest fd=%d] %.*s", fd, (int)size, (const char*)data);
+    if (g_debug) {
+        fprintf(stdout, "[guest fd=%d] %.*s", fd, (int)size, (const char*)data);
+    } else {
+        fwrite(data, 1, size, stdout);
+    }
 }
 
 static void on_stdin(size_t max_count, uint8_t* data, size_t* out_size, void* user_data) {
@@ -45,9 +51,21 @@ static uint8_t* read_file(const char* path, size_t* out_size) {
 
 int main(int argc, char** argv) {
     const uint32_t echo_input_entry_pc = 0x200;
-
-    const char* hex_path = (argc > 1) ? argv[1] : "echo_input.hex";
-    const char* host_input = (argc > 2) ? argv[2] : "Input from C host stdin hook\n";
+    const char* hex_path = "echo_input.hex";
+    const char* host_input = "Input from C host stdin hook\n";
+    int positional = 0;
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--debug") == 0) {
+            g_debug = 1;
+            continue;
+        }
+        if (positional == 0) {
+            hex_path = argv[i];
+        } else if (positional == 1) {
+            host_input = argv[i];
+        }
+        positional++;
+    }
 
     demi_config_t cfg = demi_engine_default_config();
     cfg.enable_sandbox = true;
@@ -104,7 +122,9 @@ int main(int argc, char** argv) {
     if (!out || out_n == 0) {
         fprintf(stderr, "no output captured\n");
     } else {
-        fprintf(stdout, "\n[captured %zu bytes] ", out_n);
+        if (g_debug) {
+            fprintf(stdout, "\n[captured %zu bytes] ", out_n);
+        }
         fwrite(out, 1, out_n, stdout);
         if (out[out_n - 1] != '\n') {
             fputc('\n', stdout);

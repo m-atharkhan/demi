@@ -16,8 +16,16 @@ static std::vector<uint8_t> load_binary_file(const std::string& filepath) {
 }
 
 int main(int argc, char* argv[]) {
+    bool debug = false;
     std::string hex_file = "hello.hex";
-    for (int i = 1; i < argc; ++i) hex_file = argv[i];
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--debug") {
+            debug = true;
+        } else {
+            hex_file = arg;
+        }
+    }
 
     demi::Engine vm;
     std::string captured_output;
@@ -25,7 +33,11 @@ int main(int argc, char* argv[]) {
     vm.set_stdout_hook([&](int fd, const std::vector<uint8_t>& data) {
         std::string text(data.begin(), data.end());
         captured_output += text;
-        std::cout << "[VM STDOUT (fd=" << fd << ")] " << text;
+        if (debug) {
+            std::cout << "[VM STDOUT (fd=" << fd << ")] " << text;
+        } else {
+            std::cout << text;
+        }
     });
 
     auto binary = load_binary_file(hex_file);
@@ -38,6 +50,8 @@ int main(int argc, char* argv[]) {
     }
     vm.run();
 
-    std::cout << "Execution finished. Output: " << captured_output << std::endl;
+    if (debug) {
+        std::cout << "Execution finished. Output: " << captured_output << std::endl;
+    }
     return 0;
 }

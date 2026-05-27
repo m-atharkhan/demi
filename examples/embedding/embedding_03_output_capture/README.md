@@ -9,3 +9,9 @@ From WSL:
 ```bash
 make run
 ```
+
+For verbose hook/debug output:
+
+```bash
+./embedding_03_output_capture hello.hex --debug
+```

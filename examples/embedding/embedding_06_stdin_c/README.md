@@ -13,3 +13,9 @@ From WSL:
 make run
 ```
 
+For verbose hook/debug output:
+
+```bash
+./embedding_06_stdin_c echo_input.hex --debug
+```
+

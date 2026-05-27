@@ -10,6 +10,12 @@ From WSL:
 make run
 ```
 
+For verbose hook/debug output:
+
+```bash
+./embedding_01_cpp hello.hex --debug
+```
+
 This will:
 - Build `libdemi` from the repository root if needed
 - Assemble `hello.asm` into `hello.hex`

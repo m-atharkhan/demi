@@ -1,6 +1,5 @@
 #include <demi/engine.hpp>
 
-#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -21,11 +20,10 @@ static std::vector<uint8_t> read_file(const std::string& path) {
 }
 
 int main(int argc, char** argv) {
-    constexpr uint32_t kEchoInputEntryPc = 0x200;
+    constexpr uint32_t kLineCalculatorEntryPc = 0x200;
 
     bool debug = false;
-    std::string program_path = "echo_input.hex";
-    std::string host_input = "Input from C++ host stdin hook\n";
+    std::string program_path = "line_calculator.hex";
     int positional = 0;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -35,36 +33,33 @@ int main(int argc, char** argv) {
         }
         if (positional == 0) {
             program_path = arg;
-        } else if (positional == 1) {
-            host_input = arg;
         }
         positional++;
     }
 
     demi::Engine vm;
-    vm.enable_output_capture(true);
 
-    vm.set_stdout_hook([](int fd, const std::vector<uint8_t>& data) {
-        (void)fd;
-        std::cout << std::string(data.begin(), data.end());
-    });
-    if (debug) {
-        vm.clear_stdout_hook();
-        vm.set_stdout_hook([](int fd, const std::vector<uint8_t>& data) {
+    vm.set_stdout_hook([&](int fd, const std::vector<uint8_t>& data) {
+        if (debug) {
             std::cout << "[guest fd=" << fd << "] "
                       << std::string(data.begin(), data.end());
-        });
-    }
+        } else {
+            std::cout << std::string(data.begin(), data.end());
+        }
+        std::cout.flush();
+    });
 
-    bool stdin_sent = false;
-    vm.set_stdin_hook([&](size_t max_count, std::vector<uint8_t>& data) {
-        if (stdin_sent || host_input.empty()) {
-            data.clear();
+    vm.set_stdin_hook([](size_t max_count, std::vector<uint8_t>& data) {
+        std::string line;
+        if (!std::getline(std::cin, line)) {
+            data.clear();  // EOF => guest sees read(0)
             return;
         }
-        const size_t n = std::min(max_count, host_input.size());
-        data.assign(host_input.begin(), host_input.begin() + static_cast<std::ptrdiff_t>(n));
-        stdin_sent = true;
+        line.push_back('\n');
+        if (line.size() > max_count) {
+            line.resize(max_count);
+        }
+        data.assign(line.begin(), line.end());
     });
 
     const auto program = read_file(program_path);
@@ -73,19 +68,13 @@ int main(int argc, char** argv) {
                   << vm.last_error() << "\n";
         return 1;
     }
-    // echo_input.asm uses .data/.text; entry symbol _start is at 0x200.
-    if (!vm.set_pc(kEchoInputEntryPc)) {
+
+    if (!vm.set_pc(kLineCalculatorEntryPc)) {
         std::cerr << "set_pc failed\n";
         return 1;
     }
 
     (void)vm.run();
-
-    const auto& captured = vm.get_output_buffer();
-    if (debug) {
-        std::cout << "\n[captured " << captured.size() << " bytes] "
-                  << std::string(captured.begin(), captured.end()) << "\n";
-    }
     return 0;
 }
 

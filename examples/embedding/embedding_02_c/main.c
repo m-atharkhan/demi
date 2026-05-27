@@ -2,10 +2,17 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+static int g_debug = 0;
 
 static void on_stdout(int fd, const uint8_t* data, size_t size, void* user_data) {
     (void)user_data;
-    fprintf(stdout, "[guest fd=%d] %.*s\n", fd, (int)size, (const char*)data);
+    if (g_debug) {
+        fprintf(stdout, "[guest fd=%d] %.*s", fd, (int)size, (const char*)data);
+    } else {
+        fwrite(data, 1, size, stdout);
+    }
 }
 
 static uint8_t* read_file(const char* path, size_t* out_size) {
@@ -24,7 +31,18 @@ static uint8_t* read_file(const char* path, size_t* out_size) {
 }
 
 int main(int argc, char** argv) {
-    const char* hex_path = (argc > 1) ? argv[1] : "hello.hex";
+    const char* hex_path = "hello.hex";
+    int positional = 0;
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--debug") == 0) {
+            g_debug = 1;
+        } else {
+            if (positional == 0) {
+                hex_path = argv[i];
+            }
+            positional++;
+        }
+    }
 
     demi_config_t cfg = demi_engine_default_config();
     cfg.enable_sandbox = true;
