@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
 
     vm.set_syscall_hook([&](uint32_t id, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, int32_t& res) {
         if (id == 4) { // SYS_WRITE
-            // We know from debugging that the data is at 0x1031
+            // We know from debugging that the data is at 0x1031 (Needs fixing as we don't want hardcoded values.)
             // Even if the register (a2) is wrong, we manually point to the correct data
             uint64_t base_address = 0x1000;
             uint64_t symbol_offset = 0x37; // Update this to match the Symbol Table output
@@ -80,6 +80,7 @@ int main(int argc, char* argv[]) {
             }
             
             std::string text(buffer.begin(), buffer.end());
+            captured_output += text;
             std::cout << "[VM STDOUT] Successfully Captured: " << text << std::endl;
             
             res = length;
