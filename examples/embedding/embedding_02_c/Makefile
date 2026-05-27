@@ -21,7 +21,7 @@ all: $(TARGET)
 
 $(TARGET): main.c $(LIB_STATIC)
 	@echo "🔗 Linking $(TARGET) (mode: $(BUILD_TYPE)) with libdemi..."
-	$(CC) $(CFLAGS) $< $(LIB_STATIC) -lstdc++fs -lstdc++ -pthread -o $@
+	$(CC) $(CFLAGS) $< $(LIB_STATIC) -lstdc++fs -lstdc++ -lm -pthread -o $@
 	@echo "✅ Built $(TARGET) successfully"
 
 assemble: hello.hex
