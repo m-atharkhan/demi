@@ -580,6 +580,7 @@ public:
     }
 
     bool has_security_fault() const { return has_security_fault_; }
+    void clear_security_fault() { has_security_fault_ = false; }
 
     // Register synchronization (public for opcode handlers)
     void sync_legacy_registers();
