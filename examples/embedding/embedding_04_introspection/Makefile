@@ -3,7 +3,7 @@
 BUILD_TYPE ?= debug
 
 CXX := g++
-CXXFLAGS := -Wall -Wextra -std=c++17 -O2 -I../../../src -I../../../extern/fmt/include
+CXXFLAGS := -Wall -Wextra -std=c++17 -O2 -I../../../include -I../../../src -I../../../extern/fmt/include
 
 ifeq ($(BUILD_TYPE),debug)
     CXXFLAGS += -DDEMI_DEBUG_BUILD -D_GLIBCXX_DEBUG -DDEMI_DEBUG_MODE

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
 
-#include "../../../src/engine/engine.hpp"
+#include <demi/engine.hpp>
 
 int main() {
     demi::Engine vm;

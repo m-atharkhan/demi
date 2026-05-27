@@ -16,6 +16,7 @@ MAKEFLAGS += -j$(NPROCS)
 
 # Directory structure
 SRC_DIR := src
+INCLUDE_DIR := include
 BUILD_DIR := build
 BIN_DIR := bin
 EXTERN_DIR := extern
@@ -96,6 +97,7 @@ FMT_SRCS := $(FMT_DIR)/src/format.cc
 FMT_OBJS := $(patsubst $(FMT_DIR)/src/%.cc,$(BUILD_DIR)/fmt/%.o,$(FMT_SRCS))
 FMT_DEPS := $(FMT_OBJS:.o=.d)
 CXXFLAGS += -I$(FMT_DIR)/include
+CXXFLAGS += -I$(INCLUDE_DIR)
 
 # =============================================================================
 # Source File Discovery and Object Generation
@@ -167,7 +169,7 @@ $(TARGET): $(MAIN_TARGET_OBJS) $(FMT_OBJS) | $(BIN_DIR)
 # Library targets
 lib-all: $(LIB_STATIC) $(LIB_SHARED)
 	@mkdir -p /usr/local/include/demi 2>/dev/null || true
-	@cp src/engine/engine.hpp src/engine/engine_c_api.h /usr/local/include/demi/ 2>/dev/null || true
+	@cp $(INCLUDE_DIR)/demi/engine.hpp $(INCLUDE_DIR)/demi/engine_c_api.h /usr/local/include/demi/ 2>/dev/null || true
 	@echo "✅ Libraries built and headers copied"
 
 $(LIB_STATIC): $(LIB_OBJS) $(FMT_OBJS) | $(BIN_DIR)

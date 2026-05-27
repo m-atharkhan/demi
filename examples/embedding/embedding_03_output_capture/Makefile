@@ -3,7 +3,7 @@
 BUILD_TYPE ?= debug
 
 CC := gcc
-CFLAGS := -Wall -Wextra -O2 -I../../../src
+CFLAGS := -Wall -Wextra -O2 -I../../../include -I../../../src
 
 ifeq ($(BUILD_TYPE),debug)
     CFLAGS += -DDEMI_DEBUG_BUILD

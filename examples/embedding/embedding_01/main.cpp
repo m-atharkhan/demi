@@ -3,7 +3,7 @@
 #include <fstream>
 #include <string>
 
-#include "../../../src/engine/engine.hpp"
+#include <demi/engine.hpp>
 
 static std::vector<uint8_t> load_binary_file(const std::string& filepath) {
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
