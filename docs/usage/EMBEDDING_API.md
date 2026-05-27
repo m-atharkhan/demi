@@ -3,7 +3,9 @@
 DemiEngine is designed to be a standalone, general-purpose Virtual Machine, but you can also safely host it inside parent applications to execute untrusted user code. A public Embedded API (`demi/engine.hpp`) is available for this purpose.
 
 ## Supported Languages and Bindings
-Currently, the core engine SDK exposes a Clean C++ Header (`engine.hpp`) and, crucially, a **Pure C API Wrapper** (`engine_c_api.h`). 
+Currently, the core engine SDK exposes public headers under `include/demi/`:
+- C++ API: `include/demi/engine.hpp`
+- C API: `include/demi/engine_c_api.h`
 
 You do **NOT** need to write JNI code directly inside the Demi Engine! By compiling `demi` into a shared library (`libdemi.so` / `libdemi.dll`), you can immediately bind it externally using FFI wrappers:
 
@@ -174,6 +176,9 @@ vm.set_syscall_hook([](uint32_t syscall_id, uint32_t arg1, uint32_t arg2, uint32
 
 Using the API ensures the complexities of internal subsystems (`cpu.hpp`, 134-registers, memory mappings) are cleanly decoupled from the embedding host.
 
+### Program load base note
+When loading raw assembled blobs that use label addresses directly for syscalls (e.g. `LOAD_IMM RCX, msg`), those label values are offsets in the emitted blob. In that case, load at base `0` (or assemble with an explicit origin) so guest pointers line up with VM memory.
+
 ## Callback lifetime rules
 
 For both the C++ and C APIs, hooks are invoked synchronously. You must ensure:
@@ -201,5 +206,5 @@ For both the C++ and C APIs, hooks are invoked synchronously. You must ensure:
 
 ### Rust (bindgen)
 
-- Prefer generating bindings from `src/engine/engine_c_api.h`.
+- Prefer generating bindings from `include/demi/engine_c_api.h`.
 - Store callback function pointers in a stable location and pass a `*mut c_void` as context.
