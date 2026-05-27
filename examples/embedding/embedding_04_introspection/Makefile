@@ -15,7 +15,7 @@ endif
 LIB_STATIC := ../../../bin/libdemi$(LIB_SUFFIX).a
 TARGET := embedding_04_introspection
 
-.PHONY: all clean run lib
+.PHONY: all clean run run-debug lib
 
 all: $(TARGET)
 
@@ -35,6 +35,10 @@ lib:
 run: lib all
 	@echo "🚀 Running $(TARGET)..."
 	./$(TARGET)
+
+run-debug: lib all
+	@echo "🚀 Running $(TARGET) in debug mode..."
+	./$(TARGET) --debug
 
 clean:
 	rm -f $(TARGET)

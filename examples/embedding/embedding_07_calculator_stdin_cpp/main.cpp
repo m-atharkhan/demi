@@ -39,10 +39,21 @@ int main(int argc, char** argv) {
 
     demi::Engine vm;
 
-    vm.set_stdout_hook([&](int fd, const std::vector<uint8_t>& data) {
+    // Use a mutable lambda or external state to keep track of line state
+    bool at_line_start = true;
+
+    vm.set_stdout_hook([&, at_line_start](int fd, const std::vector<uint8_t>& data) mutable {
         if (debug) {
-            std::cout << "[guest fd=" << fd << "] "
-                      << std::string(data.begin(), data.end());
+            for (uint8_t byte : data) {
+                if (at_line_start) {
+                    std::cout << "[guest fd=" << fd << "] ";
+                    at_line_start = false;
+                }
+                std::cout << static_cast<char>(byte);
+                if (byte == '\n') {
+                    at_line_start = true;
+                }
+            }
         } else {
             std::cout << std::string(data.begin(), data.end());
         }
@@ -77,4 +88,3 @@ int main(int argc, char** argv) {
     (void)vm.run();
     return 0;
 }
-

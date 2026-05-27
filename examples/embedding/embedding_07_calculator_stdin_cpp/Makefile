@@ -16,7 +16,7 @@ LIB_STATIC := ../../../bin/libdemi$(LIB_SUFFIX).a
 TARGET := embedding_07_calculator_stdin_cpp
 GUEST_ASM := ../../x64/syscalls/line_calculator.asm
 
-.PHONY: all clean run assemble lib
+.PHONY: all clean run run-debug assemble lib
 
 all: $(TARGET)
 
@@ -42,6 +42,10 @@ lib:
 run: lib all assemble
 	@echo "🚀 Running $(TARGET)..."
 	./$(TARGET) line_calculator.hex
+
+run-debug: lib all assemble
+	@echo "🚀 Running $(TARGET) in debug mode..."
+	./$(TARGET) line_calculator.hex --debug
 
 clean:
 	rm -f $(TARGET) line_calculator.hex

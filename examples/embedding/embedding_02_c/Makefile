@@ -15,7 +15,7 @@ endif
 LIB_STATIC := ../../../bin/libdemi$(LIB_SUFFIX).a
 TARGET := embedding_02_c
 
-.PHONY: all clean run assemble lib
+.PHONY: all clean run run-debug assemble lib
 
 all: $(TARGET)
 
@@ -41,6 +41,10 @@ lib:
 run: lib all assemble
 	@echo "🚀 Running $(TARGET)..."
 	./$(TARGET) hello.hex
+
+run-debug: lib all assemble
+	@echo "🚀 Running $(TARGET) in debug mode..."
+	./$(TARGET) hello.hex --debug
 
 clean:
 	rm -f $(TARGET) hello.hex
