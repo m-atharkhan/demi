@@ -5,7 +5,7 @@
 
 static void on_stdout(int fd, const uint8_t* data, size_t size, void* user_data) {
     (void)user_data;
-    fprintf(stdout, "[guest fd=%d] %.*s", fd, (int)size, (const char*)data);
+    fprintf(stdout, "[guest fd=%d] %.*s\n", fd, (int)size, (const char*)data);
 }
 
 static uint8_t* read_file(const char* path, size_t* out_size) {
