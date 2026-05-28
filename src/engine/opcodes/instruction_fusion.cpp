@@ -385,6 +385,8 @@ bool FusionEngine::fuse_load_imm_arithmetic(CPU& cpu, const std::vector<uint8_t>
             pattern = FusionPattern::LOAD_IMM_XOR;
             break;
         case Opcode::CMP: {
+            // Must write the LOAD_IMM value to the register first
+            cpu.set_register_mode_aware(static_cast<Register>(load_reg), imm);
             // CMP with immediate - set flags based on imm vs val2
             uint64_t diff = static_cast<uint64_t>(imm) - val2;
             uint64_t masked_diff = diff & mask;
