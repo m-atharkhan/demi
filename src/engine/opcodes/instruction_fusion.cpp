@@ -309,7 +309,11 @@ bool FusionEngine::fuse_load_imm_arithmetic(CPU& cpu, const std::vector<uint8_t>
     if (arith_reg1 != load_reg) return false;
     if (!cpu.is_valid_register(static_cast<Register>(arith_reg2))) return false;
 
-    uint64_t val2 = cpu.get_register_mode_aware(static_cast<Register>(arith_reg2));
+    // If arith_reg2 == load_reg, the register hasn't been set by LOAD_IMM yet.
+    // Use the immediate value as the second operand in that case (e.g. XOR R0, R0).
+    uint64_t val2 = (arith_reg2 == load_reg)
+        ? static_cast<uint64_t>(imm)
+        : cpu.get_register_mode_aware(static_cast<Register>(arith_reg2));
     uint64_t result = 0;
     FusionPattern pattern = FusionPattern::NONE;
     uint64_t mask = cpu.get_operand_mask();
