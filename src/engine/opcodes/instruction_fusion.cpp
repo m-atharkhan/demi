@@ -5,6 +5,7 @@
 #include "../../debug/debug_handler.hpp"
 #include "../../debug/error_handler.hpp"
 #include "../../config.hpp"
+#include "opcode_profiler.hpp"
 #include <fmt/core.h>
 
 namespace InstructionFusion {
@@ -107,6 +108,11 @@ bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& pr
         case Opcode::CMP:
             FUSION_DEBUG("  -> Trying CMP+branch fusion", "");
             result = fuse_cmp_branch(cpu, program, running);
+            if (result) {
+                // Record fused opcodes (TASK-005)
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::CMP));
+                OPCODE_PROFILE(program[cpu.get_pc()]); // The branch opcode
+            }
             if (!result) FUSION_DEBUG("  -> CMP+branch FAILED", "");
             return result;
             
@@ -115,10 +121,18 @@ bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& pr
             FUSION_DEBUG("  -> Trying LOAD_IMM+STORE fusion", "");
             if (fuse_load_imm_store(cpu, program, running)) {
                 FUSION_DEBUG("  -> LOAD_IMM+STORE SUCCESS", "");
+                // Record fused opcodes (TASK-005)
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::LOAD_IMM));
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::STORE));
                 return true;
             }
             FUSION_DEBUG("  -> Trying LOAD_IMM+arithmetic fusion", "");
             result = fuse_load_imm_arithmetic(cpu, program, running);
+            if (result) {
+                // Record fused opcodes (TASK-005)
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::LOAD_IMM));
+                OPCODE_PROFILE(program[cpu.get_pc()]); // The arithmetic opcode
+            }
             if (!result) FUSION_DEBUG("  -> LOAD_IMM+arithmetic FAILED", "");
             return result;
             
@@ -129,6 +143,9 @@ bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& pr
             FUSION_DEBUG("  -> Trying {}+STORE fusion", opcode_name(current_op));
             if (fuse_arithmetic_store(cpu, program, running)) {
                 FUSION_DEBUG("  -> {}+STORE SUCCESS", opcode_name(current_op));
+                // Record fused opcodes (TASK-005)
+                OPCODE_PROFILE(raw_op);
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::STORE));
                 return true;
             }
             FUSION_DEBUG("  -> {}+STORE FAILED, no fusion", opcode_name(current_op));
@@ -138,18 +155,33 @@ bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& pr
         case Opcode::DEC:
             FUSION_DEBUG("  -> Trying {}+CMP fusion", opcode_name(current_op));
             result = fuse_inc_dec_cmp(cpu, program, running);
+            if (result) {
+                // Record fused opcodes (TASK-005)
+                OPCODE_PROFILE(raw_op);
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::CMP));
+            }
             if (!result) FUSION_DEBUG("  -> {}+CMP FAILED", opcode_name(current_op));
             return result;
 
         case Opcode::LOAD:
             FUSION_DEBUG("  -> Trying LOAD+arithmetic fusion", "");
             result = fuse_load_arithmetic(cpu, program, running);
+            if (result) {
+                // Record fused opcodes (TASK-005)
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::LOAD));
+                OPCODE_PROFILE(program[cpu.get_pc()]); // The arithmetic opcode
+            }
             if (!result) FUSION_DEBUG("  -> LOAD+arithmetic FAILED", "");
             return result;
 
         case Opcode::MOV:
             FUSION_DEBUG("  -> Trying MOV+arithmetic fusion", "");
             result = fuse_mov_arithmetic(cpu, program, running);
+            if (result) {
+                // Record fused opcodes (TASK-005)
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::MOV));
+                OPCODE_PROFILE(program[cpu.get_pc()]); // The arithmetic opcode
+            }
             if (!result) FUSION_DEBUG("  -> MOV+arithmetic FAILED", "");
             return result;
 
@@ -158,10 +190,19 @@ bool FusionEngine::try_fuse_and_execute(CPU& cpu, const std::vector<uint8_t>& pr
             FUSION_DEBUG("  -> Trying PUSH+POP fusion", "");
             if (fuse_push_pop(cpu, program, running)) {
                 FUSION_DEBUG("  -> PUSH+POP SUCCESS", "");
+                // Record fused opcodes (TASK-005)
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::PUSH));
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::POP));
                 return true;
             }
             FUSION_DEBUG("  -> Trying PUSH+PUSH+CALL fusion", "");
             result = fuse_push_push_call(cpu, program, running);
+            if (result) {
+                // Record fused opcodes (TASK-005)
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::PUSH));
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::PUSH));
+                OPCODE_PROFILE(static_cast<uint8_t>(Opcode::CALL));
+            }
             if (!result) FUSION_DEBUG("  -> PUSH+PUSH+CALL FAILED", "");
             return result;
             

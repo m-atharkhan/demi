@@ -2,6 +2,7 @@
 #include "opcode_registry.hpp"
 #include "../cpu.hpp"
 #include "../../debug/debug_handler.hpp"
+#include "../opcodes/opcode_profiler.hpp"
 #include <fmt/format.h>
 #include <atomic>
 
@@ -108,6 +109,8 @@ dispatch_start:
         // table has exactly 256 entries so the index is always in-range.
         // Guard against a null entry (partial init race or future table changes).
         uint8_t opcode = program[cpu.get_pc()];
+        // Profile opcode execution (TASK-005)
+        OPCODE_PROFILE(opcode);
         void* target = dispatch_table[opcode];
         if (__builtin_expect(target == nullptr, 0)) {
             Logging::DebugHandler::instance().report(
@@ -141,6 +144,8 @@ void dispatch_opcode_unified_fallback(CPU& cpu, const std::vector<uint8_t>& prog
     }
 
     uint8_t opcode = program[cpu.get_pc()];
+    // Profile opcode execution (TASK-005)
+    OPCODE_PROFILE(opcode);
     auto handler = OpcodeRegistry::instance().get_handler(opcode);
     
     if (handler) {

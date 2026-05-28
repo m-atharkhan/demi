@@ -1,6 +1,7 @@
 #include "opcode_dispatcher_threaded.hpp"
 #include "../cpu.hpp"
 #include "../../debug/debug_handler.hpp"
+#include "../opcodes/opcode_profiler.hpp"
 #include <fmt/format.h>
 #include <atomic>
 
@@ -285,6 +286,8 @@ dispatch_start:
         // path is ever changed.  The check is a single pointer comparison and
         // has no measurable impact in release builds.
         uint8_t opcode = program[cpu.get_pc()];
+        // Profile opcode execution (TASK-005)
+        OPCODE_PROFILE(opcode);
         void* target = dispatch_table[opcode];
         if (__builtin_expect(target == nullptr, 0)) {
             Logging::DebugHandler::instance().report(

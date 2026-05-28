@@ -2563,3 +2563,140 @@ TEST_CASE_EXPECT_ERROR(memory_bounds_pointer_chain_out_of_bounds, "memory_bounds
     )");
     ctx.execute_program();
 }
+
+// ============================================================================
+// OPCODE PROFILING TESTS (TASK-005)
+// ============================================================================
+
+#include "../engine/opcodes/opcode_profiler.hpp"
+
+TEST_CASE(profiler_basic_counting, "profiling") {
+    // Test that profiler counts opcode executions
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.enable();
+    
+    // Execute a simple program
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 10
+        LOAD_IMM EBX, 20
+        ADD EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // Verify profiling data
+    ctx.assert_eq(true, profiler.is_enabled(), "Profiler should be enabled");
+    ctx.assert_eq(true, profiler.get_total_count() > 0, "Total count should be > 0");
+    ctx.assert_eq(true, profiler.get_count(static_cast<uint8_t>(Opcode::LOAD_IMM)) >= 2,
+        "LOAD_IMM should be counted at least twice");
+    ctx.assert_eq(true, profiler.get_count(static_cast<uint8_t>(Opcode::ADD)) >= 1,
+        "ADD should be counted at least once");
+    ctx.assert_eq(true, profiler.get_count(static_cast<uint8_t>(Opcode::HALT)) >= 1,
+        "HALT should be counted at least once");
+    
+    profiler.disable();
+}
+
+TEST_CASE(profiler_disable_zero_overhead, "profiling") {
+    // Test that profiler has zero overhead when disabled
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.disable();
+    
+    // Execute a program with profiler disabled
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 42
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // Verify no counts were recorded
+    ctx.assert_eq(false, profiler.is_enabled(), "Profiler should be disabled");
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_total_count(),
+        "Total count should be 0 when profiler is disabled");
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_count(static_cast<uint8_t>(Opcode::LOAD_IMM)),
+        "LOAD_IMM count should be 0 when profiler is disabled");
+}
+
+TEST_CASE(profiler_reset, "profiling") {
+    // Test that profiler reset clears all counters
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.enable();
+    
+    // Execute a program
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 1
+        HALT
+    )");
+    ctx.execute_program();
+    
+    uint64_t count_before = profiler.get_total_count();
+    ctx.assert_eq(true, count_before > 0, "Should have some counts before reset");
+    
+    // Reset and verify
+    profiler.reset();
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_total_count(),
+        "Total count should be 0 after reset");
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_count(static_cast<uint8_t>(Opcode::LOAD_IMM)),
+        "LOAD_IMM count should be 0 after reset");
+    
+    profiler.disable();
+}
+
+TEST_CASE(profiler_hotspots, "profiling") {
+    // Test hotspot analysis
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.enable();
+    
+    // Execute a program with multiple instructions
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 1
+        LOAD_IMM EBX, 2
+        LOAD_IMM ECX, 3
+        ADD EAX, EBX
+        ADD EAX, ECX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // Get hotspots
+    auto hotspots = profiler.get_hotspots(5);
+    ctx.assert_eq(true, hotspots.size() > 0, "Should have at least one hotspot");
+    
+    // First hotspot should have highest count
+    if (hotspots.size() >= 2) {
+        ctx.assert_eq(true, hotspots[0].count >= hotspots[1].count,
+            "Hotspots should be sorted by count descending");
+    }
+    
+    profiler.disable();
+}
+
+TEST_CASE(profiler_opcode_counts, "profiling") {
+    // Test that specific opcode counts are accurate
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.enable();
+    
+    // Execute a program with known instruction counts
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 10
+        LOAD_IMM EBX, 20
+        LOAD_IMM ECX, 30
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // Verify exact counts
+    ctx.assert_eq(static_cast<uint64_t>(3), profiler.get_count(static_cast<uint8_t>(Opcode::LOAD_IMM)),
+        "LOAD_IMM should be counted exactly 3 times");
+    ctx.assert_eq(static_cast<uint64_t>(1), profiler.get_count(static_cast<uint8_t>(Opcode::HALT)),
+        "HALT should be counted exactly 1 time");
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_count(static_cast<uint8_t>(Opcode::ADD)),
+        "ADD should not be counted");
+    
+    profiler.disable();
+}

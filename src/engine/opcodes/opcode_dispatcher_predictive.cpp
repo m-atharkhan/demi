@@ -5,6 +5,7 @@
 #include "../cpu_flags.hpp"
 #include "../../debug/debug_handler.hpp"
 #include "../../config.hpp"  // For Config::debug
+#include "opcode_profiler.hpp"
 
 void dispatch_opcode_with_prediction(CPU& cpu, 
                                    const std::vector<uint8_t>& program, 
@@ -48,6 +49,9 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
     }
     
     uint8_t opcode = program[pc];
+
+    // Profile opcode execution (TASK-005)
+    OPCODE_PROFILE(opcode);
 
     // opcode is a uint8_t so its value is always in [0, 255].  The switch
     // below handles every value either explicitly or via `default`, so there

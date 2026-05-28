@@ -3,6 +3,7 @@
 #include "../cpu_flags.hpp"
 #include "../branch_prediction.hpp"
 #include "../opcodes/instruction_fusion.hpp"
+#include "../opcodes/opcode_profiler.hpp"
 #include "../../config.hpp"
 
 // Macro to dispatch next instruction with fusion check.
@@ -18,8 +19,10 @@
             if (!running || cpu.get_pc() >= program.size()) { \
                 return; \
             } \
+            OPCODE_PROFILE(program[cpu.get_pc()]); \
             goto *dispatch_table[program[cpu.get_pc()]]; \
         } \
+        OPCODE_PROFILE(program[cpu.get_pc()]); \
         goto *dispatch_table[program[cpu.get_pc()]]; \
     } while(0)
 #include "../../debug/debug_handler.hpp"
@@ -877,8 +880,8 @@ dispatch_start:
     // hinted cold with __builtin_expect so it does not disturb branch prediction.
     {
         uint8_t opcode = program[cpu.get_pc()];
-        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
-            fmt::format("[DISPATCH_INLINED] About to dispatch opcode 0x{:02X} at PC=0x{:04X}", opcode, cpu.get_pc()), Logging::DebugLevel::DETAIL);
+        // Profile opcode execution (TASK-005)
+        OPCODE_PROFILE(opcode);
         void* target = dispatch_table[opcode];
         if (__builtin_expect(target == nullptr, 0)) {
             Logging::DebugHandler::instance().report(
@@ -911,6 +914,9 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
         
         uint8_t opcode = program[cpu.get_pc()];
         uint32_t pc = cpu.get_pc();
+        
+        // Profile opcode execution (TASK-005)
+        OPCODE_PROFILE(opcode);
         
         switch (opcode) {
             // Inlined NOP
