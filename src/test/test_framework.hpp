@@ -960,7 +960,8 @@ private:
         auto start = std::chrono::high_resolution_clock::now();
 
         // Suppress debug and error output if error is expected
-        if (test.expect_error) {
+        // But not in test debug modes - user wants to see diagnostics
+        if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
             Logging::DebugHandler::instance().set_suppress_output(true);
             Logging::ErrorHandler::instance().set_quiet_mode(true);
         }
@@ -1054,8 +1055,10 @@ private:
 
             // Check if we expected an error but didn't get one
             if (test.expect_error && Config::error_count == 0) {
-                Logging::DebugHandler::instance().set_suppress_output(false);
-                Logging::ErrorHandler::instance().set_quiet_mode(false);
+                if (!Config::test_debug && !Config::assembly_test_debug) {
+                    Logging::DebugHandler::instance().set_suppress_output(false);
+                    Logging::ErrorHandler::instance().set_quiet_mode(false);
+                }
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
                 return TestResult(test.name, test.category, false,
@@ -1064,8 +1067,10 @@ private:
 
             // Test passed
             if (test.expect_error) {
-                Logging::DebugHandler::instance().set_suppress_output(false);
-                Logging::ErrorHandler::instance().set_quiet_mode(false);
+                if (!Config::test_debug && !Config::assembly_test_debug) {
+                    Logging::DebugHandler::instance().set_suppress_output(false);
+                    Logging::ErrorHandler::instance().set_quiet_mode(false);
+                }
             }
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -1076,7 +1081,7 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
-            if (test.expect_error) {
+            if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
                 Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
@@ -1098,7 +1103,7 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
-            if (test.expect_error) {
+            if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
                 Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
@@ -1121,7 +1126,7 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
-            if (test.expect_error) {
+            if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
                 Logging::ErrorHandler::instance().set_quiet_mode(false);
             }

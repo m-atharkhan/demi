@@ -234,6 +234,7 @@ void CPU::set_register(Register reg, uint64_t value) {
     auto index = static_cast<size_t>(reg);
     if (index < TOTAL_REGISTERS) {
         uint64_t old_value = registers[index];
+        
         registers[index] = value;
         
         // Only sync legacy registers if we're modifying a legacy register (R0-R7)

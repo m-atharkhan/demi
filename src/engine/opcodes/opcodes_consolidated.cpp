@@ -681,6 +681,7 @@ void handle_inc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             uint64_t mask = cpu.get_operand_mask();
             uint64_t masked_result = result & mask;
             
+            
             // Flags
             uint32_t current_flags = cpu.get_flags();
             if (masked_result == 0) {

@@ -978,6 +978,16 @@ public:
             [this](bool value) { Config::assembly_test_debug = value; });
 
         parser.parse(argc, argv);
+
+        // If -td was set standalone (without -t which exits during parsing), trigger tests
+        if (Config::test_debug && !Config::test_mode) {
+            run_unit_tests_only();
+        }
+        // If -atd was set standalone (without -at which sets test_mode), trigger assembly tests
+        if (Config::assembly_test_debug && !Config::test_mode) {
+            Config::test_mode = true;
+            run_assembly_tests_only();
+        }
     }
 
     // Run in compiled mode (create a standalone executable)

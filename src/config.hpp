@@ -68,7 +68,7 @@ public:
     inline static std::string hex_out = "";  // Output assembled bytecode as a string hex byte array
     inline static std::string output_name = "";  // Output name for compiled executable
     inline static std::string entry_point_symbol = "_start";  // Entry point symbol name
-    inline static bool profiling = false;  // Opcode profiling enabled (TASK-005)
+    inline static bool profiling = false;  // Opcode profiling enabled
     inline static int error_count = 0;
 
     // Architecture detection and warning state
