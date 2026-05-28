@@ -43,6 +43,10 @@ namespace fs = std::experimental::filesystem;
 #include <sys/wait.h>
 #include <unistd.h>
 
+// Native code generation
+#include "codegen/disa_compiler.hpp"
+#include "codegen/elf_emitter.hpp"
+
 
 class ArgParser;
 
@@ -1484,6 +1488,55 @@ private:
                 std::cerr << "Error writing hex output file: " << e.what() << std::endl;
                 return;
             }
+        }
+
+        // Native compilation: compile bytecode to x86-64 ELF executable
+        if (Config::compile_only) {
+            std::string output_name;
+
+            if (Config::output_name.empty()) {
+                output_name = generate_executable_name(Config::assembly_file);
+            } else {
+                output_name = sanitize_filename(Config::output_name);
+                if (output_name.empty()) {
+                    std::cerr << "Error: Invalid output filename: " << Config::output_name << std::endl;
+                    return;
+                }
+            }
+
+            // Create directory if it doesn't exist
+            fs::path output_path(output_name);
+            if (output_path.has_parent_path()) {
+                fs::path dir = output_path.parent_path();
+                if (!fs::exists(dir)) {
+                    if (!fs::create_directories(dir)) {
+                        std::cerr << "Error: Failed to create directory: " << dir << std::endl;
+                        return;
+                    }
+                }
+            }
+
+            // Compile bytecode to native x86-64
+            CodeGen::DISAToX86Compiler compiler;
+            auto native_code = compiler.compile_program(bytecode);
+
+            if (Config::verbose) {
+                std::cout << "Compiled to " << native_code.size() << " bytes of native x86-64 code" << std::endl;
+            }
+
+            // Wrap in ELF64 executable
+            CodeGen::ELFEmitter elf_emitter;
+            auto elf_data = elf_emitter.generate_executable(native_code);
+
+            if (elf_emitter.write_to_file(elf_data, output_name)) {
+                std::cout << "Successfully compiled to executable: " << output_name << std::endl;
+                std::string run_path = output_name;
+                if (run_path.substr(0, 2) != "./") {
+                    run_path = "./" + run_path;
+                }
+                std::cout << "You can run it with: " << run_path << std::endl;
+            }
+            return;
         }
 
         // Initialize CPU and devices

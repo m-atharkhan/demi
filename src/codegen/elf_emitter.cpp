@@ -1,0 +1,257 @@
+#include "elf_emitter.hpp"
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <sys/stat.h>
+
+namespace CodeGen {
+
+// ELF64 constants
+static constexpr uint8_t  ELF_MAGIC[4]     = {0x7F, 'E', 'L', 'F'};
+static constexpr uint8_t  ELF_CLASS_64     = 2;
+static constexpr uint8_t  ELF_DATA_2LSB    = 1;
+static constexpr uint8_t  ELF_OSABI_SYSV   = 0;
+static constexpr uint8_t  ELF_ABIVERSION   = 0;
+static constexpr uint16_t ET_EXEC          = 2;
+static constexpr uint16_t EM_X86_64        = 62;
+static constexpr uint32_t EV_CURRENT       = 1;
+static constexpr uint16_t ELF_EH_SIZE      = 64;
+static constexpr uint16_t ELF_PH_SIZE      = 56;
+static constexpr uint64_t BASE_ADDR        = 0x400000;
+
+static constexpr uint32_t PT_LOAD   = 1;
+static constexpr uint32_t PF_R      = 4;
+static constexpr uint32_t PF_W      = 2;
+static constexpr uint32_t PF_X      = 1;
+
+// Write a little-endian uint16
+static void le16(uint8_t* buf, uint16_t val) {
+    buf[0] = static_cast<uint8_t>(val & 0xFF);
+    buf[1] = static_cast<uint8_t>((val >> 8) & 0xFF);
+}
+
+// Write a little-endian uint32
+static void le32(uint8_t* buf, uint32_t val) {
+    for (int i = 0; i < 4; i++) {
+        buf[i] = static_cast<uint8_t>((val >> (i * 8)) & 0xFF);
+    }
+}
+
+// Write a little-endian uint64
+static void le64(uint8_t* buf, uint64_t val) {
+    for (int i = 0; i < 8; i++) {
+        buf[i] = static_cast<uint8_t>((val >> (i * 8)) & 0xFF);
+    }
+}
+
+void ELFEmitter::write_ehdr(std::vector<uint8_t>& buf, uint64_t entry, uint64_t phoff) {
+    buf.resize(buf.size() + ELF_EH_SIZE);
+    uint8_t* e = &buf[buf.size() - ELF_EH_SIZE];
+
+    // e_ident[16]
+    std::memcpy(e, ELF_MAGIC, 4);
+    e[4] = ELF_CLASS_64;
+    e[5] = ELF_DATA_2LSB;
+    e[6] = EV_CURRENT;
+    e[7] = ELF_OSABI_SYSV;
+    e[8] = ELF_ABIVERSION;
+    std::memset(e + 9, 0, 7); // padding
+
+    le16(e + 16, ET_EXEC);
+    le16(e + 18, EM_X86_64);
+    le32(e + 20, EV_CURRENT);
+    le64(e + 24, entry);
+    le64(e + 32, phoff);
+    le64(e + 40, 0);          // shoff = 0 (no section headers)
+    le32(e + 48, 0);          // flags
+    le16(e + 52, ELF_EH_SIZE);
+    le16(e + 54, ELF_PH_SIZE);
+    le16(e + 56, 1);          // phnum = 1
+    le16(e + 58, 0);          // shentsize
+    le16(e + 60, 0);          // shnum
+    le16(e + 62, 0);          // shstrndx
+}
+
+void ELFEmitter::write_phdr(std::vector<uint8_t>& buf, uint32_t flags,
+                            uint64_t offset, uint64_t vaddr,
+                            uint64_t filesz, uint64_t memsz) {
+    buf.resize(buf.size() + ELF_PH_SIZE);
+    uint8_t* p = &buf[buf.size() - ELF_PH_SIZE];
+
+    le32(p + 0,  PT_LOAD);
+    le32(p + 4,  flags);
+    le64(p + 8,  offset);
+    le64(p + 16, vaddr);
+    le64(p + 24, vaddr);      // p_paddr = p_vaddr
+    le64(p + 32, filesz);
+    le64(p + 40, memsz);
+    le64(p + 48, 0x1000);     // alignment
+}
+
+// Build the _start runtime stub
+// Stack layout after stub:
+//   RSP -> [memory: 64KB]   <- RSI
+//          [regfile: 1104B] <- RDI
+//
+// _start:
+//   sub rsp, 1104            ; allocate register file  (48 81 EC 50 04 00 00)
+//   sub rsp, 65536           ; allocate memory         (48 81 EC 00 00 01 00)
+//   mov rsi, rsp             ; RSI = memory            (48 89 E6)
+//   mov rdi, rsp             ; RDI = memory_base       (48 89 E7)
+//   add rdi, 65536           ; RDI = regfile           (48 81 C7 00 00 01 00)
+//   call compiled_func       ;                          (E8 XX XX XX XX)
+//   xor edi, edi             ; exit(0)                 (31 FF)
+//   mov eax, 60              ;                          (B8 3C 00 00 00)
+//   syscall                  ;                          (0F 05)
+std::vector<uint8_t> ELFEmitter::build_start_stub(size_t& stub_size_out,
+                                                   size_t& call_patch_offset_out) {
+    std::vector<uint8_t> stub;
+
+    // sub rsp, 1104  (REX.W + 81 /5 + id) = 7 bytes
+    // 48 81 EC 50 04 00 00
+    uint8_t sub_reg1[] = {0x48, 0x81, 0xEC, 0x50, 0x04, 0x00, 0x00};
+    stub.insert(stub.end(), sub_reg1, sub_reg1 + sizeof(sub_reg1));
+
+    // sub rsp, 65536
+    // 48 81 EC 00 00 01 00
+    uint8_t sub_reg2[] = {0x48, 0x81, 0xEC, 0x00, 0x00, 0x01, 0x00};
+    stub.insert(stub.end(), sub_reg2, sub_reg2 + sizeof(sub_reg2));
+
+    // mov rsi, rsp  (REX.W + 89 /r) = 3 bytes
+    // 48 89 E6
+    uint8_t mov_rsi_rsp[] = {0x48, 0x89, 0xE6};
+    stub.insert(stub.end(), mov_rsi_rsp, mov_rsi_rsp + sizeof(mov_rsi_rsp));
+
+    // mov rdi, rsp  (REX.W + 89 /r) = 3 bytes
+    // 48 89 E7
+    uint8_t mov_rdi_rsp[] = {0x48, 0x89, 0xE7};
+    stub.insert(stub.end(), mov_rdi_rsp, mov_rdi_rsp + sizeof(mov_rdi_rsp));
+
+    // add rdi, 65536  (REX.W + 81 /0 + id) = 7 bytes
+    // 48 81 C7 00 00 01 00
+    uint8_t add_rdi[] = {0x48, 0x81, 0xC7, 0x00, 0x00, 0x01, 0x00};
+    stub.insert(stub.end(), add_rdi, add_rdi + sizeof(add_rdi));
+
+    // call rel32  (E8 + 4 byte relative offset)
+    // Save the position of the call offset for patching
+    call_patch_offset_out = stub.size() + 1;  // +1 to skip the E8 opcode byte
+    stub.push_back(0xE8);
+    stub.push_back(0x00); stub.push_back(0x00);
+    stub.push_back(0x00); stub.push_back(0x00);
+
+    // xor edi, edi  (31 FF)
+    uint8_t xor_edi[] = {0x31, 0xFF};
+    stub.insert(stub.end(), xor_edi, xor_edi + sizeof(xor_edi));
+
+    // mov eax, 60  (B8 + id) = 5 bytes (32-bit mov)
+    uint8_t mov_eax[] = {0xB8, 0x3C, 0x00, 0x00, 0x00};
+    stub.insert(stub.end(), mov_eax, mov_eax + sizeof(mov_eax));
+
+    // syscall  (0F 05)
+    uint8_t syscall[] = {0x0F, 0x05};
+    stub.insert(stub.end(), syscall, syscall + sizeof(syscall));
+
+    stub_size_out = stub.size();
+    return stub;
+}
+
+std::vector<uint8_t> ELFEmitter::generate_executable(
+    const std::vector<uint8_t>& compiled_code,
+    const std::string& entry_name)
+{
+    // Build the _start stub
+    size_t stub_size = 0;
+    size_t call_patch_offset = 0;
+    std::vector<uint8_t> stub = build_start_stub(stub_size, call_patch_offset);
+
+    // Calculate layout:
+    // [ELF Header]  (64 bytes)
+    // [Program Header] (56 bytes)
+    // [Code segment: _start stub + compiled code]
+    //
+    // The PT_LOAD segment covers the entire file from offset 0
+    // Entry point = BASE_ADDR + stub_offset (start of _start)
+    // code_start = ELF_EH_SIZE + ELF_PH_SIZE
+    // compiled_code_start = code_start + stub_size
+
+    const uint64_t code_start = ELF_EH_SIZE + ELF_PH_SIZE;
+    const uint64_t total_file_size = code_start + stub_size + compiled_code.size();
+
+    // Entry point = BASE_ADDR + code_start (pointing to _start)
+    const uint64_t entry_point = BASE_ADDR + code_start;
+
+    // Build the ELF binary
+    std::vector<uint8_t> elf;
+    elf.reserve(total_file_size);
+
+    // Write ELF header
+    write_ehdr(elf, entry_point, ELF_EH_SIZE);
+
+    // Write program header: PT_LOAD covering the entire file
+    // The segment is loaded at BASE_ADDR and includes everything
+    // After the compiled code returns, execution falls through
+    // to the exit syscall in the stub. We need both stub and code
+    // to be in the same executable segment.
+    //
+    // p_offset = 0 (start of file)
+    // p_vaddr = BASE_ADDR
+    // p_filesz = total_file_size
+    // p_memsz = total_file_size
+    write_phdr(elf, PF_R | PF_X, 0, BASE_ADDR, total_file_size, total_file_size);
+
+    // Write the _start stub
+    size_t stub_start_offset = elf.size();
+    elf.insert(elf.end(), stub.begin(), stub.end());
+
+    // Patch the CALL instruction in the stub to point to the compiled code
+    // CALL offset = target - (call_instruction_address + 5)
+    // target = code_start + stub_size + 0 (compiled code starts right after stub)
+    // call_instruction_address = code_start + (call_patch_offset - 1)
+    // But we're building the file from scratch, so we need absolute positions:
+    // call_instruction_addr_in_file = code_start + (call_patch_offset - 1)
+    // target_addr_in_file = code_start + stub_size
+    // offset = target - (call_addr + 5)
+    //        = (code_start + stub_size) - ((code_start + call_patch_offset - 1) + 5)
+    //        = stub_size - call_patch_offset - 4
+
+    // Wait, call_patch_offset is the offset of the 4-byte operand within the stub.
+    // In the stub: call_opcode at call_patch_offset - 1, operand at call_patch_offset
+    // The instruction is at: stub_start + call_patch_offset - 1 (file position)
+    // The next instruction after CALL is at: stub_start + call_patch_offset + 3
+    // Target (compiled code) is at: stub_start + stub_size
+    // Offset = (stub_start + stub_size) - (stub_start + call_patch_offset + 3)
+    int32_t call_offset = static_cast<int32_t>(stub_size) -
+                          static_cast<int32_t>(call_patch_offset) - 4;
+
+    uint8_t* call_operand = &elf[stub_start_offset + call_patch_offset];
+    le32(call_operand, call_offset);
+
+    // Append the compiled code
+    elf.insert(elf.end(), compiled_code.begin(), compiled_code.end());
+
+    return elf;
+}
+
+bool ELFEmitter::write_to_file(const std::vector<uint8_t>& elf_data,
+                                const std::string& output_path) {
+    std::ofstream out(output_path, std::ios::binary);
+    if (!out) {
+        std::cerr << "Error: Cannot create output file: " << output_path << std::endl;
+        return false;
+    }
+    out.write(reinterpret_cast<const char*>(elf_data.data()),
+              static_cast<std::streamsize>(elf_data.size()));
+    if (!out) {
+        std::cerr << "Error: Failed to write ELF data to: " << output_path << std::endl;
+        return false;
+    }
+
+    // Make the file executable
+    if (chmod(output_path.c_str(), 0755) != 0) {
+        std::cerr << "Warning: Failed to set executable permission on: " << output_path << std::endl;
+    }
+
+    return true;
+}
+
+} // namespace CodeGen

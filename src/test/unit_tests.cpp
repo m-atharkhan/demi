@@ -3,6 +3,7 @@
 #include "../codegen/x86_encoder.hpp"
 #include "../codegen/register_allocator.hpp"
 #include "../codegen/disa_compiler.hpp"
+#include "../codegen/elf_emitter.hpp"
 
 // Example unit tests using the new framework
 
@@ -3172,4 +3173,74 @@ TEST_CASE(disa_compiler_load_store, "disa_compiler") {
     };
     auto code = compiler.compile_program(program);
     ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(elf_emitter_valid_header, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xC3};
+    auto elf = emitter.generate_executable(code);
+    ctx.assert_eq(true, elf.size() > 64);
+
+    ctx.assert_eq(static_cast<uint8_t>(0x7F), elf[0]);
+    ctx.assert_eq(static_cast<uint8_t>('E'), elf[1]);
+    ctx.assert_eq(static_cast<uint8_t>('L'), elf[2]);
+    ctx.assert_eq(static_cast<uint8_t>('F'), elf[3]);
+    ctx.assert_eq(static_cast<uint8_t>(2), elf[4]);
+    ctx.assert_eq(static_cast<uint8_t>(1), elf[5]);
+    ctx.assert_eq(static_cast<uint8_t>(62), elf[18]);
+    ctx.assert_eq(static_cast<uint8_t>(2), elf[16]);
+}
+
+TEST_CASE(elf_emitter_contains_code, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xB8, 0x2A, 0x00, 0x00, 0x00, 0xC3};
+    auto elf = emitter.generate_executable(code);
+    bool found = false;
+    for (size_t i = 0; i < elf.size() - code.size(); i++) {
+        if (std::memcmp(&elf[i], code.data(), code.size()) == 0) {
+            found = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, found);
+}
+
+TEST_CASE(elf_emitter_writable, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xC3};
+    auto elf = emitter.generate_executable(code);
+    std::string tmp_path = "/tmp/test_elf_output";
+    bool ok = emitter.write_to_file(elf, tmp_path);
+    ctx.assert_eq(true, ok);
+    std::ifstream infile(tmp_path, std::ios::binary);
+    ctx.assert_eq(true, infile.good());
+    infile.seekg(0, std::ios::end);
+    size_t file_size = static_cast<size_t>(infile.tellg());
+    ctx.assert_eq(elf.size(), file_size);
+    infile.close();
+    std::remove(tmp_path.c_str());
+}
+
+TEST_CASE(elf_emitter_entry_point, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xC3};
+    auto elf = emitter.generate_executable(code);
+    uint64_t entry = 0;
+    for (int i = 0; i < 8; i++) {
+        entry |= static_cast<uint64_t>(elf[24 + i]) << (i * 8);
+    }
+    ctx.assert_eq(true, entry >= 0x400000);
+    ctx.assert_eq(true, entry < 0x401000);
+}
+
+TEST_CASE(elf_emitter_one_phdr, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xC3};
+    auto elf = emitter.generate_executable(code);
+    uint16_t phnum = static_cast<uint16_t>(elf[56]) |
+                     (static_cast<uint16_t>(elf[57]) << 8);
+    ctx.assert_eq(static_cast<uint16_t>(1), phnum);
+    uint16_t phentsize = static_cast<uint16_t>(elf[54]) |
+                         (static_cast<uint16_t>(elf[55]) << 8);
+    ctx.assert_eq(static_cast<uint16_t>(56), phentsize);
 }
