@@ -320,6 +320,107 @@ class SystemDevice : public RealDevice {
 
 ---
 
+
+### 🚀 Embedding API: Current State and Future Roadmap
+
+#### Current Features (as of May 2026)
+
+#### Testing Strategy and Best Practices
+
+**Testing Goals:**
+- Achieve comprehensive, automated, and reproducible test coverage for all embedding API features, security boundaries, and language bindings.
+- Validate correctness, safety, performance, and integration across C/C++/C API, Node.js, Rust, and all future bindings.
+
+**What to Test:**
+- API correctness: All public functions, error codes, and configuration options.
+- Security boundaries: FFI, syscall, and file I/O sandboxing, VFS enforcement, and root path jail.
+- Resource quotas: Enforcement of execution ticks, memory, file handles, and syscalls.
+- Syscall and I/O hooks: Interception, emulation, and blocking of syscalls and device I/O.
+- Thread safety: Instance isolation, parallel execution, and race conditions.
+- Error handling: Consistency, clarity, and propagation of error codes and diagnostics.
+- Callback ergonomics: Lifetime, thread safety, and user data handling.
+- Cross-language FFI: Node.js and Rust bindings, integration with Python, Java, and C#.
+- Documentation and examples: Code snippets, usage guides, and step-by-step integration.
+
+**How to Test:**
+- Automated unit tests for all C/C++/C API functions and error paths (using CTest, GoogleTest, or Catch2).
+- Fuzzing and boundary tests for FFI, syscall, and file I/O boundaries (libFuzzer, AFL, or custom harnesses).
+- Integration tests for Node.js and Rust bindings (Mocha/Jest for Node.js, Rust test harness for Rust).
+- Security tests for sandbox escape, path traversal, and malicious input scenarios.
+- Resource exhaustion and quota enforcement tests (simulate denial-of-service, verify correct error reporting).
+- Multi-threaded and parallel execution tests (ensure instance isolation and no data races).
+- Documentation validation: Ensure all documented examples compile and run as described.
+- Continuous integration: All tests must run in CI, with coverage and regression tracking.
+
+**Testing Artifacts:**
+- Test plans and coverage reports for all API layers and bindings.
+- Example test cases for each major feature and security boundary.
+- Fuzzing results and security audit logs.
+- Integration test scripts for language bindings.
+- Documentation review checklists.
+
+**Best Practices:**
+- All new features must include tests before merging.
+- Security and boundary tests are mandatory for all FFI and I/O changes.
+- All language bindings must have integration and error handling tests.
+- Documentation must be validated against the current implementation.
+
+---
+
+- **C++ and C Embedding API**: Public headers (`include/demi/engine.hpp`, `include/demi/engine_c_api.h`) allow safe embedding of DemiEngine in C++ and C applications.
+- **Sandboxing and Strict I/O**: Configurable sandboxing, strict I/O, and root path jail for file/device access. All file I/O is routed through a Virtual File System (VFS) with directory traversal protection.
+- **Execution Quotas**: `max_execution_ticks` enforces watchdog timeouts to prevent infinite loop denial-of-service.
+- **Syscall and I/O Hooking**: Host applications can intercept syscalls, standard I/O, and memory-mapped I/O (VRAM) for deep integration and control.
+- **Thread Safety Contract**: Each engine instance is isolated; no concurrent calls into the same instance. Multiple instances can run in parallel.
+- **Cross-language FFI**: C API is designed for use with Python (ctypes), Java (JNA), and C# (P/Invoke). Example bindings and usage notes are provided in documentation.
+- **Examples**: Multiple embedding examples in C and C++ are provided under `examples/embedding/`.
+
+#### Code Quality and Refactoring Needs
+
+- The embedding API is functional and demonstrates safe, modern C++/C practices, but is still in early development.
+- Code review is required for:
+    - Security hardening (especially around syscall and file I/O boundaries)
+    - Consistency of error handling and reporting
+    - API ergonomics and documentation clarity
+    - Reducing boilerplate and improving callback lifetime management
+- Additional refactoring is recommended to:
+    - Unify C and C++ error reporting
+    - Improve test coverage for edge cases and failure modes
+    - Expand and clarify documentation for all hooks and configuration options
+
+#### Future Implementation Roadmap
+
+**Planned Language Bindings:**
+- Node.js (via N-API or FFI)
+- Rust (via bindgen and C API)
+
+**C/C++/C API Improvements:**
+- Richer syscall interception and emulation (allowing more host/guest interaction)
+- Asynchronous execution and cancellation support
+- Enhanced error reporting and diagnostics (unified error codes, stack traces)
+- More granular resource quotas (memory, file handles, syscalls)
+- Improved callback and hook ergonomics (lifetime, thread safety, user data)
+- Additional hooks for device emulation and advanced I/O
+
+**Security Roadmap:**
+- Comprehensive review and hardening of all embedding and FFI boundaries
+- Syscall whitelisting/blacklisting and fine-grained policy controls
+- Resource quota enforcement for all guest code (CPU, memory, I/O)
+- Improved sandboxing and isolation for untrusted code
+- Automated security testing and static analysis integration
+
+**Documentation and Example Improvements:**
+- Expanded embedding examples for all supported languages
+- Step-by-step guides for common integration scenarios
+- API reference improvements and more usage notes
+- Official package distribution (PyPI, npm, NuGet, etc.) to be considered in the future as the API matures
+
+**Code Quality and Refactoring:**
+- Ongoing refactoring for clarity, maintainability, and testability
+- Consistent code style and naming conventions across all embedding layers
+- Increased test coverage for all public APIs and edge cases
+
+---
 ### 🚀 **Phase 4+: Demi Language Revolution** (Foundation Ready)
 
 **Phase 4+ Goal:** Build the most customizable programming language ever created - **Foundation Complete!**
