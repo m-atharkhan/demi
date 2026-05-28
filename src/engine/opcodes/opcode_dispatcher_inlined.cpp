@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 #include <iomanip>
 #include <iostream>
+#include <atomic>
 
 // Suppress pedantic warnings about computed gotos - they are intentional for performance
 // Suppress pedantic warnings for performance-critical computed gotos
@@ -85,13 +86,11 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         goto *dispatch_table[program[cpu.get_pc()]];
     }
 
-    /*
-    // Inlined LOAD_IMM operation - currently disabled (code commented out to remove warning)
+    // Inlined LOAD_IMM operation - very common for loading 32-bit constants into registers
     op_load_imm: {
         uint32_t pc = cpu.get_pc();
-        
-        #ifndef NDEBUG
-        if (__builtin_expect(pc + 2 >= program.size(), 0)) {
+
+        if (__builtin_expect(pc + 5 >= program.size(), 0)) {
             #ifdef VM_DEBUG_BOUNDS
             Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
                 fmt::format("[LOAD_IMM] Out of bounds at PC={}", pc), Logging::DebugLevel::CRITICAL);
@@ -99,57 +98,48 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
             running = false;
             return;
         }
-        #endif
-        
-        uint8_t reg = program[pc + 1];
-        uint32_t value = 0;
-        size_t pc_increment = 6; // LOAD_IMM always uses 4-byte immediate
 
-        if (__builtin_expect(pc + 5 >= program.size(), 0)) {
-            #ifdef VM_DEBUG_BOUNDS
-            Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
-                fmt::format("[LOAD_IMM] Out of bounds reading imm at PC={}", pc), Logging::DebugLevel::CRITICAL);
-            #endif
-            running = false;
-            return;
-        }
-        value |= static_cast<uint32_t>(program[pc + 2]);
-        value |= static_cast<uint32_t>(program[pc + 3]) << 8;
-        value |= static_cast<uint32_t>(program[pc + 4]) << 16;
-        value |= static_cast<uint32_t>(program[pc + 5]) << 24;
-        
+        uint8_t reg = program[pc + 1];
+
         #ifndef NDEBUG
-        if (__builtin_expect(reg >= cpu.get_registers_64().size(), 0)) {
+        if (__builtin_expect(reg >= TOTAL_REGISTERS, 0)) {
             #ifdef VM_DEBUG_BOUNDS
             DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "[LOAD_IMM] Invalid register R{}", reg);
             #endif
             running = false;
             return;
         }
-        
+        #endif
+
+        // Read 32-bit immediate in little-endian format
+        uint32_t value = 0;
+        value |= static_cast<uint32_t>(program[pc + 2]);
+        value |= static_cast<uint32_t>(program[pc + 3]) << 8;
+        value |= static_cast<uint32_t>(program[pc + 4]) << 16;
+        value |= static_cast<uint32_t>(program[pc + 5]) << 24;
+
+        #ifndef NDEBUG
         if (Config::trace) {
             DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "[PC=0x{:04X}] [LOAD_IMM] R{} = {}", pc, reg, value);
         }
         #endif
-        
+
         cpu.set_register_mode_aware(static_cast<Register>(reg), value);
-        cpu.set_register_mode_aware(static_cast<Register>(reg), value);
-        cpu.set_pc(pc + pc_increment);
-        
+        cpu.set_pc(pc + 6); // opcode(1) + reg(1) + imm32(4)
+
         #ifndef NDEBUG
         if (Config::trace) {
             cpu.print_state("LOAD_IMM");
         }
         #endif
-        
-        // Fast next instruction dispatch
+
+        // Fast bounds check and next instruction dispatch
         if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
             running = false;
             return;
         }
         goto *dispatch_table[program[cpu.get_pc()]];
     }
-    */
 
     // Inlined ADD operation - very common arithmetic operation
     op_add: {
@@ -686,9 +676,26 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
             
             default:
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[OP_HANDLER] Falling back to consolidated dispatcher for opcode 0x{:02X}", opcode);
-                // Fall back to consolidated dispatcher for unhandled opcodes
-                dispatch_opcode(cpu, program, running);
-                DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[OP_HANDLER] Returned from consolidated dispatcher", "");
+                {
+                    // Delegate to the consolidated dispatcher for any opcode not handled
+                    // above. If it returns without advancing PC and with running still
+                    // true, the opcode was not recognised by anyone in the chain — treat
+                    // it as invalid to prevent an infinite loop.
+                    uint32_t pre_pc = cpu.get_pc();
+                    dispatch_opcode(cpu, program, running);
+                    DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[OP_HANDLER] Returned from consolidated dispatcher", "");
+                    if (__builtin_expect(running && cpu.get_pc() == pre_pc, 0)) {
+                        #ifndef NDEBUG
+                        Logging::DebugHandler::instance().report(
+                            Logging::DebugCategory::CPU_DISPATCHER,
+                            fmt::format("[OP_HANDLER] Opcode 0x{:02X} at PC={} made no "
+                                        "progress after consolidated dispatch; treating as invalid",
+                                        opcode, pre_pc),
+                            Logging::DebugLevel::CRITICAL);
+                        #endif
+                        running = false;
+                    }
+                }
                 return;
         }
         
@@ -699,7 +706,20 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
             running = false;
             return;
         }
-        goto *dispatch_table[program[cpu.get_pc()]];
+        {
+            uint8_t next_op = program[cpu.get_pc()];
+            void* next_target = dispatch_table[next_op];
+            if (__builtin_expect(next_target == nullptr, 0)) {
+                Logging::DebugHandler::instance().report(
+                    Logging::DebugCategory::CPU_DISPATCHER,
+                    fmt::format("Dispatch table null entry for opcode 0x{:02X} at PC={}",
+                                next_op, cpu.get_pc()),
+                    Logging::DebugLevel::CRITICAL);
+                running = false;
+                return;
+            }
+            goto *next_target;
+        }
     }
 
     // Invalid opcode handler
@@ -713,11 +733,13 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         throw CPUException("Invalid opcode: 0x" + opcode_hex);
     }
 
-    // Dispatch table initialization
+    // Dispatch table initialization (thread-safe: atomic double-checked locking)
+    // Note: std::call_once with lambdas cannot capture label addresses (&&label);
+    // atomic acquire/release is the correct pattern for computed-goto dispatch tables.
 init_dispatch_table:
     DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] Reached init_dispatch_table", "");
-    static bool initialized = false;
-    if (!initialized) {
+    static std::atomic<bool> initialized{false};
+    if (!initialized.load(std::memory_order_acquire)) {
         DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] Initializing dispatch table", "");
         // Initialize dispatch table with inlined operations first
         for (int i = 0; i < 256; i++) {
@@ -726,8 +748,7 @@ init_dispatch_table:
         
         // Most common operations get inlined handlers
         dispatch_table[0x00] = &&op_nop;        // NOP - most common in many programs
-        // dispatch_table[0x01] = &&op_load_imm;   // LOAD_IMM - very common for constants
-        dispatch_table[0x01] = &&op_handler;
+        dispatch_table[0x01] = &&op_load_imm;   // LOAD_IMM - very common for constants
         dispatch_table[0x02] = &&op_add;        // ADD - very common arithmetic
         dispatch_table[0x04] = &&op_mov;        // MOV - very common register moves
         dispatch_table[0x53] = &&op_load_imm64; // LOAD_IMM64 - common for 64-bit constants
@@ -750,7 +771,6 @@ init_dispatch_table:
         dispatch_table[0x0D] = &&op_handler;    // JS
         dispatch_table[0x0E] = &&op_handler;    // JNS
         dispatch_table[0x0F] = &&op_handler;    // JC
-        
         // Basic arithmetic operations
         dispatch_table[0x10] = &&op_handler;    // MUL
         dispatch_table[0x11] = &&op_handler;    // DIV
@@ -854,11 +874,9 @@ init_dispatch_table:
             dispatch_table[i] = &&op_handler;
         }
         
-        initialized = true;
+        initialized.store(true, std::memory_order_release);
         DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "Inlined threaded dispatcher initialized", "");
-    } else {
-        DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] Dispatch table already initialized", "");
-    }
+    } // end atomic init guard
 
     DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[DISPATCH_INLINED] About to goto dispatch_start", "");
     // Jump to main dispatch loop
@@ -873,11 +891,28 @@ dispatch_start:
         return;
     }
 
-    // Get opcode and jump directly to handler
-    uint8_t opcode = program[cpu.get_pc()];
-    Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
-        fmt::format("[DISPATCH_INLINED] About to dispatch opcode 0x{:02X} at PC=0x{:04X}", opcode, cpu.get_pc()), Logging::DebugLevel::DETAIL);
-    goto *dispatch_table[opcode];
+    // opcode is uint8_t so the index is always in [0, 255] — the table dimension.
+    // Guard against a null entry in case the table was only partially initialised
+    // (e.g. a TOCTOU race on the atomic flag, or a future table-init change).
+    // A null pointer here would cause an immediate segfault on any corrupt or
+    // malicious bytecode; the check costs one comparison on the hot path and is
+    // hinted cold with __builtin_expect so it does not disturb branch prediction.
+    {
+        uint8_t opcode = program[cpu.get_pc()];
+        Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
+            fmt::format("[DISPATCH_INLINED] About to dispatch opcode 0x{:02X} at PC=0x{:04X}", opcode, cpu.get_pc()), Logging::DebugLevel::DETAIL);
+        void* target = dispatch_table[opcode];
+        if (__builtin_expect(target == nullptr, 0)) {
+            Logging::DebugHandler::instance().report(
+                Logging::DebugCategory::CPU_DISPATCHER,
+                fmt::format("Dispatch table null entry for opcode 0x{:02X} at PC={}",
+                            opcode, cpu.get_pc()),
+                Logging::DebugLevel::CRITICAL);
+            running = false;
+            return;
+        }
+        goto *target;
+    }
 }
 
 #else
@@ -1151,7 +1186,23 @@ void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& prog
             
             // Non-inlined operations - delegate to original handlers
             default: {
+                // Delegate to the consolidated dispatcher for anything not inlined above.
+                // Guard against a stall: if dispatch_opcode returns without advancing PC
+                // (and running is still true), the opcode was not recognised — stop
+                // execution rather than looping forever on corrupt or malicious bytecode.
+                uint32_t pre_pc = cpu.get_pc();
                 dispatch_opcode(cpu, program, running);
+                if (__builtin_expect(running && cpu.get_pc() == pre_pc, 0)) {
+                    #ifndef NDEBUG
+                    Logging::DebugHandler::instance().report(
+                        Logging::DebugCategory::CPU_DISPATCHER,
+                        fmt::format("[FALLBACK] Opcode 0x{:02X} at PC={} made no progress "
+                                    "after consolidated dispatch; treating as invalid",
+                                    opcode, pre_pc),
+                        Logging::DebugLevel::CRITICAL);
+                    #endif
+                    running = false;
+                }
                 break;
             }
         }

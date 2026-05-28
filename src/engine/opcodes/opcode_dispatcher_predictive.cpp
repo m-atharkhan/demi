@@ -48,7 +48,12 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
     }
     
     uint8_t opcode = program[pc];
-    
+
+    // opcode is a uint8_t so its value is always in [0, 255].  The switch
+    // below handles every value either explicitly or via `default`, so there
+    // is no risk of an out-of-range switch index here.  The PC bounds check
+    // above already guarantees program[pc] is a valid memory access.
+    //
     // Check if this is a branch instruction that should be predicted
     if (BranchPrediction::BranchPredictor::is_branch_instruction(opcode)) {
         if (handle_predictive_branch(cpu, program, running, opcode)) {
@@ -231,8 +236,30 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
         
         // For complex operations, delegate to external handlers
         default: {
-            // Fall back to inlined dispatcher for complex operations (including 64-bit instructions)
+            // Delegate to the inlined dispatcher for opcodes it knows about
+            // (e.g. 64-bit instructions, SUB, JMP, CALL, …).
+            // Guard first: if the opcode is not in the range that the inlined
+            // dispatcher handles, reject it here rather than recursing blindly
+            // into undefined behaviour territory.
+            //
+            // The inlined dispatcher's own switch will hit its own default and
+            // call dispatch_opcode() which is the authoritative catch-all. If
+            // that returns with running==false it means the opcode was invalid.
+            uint32_t fallback_pc = cpu.get_pc();
             dispatch_opcode_inlined_optimized(cpu, program, running);
+            // If PC did not advance and running is still true something is very
+            // wrong (infinite loop risk). Treat it as an invalid opcode.
+            if (__builtin_expect(running && cpu.get_pc() == fallback_pc, 0)) {
+                #ifndef NDEBUG
+                Logging::DebugHandler::instance().report(
+                    Logging::DebugCategory::CPU_DISPATCHER,
+                    fmt::format("[DISPATCH_PREDICTIVE] Opcode 0x{:02X} at PC={} "
+                                "made no progress; treating as invalid",
+                                opcode, fallback_pc),
+                    Logging::DebugLevel::CRITICAL);
+                #endif
+                running = false;
+            }
             break;
         }
     }
