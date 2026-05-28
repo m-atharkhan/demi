@@ -2,6 +2,7 @@
 #include "../engine/cpu_flags.hpp"
 #include "../codegen/x86_encoder.hpp"
 #include "../codegen/register_allocator.hpp"
+#include "../codegen/disa_compiler.hpp"
 
 // Example unit tests using the new framework
 
@@ -3109,4 +3110,66 @@ TEST_CASE(register_allocator_caller_saved, "register_allocator") {
 
     alloc.save_caller_saved_regs(enc);
     ctx.assert_eq(true, enc.get_code().size() > 0);
+}
+
+TEST_CASE(disa_compiler_empty_program, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    std::vector<uint8_t> empty;
+    auto code = compiler.compile_program(empty);
+    ctx.assert_eq(static_cast<size_t>(0), code.size());
+}
+
+TEST_CASE(disa_compiler_nop_halt, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    std::vector<uint8_t> program = {0x00, 0xFF}; // NOP, HALT
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(disa_compiler_basic_arithmetic, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // LOAD_IMM R0, 42; ADD R1, R0
+    std::vector<uint8_t> program = {
+        0x01, 0x00, 0x2A, 0x00, 0x00, 0x00,  // LOAD_IMM R0, 42
+        0x02, 0x01, 0x00,                      // ADD R1, R0
+        0xFF                                    // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(disa_compiler_jump_targets, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // JMP to address 3
+    std::vector<uint8_t> program = {
+        0x05, 0x03, 0x00, 0x00, 0x00,  // JMP 3
+        0x00,                           // NOP (target)
+        0xFF                            // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(disa_compiler_push_pop, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // PUSH R0; POP R1
+    std::vector<uint8_t> program = {
+        0x08, 0x00,  // PUSH R0
+        0x09, 0x01,  // POP R1
+        0xFF         // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(disa_compiler_load_store, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // LOAD R0, R1; STORE R2, R3
+    std::vector<uint8_t> program = {
+        0x06, 0x00, 0x01,  // LOAD R0, R1
+        0x07, 0x02, 0x03,  // STORE R2, R3
+        0xFF               // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
 }

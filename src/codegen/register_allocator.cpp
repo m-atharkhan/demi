@@ -212,6 +212,12 @@ void RegisterAllocator::update_lru(uint8_t virt_reg) {
     lru_timestamps[virt_reg] = ++lru_counter;
 }
 
+void RegisterAllocator::update_lru_custom(uint8_t virt_reg) {
+    if (virt_to_phys.find(virt_reg) != virt_to_phys.end()) {
+        update_lru(virt_reg);
+    }
+}
+
 bool RegisterAllocator::is_caller_saved(X86Register reg) {
     switch (reg) {
         case X86Register::RAX:

@@ -40,6 +40,9 @@ private:
 public:
     RegisterAllocator();
 
+    // Allow external consumers to update LRU timestamp
+    void update_lru_custom(uint8_t virt_reg);
+
     // Core allocation interface
     X86Register allocate_register(uint8_t virt_reg);
     void free_register(uint8_t virt_reg);
