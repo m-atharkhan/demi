@@ -17,6 +17,8 @@
 
 // External handler declarations
 extern void handle_sub(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_ret(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_jmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
@@ -661,6 +663,8 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
             case static_cast<uint8_t>(Opcode::JGE): handle_jge(cpu, program, running); break;
             case static_cast<uint8_t>(Opcode::JLE): handle_jle(cpu, program, running); break;
             case static_cast<uint8_t>(Opcode::MOD): handle_mod(cpu, program, running); break;
+            case static_cast<uint8_t>(Opcode::CALL): handle_call(cpu, program, running); break;
+            case static_cast<uint8_t>(Opcode::RET):  handle_ret(cpu, program, running);  break;
             
             // 64-bit operations (0x50-0x5F range)
             case 0x52: handle_mov64(cpu, program, running); break;  // MOV64
