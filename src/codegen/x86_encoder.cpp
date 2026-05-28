@@ -75,6 +75,184 @@ void X86Encoder::emit_cmp_reg_reg(X86Register left, X86Register right) {
     emit_modrm(0b11, reg_to_modrm(right), reg_to_modrm(left));
 }
 
+// MOV reg, imm32 (sign-extended to 64-bit)
+void X86Encoder::emit_mov_reg_imm32(X86Register dst, int32_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(dst) >= 8);
+    code_buffer.push_back(0xC7);   // MOV r/m64, imm32
+    emit_modrm(0b11, 0, reg_to_modrm(dst));
+    for (int i = 0; i < 4; i++) {
+        code_buffer.push_back((imm >> (i * 8)) & 0xFF);
+    }
+}
+
+// INC reg
+void X86Encoder::emit_inc_reg(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xFF);   // INC r/m64
+    emit_modrm(0b11, 0, reg_to_modrm(reg));  // /0
+}
+
+// DEC reg
+void X86Encoder::emit_dec_reg(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xFF);   // DEC r/m64
+    emit_modrm(0b11, 1, reg_to_modrm(reg));  // /1
+}
+
+// NEG reg
+void X86Encoder::emit_neg_reg(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xF7);   // NEG r/m64
+    emit_modrm(0b11, 3, reg_to_modrm(reg));  // /3
+}
+
+// NOT reg
+void X86Encoder::emit_not_reg(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xF7);   // NOT r/m64
+    emit_modrm(0b11, 2, reg_to_modrm(reg));  // /2
+}
+
+// MUL reg (unsigned multiply RAX)
+void X86Encoder::emit_mul_reg(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xF7);   // MUL r/m64
+    emit_modrm(0b11, 4, reg_to_modrm(reg));  // /4
+}
+
+// DIV reg (unsigned divide RDX:RAX)
+void X86Encoder::emit_div_reg(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xF7);   // DIV r/m64
+    emit_modrm(0b11, 6, reg_to_modrm(reg));  // /6
+}
+
+// IDIV reg (signed divide RDX:RAX)
+void X86Encoder::emit_idiv_reg(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xF7);   // IDIV r/m64
+    emit_modrm(0b11, 7, reg_to_modrm(reg));  // /7
+}
+
+// IMUL dst, src (signed multiply)
+void X86Encoder::emit_imul_reg_reg(X86Register dst, X86Register src) {
+    emit_rex_if_needed(dst, src);
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0xAF);   // IMUL r64, r/m64
+    emit_modrm(0b11, reg_to_modrm(dst), reg_to_modrm(src));
+}
+
+// AND reg, reg
+void X86Encoder::emit_and_reg_reg(X86Register dst, X86Register src) {
+    emit_rex_if_needed(src, dst);
+    code_buffer.push_back(0x21);   // AND r/m64, r64
+    emit_modrm(0b11, reg_to_modrm(src), reg_to_modrm(dst));
+}
+
+// OR reg, reg
+void X86Encoder::emit_or_reg_reg(X86Register dst, X86Register src) {
+    emit_rex_if_needed(src, dst);
+    code_buffer.push_back(0x09);   // OR r/m64, r64
+    emit_modrm(0b11, reg_to_modrm(src), reg_to_modrm(dst));
+}
+
+// XOR reg, reg
+void X86Encoder::emit_xor_reg_reg(X86Register dst, X86Register src) {
+    emit_rex_if_needed(src, dst);
+    code_buffer.push_back(0x31);   // XOR r/m64, r64
+    emit_modrm(0b11, reg_to_modrm(src), reg_to_modrm(dst));
+}
+
+// SHL reg, imm8
+void X86Encoder::emit_shl_reg_imm8(X86Register reg, uint8_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xC1);   // SHL r/m64, imm8
+    emit_modrm(0b11, 4, reg_to_modrm(reg));  // /4
+    code_buffer.push_back(imm & 0x1F);       // Imm8 (only low 5 bits used)
+}
+
+// SHR reg, imm8
+void X86Encoder::emit_shr_reg_imm8(X86Register reg, uint8_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xC1);   // SHR r/m64, imm8
+    emit_modrm(0b11, 5, reg_to_modrm(reg));  // /5
+    code_buffer.push_back(imm & 0x1F);       // Imm8 (only low 5 bits used)
+}
+
+// SHL reg, CL
+void X86Encoder::emit_shl_reg_cl(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xD3);   // SHL r/m64, CL
+    emit_modrm(0b11, 4, reg_to_modrm(reg));  // /4
+}
+
+// SHR reg, CL
+void X86Encoder::emit_shr_reg_cl(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xD3);   // SHR r/m64, CL
+    emit_modrm(0b11, 5, reg_to_modrm(reg));  // /5
+}
+
+// ADD reg, imm32 (sign-extended)
+void X86Encoder::emit_add_reg_imm32(X86Register dst, int32_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(dst) >= 8);
+    code_buffer.push_back(0x81);   // ADD r/m64, imm32
+    emit_modrm(0b11, 0, reg_to_modrm(dst));  // /0
+    for (int i = 0; i < 4; i++) {
+        code_buffer.push_back((imm >> (i * 8)) & 0xFF);
+    }
+}
+
+// SUB reg, imm32 (sign-extended)
+void X86Encoder::emit_sub_reg_imm32(X86Register dst, int32_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(dst) >= 8);
+    code_buffer.push_back(0x81);   // SUB r/m64, imm32
+    emit_modrm(0b11, 5, reg_to_modrm(dst));  // /5
+    for (int i = 0; i < 4; i++) {
+        code_buffer.push_back((imm >> (i * 8)) & 0xFF);
+    }
+}
+
+// CMP reg, imm32 (sign-extended)
+void X86Encoder::emit_cmp_reg_imm32(X86Register dst, int32_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(dst) >= 8);
+    code_buffer.push_back(0x81);   // CMP r/m64, imm32
+    emit_modrm(0b11, 7, reg_to_modrm(dst));  // /7
+    for (int i = 0; i < 4; i++) {
+        code_buffer.push_back((imm >> (i * 8)) & 0xFF);
+    }
+}
+
+// AND reg, imm32 (sign-extended)
+void X86Encoder::emit_and_reg_imm32(X86Register dst, int32_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(dst) >= 8);
+    code_buffer.push_back(0x81);   // AND r/m64, imm32
+    emit_modrm(0b11, 4, reg_to_modrm(dst));  // /4
+    for (int i = 0; i < 4; i++) {
+        code_buffer.push_back((imm >> (i * 8)) & 0xFF);
+    }
+}
+
+// OR reg, imm32 (sign-extended)
+void X86Encoder::emit_or_reg_imm32(X86Register dst, int32_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(dst) >= 8);
+    code_buffer.push_back(0x81);   // OR r/m64, imm32
+    emit_modrm(0b11, 1, reg_to_modrm(dst));  // /1
+    for (int i = 0; i < 4; i++) {
+        code_buffer.push_back((imm >> (i * 8)) & 0xFF);
+    }
+}
+
+// XOR reg, imm32 (sign-extended)
+void X86Encoder::emit_xor_reg_imm32(X86Register dst, int32_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(dst) >= 8);
+    code_buffer.push_back(0x81);   // XOR r/m64, imm32
+    emit_modrm(0b11, 6, reg_to_modrm(dst));  // /6
+    for (int i = 0; i < 4; i++) {
+        code_buffer.push_back((imm >> (i * 8)) & 0xFF);
+    }
+}
+
 // Memory operations
 void X86Encoder::emit_mov_reg_mem(X86Register dst, X86Register base, int32_t offset) {
     emit_rex_if_needed(dst, base);

@@ -1,5 +1,6 @@
 #include "test_framework.hpp"
 #include "../engine/cpu_flags.hpp"
+#include "../codegen/x86_encoder.hpp"
 
 // Example unit tests using the new framework
 
@@ -2786,4 +2787,128 @@ TEST_CASE_EXPECT_ERROR(stack_limit_tight, "stack") {
         0xFF                                  // HALT
     });
     ctx.execute_program();
+}
+
+using namespace CodeGen;
+
+static void check_encoder_bytes(const std::vector<uint8_t>& expected, const std::vector<uint8_t>& actual) {
+    if (expected.size() != actual.size()) {
+        std::string msg = "Size mismatch: expected " + std::to_string(expected.size()) + " got " + std::to_string(actual.size());
+        throw AssertionFailure(msg);
+    }
+    for (size_t i = 0; i < expected.size(); i++) {
+        if (expected[i] != actual[i]) {
+            std::string msg = "Byte " + std::to_string(i) + ": expected 0x" +
+                fmt::format("{:02X} got 0x{:02X}", expected[i], actual[i]);
+            throw AssertionFailure(msg);
+        }
+    }
+}
+
+TEST_CASE(x86_inc_dec, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_inc_reg(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xFF, 0xC0}, enc.get_code());
+    enc.clear();
+    enc.emit_dec_reg(X86Register::RBX);
+    check_encoder_bytes({0x48, 0xFF, 0xCB}, enc.get_code());
+}
+
+TEST_CASE(x86_neg_not, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_neg_reg(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xF7, 0xD8}, enc.get_code());
+    enc.clear();
+    enc.emit_not_reg(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xF7, 0xD0}, enc.get_code());
+}
+
+TEST_CASE(x86_mul_div, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_mul_reg(X86Register::RCX);
+    check_encoder_bytes({0x48, 0xF7, 0xE1}, enc.get_code());
+    enc.clear();
+    enc.emit_div_reg(X86Register::RDX);
+    check_encoder_bytes({0x48, 0xF7, 0xF2}, enc.get_code());
+    enc.clear();
+    enc.emit_idiv_reg(X86Register::RSI);
+    check_encoder_bytes({0x48, 0xF7, 0xFE}, enc.get_code());
+}
+
+TEST_CASE(x86_imul, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_imul_reg_reg(X86Register::RAX, X86Register::RBX);
+    check_encoder_bytes({0x48, 0x0F, 0xAF, 0xC3}, enc.get_code());
+}
+
+TEST_CASE(x86_logic_reg_reg, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_and_reg_reg(X86Register::RAX, X86Register::RBX);
+    check_encoder_bytes({0x48, 0x21, 0xD8}, enc.get_code());
+    enc.clear();
+    enc.emit_or_reg_reg(X86Register::RAX, X86Register::RCX);
+    check_encoder_bytes({0x48, 0x09, 0xC8}, enc.get_code());
+    enc.clear();
+    enc.emit_xor_reg_reg(X86Register::RAX, X86Register::RCX);
+    check_encoder_bytes({0x48, 0x31, 0xC8}, enc.get_code());
+}
+
+TEST_CASE(x86_shift, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_shl_reg_imm8(X86Register::RAX, 1);
+    check_encoder_bytes({0x48, 0xC1, 0xE0, 0x01}, enc.get_code());
+    enc.clear();
+    enc.emit_shr_reg_imm8(X86Register::RAX, 1);
+    check_encoder_bytes({0x48, 0xC1, 0xE8, 0x01}, enc.get_code());
+}
+
+TEST_CASE(x86_arithmetic_imm32, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_add_reg_imm32(X86Register::RAX, 42);
+    check_encoder_bytes({0x48, 0x81, 0xC0, 0x2A, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_sub_reg_imm32(X86Register::RAX, 10);
+    check_encoder_bytes({0x48, 0x81, 0xE8, 0x0A, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_cmp_reg_imm32(X86Register::RAX, 0);
+    check_encoder_bytes({0x48, 0x81, 0xF8, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_logic_imm32, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_and_reg_imm32(X86Register::RAX, 0xFF);
+    check_encoder_bytes({0x48, 0x81, 0xE0, 0xFF, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_or_reg_imm32(X86Register::RAX, 0x0F);
+    check_encoder_bytes({0x48, 0x81, 0xC8, 0x0F, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_xor_reg_imm32(X86Register::RAX, 0xFF);
+    check_encoder_bytes({0x48, 0x81, 0xF0, 0xFF, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_mov_imm32, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_mov_reg_imm32(X86Register::RBX, -1);
+    check_encoder_bytes({0x48, 0xC7, 0xC3, 0xFF, 0xFF, 0xFF, 0xFF}, enc.get_code());
+    enc.clear();
+    enc.emit_mov_reg_imm32(X86Register::RAX, 0x7FFFFFFF);
+    check_encoder_bytes({0x48, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0x7F}, enc.get_code());
+}
+
+TEST_CASE(x86_extended_registers, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_inc_reg(X86Register::R8);
+    check_encoder_bytes({0x49, 0xFF, 0xC0}, enc.get_code());
+    enc.clear();
+    enc.emit_and_reg_reg(X86Register::R8, X86Register::R9);
+    check_encoder_bytes({0x4D, 0x21, 0xC8}, enc.get_code());
+}
+
+TEST_CASE(x86_shift_cl, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_shl_reg_cl(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xD3, 0xE0}, enc.get_code());
+    enc.clear();
+    enc.emit_shr_reg_cl(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xD3, 0xE8}, enc.get_code());
 }

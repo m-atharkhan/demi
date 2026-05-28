@@ -32,9 +32,41 @@ public:
     // Basic instruction emission
     void emit_mov_reg_reg(X86Register dst, X86Register src);
     void emit_mov_reg_imm64(X86Register dst, uint64_t imm);
+    void emit_mov_reg_imm32(X86Register dst, int32_t imm);
     void emit_add_reg_reg(X86Register dst, X86Register src);
     void emit_sub_reg_reg(X86Register dst, X86Register src);
     void emit_cmp_reg_reg(X86Register left, X86Register right);
+
+    // One-operand arithmetic (unsigned)
+    void emit_inc_reg(X86Register reg);
+    void emit_dec_reg(X86Register reg);
+    void emit_neg_reg(X86Register reg);
+    void emit_not_reg(X86Register reg);
+    void emit_mul_reg(X86Register reg);
+    void emit_div_reg(X86Register reg);
+    void emit_idiv_reg(X86Register reg);
+
+    // Two-operand signed multiply
+    void emit_imul_reg_reg(X86Register dst, X86Register src);
+
+    // Logic operations (two registers)
+    void emit_and_reg_reg(X86Register dst, X86Register src);
+    void emit_or_reg_reg(X86Register dst, X86Register src);
+    void emit_xor_reg_reg(X86Register dst, X86Register src);
+
+    // Shift operations
+    void emit_shl_reg_imm8(X86Register reg, uint8_t imm);
+    void emit_shr_reg_imm8(X86Register reg, uint8_t imm);
+    void emit_shl_reg_cl(X86Register reg);
+    void emit_shr_reg_cl(X86Register reg);
+
+    // Register-immediate arithmetic (sign-extended 32-bit immediate)
+    void emit_add_reg_imm32(X86Register dst, int32_t imm);
+    void emit_sub_reg_imm32(X86Register dst, int32_t imm);
+    void emit_cmp_reg_imm32(X86Register dst, int32_t imm);
+    void emit_and_reg_imm32(X86Register dst, int32_t imm);
+    void emit_or_reg_imm32(X86Register dst, int32_t imm);
+    void emit_xor_reg_imm32(X86Register dst, int32_t imm);
 
     // Memory operations
     void emit_mov_reg_mem(X86Register dst, X86Register base, int32_t offset = 0);
