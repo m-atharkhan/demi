@@ -62,12 +62,17 @@ extern void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& runn
 extern void handle_mod(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 
 // 64-bit operation handlers
+extern void handle_add64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_sub64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_mov64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_mul64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_div64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_and64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_mod64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_cmp64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_inc64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_dec64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+extern void handle_load_imm64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_loadex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 extern void handle_storex(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 
@@ -663,12 +668,16 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
             case static_cast<uint8_t>(Opcode::RET):  handle_ret(cpu, program, running);  break;
             
             // 64-bit operations (0x50-0x5F range)
+            case 0x50: handle_add64(cpu, program, running); break;  // ADD64
+            case 0x51: handle_sub64(cpu, program, running); break;  // SUB64
             case 0x52: handle_mov64(cpu, program, running); break;  // MOV64
             case 0x54: handle_mul64(cpu, program, running); break;  // MUL64
             case 0x55: handle_div64(cpu, program, running); break;  // DIV64
             case 0x56: handle_and64(cpu, program, running); break;  // AND64
+            case 0x5C: handle_cmp64(cpu, program, running); break;  // CMP64
+            case 0x5D: handle_inc64(cpu, program, running); break;  // INC64
+            case 0x5E: handle_dec64(cpu, program, running); break;  // DEC64
             case 0x5F: handle_mod64(cpu, program, running); break;  // MOD64
-            case 0x5B: handle_cmp64(cpu, program, running); break;  // CMP64
             
             // Extended operations (0x60-0x6F range)  
             case 0x66: handle_loadex(cpu, program, running); break; // LOADEX
