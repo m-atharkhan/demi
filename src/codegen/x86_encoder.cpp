@@ -163,6 +163,53 @@ void X86Encoder::emit_xor_reg_reg(X86Register dst, X86Register src) {
     emit_modrm(0b11, reg_to_modrm(src), reg_to_modrm(dst));
 }
 
+// TEST reg, reg
+void X86Encoder::emit_test_reg_reg(X86Register dst, X86Register src) {
+    emit_rex_if_needed(src, dst);
+    code_buffer.push_back(0x85);   // TEST r/m64, r64
+    emit_modrm(0b11, reg_to_modrm(src), reg_to_modrm(dst));
+}
+
+// TEST reg, imm32
+void X86Encoder::emit_test_reg_imm32(X86Register reg, int32_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xF7);   // TEST r/m64, imm32
+    emit_modrm(0b11, 0, reg_to_modrm(reg));  // /0
+    for (int i = 0; i < 4; i++) {
+        code_buffer.push_back((imm >> (i * 8)) & 0xFF);
+    }
+}
+
+// ROL reg, imm8
+void X86Encoder::emit_rol_reg_imm8(X86Register reg, uint8_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xC1);   // ROL r/m64, imm8
+    emit_modrm(0b11, 0, reg_to_modrm(reg));  // /0
+    code_buffer.push_back(imm & 0x1F);
+}
+
+// ROR reg, imm8
+void X86Encoder::emit_ror_reg_imm8(X86Register reg, uint8_t imm) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xC1);   // ROR r/m64, imm8
+    emit_modrm(0b11, 1, reg_to_modrm(reg));  // /1
+    code_buffer.push_back(imm & 0x1F);
+}
+
+// ROL reg, CL
+void X86Encoder::emit_rol_reg_cl(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xD3);   // ROL r/m64, CL
+    emit_modrm(0b11, 0, reg_to_modrm(reg));  // /0
+}
+
+// ROR reg, CL
+void X86Encoder::emit_ror_reg_cl(X86Register reg) {
+    emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
+    code_buffer.push_back(0xD3);   // ROR r/m64, CL
+    emit_modrm(0b11, 1, reg_to_modrm(reg));  // /1
+}
+
 // SHL reg, imm8
 void X86Encoder::emit_shl_reg_imm8(X86Register reg, uint8_t imm) {
     emit_rex(true, false, false, static_cast<uint8_t>(reg) >= 8);
@@ -330,6 +377,76 @@ void X86Encoder::emit_jnz_rel32(int32_t offset) {
     }
 }
 
+void X86Encoder::emit_jg_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x8F);   // JG rel32
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
+void X86Encoder::emit_jl_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x8C);   // JL rel32
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
+void X86Encoder::emit_jge_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x8D);   // JGE rel32
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
+void X86Encoder::emit_jle_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x8E);   // JLE rel32
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
+void X86Encoder::emit_jc_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x82);   // JC rel32 (JB)
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
+void X86Encoder::emit_jnc_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x83);   // JNC rel32 (JNB/JAE)
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
+void X86Encoder::emit_jo_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x80);   // JO rel32
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
+void X86Encoder::emit_jno_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x81);   // JNO rel32
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
+void X86Encoder::emit_js_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x88);   // JS rel32
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
+void X86Encoder::emit_jns_rel32(int32_t offset) {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x89);   // JNS rel32
+    for (int i = 0; i < 4; i++)
+        code_buffer.push_back((offset >> (i * 8)) & 0xFF);
+}
+
 void X86Encoder::emit_call_rel32(int32_t offset) {
     code_buffer.push_back(0xE8);   // CALL rel32
     for (int i = 0; i < 4; i++) {
@@ -398,6 +515,106 @@ void X86Encoder::emit_jnz_label(Label& label) {
     } else {
         label.unresolved_jumps.push_back(code_buffer.size() + 2);
         emit_jnz_rel32(0);
+    }
+}
+
+void X86Encoder::emit_jg_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_jg_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_jg_rel32(0);
+    }
+}
+
+void X86Encoder::emit_jl_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_jl_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_jl_rel32(0);
+    }
+}
+
+void X86Encoder::emit_jge_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_jge_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_jge_rel32(0);
+    }
+}
+
+void X86Encoder::emit_jle_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_jle_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_jle_rel32(0);
+    }
+}
+
+void X86Encoder::emit_jc_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_jc_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_jc_rel32(0);
+    }
+}
+
+void X86Encoder::emit_jnc_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_jnc_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_jnc_rel32(0);
+    }
+}
+
+void X86Encoder::emit_jo_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_jo_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_jo_rel32(0);
+    }
+}
+
+void X86Encoder::emit_jno_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_jno_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_jno_rel32(0);
+    }
+}
+
+void X86Encoder::emit_js_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_js_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_js_rel32(0);
+    }
+}
+
+void X86Encoder::emit_jns_label(Label& label) {
+    if (label.bound) {
+        int32_t offset = static_cast<int32_t>(label.position - (code_buffer.size() + 6));
+        emit_jns_rel32(offset);
+    } else {
+        label.unresolved_jumps.push_back(code_buffer.size() + 2);
+        emit_jns_rel32(0);
     }
 }
 

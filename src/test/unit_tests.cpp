@@ -2912,3 +2912,106 @@ TEST_CASE(x86_shift_cl, "x86_encoder") {
     enc.emit_shr_reg_cl(X86Register::RAX);
     check_encoder_bytes({0x48, 0xD3, 0xE8}, enc.get_code());
 }
+
+TEST_CASE(x86_test, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_test_reg_reg(X86Register::RAX, X86Register::RBX);
+    check_encoder_bytes({0x48, 0x85, 0xD8}, enc.get_code());
+    enc.clear();
+    enc.emit_test_reg_imm32(X86Register::RAX, 42);
+    check_encoder_bytes({0x48, 0xF7, 0xC0, 0x2A, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_rotate, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_rol_reg_imm8(X86Register::RAX, 1);
+    check_encoder_bytes({0x48, 0xC1, 0xC0, 0x01}, enc.get_code());
+    enc.clear();
+    enc.emit_ror_reg_imm8(X86Register::RAX, 1);
+    check_encoder_bytes({0x48, 0xC1, 0xC8, 0x01}, enc.get_code());
+    enc.clear();
+    enc.emit_rol_reg_cl(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xD3, 0xC0}, enc.get_code());
+    enc.clear();
+    enc.emit_ror_reg_cl(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xD3, 0xC8}, enc.get_code());
+}
+
+TEST_CASE(x86_conditional_jumps, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_jg_rel32(0);
+    check_encoder_bytes({0x0F, 0x8F, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jl_rel32(0);
+    check_encoder_bytes({0x0F, 0x8C, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jge_rel32(0);
+    check_encoder_bytes({0x0F, 0x8D, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jle_rel32(0);
+    check_encoder_bytes({0x0F, 0x8E, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_carry_overflow_jumps, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_jc_rel32(0);
+    check_encoder_bytes({0x0F, 0x82, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jnc_rel32(0);
+    check_encoder_bytes({0x0F, 0x83, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jo_rel32(0);
+    check_encoder_bytes({0x0F, 0x80, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jno_rel32(0);
+    check_encoder_bytes({0x0F, 0x81, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_sign_jumps, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_js_rel32(0);
+    check_encoder_bytes({0x0F, 0x88, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jns_rel32(0);
+    check_encoder_bytes({0x0F, 0x89, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_jump_label_forward, "x86_encoder") {
+    X86Encoder enc;
+    auto label = enc.create_label();
+    enc.emit_jg_label(label);
+    enc.emit_jl_label(label);
+    enc.emit_jge_label(label);
+    enc.emit_jle_label(label);
+    enc.bind_label(label);
+    ctx.assert_eq(static_cast<size_t>(24), enc.get_code().size());
+    auto& code = enc.get_code();
+    ctx.assert_eq(static_cast<uint8_t>(code[2]), uint8_t(0x12));
+    ctx.assert_eq(static_cast<uint8_t>(code[3]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[4]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[5]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[8]), uint8_t(0x0C));
+    ctx.assert_eq(static_cast<uint8_t>(code[14]), uint8_t(0x06));
+    ctx.assert_eq(static_cast<uint8_t>(code[20]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[21]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[22]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[23]), uint8_t(0x00));
+}
+
+TEST_CASE(x86_jump_label_bound, "x86_encoder") {
+    X86Encoder enc;
+    auto label = enc.create_label();
+    enc.bind_label(label);
+    enc.emit_jg_label(label);
+    enc.emit_jc_label(label);
+    enc.emit_jo_label(label);
+    enc.emit_js_label(label);
+    auto& code = enc.get_code();
+    ctx.assert_eq(static_cast<uint8_t>(code[2]), uint8_t(0xFA));
+    ctx.assert_eq(static_cast<uint8_t>(code[3]), uint8_t(0xFF));
+    ctx.assert_eq(static_cast<uint8_t>(code[4]), uint8_t(0xFF));
+    ctx.assert_eq(static_cast<uint8_t>(code[5]), uint8_t(0xFF));
+    ctx.assert_eq(static_cast<uint8_t>(code[8]), uint8_t(0xF4));
+    ctx.assert_eq(static_cast<uint8_t>(code[14]), uint8_t(0xEE));
+    ctx.assert_eq(static_cast<uint8_t>(code[20]), uint8_t(0xE8));
+}

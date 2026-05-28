@@ -54,6 +54,16 @@ public:
     void emit_or_reg_reg(X86Register dst, X86Register src);
     void emit_xor_reg_reg(X86Register dst, X86Register src);
 
+    // TEST instruction (sets flags without writing result)
+    void emit_test_reg_reg(X86Register dst, X86Register src);
+    void emit_test_reg_imm32(X86Register reg, int32_t imm);
+
+    // Rotate operations
+    void emit_rol_reg_imm8(X86Register reg, uint8_t imm);
+    void emit_ror_reg_imm8(X86Register reg, uint8_t imm);
+    void emit_rol_reg_cl(X86Register reg);
+    void emit_ror_reg_cl(X86Register reg);
+
     // Shift operations
     void emit_shl_reg_imm8(X86Register reg, uint8_t imm);
     void emit_shr_reg_imm8(X86Register reg, uint8_t imm);
@@ -80,6 +90,16 @@ public:
     void emit_jmp_rel32(int32_t offset);
     void emit_jz_rel32(int32_t offset);
     void emit_jnz_rel32(int32_t offset);
+    void emit_jg_rel32(int32_t offset);
+    void emit_jl_rel32(int32_t offset);
+    void emit_jge_rel32(int32_t offset);
+    void emit_jle_rel32(int32_t offset);
+    void emit_jc_rel32(int32_t offset);
+    void emit_jnc_rel32(int32_t offset);
+    void emit_jo_rel32(int32_t offset);
+    void emit_jno_rel32(int32_t offset);
+    void emit_js_rel32(int32_t offset);
+    void emit_jns_rel32(int32_t offset);
     void emit_call_rel32(int32_t offset);
     void emit_ret();
 
@@ -104,6 +124,16 @@ public:
     void emit_jmp_label(Label& label);
     void emit_jz_label(Label& label);
     void emit_jnz_label(Label& label);
+    void emit_jg_label(Label& label);
+    void emit_jl_label(Label& label);
+    void emit_jge_label(Label& label);
+    void emit_jle_label(Label& label);
+    void emit_jc_label(Label& label);
+    void emit_jnc_label(Label& label);
+    void emit_jo_label(Label& label);
+    void emit_jno_label(Label& label);
+    void emit_js_label(Label& label);
+    void emit_jns_label(Label& label);
 };
 
 } // namespace CodeGen
