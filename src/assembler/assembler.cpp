@@ -2287,7 +2287,13 @@ void Assembler::AssemblerEngine::handle_org_directive(const std::vector<std::uni
             data_section_base = new_address;
         } else if (current_section == ".text" && current_address == text_section_base) {
             is_section_base_override = true;
-            text_section_base = new_address;
+            // Don't overlap with .data section data
+            uint32_t data_end = data_section_base + data_section_size;
+            if (new_address < data_end) {
+                text_section_base = data_end;
+            } else {
+                text_section_base = new_address;
+            }
         }
 
         if (!is_section_base_override) {
@@ -2297,9 +2303,12 @@ void Assembler::AssemblerEngine::handle_org_directive(const std::vector<std::uni
             add_error(ss.str());
             return;
         }
+        // Use the adjusted section base (may differ from new_address
+        // if it was pushed forward to avoid .data overlap)
+        current_address = (current_section == ".data") ? data_section_base : text_section_base;
+    } else {
+        current_address = new_address;
     }
-
-    current_address = new_address;
 
     // Pad bytecode to the new address
     while (bytecode.size() < current_address) {
