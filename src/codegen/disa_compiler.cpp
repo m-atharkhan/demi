@@ -834,7 +834,9 @@ void DISAToX86Compiler::translate_halt() {
 }
 
 void DISAToX86Compiler::translate_load_imm(uint8_t reg, uint64_t immediate) {
-    X86Register phys = get_writable_physical(reg);
+    acquire_physical(reg);
+    X86Register phys = reg_state_map[reg].phys;
+    reg_state_map[reg] = {phys, true, true};  // loaded + dirty, skip dead load
     encoder.emit_mov_reg_imm64(phys, immediate);
 }
 
