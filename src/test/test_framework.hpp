@@ -14,6 +14,7 @@
 #include "../engine/device_factory.hpp"
 #include "../config.hpp"
 #include "../debug/debug_handler.hpp"
+#include "../debug/error_handler.hpp"
 #include "../assembler/demi_assembler.hpp"
 #include "../assembler/lexer.hpp"
 #include "../assembler/parser.hpp" 
@@ -958,9 +959,10 @@ private:
     TestResult run_test(const TestCase& test) {
         auto start = std::chrono::high_resolution_clock::now();
 
-        // Suppress debug output if error is expected
+        // Suppress debug and error output if error is expected
         if (test.expect_error) {
             Logging::DebugHandler::instance().set_suppress_output(true);
+            Logging::ErrorHandler::instance().set_quiet_mode(true);
         }
 
         // Save original buffers
@@ -1053,6 +1055,7 @@ private:
             // Check if we expected an error but didn't get one
             if (test.expect_error && Config::error_count == 0) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
+                Logging::ErrorHandler::instance().set_quiet_mode(false);
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
                 return TestResult(test.name, test.category, false,
@@ -1062,6 +1065,7 @@ private:
             // Test passed
             if (test.expect_error) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
+                Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -1074,6 +1078,7 @@ private:
             
             if (test.expect_error) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
+                Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
             
             // If we expected an error and got an assertion failure, that might be OK
@@ -1095,6 +1100,7 @@ private:
             
             if (test.expect_error) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
+                Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
             
             // If we expected an error and got a standard exception, that's probably OK
@@ -1117,6 +1123,7 @@ private:
             
             if (test.expect_error) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
+                Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
 
             auto end = std::chrono::high_resolution_clock::now();

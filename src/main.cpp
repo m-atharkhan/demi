@@ -394,6 +394,7 @@ void run_in_assembly_tests() {
 }
 
 void run_unit_tests_only() {
+    Config::test_mode = true;
     const char* color = Config::debug ? "\033[38;5;208m" : "\033[36m";
     std::cout << color << "┌──────────────────────────────────────────────────────┐\033[0m" << std::endl;
     std::cout << color << "│     Running DemiEngine Unit Tests                    │\033[0m" << std::endl;
