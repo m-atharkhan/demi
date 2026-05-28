@@ -977,7 +977,7 @@ private:
             bool has_output = false;
 
             const bool suppress_stream_output =
-                test.expect_error || (Config::test_show_mode != TestShowMode::ALL);
+                test.expect_error || (Config::test_show_mode != TestShowMode::ALL && !Config::test_debug);
 
             // Create custom buffers
             class TrackingBuf : public std::streambuf {
@@ -1018,6 +1018,12 @@ private:
 
             // Reset global state
             Config::error_count = 0;
+
+            // Debug mode: print test entry
+            if (Config::test_debug) {
+                std::cout << "\033[38;5;208m[TEST-DEBUG] \033[0m\033[1mStarting test:\033[0m " 
+                          << test.name << " (category: " << test.category << ")" << std::endl;
+            }
 
             // Create test context
             TestContext context;
@@ -1144,6 +1150,34 @@ public:
 // Function to run all tests (for integration with existing main)
 inline void run_unit_tests() {
     auto& framework = TestFramework::instance();
+    
+    // Test selection: if --test-select is specified, run only those tests
+    if (!Config::test_select.empty()) {
+        std::vector<std::string> test_names;
+        std::stringstream ss(Config::test_select);
+        std::string name;
+        while (std::getline(ss, name, ',')) {
+            // Trim whitespace
+            size_t start = name.find_first_not_of(" \t");
+            size_t end = name.find_last_not_of(" \t");
+            if (start != std::string::npos) {
+                test_names.push_back(name.substr(start, end - start + 1));
+            }
+        }
+        
+        std::vector<TestResult> all_results;
+        for (const auto& test_name : test_names) {
+            auto results = framework.run_single(test_name);
+            if (results.empty()) {
+                std::cerr << "Error: Test '" << test_name << "' not found" << std::endl;
+            } else {
+                all_results.insert(all_results.end(), results.begin(), results.end());
+            }
+        }
+        framework.print_results(all_results);
+        return;
+    }
+    
     auto results = framework.run_all();
     framework.print_results(results);
 }

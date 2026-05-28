@@ -1,8 +1,27 @@
 #include "opcode_dispatcher_inlined.hpp"
-#include "opcode_dispatcher.hpp"
 #include "../cpu.hpp"
 #include "../cpu_flags.hpp"
+#include "../branch_prediction.hpp"
+#include "../opcodes/instruction_fusion.hpp"
 #include "../../config.hpp"
+
+// Macro to dispatch next instruction with fusion check.
+// The computed goto dispatcher runs in a loop; we need to check for fusion
+// at every dispatch point so the fusion engine gets a chance to match
+// multi-instruction patterns (INC+CMP, MOV+ADD, PUSH+POP, etc.).
+#define DISPATCH_WITH_FUSION() \
+    do { \
+        if (!running || cpu.get_pc() >= program.size()) { \
+            return; \
+        } \
+        if (InstructionFusion::try_instruction_fusion(cpu, program, running)) { \
+            if (!running || cpu.get_pc() >= program.size()) { \
+                return; \
+            } \
+            goto *dispatch_table[program[cpu.get_pc()]]; \
+        } \
+        goto *dispatch_table[program[cpu.get_pc()]]; \
+    } while(0)
 #include "../../debug/debug_handler.hpp"
 #include <fmt/format.h>
 #include <iomanip>
@@ -79,13 +98,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         #endif
         
         cpu.set_pc(pc + 1);
-        
-        // Fast bounds check and next instruction dispatch
-        if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
-            running = false;
-            return;
-        }
-        goto *dispatch_table[program[cpu.get_pc()]];
+        DISPATCH_WITH_FUSION();
     }
 
     // Inlined LOAD_IMM operation - very common for loading 32-bit constants into registers
@@ -135,12 +148,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         }
         #endif
 
-        // Fast bounds check and next instruction dispatch
-        if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
-            running = false;
-            return;
-        }
-        goto *dispatch_table[program[cpu.get_pc()]];
+        DISPATCH_WITH_FUSION();
     }
 
     // Inlined ADD operation - very common arithmetic operation
@@ -240,12 +248,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         }
         #endif
         
-        // Fast next instruction dispatch
-        if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
-            running = false;
-            return;
-        }
-        goto *dispatch_table[program[cpu.get_pc()]];
+        DISPATCH_WITH_FUSION();
     }
 
     // Inlined MOV operation - very common register move
@@ -291,12 +294,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         }
         #endif
         
-        // Fast next instruction dispatch
-        if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
-            running = false;
-            return;
-        }
-        goto *dispatch_table[program[cpu.get_pc()]];
+        DISPATCH_WITH_FUSION();
     }
 
     // Inlined HALT operation - must stop execution
@@ -360,12 +358,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         cpu.set_register_64(static_cast<Register>(reg), static_cast<int64_t>(value));
         cpu.set_pc(pc + 10); // opcode + register + 8 bytes
         
-        // Fast bounds check and next instruction dispatch
-        if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
-            running = false;
-            return;
-        }
-        goto *dispatch_table[program[cpu.get_pc()]];
+        DISPATCH_WITH_FUSION();
     }
 
     // Inlined DEBUG operation
@@ -704,26 +697,7 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
         }
         
         DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[OP_HANDLER] Handler completed, continuing to next instruction", "");
-        // Continue to next instruction
-        if (__builtin_expect(!running, 0)) return;
-        if (__builtin_expect(cpu.get_pc() >= program.size(), 0)) {
-            running = false;
-            return;
-        }
-        {
-            uint8_t next_op = program[cpu.get_pc()];
-            void* next_target = dispatch_table[next_op];
-            if (__builtin_expect(next_target == nullptr, 0)) {
-                Logging::DebugHandler::instance().report(
-                    Logging::DebugCategory::CPU_DISPATCHER,
-                    fmt::format("Dispatch table null entry for opcode 0x{:02X} at PC={}",
-                                next_op, cpu.get_pc()),
-                    Logging::DebugLevel::CRITICAL);
-                running = false;
-                return;
-            }
-            goto *next_target;
-        }
+        DISPATCH_WITH_FUSION();
     }
 
     // Invalid opcode handler
@@ -930,6 +904,11 @@ void dispatch_opcode_inlined(CPU& cpu, const std::vector<uint8_t>& program, bool
 // Optimized fallback implementation with inlined operations
 void dispatch_opcode_inlined_fallback(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     while (running && cpu.get_pc() < program.size()) {
+        // Try instruction fusion before dispatching each opcode
+        if (InstructionFusion::try_instruction_fusion(cpu, program, running)) {
+            continue; // Fusion handled this instruction
+        }
+        
         uint8_t opcode = program[cpu.get_pc()];
         uint32_t pc = cpu.get_pc();
         

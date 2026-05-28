@@ -961,6 +961,21 @@ public:
                 }
             });
 
+        // Test debug mode - verbose output for test diagnostics
+        parser.add_bool_arg("test_debug", "--test-debug", "-td",
+            "Enable verbose test debugging output (shows fusion engine, opcode dispatch, etc.)", "Testing",
+            [this](bool value) { Config::test_debug = value; });
+
+        // Test select - run specific test(s) by name
+        parser.add_value_arg("test_select", "--test-select", "-ts",
+            "Run specific test(s) by name (comma-separated, e.g. -ts fusion_inc_cmp,fusion_dec_cmp)", "Testing",
+            [this](const std::string& value) { Config::test_select = value; });
+
+        // Assembly test debug mode - verbose output for assembly test diagnostics
+        parser.add_bool_arg("assembly_test_debug", "--assembly-test-debug", "-atd",
+            "Enable verbose assembly test debugging output", "Testing",
+            [this](bool value) { Config::assembly_test_debug = value; });
+
         parser.parse(argc, argv);
     }
 

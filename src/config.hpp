@@ -56,6 +56,9 @@ public:
     inline static bool quiet_assembly_test = false;  // Quiet mode for assembly tests
     inline static bool quiet = false;  // Global quiet mode - suppress logs and only show results
     inline static bool test_mode = false;  // Test mode - suppress verbose logs during testing
+    inline static bool test_debug = false;  // Test debug mode - verbose output for test diagnostics
+    inline static bool assembly_test_debug = false;  // Assembly test debug mode - verbose output for assembly test diagnostics
+    inline static std::string test_select = "";  // Select specific test(s) by name (comma-separated)
     inline static bool show_test_metadata = false;  // Show test metadata (description, author, category, tags)
     inline static TestShowMode test_show_mode = TestShowMode::ALL;  // Test filtering mode
     inline static std::string debug_file = "debug.log";
