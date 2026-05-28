@@ -93,6 +93,18 @@ public:
     void translate_lea(uint8_t dst_reg, uint8_t addr_reg);
     void translate_swap(uint8_t reg, uint8_t addr_reg);
 
+    // I/O operations
+    void translate_in(uint8_t reg, uint8_t port);
+    void translate_out(uint8_t reg, uint8_t port);
+    void translate_inb(uint8_t reg, uint8_t port);
+    void translate_outb(uint8_t reg, uint8_t port);
+    void translate_inw(uint8_t reg, uint8_t port);
+    void translate_outw(uint8_t reg, uint8_t port);
+    void translate_inl(uint8_t reg, uint8_t port);
+    void translate_outl(uint8_t reg, uint8_t port);
+    void translate_instr(uint8_t reg, uint8_t port);
+    void translate_outstr(uint8_t reg, uint8_t port);
+
     // Stack operations
     void translate_push(uint8_t reg);
     void translate_pop(uint8_t reg);

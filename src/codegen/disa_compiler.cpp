@@ -263,17 +263,39 @@ void DISAToX86Compiler::translate_instruction(Opcode opcode, const uint8_t* oper
             translate_store(0, 0, operands[0]);
             break;
 
-        // I/O and complex - delegate to runtime
+        // I/O operations
         case Opcode::IN:
+            translate_in(operands[0], operands[1]);
+            break;
         case Opcode::OUT:
+            translate_out(operands[0], operands[1]);
+            break;
         case Opcode::INB:
+            translate_inb(operands[0], operands[1]);
+            break;
         case Opcode::OUTB:
+            translate_outb(operands[0], operands[1]);
+            break;
         case Opcode::INW:
+            translate_inw(operands[0], operands[1]);
+            break;
         case Opcode::OUTW:
+            translate_outw(operands[0], operands[1]);
+            break;
         case Opcode::INL:
+            translate_inl(operands[0], operands[1]);
+            break;
         case Opcode::OUTL:
+            translate_outl(operands[0], operands[1]);
+            break;
         case Opcode::INSTR:
+            translate_instr(operands[0], operands[1]);
+            break;
         case Opcode::OUTSTR:
+            translate_outstr(operands[0], operands[1]);
+            break;
+
+        // Complex/other - delegate to runtime
         case Opcode::DB:
         case Opcode::DEBUG:
         case Opcode::INT:
@@ -508,6 +530,233 @@ X86Register DISAToX86Compiler::get_writable_physical(uint8_t virt_reg) {
     load_register(virt_reg, phys);
     mark_dirty(virt_reg);
     return phys;
+}
+
+// --- I/O instruction translators ---
+// Uses Linux syscall-based I/O for port 0 (console stdin/stdout).
+// After each I/O operation, register cache is invalidated so the
+// next instruction re-loads from the regfile in memory.
+
+void DISAToX86Compiler::translate_out(uint8_t reg, uint8_t port) {
+    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    flush_all_registers();
+    reg_state_map.clear();
+
+    // write(1, &regfile[reg], 1)
+    encoder.emit_push_reg(X86Register::RDI);
+    encoder.emit_mov_reg_reg(X86Register::RSI, X86Register::RDI);
+    if (reg > 0)
+        encoder.emit_add_reg_imm32(X86Register::RSI, reg * 8);
+    encoder.emit_mov_reg_imm32(X86Register::RDI, 1);
+    encoder.emit_mov_reg_imm32(X86Register::RDX, 1);
+    encoder.emit_mov_reg_imm32(X86Register::RAX, 1);
+    encoder.emit_syscall();
+    encoder.emit_pop_reg(X86Register::RDI);
+}
+
+void DISAToX86Compiler::translate_outb(uint8_t reg, uint8_t port) {
+    translate_out(reg, port);
+}
+
+void DISAToX86Compiler::translate_outw(uint8_t reg, uint8_t port) {
+    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    flush_all_registers();
+    reg_state_map.clear();
+
+    // write(1, &regfile[reg], 2)
+    encoder.emit_push_reg(X86Register::RDI);
+    encoder.emit_mov_reg_reg(X86Register::RSI, X86Register::RDI);
+    if (reg > 0)
+        encoder.emit_add_reg_imm32(X86Register::RSI, reg * 8);
+    encoder.emit_mov_reg_imm32(X86Register::RDI, 1);
+    encoder.emit_mov_reg_imm32(X86Register::RDX, 2);
+    encoder.emit_mov_reg_imm32(X86Register::RAX, 1);
+    encoder.emit_syscall();
+    encoder.emit_pop_reg(X86Register::RDI);
+}
+
+void DISAToX86Compiler::translate_outl(uint8_t reg, uint8_t port) {
+    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    flush_all_registers();
+    reg_state_map.clear();
+
+    // write(1, &regfile[reg], 4)
+    encoder.emit_push_reg(X86Register::RDI);
+    encoder.emit_mov_reg_reg(X86Register::RSI, X86Register::RDI);
+    if (reg > 0)
+        encoder.emit_add_reg_imm32(X86Register::RSI, reg * 8);
+    encoder.emit_mov_reg_imm32(X86Register::RDI, 1);
+    encoder.emit_mov_reg_imm32(X86Register::RDX, 4);
+    encoder.emit_mov_reg_imm32(X86Register::RAX, 1);
+    encoder.emit_syscall();
+    encoder.emit_pop_reg(X86Register::RDI);
+}
+
+void DISAToX86Compiler::translate_outstr(uint8_t reg, uint8_t port) {
+    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    flush_all_registers();
+    reg_state_map.clear();
+
+    // OUTSTR: write null-terminated string from memory to port
+    // reg contains the string address (offset from memory base pointed to by RSI)
+    // memory_base = RSI, string offset = regfile[reg]
+
+    // Save both pointers
+    encoder.emit_push_reg(X86Register::RDI);  // [RSP+8]
+    encoder.emit_push_reg(X86Register::RSI);  // [RSP+0]
+
+    // Get string offset from regfile
+    encoder.emit_mov_reg_mem(X86Register::RAX, X86Register::RDI, reg * 8);
+    // Combine with memory base to get absolute address: RSI = memory_base + offset
+    encoder.emit_add_reg_reg(X86Register::RAX, X86Register::RSI);
+
+    // Save absolute string address
+    encoder.emit_push_reg(X86Register::RAX);  // [RSP+0], old [RSP+8]=RSI, [RSP+16]=RDI
+
+    // Find null terminator: strlen(string_addr)
+    encoder.emit_mov_reg_reg(X86Register::RDI, X86Register::RAX);
+    encoder.emit_mov_reg_imm32(X86Register::RCX, 0x10000);
+    encoder.emit_xor_reg_reg(X86Register::RAX, X86Register::RAX);
+    encoder.emit_cld();
+    encoder.emit_repne_scasb();
+
+    // Compute length = (rdi - 1) - string_addr
+    encoder.emit_pop_reg(X86Register::RSI);  // RSI = string_addr
+    // rdi points past null, so rdi-1 = address of null
+    // save a temp copy of rdi
+    encoder.emit_push_reg(X86Register::RDI);
+    encoder.emit_pop_reg(X86Register::RDX);
+    encoder.emit_dec_reg(X86Register::RDX);  // RDX = &null
+    encoder.emit_sub_reg_reg(X86Register::RDX, X86Register::RSI);  // RDX = length
+
+    // write(1, string_addr, length)
+    // RSI = string_addr (already set from pop)
+    encoder.emit_mov_reg_imm32(X86Register::RDI, 1);
+    encoder.emit_mov_reg_imm32(X86Register::RAX, 1);
+    encoder.emit_syscall();
+
+    // Restore mem pointer and regfile pointer
+    encoder.emit_pop_reg(X86Register::RSI);  // restore mem ptr
+    encoder.emit_pop_reg(X86Register::RDI);  // restore regfile ptr
+}
+
+void DISAToX86Compiler::translate_in(uint8_t reg, uint8_t port) {
+    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    flush_all_registers();
+    reg_state_map.clear();
+
+    // read(0, &temp, 1); regfile[reg] = zero_extend(temp)
+    encoder.emit_push_reg(X86Register::RDI);
+    encoder.emit_push_reg(X86Register::RSI);
+    encoder.emit_sub_reg_imm32(X86Register::RSP, 8);  // allocate temp
+
+    encoder.emit_xor_reg_reg(X86Register::RDI, X86Register::RDI);  // stdin
+    encoder.emit_mov_reg_reg(X86Register::RSI, X86Register::RSP);  // buf = temp
+    encoder.emit_mov_reg_imm32(X86Register::RDX, 1);
+    encoder.emit_xor_reg_reg(X86Register::RAX, X86Register::RAX);  // sys_read
+    encoder.emit_syscall();
+
+    // Zero-extend byte into RAX
+    encoder.emit_xor_reg_reg(X86Register::RAX, X86Register::RAX);
+    // mov al, byte [rsp]
+    encoder.emit_raw_byte(0x8A);
+    encoder.emit_raw_byte(0x04);
+    encoder.emit_raw_byte(0x24);
+
+    // Restore regfile ptr: [RSP+0]=temp, [RSP+8]=RSI, [RSP+16]=RDI
+    encoder.emit_mov_reg_mem(X86Register::RDI, X86Register::RSP, 16);  // RDI = saved RDI
+    encoder.emit_mov_mem_reg(X86Register::RDI, reg * 8, X86Register::RAX);
+
+    // Clean up: add rsp, 8 (remove temp), pop rsi, pop rdi
+    encoder.emit_add_reg_imm32(X86Register::RSP, 8);
+    encoder.emit_pop_reg(X86Register::RSI);
+    encoder.emit_pop_reg(X86Register::RDI);
+}
+
+void DISAToX86Compiler::translate_inb(uint8_t reg, uint8_t port) {
+    translate_in(reg, port);
+}
+
+void DISAToX86Compiler::translate_inw(uint8_t reg, uint8_t port) {
+    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    flush_all_registers();
+    reg_state_map.clear();
+
+    // read(0, &temp, 2); regfile[reg] = temp[0], regfile[reg+1] = temp[1]
+    encoder.emit_push_reg(X86Register::RDI);
+    encoder.emit_push_reg(X86Register::RSI);
+    encoder.emit_sub_reg_imm32(X86Register::RSP, 8);
+
+    encoder.emit_xor_reg_reg(X86Register::RDI, X86Register::RDI);
+    encoder.emit_mov_reg_reg(X86Register::RSI, X86Register::RSP);
+    encoder.emit_mov_reg_imm32(X86Register::RDX, 2);
+    encoder.emit_xor_reg_reg(X86Register::RAX, X86Register::RAX);
+    encoder.emit_syscall();
+
+    // Load byte 0 - [RSP+0]=temp, [RSP+8]=RSI, [RSP+16]=RDI
+    encoder.emit_xor_reg_reg(X86Register::RAX, X86Register::RAX);
+    encoder.emit_raw_byte(0x8A);
+    encoder.emit_raw_byte(0x04);
+    encoder.emit_raw_byte(0x24);
+    encoder.emit_mov_reg_mem(X86Register::RDI, X86Register::RSP, 16);
+    encoder.emit_mov_mem_reg(X86Register::RDI, reg * 8, X86Register::RAX);
+
+    // Load byte 1
+    if (static_cast<size_t>(reg + 1) < 134) {
+        encoder.emit_xor_reg_reg(X86Register::RAX, X86Register::RAX);
+        encoder.emit_raw_byte(0x8A);
+        encoder.emit_raw_byte(0x44);
+        encoder.emit_raw_byte(0x24);
+        encoder.emit_raw_byte(0x01);
+        encoder.emit_mov_reg_mem(X86Register::RDI, X86Register::RSP, 16);
+        encoder.emit_mov_mem_reg(X86Register::RDI, (reg + 1) * 8, X86Register::RAX);
+    }
+
+    encoder.emit_add_reg_imm32(X86Register::RSP, 8);
+    encoder.emit_pop_reg(X86Register::RSI);
+    encoder.emit_pop_reg(X86Register::RDI);
+}
+
+void DISAToX86Compiler::translate_inl(uint8_t reg, uint8_t port) {
+    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    flush_all_registers();
+    reg_state_map.clear();
+
+    // read(0, &temp, 4); regfile[reg]..regfile[reg+3] = temp[0..3]
+    encoder.emit_push_reg(X86Register::RDI);
+    encoder.emit_push_reg(X86Register::RSI);
+    encoder.emit_sub_reg_imm32(X86Register::RSP, 8);
+
+    encoder.emit_xor_reg_reg(X86Register::RDI, X86Register::RDI);
+    encoder.emit_mov_reg_reg(X86Register::RSI, X86Register::RSP);
+    encoder.emit_mov_reg_imm32(X86Register::RDX, 4);
+    encoder.emit_xor_reg_reg(X86Register::RAX, X86Register::RAX);
+    encoder.emit_syscall();
+
+    for (size_t i = 0; i < 4 && (reg + i) < 134; i++) {
+        encoder.emit_xor_reg_reg(X86Register::RAX, X86Register::RAX);
+        if (i == 0) {
+            encoder.emit_raw_byte(0x8A);
+            encoder.emit_raw_byte(0x04);
+            encoder.emit_raw_byte(0x24);
+        } else {
+            encoder.emit_raw_byte(0x8A);
+            encoder.emit_raw_byte(0x44);
+            encoder.emit_raw_byte(0x24);
+            encoder.emit_raw_byte(static_cast<uint8_t>(i));
+        }
+        encoder.emit_mov_reg_mem(X86Register::RDI, X86Register::RSP, 16);
+        encoder.emit_mov_mem_reg(X86Register::RDI, (reg + i) * 8, X86Register::RAX);
+    }
+
+    encoder.emit_add_reg_imm32(X86Register::RSP, 8);
+    encoder.emit_pop_reg(X86Register::RSI);
+    encoder.emit_pop_reg(X86Register::RDI);
+}
+
+void DISAToX86Compiler::translate_instr(uint8_t reg, uint8_t port) {
+    // Complex string input - delegate to runtime
+    emit_runtime_fallback("unimplemented_instr");
 }
 
 // --- Individual instruction translators ---

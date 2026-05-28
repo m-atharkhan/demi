@@ -3175,6 +3175,97 @@ TEST_CASE(disa_compiler_load_store, "disa_compiler") {
     ctx.assert_eq(true, code.size() > 0);
 }
 
+TEST_CASE(disa_compiler_out_byte, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // OUT R5, 0  (output byte from R5 to port 0)
+    std::vector<uint8_t> program = {
+        0x31, 0x05, 0x00,  // OUT R5, 0
+        0xFF                // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+    // Should contain syscall (0F 05) for write
+    bool has_syscall = false;
+    for (size_t i = 0; i + 1 < code.size(); i++) {
+        if (code[i] == 0x0F && code[i+1] == 0x05) {
+            has_syscall = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, has_syscall);
+}
+
+TEST_CASE(disa_compiler_out_nonzero_port, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // OUT R0, 3  (unimplemented port - should emit INT3 fallback)
+    std::vector<uint8_t> program = {
+        0x31, 0x00, 0x03,  // OUT R0, 3
+        0xFF                // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+    // Should contain INT3 (0xCC) since port 3 is not console
+    bool has_int3 = false;
+    for (size_t i = 0; i < code.size(); i++) {
+        if (code[i] == 0xCC) {
+            has_int3 = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, has_int3);
+}
+
+TEST_CASE(disa_compiler_in_byte, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // IN R3, 0  (read byte from port 0 into R3)
+    std::vector<uint8_t> program = {
+        0x30, 0x03, 0x00,  // IN R3, 0
+        0xFF                // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+    // Should contain syscall (0F 05) for read
+    bool has_syscall = false;
+    for (size_t i = 0; i + 1 < code.size(); i++) {
+        if (code[i] == 0x0F && code[i+1] == 0x05) {
+            has_syscall = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, has_syscall);
+}
+
+TEST_CASE(disa_compiler_all_io_opcodes, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // Test all I/O opcodes compile without crashing
+    std::vector<uint8_t> program;
+    // OUT R0, 0; IN R1, 0; OUTB R2, 0; INB R3, 0;
+    // OUTW R4, 0; INW R5, 0; OUTL R6, 0; INL R7, 0;
+    // OUTSTR R8, 0; INSTR R9, 0;
+    program.insert(program.end(), {0x31, 0x00, 0x00});  // OUT R0, 0
+    program.insert(program.end(), {0x30, 0x01, 0x00});  // IN R1, 0
+    program.insert(program.end(), {0x33, 0x02, 0x00});  // OUTB R2, 0
+    program.insert(program.end(), {0x32, 0x03, 0x00});  // INB R3, 0
+    program.insert(program.end(), {0x35, 0x04, 0x00});  // OUTW R4, 0
+    program.insert(program.end(), {0x34, 0x05, 0x00});  // INW R5, 0
+    program.insert(program.end(), {0x37, 0x06, 0x00});  // OUTL R6, 0
+    program.insert(program.end(), {0x36, 0x07, 0x00});  // INL R7, 0
+    program.insert(program.end(), {0x39, 0x08, 0x00});  // OUTSTR R8, 0
+    program.insert(program.end(), {0x38, 0x09, 0x00});  // INSTR R9, 0
+    program.push_back(0xFF);  // HALT
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+    // Should contain at least one syscall
+    bool has_syscall = false;
+    for (size_t i = 0; i + 1 < code.size(); i++) {
+        if (code[i] == 0x0F && code[i+1] == 0x05) {
+            has_syscall = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, has_syscall);
+}
+
 TEST_CASE(elf_emitter_valid_header, "elf_emitter") {
     CodeGen::ELFEmitter emitter;
     std::vector<uint8_t> code = {0xC3};
@@ -3195,14 +3286,18 @@ TEST_CASE(elf_emitter_contains_code, "elf_emitter") {
     CodeGen::ELFEmitter emitter;
     std::vector<uint8_t> code = {0xB8, 0x2A, 0x00, 0x00, 0x00, 0xC3};
     auto elf = emitter.generate_executable(code);
+
+    ctx.assert_eq(true, elf.size() > code.size(),
+        "ELF too small to contain code (" + std::to_string(elf.size()) + " vs " + std::to_string(code.size()) + ")");
+
     bool found = false;
-    for (size_t i = 0; i < elf.size() - code.size(); i++) {
+    for (size_t i = 120; i + code.size() <= elf.size(); i++) {
         if (std::memcmp(&elf[i], code.data(), code.size()) == 0) {
             found = true;
             break;
         }
     }
-    ctx.assert_eq(true, found);
+    ctx.assert_eq(true, found, "Compiled code not found in ELF output");
 }
 
 TEST_CASE(elf_emitter_writable, "elf_emitter") {

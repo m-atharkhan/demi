@@ -103,9 +103,22 @@ public:
     void emit_call_rel32(int32_t offset);
     void emit_ret();
 
+    // String operations
+    void emit_cld();           // Clear direction flag
+    void emit_repne_scasb();   // REPNE SCASB - scan for AL byte
+
+    // System interface
+    void emit_syscall();       // SYSCALL instruction
+
     // Program structure
     void emit_nop();
     void emit_int3();  // Breakpoint for debugging
+
+    // Raw byte emission for special instructions not covered by named methods
+    void emit_raw_byte(uint8_t byte) { code_buffer.push_back(byte); }
+    void emit_raw_bytes(const uint8_t* data, size_t len) {
+        code_buffer.insert(code_buffer.end(), data, data + len);
+    }
 
     // Code buffer management
     const std::vector<uint8_t>& get_code() const { return code_buffer; }

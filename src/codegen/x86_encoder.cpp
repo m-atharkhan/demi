@@ -458,6 +458,22 @@ void X86Encoder::emit_ret() {
     code_buffer.push_back(0xC3);   // RET
 }
 
+// String operations
+void X86Encoder::emit_cld() {
+    code_buffer.push_back(0xFC);
+}
+
+void X86Encoder::emit_repne_scasb() {
+    code_buffer.push_back(0xF2);
+    code_buffer.push_back(0xAE);
+}
+
+// System interface
+void X86Encoder::emit_syscall() {
+    code_buffer.push_back(0x0F);
+    code_buffer.push_back(0x05);
+}
+
 // Utility
 void X86Encoder::emit_nop() {
     code_buffer.push_back(0x90);   // NOP
