@@ -481,6 +481,11 @@ public:
     void write_mem32(uint32_t addr, uint32_t value);
     uint32_t read_mem32(uint32_t addr) const;
 
+    // Debug-only memory access validation (no-op in release builds)
+    // Returns true if access is valid, false if out-of-bounds
+    bool validate_memory_read(uint32_t addr, size_t size = 1) const;
+    bool validate_memory_write(uint32_t addr, size_t size = 1) const;
+
     void print_stack_frame(const std::string& label) const;
 
     uint32_t get_last_accessed_addr() const { return last_accessed_addr; }

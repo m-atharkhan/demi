@@ -2424,3 +2424,142 @@ TEST_CASE(mode_flags_after_mode_switch, "mode_awareness") {
     ctx.assert_64bit_mode();
     ctx.assert_zero_flag_set();  // Flag should be preserved
 }
+
+// ============================================================================
+// MEMORY BOUNDS VALIDATION TESTS (TASK-004)
+// ============================================================================
+
+TEST_CASE(memory_bounds_store_out_of_bounds, "memory_bounds") {
+    // Test that STORE to address >= memory size is rejected
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x07, 0x00, 0x00, 0x01, 0x00, 0x00,  // STORE EAX, [0x100] - memory is 256 bytes (0-255), 0x100 is out of bounds
+        0xFF                                  // HALT
+    });
+    // Should detect out-of-bounds and stop execution
+    ctx.execute_program();
+    // EAX should still have 66 (STORE was rejected before writing)
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_load_out_of_bounds, "memory_bounds") {
+    // Test that LOAD from address >= memory size is rejected
+    ctx.load_program({
+        0x06, 0x00, 0x00, 0x01, 0x00, 0x00,  // LOAD EAX, [0x100] - out of bounds
+        0xFF                                  // HALT
+    });
+    // Should detect out-of-bounds and stop execution
+    ctx.execute_program();
+    // EAX should remain 0 (LOAD was rejected before reading)
+    ctx.assert_register_eq(0, 0);
+}
+
+TEST_CASE(memory_bounds_loadr_out_of_bounds, "memory_bounds") {
+    // Test that LOADR with address in register >= memory size is rejected
+    ctx.load_program({
+        0x01, 0x01, 0x00, 0x01, 0x00, 0x00,  // LOAD_IMM EBX, 0x100 (out of bounds address)
+        0x41, 0x00, 0x01,                     // LOADR EAX, EBX - should fail
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // EAX should remain 0 (LOADR was rejected)
+    ctx.assert_register_eq(0, 0);
+}
+
+TEST_CASE(memory_bounds_storer_out_of_bounds, "memory_bounds") {
+    // Test that STORER with address in register >= memory size is rejected
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x01, 0x01, 0x00, 0x01, 0x00, 0x00,  // LOAD_IMM EBX, 0x100 (out of bounds address)
+        0x43, 0x01, 0x00,                     // STORER EBX, EAX - should fail
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // EAX should still have 66 (STORER was rejected before writing)
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_swap_out_of_bounds, "memory_bounds") {
+    // Test that SWAP to address >= memory size is rejected
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x21, 0x00, 0x00, 0x01, 0x00, 0x00,  // SWAP EAX, [0x100] - out of bounds
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // EAX should still have 66 (SWAP was rejected before swapping)
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_boundary_valid, "memory_bounds") {
+    // Test that accessing the last valid byte (address = memory_size - 1) works
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x07, 0x00, 0xFF, 0x00, 0x00, 0x00,  // STORE EAX, [0xFF] - last valid address
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0 (clear)
+        0x06, 0x00, 0xFF, 0x00, 0x00, 0x00,  // LOAD EAX, [0xFF] - read back
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // EAX should have 66 (successfully stored and loaded at boundary)
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_boundary_invalid, "memory_bounds") {
+    // Test that accessing address = memory_size fails
+    // Memory size is 256, so address 256 (0x100) is out of bounds
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x07, 0x00, 0x00, 0x01, 0x00, 0x00,  // STORE EAX, [0x100] - exactly at memory size boundary
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // STORE should be rejected
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_store_valid_high_address, "memory_bounds") {
+    // Test STORE and LOAD at a high but valid address (memory_size - 4)
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 0xAA
+        STORE EAX, 252
+        LOAD_IMM EAX, 0
+        LOAD EAX, 252
+        HALT
+    )");
+    ctx.execute_program();
+    ctx.assert_register_eq(0, 0xAA);
+}
+
+TEST_CASE(memory_bounds_multiple_operations, "memory_bounds") {
+    // Test multiple memory operations at valid addresses
+    // Note: x86 register numbering: EAX=0, ECX=1, EDX=2, EBX=3
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 10
+        STORE EAX, 100
+        LOAD_IMM EBX, 20
+        STORE EBX, 104
+        LOAD_IMM ECX, 30
+        STORE ECX, 108
+        
+        LOAD EAX, 100
+        LOAD EDX, 104
+        LOAD EBP, 108
+        HALT
+    )");
+    ctx.execute_program();
+    ctx.assert_register_eq(0, 10);   // EAX
+    ctx.assert_register_eq(2, 20);   // EDX
+    ctx.assert_register_eq(5, 30);   // EBP
+}
+
+TEST_CASE_EXPECT_ERROR(memory_bounds_pointer_chain_out_of_bounds, "memory_bounds") {
+    // Test that a pointer chain leading to out-of-bounds is detected
+    // Use LEA to load an out-of-bounds address into a register, then use LOADR
+    ctx.assemble_code(R"(
+        LEA EAX, 300
+        LOADR ECX, EAX
+        HALT
+    )");
+    ctx.execute_program();
+}

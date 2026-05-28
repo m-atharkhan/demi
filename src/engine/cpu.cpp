@@ -413,10 +413,40 @@ uint64_t CPU::read_address_from_program(const std::vector<uint8_t>& program, uin
     return addr;
 }
 
+// Debug-only memory access validation
+// In release builds (NDEBUG defined), these are compiled to no-ops with zero overhead.
+// In debug builds, they check bounds and report errors via ErrorHandler.
+bool CPU::validate_memory_read(uint32_t addr, size_t size) const {
+#ifndef NDEBUG
+    if (addr + size > memory.size()) {
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS,
+            fmt::format("Debug: Memory read out of bounds at address=0x{:08X}, size={}, memory size={}", addr, size, memory.size()),
+            get_pc(),
+            "Memory bounds violation (read)");
+        return false;
+    }
+#endif
+    return true;
+}
+
+bool CPU::validate_memory_write(uint32_t addr, size_t size) const {
+#ifndef NDEBUG
+    if (addr + size > memory.size()) {
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS,
+            fmt::format("Debug: Memory write out of bounds at address=0x{:08X}, size={}, memory size={}", addr, size, memory.size()),
+            get_pc(),
+            "Memory bounds violation (write)");
+        return false;
+    }
+#endif
+    return true;
+}
+
 // Reads a 32-bit value from memory at the given address (little-endian)
 uint32_t CPU::read_mem32(uint32_t addr) const {
-    if (addr + 3 >= memory.size()) {
-        DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "Memory read out of bounds at address=0x{:08X}, memory size={}", addr, memory.size());
+    if (!validate_memory_read(addr, 4)) {
         return 0;
     }
     last_accessed_addr = addr;
@@ -428,8 +458,7 @@ uint32_t CPU::read_mem32(uint32_t addr) const {
 
 // Writes a 32-bit value to memory at the given address (little-endian)
 void CPU::write_mem32(uint32_t addr, uint32_t value) {
-    if (addr + 3 >= memory.size()) {
-        DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "Memory write out of bounds at address=0x{:08X}, memory size={}", addr, memory.size());
+    if (!validate_memory_write(addr, 4)) {
         return;
     }
     last_modified_addr = addr;

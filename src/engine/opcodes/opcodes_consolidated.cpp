@@ -983,7 +983,7 @@ void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         // Read address using helper that respects CPU mode
         uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
         
-        // Check bounds
+        // Check register bounds
         if (reg >= cpu.get_registers().size()) {
             std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid register in LOAD instruction";
@@ -991,23 +991,19 @@ void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             running = false;
             return;
         }
+        // Check memory bounds
         if (addr >= cpu.get_memory().size()) {
-            std::string context = fmt::format("Attempted access at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
+            std::string context = fmt::format("Attempted read at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
             std::string message = "Memory read out of bounds in LOAD instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
             return;
         }
+        // Debug-only additional validation
+        cpu.validate_memory_read(static_cast<uint32_t>(addr), 1);
         
         // Load value from memory address into destination register
-        // Note: LOAD reads a byte from memory. For word/dword loads, use other instructions or multiple LOADs
-        // But wait, the implementation was reading a byte.
-        // "cpu.get_registers()[reg] = cpu.get_memory()[addr];"
-        // This implies LOAD loads a single byte into the register.
-        
         cpu.set_register_mode_aware(static_cast<Register>(reg), cpu.get_memory()[addr]);
-        
-
         
         cpu.set_pc(cpu.get_pc() + 2 + addr_size);
     } else {
@@ -1030,7 +1026,7 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             std::string message = "Invalid destination register in LOADR instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         
         // Check address register bounds
@@ -1039,7 +1035,7 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             std::string message = "Invalid address register in LOADR instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         
         // Get the address from the address register
@@ -1051,8 +1047,10 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             std::string message = "Memory read out of bounds in LOADR instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
+        // Debug-only additional validation
+        cpu.validate_memory_read(addr, 1);
         
         // Load value from memory address into destination register
         // LOADR loads a single byte, so we need to zero-extend it properly
@@ -1084,7 +1082,7 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
             std::string message = "Invalid address register in STORER instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
 
         // Check value register bounds
@@ -1093,7 +1091,7 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
             std::string message = "Invalid value register in STORER instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         
         // Get the address from the address register
@@ -1105,8 +1103,10 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
             std::string message = "Memory write out of bounds in STORER instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
+        // Debug-only additional validation
+        cpu.validate_memory_write(addr, 1);
         
         // Store value from value_reg into memory address
         cpu.get_memory()[addr] = static_cast<uint8_t>(cpu.get_register_mode_aware(static_cast<Register>(value_reg)) & 0xFF);
@@ -1833,7 +1833,7 @@ void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         uint8_t reg = program[cpu.get_pc() + 1];
         uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
         
-        // Check bounds
+        // Check register bounds
         if (reg >= cpu.get_registers().size()) {
             std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid register in STORE instruction";
@@ -1841,6 +1841,7 @@ void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             running = false;
             return;
         }
+        // Check memory bounds
         if (addr >= cpu.get_memory().size()) {
             std::string context = fmt::format("Attempted write at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
             std::string message = "Memory write out of bounds in STORE instruction";
@@ -1848,6 +1849,8 @@ void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             running = false;
             return;
         }
+        // Debug-only additional validation
+        cpu.validate_memory_write(static_cast<uint32_t>(addr), 1);
         
         // STORE writes the lower byte of the register to memory
         cpu.get_memory()[addr] = static_cast<uint8_t>(cpu.get_register_mode_aware(static_cast<Register>(reg)) & 0xFF);
@@ -1954,19 +1957,43 @@ void handle_swap(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             cpu.get_pc(), cpu.get_pc(), reg, addr
         ), DebugLevel::DETAIL);
 
-        if (reg < cpu.get_registers().size() && addr < cpu.get_memory().size()) {
-            uint64_t reg_val = cpu.get_register_mode_aware(static_cast<Register>(reg));
-            uint8_t mem_val = cpu.get_memory()[addr];
-            
-            // Swap: reg gets mem byte, mem gets reg lower byte
-            cpu.set_register_mode_aware(static_cast<Register>(reg), static_cast<uint64_t>(mem_val));
-            cpu.get_memory()[addr] = static_cast<uint8_t>(reg_val & 0xFF);
-            
-            DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
-                "[PC=0x{:04X}] [SWAP] R{} = {}, memory[0x{:X}] = {}",
-                cpu.get_pc(), reg, mem_val, addr, static_cast<uint8_t>(reg_val & 0xFF)
-            ), DebugLevel::DETAIL);
+        // Validate register bounds
+        if (reg >= cpu.get_registers().size()) {
+            std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
+            std::string message = "Invalid register in SWAP instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
+            running = false;
+            cpu.set_pc(cpu.get_pc() + 2 + addr_size);
+            cpu.print_state("SWAP");
+            return;
         }
+
+        // Validate memory bounds
+        if (addr >= cpu.get_memory().size()) {
+            std::string context = fmt::format("Attempted access at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
+            std::string message = "Memory access out of bounds in SWAP instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
+            running = false;
+            cpu.set_pc(cpu.get_pc() + 2 + addr_size);
+            cpu.print_state("SWAP");
+            return;
+        }
+        
+        // Debug-only additional validation
+        cpu.validate_memory_read(addr, 1);
+        cpu.validate_memory_write(addr, 1);
+
+        uint64_t reg_val = cpu.get_register_mode_aware(static_cast<Register>(reg));
+        uint8_t mem_val = cpu.get_memory()[addr];
+        
+        // Swap: reg gets mem byte, mem gets reg lower byte
+        cpu.set_register_mode_aware(static_cast<Register>(reg), static_cast<uint64_t>(mem_val));
+        cpu.get_memory()[addr] = static_cast<uint8_t>(reg_val & 0xFF);
+        
+        DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
+            "[PC=0x{:04X}] [SWAP] R{} = {}, memory[0x{:X}] = {}",
+            cpu.get_pc(), reg, mem_val, addr, static_cast<uint8_t>(reg_val & 0xFF)
+        ), DebugLevel::DETAIL);
         cpu.set_pc(cpu.get_pc() + 2 + addr_size);
     } else {
         running = false;
