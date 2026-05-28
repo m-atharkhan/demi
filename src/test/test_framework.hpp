@@ -177,6 +177,11 @@ public:
         cpu.set_max_call_depth_override(depth);
     }
 
+    // Set stack limit for overflow detection (useful for testing stack overflow at configurable threshold)
+    void set_stack_limit(uint32_t limit) {
+        cpu.set_stack_limit(limit);
+    }
+
     // State inspection
     uint32_t get_register(int reg) const {
         if (reg < 0 || reg >= 8) {

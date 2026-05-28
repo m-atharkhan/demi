@@ -297,7 +297,10 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
     }
 
 #ifndef NDEBUG
-    cpu.validate_stack_push(8);
+    if (!cpu.validate_stack_push(8)) {
+        running = false;
+        throw CPUException("Stack overflow during CALL");
+    }
 #endif
 
     // Reset offset at each call
@@ -1556,7 +1559,10 @@ void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         }
 
 #ifndef NDEBUG
-        cpu.validate_stack_pop(4);
+        if (!cpu.validate_stack_pop(4)) {
+            running = false;
+            throw CPUException("Stack underflow during POP");
+        }
 #endif
         
         uint32_t value = cpu.read_mem32(cpu.get_sp());
@@ -1658,7 +1664,10 @@ void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         }
 
 #ifndef NDEBUG
-        cpu.validate_stack_push(4);
+        if (!cpu.validate_stack_push(4)) {
+            running = false;
+            throw CPUException("Stack overflow during PUSH");
+        }
 #endif
         
         cpu.set_sp(cpu.get_sp() - 4);
@@ -1717,7 +1726,10 @@ void handle_ret(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, 
     }
 
 #ifndef NDEBUG
-    cpu.validate_stack_pop(8);
+    if (!cpu.validate_stack_pop(8)) {
+        running = false;
+        throw CPUException("Stack underflow during RET");
+    }
 #endif
 
     // Stack layout from CALL:

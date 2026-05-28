@@ -244,6 +244,7 @@ class CPU {
 public:
     // Constants
     static constexpr size_t MAX_CALL_DEPTH = 256; // Maximum call stack depth
+    static constexpr uint32_t DEFAULT_STACK_LIMIT = 64; // Default minimum SP (enough for 16 pushes) before overflow detection
     
     CPU(size_t memory_size = 0); // 0 means use default size
     static CPU create_test_cpu(); // Factory method for test compatibility
@@ -486,8 +487,13 @@ public:
     bool validate_memory_read(uint32_t addr, size_t size = 1) const;
     bool validate_memory_write(uint32_t addr, size_t size = 1) const;
 
+    // Stack limit for overflow detection (configurable minimum SP value)
+    uint32_t get_stack_limit() const { return stack_limit_; }
+    void set_stack_limit(uint32_t limit) { stack_limit_ = limit; }
+
     // Debug-only stack access validation (no-op in release builds)
     // Returns true if push/pop is safe, false if overflow/underflow would occur
+    // Uses stack_limit_ to detect potential overflow before SP would underflow
     bool validate_stack_push(size_t bytes = 4) const;
     bool validate_stack_pop(size_t bytes = 4) const;
 
@@ -609,6 +615,7 @@ private:
     int arg_offset; // Offset for arguments
     size_t call_depth = 0; // Track CALL stack depth to prevent overflow
     size_t max_call_depth_override = 0; // Override for testing (0 = use MAX_CALL_DEPTH)
+    uint32_t stack_limit_ = DEFAULT_STACK_LIMIT; // Minimum SP threshold for overflow detection
     mutable uint32_t last_accessed_addr = static_cast<uint32_t>(-1);
     uint32_t last_modified_addr = static_cast<uint32_t>(-1);
 

@@ -156,6 +156,12 @@ const RegisterInfo REGISTER_INFO[] = {
     {Register::YMM14_HIGH3, "YMM14_HIGH3", "AVX register 14 (bits 192-255)", true, false, true, false, false, true, false},
     {Register::YMM15_HIGH2, "YMM15_HIGH2", "AVX register 15 (bits 128-191)", true, false, true, false, false, true, false},
     {Register::YMM15_HIGH3, "YMM15_HIGH3", "AVX register 15 (bits 192-255)", true, false, true, false, false, true, false},
+
+    // Memory and Stack Control Registers (134-137)
+    {Register::STACK_LIMIT, "STACK_LIMIT", "Stack limit for overflow detection", true, false, false, false, true, false, false},
+    {Register::STACK_BASE, "STACK_BASE", "Stack base address (top of stack region)", true, false, false, false, true, false, false},
+    {Register::MEMORY_TOP, "MEMORY_TOP", "Memory top boundary", true, false, false, false, true, false, false},
+    {Register::MEMORY_BOTTOM, "MEMORY_BOTTOM", "Memory bottom boundary", true, false, false, false, true, false, false},
 };
 
 std::string RegisterNames::get_name(Register reg) {
@@ -294,6 +300,11 @@ bool RegisterNames::is_avx(Register reg) {
 bool RegisterNames::is_simd_control(Register reg) {
     auto index = static_cast<size_t>(reg);
     return index >= 98 && index < 102; // MXCSR, FPU control registers
+}
+
+bool RegisterNames::is_memory_control(Register reg) {
+    auto index = static_cast<size_t>(reg);
+    return index >= 134 && index < 138; // STACK_LIMIT, STACK_BASE, MEMORY_TOP, MEMORY_BOTTOM
 }
 
 } // namespace DemiEngine_Registers

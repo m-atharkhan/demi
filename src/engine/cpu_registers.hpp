@@ -136,8 +136,14 @@ enum class Register : uint8_t {
     YMM14_HIGH2 = 130, YMM14_HIGH3 = 131,  // YMM14 upper 128 bits
     YMM15_HIGH2 = 132, YMM15_HIGH3 = 133,  // YMM15 upper 128 bits
 
-    // Total register count (expanded from 50 to 134)
-    REGISTER_COUNT = 134
+    // Memory and Stack Control Registers (134-137)
+    STACK_LIMIT = 134,  // Stack limit (minimum SP value for overflow detection)
+    STACK_BASE = 135,   // Stack base (base address of the stack region - typically memory.size())
+    MEMORY_TOP = 136,   // Memory top (highest valid address)
+    MEMORY_BOTTOM = 137,// Memory bottom (lowest valid address)
+
+    // Total register count (expanded from 50 to 138)
+    REGISTER_COUNT = 138
 };
 
 // Legacy register aliases for backward compatibility
@@ -178,6 +184,7 @@ public:
     static bool is_mmx(Register reg);          // MM registers
     static bool is_avx(Register reg);          // YMM registers (AVX)
     static bool is_simd_control(Register reg); // MXCSR, FPU control registers
+    static bool is_memory_control(Register reg); // STACK_LIMIT, STACK_BASE, MEMORY_TOP, MEMORY_BOTTOM
 };
 
 /**

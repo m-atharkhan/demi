@@ -203,6 +203,7 @@ CPU::CPU(size_t memory_size)
     registers[static_cast<size_t>(Register::RFLAGS)] = 0;  // Flags
 
     arg_offset = 0;
+    stack_limit_ = DEFAULT_STACK_LIMIT;
     last_accessed_addr = INVALID_ADDR;
     last_modified_addr = INVALID_ADDR;
 
@@ -448,10 +449,10 @@ bool CPU::validate_memory_write(uint32_t addr, size_t size) const {
 bool CPU::validate_stack_push(size_t bytes) const {
 #ifndef NDEBUG
     uint32_t sp = get_sp();
-    if (sp < bytes) {
+    if (sp < stack_limit_ + bytes) {
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_STACK_OVERFLOW,
-            fmt::format("Debug: Stack overflow at SP=0x{:08X}, bytes={}, minimum safe SP={}", sp, bytes, bytes),
+            fmt::format("Debug: Stack overflow at SP=0x{:08X}, need {} bytes, stack_limit=0x{:08X}", sp, bytes, stack_limit_),
             get_pc(),
             "Stack overflow (push)");
         return false;
@@ -469,6 +470,15 @@ bool CPU::validate_stack_pop(size_t bytes) const {
             fmt::format("Debug: Stack underflow at SP=0x{:08X}, bytes={}, memory size={}", sp, bytes, memory.size()),
             get_pc(),
             "Stack underflow (pop)");
+        return false;
+    }
+    // Also check that SP is not below the stack limit (indicates corrupted stack)
+    if (sp < stack_limit_) {
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_STACK_UNDERFLOW,
+            fmt::format("Debug: Stack pointer below stack limit at SP=0x{:08X}, stack_limit=0x{:08X}", sp, stack_limit_),
+            get_pc(),
+            "Stack underflow (SP below limit)");
         return false;
     }
 #endif
@@ -887,6 +897,18 @@ void CPU::save_interrupt_state() {
     // 3. EIP/RIP (program counter)
     
     uint32_t sp = get_sp();
+
+    // Validate stack space for interrupt state save (4 bytes FLAGS + 4 CS + 4 PC + 16*8 registers)
+#ifndef NDEBUG
+    if (!validate_stack_push(4 + 4 + 4 + 16 * 8)) {
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_STACK_OVERFLOW,
+            fmt::format("Debug: Stack overflow during interrupt state save at SP=0x{:08X}", sp),
+            get_pc(),
+            "Stack overflow (interrupt save)");
+        return;
+    }
+#endif
     
     // Push FLAGS
     set_sp(sp - 4);
@@ -925,6 +947,18 @@ void CPU::save_interrupt_state() {
 
 void CPU::restore_interrupt_state() {
     uint32_t sp = get_sp();
+
+    // Validate stack before restoring interrupt state
+#ifndef NDEBUG
+    if (!validate_stack_pop(4 + 4 + 4 + 16 * 8)) {
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_STACK_UNDERFLOW,
+            fmt::format("Debug: Stack underflow during interrupt state restore at SP=0x{:08X}", sp),
+            get_pc(),
+            "Stack underflow (interrupt restore)");
+        return;
+    }
+#endif
     
     // Restore general-purpose registers (in reverse order)
     for (int i = 15; i >= 0; i--) {

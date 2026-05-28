@@ -748,8 +748,8 @@ TEST_CASE(register_count_expansion, "simd_registers") {
     using namespace DemiEngine_Registers;
 
     // Verify total register count
-    ctx.assert_eq(static_cast<size_t>(134), TOTAL_REGISTERS, "Total register count should be 134");
-    ctx.assert_eq(static_cast<size_t>(134), static_cast<size_t>(Register::REGISTER_COUNT), "Register count enum should match");
+    ctx.assert_eq(static_cast<size_t>(138), TOTAL_REGISTERS, "Total register count should be 138 (134 + 4 memory control registers)");
+    ctx.assert_eq(static_cast<size_t>(138), static_cast<size_t>(Register::REGISTER_COUNT), "Register count enum should match (138)");
 
     // Verify individual register type counts
     ctx.assert_eq(static_cast<size_t>(16), GENERAL_PURPOSE_COUNT, "Should have 16 general purpose registers");
@@ -2752,4 +2752,38 @@ TEST_CASE(profiler_opcode_counts, "profiling") {
         "ADD should not be counted");
     
     profiler.disable();
+}
+
+TEST_CASE_EXPECT_ERROR(stack_limit_basic, "stack") {
+    ctx.set_stack_limit(250);  // SP starts at 252, so even one push (to 248) triggers limit (250 < 250+4)
+    ctx.load_program({
+        0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM R0, 1
+        0x08, 0x00,                           // PUSH R0 - should trigger stack limit validation
+        0x08, 0x00,                           // PUSH R0 - should trigger stack limit validation
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+}
+
+TEST_CASE(stack_limit_loose, "stack") {
+    ctx.set_stack_limit(4);  // Very low limit, should allow pushes
+    ctx.load_program({
+        0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM R0, 1
+        0x08, 0x00,                           // PUSH R0
+        0x08, 0x00,                           // PUSH R0
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(stack_limit_tight, "stack") {
+    ctx.set_stack_limit(245);  // SP starts at 252. With limit 245, push needs SP >= 249, but SP=252 so OK.
+                                // Second push checks SP=248 >= 249? No → trigger.
+    ctx.load_program({
+        0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM R0, 1 (6 bytes)
+        0x08, 0x00,                           // PUSH R0 (SP: 252 -> 248) - OK
+        0x08, 0x00,                           // PUSH R0 (SP: 248 -> 244) - should fail (248 < 245+4=249)
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
 }
