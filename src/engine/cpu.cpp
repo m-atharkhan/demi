@@ -445,6 +445,36 @@ bool CPU::validate_memory_write(uint32_t addr, size_t size) const {
     return true;
 }
 
+bool CPU::validate_stack_push(size_t bytes) const {
+#ifndef NDEBUG
+    uint32_t sp = get_sp();
+    if (sp < bytes) {
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_STACK_OVERFLOW,
+            fmt::format("Debug: Stack overflow at SP=0x{:08X}, bytes={}, minimum safe SP={}", sp, bytes, bytes),
+            get_pc(),
+            "Stack overflow (push)");
+        return false;
+    }
+#endif
+    return true;
+}
+
+bool CPU::validate_stack_pop(size_t bytes) const {
+#ifndef NDEBUG
+    uint32_t sp = get_sp();
+    if (sp + bytes > memory.size()) {
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_STACK_UNDERFLOW,
+            fmt::format("Debug: Stack underflow at SP=0x{:08X}, bytes={}, memory size={}", sp, bytes, memory.size()),
+            get_pc(),
+            "Stack underflow (pop)");
+        return false;
+    }
+#endif
+    return true;
+}
+
 // Reads a 32-bit value from memory at the given address (little-endian)
 uint32_t CPU::read_mem32(uint32_t addr) const {
     if (!validate_memory_read(addr, 4)) {

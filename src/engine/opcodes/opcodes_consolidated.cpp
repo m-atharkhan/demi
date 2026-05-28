@@ -287,6 +287,19 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         throw CPUException(message);
     }
 
+    // Check for stack overflow (SP going below reasonable minimum for push of 8 bytes)
+    if (cpu.get_sp() < 12) {
+        std::string context = fmt::format("Stack pointer: 0x{:X}, minimum safe SP: 0x000C (needs 8 bytes for FP + return addr)", cpu.get_sp());
+        std::string message = "Stack overflow during CALL: insufficient space";
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_OVERFLOW, message, pc, context);
+        running = false;
+        throw CPUException(message);
+    }
+
+#ifndef NDEBUG
+    cpu.validate_stack_push(8);
+#endif
+
     // Reset offset at each call
     cpu.set_arg_offset(8);
 
@@ -1541,6 +1554,10 @@ void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             running = false;
             throw CPUException(message);
         }
+
+#ifndef NDEBUG
+        cpu.validate_stack_pop(4);
+#endif
         
         uint32_t value = cpu.read_mem32(cpu.get_sp());
         if (!cpu.is_valid_register(static_cast<Register>(reg))) {
@@ -1590,6 +1607,15 @@ void handle_push_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& prog
     uint32_t pc = cpu.get_pc();
     uint8_t reg = cpu.fetch_operand();
 
+    // Check for stack overflow (SP going below reasonable minimum)
+    if (cpu.get_sp() < 4) {
+        std::string context = fmt::format("Stack pointer: 0x{:X}, minimum safe SP: 0x0004", cpu.get_sp());
+        std::string message = "Stack overflow during PUSH_ARG: insufficient space";
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_OVERFLOW, message, pc, context);
+        running = false;
+        throw CPUException(message);
+    }
+
     DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
         "[PC=0x{:04X}] [PUSH_ARG] SP={} Pushing R{}={}",
         pc, cpu.get_sp(), static_cast<int>(reg), cpu.get_registers()[reg]
@@ -1630,6 +1656,10 @@ void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             running = false;
             throw CPUException(message);
         }
+
+#ifndef NDEBUG
+        cpu.validate_stack_push(4);
+#endif
         
         cpu.set_sp(cpu.get_sp() - 4);
         // Sync only SP to legacy R4 (don't overwrite other legacy registers)
@@ -1644,10 +1674,22 @@ void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Implementation from push_flag.cpp
 void handle_push_flag(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
+    uint32_t pc = cpu.get_pc();
+
     DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
         "[PC=0x{:04X}] [PUSHF] PC={} Pushing FLAGS={:08X}",
-        cpu.get_pc(), cpu.get_pc(), cpu.get_flags()
+        pc, pc, cpu.get_flags()
     ), DebugLevel::DETAIL);
+
+    // Check for stack overflow (SP going below reasonable minimum)
+    if (cpu.get_sp() < 4) {
+        std::string context = fmt::format("Stack pointer: 0x{:X}, minimum safe SP: 0x0004", cpu.get_sp());
+        std::string message = "Stack overflow during PUSH_FLAG: insufficient space";
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_OVERFLOW, message, pc, context);
+        running = false;
+        throw CPUException(message);
+    }
+
     cpu.set_sp(cpu.get_sp() - 4);
     cpu.write_mem32(cpu.get_sp(), cpu.get_flags());
     cpu.set_pc(cpu.get_pc() + 1);  // PUSH_FLAG is a single-byte instruction
@@ -1673,6 +1715,10 @@ void handle_ret(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, 
         running = false;
         throw CPUException(message);
     }
+
+#ifndef NDEBUG
+    cpu.validate_stack_pop(8);
+#endif
 
     // Stack layout from CALL:
     // SP: return address

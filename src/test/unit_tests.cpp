@@ -1622,6 +1622,59 @@ TEST_CASE_EXPECT_ERROR(stack_underflow, "negative_tests") {
     ctx.execute_program();
 }
 
+TEST_CASE_EXPECT_ERROR(push_flag_overflow, "negative_tests") {
+    // Test that PUSH_FLAG triggers stack overflow when stack is exhausted
+    // SP starts at 252 (memory.size() - 4), each PUSH subtracts 4
+    // After 62 PUSHes, SP=4, then PUSH_FLAG succeeds (SP=0),
+    // then second PUSH_FLAG should trigger overflow at SP=0
+    std::vector<uint8_t> prog;
+    // 62 × PUSH EAX (reg 0) = 124 bytes
+    for (int i = 0; i < 62; i++) {
+        prog.push_back(0x08);  // PUSH
+        prog.push_back(0x00);  // EAX
+    }
+    prog.push_back(0x1E);  // PUSH_FLAG (SP=4, succeeds, SP=0)
+    prog.push_back(0x1E);  // PUSH_FLAG (SP=0, should overflow)
+    prog.push_back(0xFF);  // HALT
+    ctx.load_program(prog);
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(push_arg_overflow, "negative_tests") {
+    // Test that PUSH_ARG triggers stack overflow when stack is exhausted
+    // SP starts at 252, each PUSH_ARG subtracts 4
+    // PUSH_ARG check: sp < 4 → after 63 pushes SP=0, 64th triggers overflow
+    std::vector<uint8_t> prog;
+    // 64 × PUSH_ARG EAX (reg 0) = 128 bytes
+    for (int i = 0; i < 64; i++) {
+        prog.push_back(0x1C);  // PUSH_ARG
+        prog.push_back(0x00);  // EAX
+    }
+    prog.push_back(0xFF);  // HALT
+    ctx.load_program(prog);
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(call_stack_memory_overflow, "negative_tests") {
+    // Test that CALL triggers stack memory overflow when VM stack is exhausted
+    // (separate from call depth overflow - this tests running out of stack space)
+    // 62 PUSHes bring SP to 4, then CALL needs 8 bytes (SP check: < 12) → overflow
+    std::vector<uint8_t> prog;
+    // 62 × PUSH EAX (reg 0) = 124 bytes
+    for (int i = 0; i < 62; i++) {
+        prog.push_back(0x08);  // PUSH
+        prog.push_back(0x00);  // EAX
+    }
+    prog.push_back(0x1A);  // CALL
+    prog.push_back(0x00);  // addr low
+    prog.push_back(0x00);  // addr
+    prog.push_back(0x00);  // addr
+    prog.push_back(0x00);  // addr high
+    prog.push_back(0xFF);  // HALT
+    ctx.load_program(prog);
+    ctx.execute_program();
+}
+
 TEST_CASE(db_string_only, "assembler") {
     // Test that DB with just a string (no explicit length) works
     ctx.assemble_code(R"(

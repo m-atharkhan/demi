@@ -486,6 +486,11 @@ public:
     bool validate_memory_read(uint32_t addr, size_t size = 1) const;
     bool validate_memory_write(uint32_t addr, size_t size = 1) const;
 
+    // Debug-only stack access validation (no-op in release builds)
+    // Returns true if push/pop is safe, false if overflow/underflow would occur
+    bool validate_stack_push(size_t bytes = 4) const;
+    bool validate_stack_pop(size_t bytes = 4) const;
+
     void print_stack_frame(const std::string& label) const;
 
     uint32_t get_last_accessed_addr() const { return last_accessed_addr; }
