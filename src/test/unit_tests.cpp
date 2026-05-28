@@ -1,6 +1,7 @@
 #include "test_framework.hpp"
 #include "../engine/cpu_flags.hpp"
 #include "../codegen/x86_encoder.hpp"
+#include "../codegen/register_allocator.hpp"
 
 // Example unit tests using the new framework
 
@@ -3014,4 +3015,98 @@ TEST_CASE(x86_jump_label_bound, "x86_encoder") {
     ctx.assert_eq(static_cast<uint8_t>(code[8]), uint8_t(0xF4));
     ctx.assert_eq(static_cast<uint8_t>(code[14]), uint8_t(0xEE));
     ctx.assert_eq(static_cast<uint8_t>(code[20]), uint8_t(0xE8));
+}
+
+TEST_CASE(register_allocator_basic_allocation, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    int phys = static_cast<int>(alloc.allocate_register(0));
+    ctx.assert_eq(true, alloc.is_allocated(0));
+    ctx.assert_eq(phys, static_cast<int>(alloc.allocate_register(0)));
+    alloc.free_register(0);
+    ctx.assert_eq(false, alloc.is_allocated(0));
+}
+
+TEST_CASE(register_allocator_unique_mappings, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    auto r0 = static_cast<int>(alloc.allocate_register(0));
+    auto r1 = static_cast<int>(alloc.allocate_register(1));
+    auto r2 = static_cast<int>(alloc.allocate_register(2));
+    ctx.assert_eq(r0, static_cast<int>(alloc.allocate_register(0)));
+    ctx.assert_eq(r1, static_cast<int>(alloc.allocate_register(1)));
+    ctx.assert_eq(r2, static_cast<int>(alloc.allocate_register(2)));
+}
+
+TEST_CASE(register_allocator_spill_on_exhaustion, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+
+    uint8_t virt_regs[14];
+    for (int i = 0; i < 14; i++) {
+        virt_regs[i] = static_cast<uint8_t>(i);
+        alloc.allocate_register(virt_regs[i]);
+    }
+
+    for (int i = 0; i < 14; i++) {
+        alloc.mark_dirty(virt_regs[i]);
+    }
+
+    alloc.allocate_register(100);
+    ctx.assert_eq(true, alloc.is_allocated(100));
+    ctx.assert_eq(false, alloc.is_allocated(0));
+}
+
+TEST_CASE(register_allocator_get_physical, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    CodeGen::X86Encoder enc;
+
+    alloc.get_physical_register(10, enc);
+    ctx.assert_eq(true, alloc.is_allocated(10));
+    ctx.assert_eq(static_cast<size_t>(0), enc.get_code().size());
+
+    alloc.mark_dirty(10);
+    alloc.spill_register(10, enc);
+    ctx.assert_eq(true, enc.get_code().size() > 0);
+
+    enc.clear();
+    alloc.free_register(10);
+    alloc.get_physical_register(10, enc);
+    ctx.assert_eq(true, enc.get_code().size() > 0);
+}
+
+TEST_CASE(register_allocator_dirty_spill_cycle, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    CodeGen::X86Encoder enc;
+
+    alloc.allocate_register(5);
+    alloc.mark_dirty(5);
+    alloc.spill_all_dirty(enc);
+    ctx.assert_eq(true, enc.get_code().size() > 0);
+
+    enc.clear();
+    alloc.mark_clean(5);
+    alloc.spill_all_dirty(enc);
+    ctx.assert_eq(true, enc.get_code().empty());
+}
+
+TEST_CASE(register_allocator_reset, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    alloc.allocate_register(0);
+    alloc.allocate_register(1);
+    alloc.reset_for_new_function();
+    ctx.assert_eq(false, alloc.is_allocated(0));
+    ctx.assert_eq(false, alloc.is_allocated(1));
+    ctx.assert_eq(static_cast<size_t>(0), alloc.get_allocation_count());
+    ctx.assert_eq(static_cast<size_t>(0), alloc.get_spill_count());
+}
+
+TEST_CASE(register_allocator_caller_saved, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    CodeGen::X86Encoder enc;
+
+    for (int i = 0; i < 5; i++) {
+        alloc.allocate_register(static_cast<uint8_t>(i));
+        alloc.mark_dirty(static_cast<uint8_t>(i));
+    }
+
+    alloc.save_caller_saved_regs(enc);
+    ctx.assert_eq(true, enc.get_code().size() > 0);
 }
