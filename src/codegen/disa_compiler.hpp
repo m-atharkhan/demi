@@ -42,7 +42,9 @@ public:
     DISAToX86Compiler() = default;
 
     // Main compilation interface
-    std::vector<uint8_t> compile_program(const std::vector<uint8_t>& disa_bytecode);
+    // entry_point: bytecode offset where code starts (data before this is embedded into memory)
+    std::vector<uint8_t> compile_program(const std::vector<uint8_t>& disa_bytecode,
+                                         uint32_t entry_point = 0);
 
     // Instruction translation dispatch
     void translate_instruction(Opcode opcode, const uint8_t* operands);
@@ -151,6 +153,9 @@ private:
     void flush_all_registers();
     X86Register get_loaded_physical(uint8_t virt_reg);
     X86Register get_writable_physical(uint8_t virt_reg);
+
+    // Data section support
+    void emit_data_initialization(const std::vector<uint8_t>& bytecode, uint32_t entry_point);
 
     // Immediate extraction helpers
     uint32_t read_imm32(const uint8_t* ptr) const;

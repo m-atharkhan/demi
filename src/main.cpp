@@ -1518,7 +1518,8 @@ private:
 
             // Compile bytecode to native x86-64
             CodeGen::DISAToX86Compiler compiler;
-            auto native_code = compiler.compile_program(bytecode);
+            uint32_t entry_addr = assembler.get_entry_address();
+            auto native_code = compiler.compile_program(bytecode, entry_addr);
 
             if (Config::verbose) {
                 std::cout << "Compiled to " << native_code.size() << " bytes of native x86-64 code" << std::endl;

@@ -119,7 +119,8 @@ struct VirtualRegState {
 
 // --- Main compilation ---
 
-std::vector<uint8_t> DISAToX86Compiler::compile_program(const std::vector<uint8_t>& disa_bytecode) {
+std::vector<uint8_t> DISAToX86Compiler::compile_program(const std::vector<uint8_t>& disa_bytecode,
+                                                         uint32_t entry_point) {
     current_program = &disa_bytecode;
     encoder.clear();
     reg_alloc.reset_for_new_function();
@@ -130,11 +131,22 @@ std::vector<uint8_t> DISAToX86Compiler::compile_program(const std::vector<uint8_
 
     if (disa_bytecode.empty()) return {};
 
+    // Clamp entry_point to valid range
+    if (entry_point >= disa_bytecode.size()) {
+        entry_point = 0;
+    }
+
     scan_for_jump_targets(disa_bytecode);
 
     emit_function_prologue();
 
-    current_bytecode_pos = 0;
+    // Emit data initialization for bytes before entry point
+    if (entry_point > 0) {
+        emit_data_initialization(disa_bytecode, entry_point);
+    }
+
+    // Compile code starting from entry_point
+    current_bytecode_pos = entry_point;
     while (current_bytecode_pos < disa_bytecode.size()) {
         auto jt_it = jump_targets.find(current_bytecode_pos);
         if (jt_it != jump_targets.end()) {
@@ -532,13 +544,58 @@ X86Register DISAToX86Compiler::get_writable_physical(uint8_t virt_reg) {
     return phys;
 }
 
+// --- Data section support ---
+
+void DISAToX86Compiler::emit_data_initialization(const std::vector<uint8_t>& bytecode,
+                                                   uint32_t entry_point) {
+    if (entry_point == 0) return;
+
+    // Scan for non-zero data regions and emit inline MOV instructions
+    // to copy them into the memory buffer (RSI points to memory base).
+    // Memory is already zeroed by the _start stub, so we only write non-zero bytes.
+    size_t pos = 0;
+    while (pos < entry_point) {
+        // Skip zeros (already zeroed in memory)
+        if (pos < bytecode.size() && bytecode[pos] == 0) {
+            pos++;
+            continue;
+        }
+
+        // Find end of this non-zero run
+        size_t run_start = pos;
+        size_t run_end = run_start;
+        while (run_end < entry_point && run_end < bytecode.size() && bytecode[run_end] != 0) {
+            run_end++;
+        }
+        if (run_end == run_start) { pos++; continue; }
+
+        // Emit 8-byte chunk stores for this run
+        for (size_t chunk_start = run_start; chunk_start < run_end; chunk_start += 8) {
+            size_t chunk_end = chunk_start + 8;
+            if (chunk_end > run_end) chunk_end = run_end;
+
+            uint64_t val = 0;
+            for (size_t i = 0; i < 8 && (chunk_start + i) < run_end; i++) {
+                val |= static_cast<uint64_t>(bytecode[chunk_start + i]) << (i * 8);
+            }
+
+            encoder.emit_mov_reg_imm64(X86Register::RAX, val);
+            encoder.emit_mov_mem_reg(X86Register::RSI,
+                                     static_cast<int32_t>(chunk_start),
+                                     X86Register::RAX);
+        }
+
+        pos = run_end;
+    }
+}
+
 // --- I/O instruction translators ---
 // Uses Linux syscall-based I/O for port 0 (console stdin/stdout).
 // After each I/O operation, register cache is invalidated so the
 // next instruction re-loads from the regfile in memory.
 
 void DISAToX86Compiler::translate_out(uint8_t reg, uint8_t port) {
-    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    if (port != 0x01 && port != 0x00) { emit_runtime_fallback("unimplemented_io_port"); return; }
     flush_all_registers();
     reg_state_map.clear();
 
@@ -559,7 +616,7 @@ void DISAToX86Compiler::translate_outb(uint8_t reg, uint8_t port) {
 }
 
 void DISAToX86Compiler::translate_outw(uint8_t reg, uint8_t port) {
-    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    if (port != 0x01 && port != 0x00) { emit_runtime_fallback("unimplemented_io_port"); return; }
     flush_all_registers();
     reg_state_map.clear();
 
@@ -576,7 +633,7 @@ void DISAToX86Compiler::translate_outw(uint8_t reg, uint8_t port) {
 }
 
 void DISAToX86Compiler::translate_outl(uint8_t reg, uint8_t port) {
-    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    if (port != 0x01 && port != 0x00) { emit_runtime_fallback("unimplemented_io_port"); return; }
     flush_all_registers();
     reg_state_map.clear();
 
@@ -593,7 +650,7 @@ void DISAToX86Compiler::translate_outl(uint8_t reg, uint8_t port) {
 }
 
 void DISAToX86Compiler::translate_outstr(uint8_t reg, uint8_t port) {
-    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    if (port != 0x01 && port != 0x00) { emit_runtime_fallback("unimplemented_io_port"); return; }
     flush_all_registers();
     reg_state_map.clear();
 
@@ -641,7 +698,7 @@ void DISAToX86Compiler::translate_outstr(uint8_t reg, uint8_t port) {
 }
 
 void DISAToX86Compiler::translate_in(uint8_t reg, uint8_t port) {
-    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    if (port != 0x01 && port != 0x00) { emit_runtime_fallback("unimplemented_io_port"); return; }
     flush_all_registers();
     reg_state_map.clear();
 
@@ -678,7 +735,7 @@ void DISAToX86Compiler::translate_inb(uint8_t reg, uint8_t port) {
 }
 
 void DISAToX86Compiler::translate_inw(uint8_t reg, uint8_t port) {
-    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    if (port != 0x01 && port != 0x00) { emit_runtime_fallback("unimplemented_io_port"); return; }
     flush_all_registers();
     reg_state_map.clear();
 
@@ -718,7 +775,7 @@ void DISAToX86Compiler::translate_inw(uint8_t reg, uint8_t port) {
 }
 
 void DISAToX86Compiler::translate_inl(uint8_t reg, uint8_t port) {
-    if (port != 0) { emit_runtime_fallback("unimplemented_io_port"); return; }
+    if (port != 0x01 && port != 0x00) { emit_runtime_fallback("unimplemented_io_port"); return; }
     flush_all_registers();
     reg_state_map.clear();
 
@@ -767,7 +824,13 @@ void DISAToX86Compiler::translate_nop() {
 
 void DISAToX86Compiler::translate_halt() {
     flush_all_registers();
-    encoder.emit_jmp_rel32(0);
+    // Exit syscall: exit(0) - cleanly terminates the process
+    encoder.emit_xor_reg_reg(X86Register::RDI, X86Register::RDI);
+    encoder.emit_mov_reg_imm32(X86Register::RAX, 60);
+    encoder.emit_syscall();
+    // Fallback infinite loop if syscall fails
+    encoder.emit_raw_byte(0xEB);
+    encoder.emit_raw_byte(0xFE);
 }
 
 void DISAToX86Compiler::translate_load_imm(uint8_t reg, uint64_t immediate) {
