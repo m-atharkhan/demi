@@ -3,6 +3,8 @@
 #include <string>
 #include <functional>
 #include <unordered_map>
+#include <execinfo.h>
+#include <cxxabi.h>
 #include <fstream>
 #include <filesystem>
 #include <iomanip>
@@ -1608,6 +1610,14 @@ private:
             }
         } catch (const std::exception& e) {
             std::cerr << "Runtime error: " << e.what() << std::endl;
+            void* callstack[128];
+            int frames = backtrace(callstack, 128);
+            char** strs = backtrace_symbols(callstack, frames);
+            std::cerr << "Backtrace:" << std::endl;
+            for (int i = 0; i < frames; ++i) {
+                std::cerr << "  " << strs[i] << std::endl;
+            }
+            free(strs);
             Config::error_count++;
         }
     }

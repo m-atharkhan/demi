@@ -546,11 +546,18 @@ void CPU::execute(const std::vector<uint8_t>& program, uint32_t entry_address, s
             break;
         }
         
-        // Try instruction fusion first for performance
-        // If fusion doesn't apply, use branch-predictive dispatcher
-        if (!InstructionFusion::try_instruction_fusion(*this, program, running)) {
-            // Use branch-predictive dispatcher with speculative execution
-            dispatch_opcode_with_prediction(*this, program, running);
+        try {
+            uint32_t dispatch_pc = get_pc();
+            std::cerr << "@@@ PRE-DISPATCH PC=0x" << std::hex << std::uppercase << dispatch_pc << std::dec << " step_count=" << step_count << std::endl;
+            // Try instruction fusion first for performance
+            // If fusion doesn't apply, use branch-predictive dispatcher
+            if (!InstructionFusion::try_instruction_fusion(*this, program, running)) {
+                // Use branch-predictive dispatcher with speculative execution
+                dispatch_opcode_with_prediction(*this, program, running);
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "ERROR at PC=0x" << std::hex << std::uppercase << get_pc() << std::dec << " (step_count=" << step_count << "): " << e.what() << std::endl;
+            throw;
         }
         
         step_count++;
