@@ -23,9 +23,9 @@ factorial:
     MOV EBP, ESP            ; Set new frame pointer
     PUSH EBX                ; Save EBX
     
-    ; Get argument from stack (skip saved EBP and return address)
+    ; Get argument from stack (skip saved EBX, saved EBP, and return address)
     MOV EAX, ESP            ; Get stack pointer
-    LOAD_IMM EBX, 8         ; Offset to argument
+    LOAD_IMM EBX, 12        ; Offset to argument (4 for saved EBX + 4 for saved EBP + 4 for return addr)
     ADD EAX, EBX            ; Calculate address
     LOAD EAX, [EAX]         ; Load argument into EAX
     

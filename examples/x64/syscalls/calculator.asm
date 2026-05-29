@@ -219,7 +219,7 @@ itoa:
     CMP RAX, 0
     JNZ itoa_convert
     LOAD_IMM RBX, 48        ; '0'
-    STORER RBX, RDI         ; Store at address in RDI
+    STORER RDI, RBX         ; Store at address in RDI
     LOAD_IMM RSI, 1
     RET
     
@@ -232,7 +232,7 @@ itoa_digit_loop:
     DIV RAX, RAX, RCX            ; Divide by 10, quotient in RAX, remainder in RDX
     LOAD_IMM RCX, 48
     ADD RDX, RCX            ; Convert remainder to ASCII
-    STORER RDX, RDI         ; Store at address in RDI
+    STORER RDI, RDX         ; Store at address in RDI
     INC RDI
     INC RSI
     
@@ -250,8 +250,8 @@ itoa_reverse_loop:
     
     LOADR RAX, RCX          ; Load from start
     LOADR RBX, RDI          ; Load from end
-    STORER RBX, RCX         ; Store at start
-    STORER RAX, RDI         ; Store at end
+    STORER RCX, RBX         ; Store at start
+    STORER RDI, RAX         ; Store at end
     
     INC RCX
     DEC RDI
