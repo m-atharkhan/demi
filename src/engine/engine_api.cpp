@@ -133,8 +133,13 @@ public:
     bool map_memory(uint64_t virtual_address, size_t size, uint32_t /*permissions*/) {
         clear_error();
         try {
-            if (virtual_address + size > cpu_.get_memory_size()) {
-                cpu_.resize_memory(static_cast<size_t>(virtual_address + size));
+            size_t current_size = cpu_.get_memory_size();
+            if (virtual_address > current_size || size > SIZE_MAX - virtual_address) {
+                set_error(EngineErrorCode::MEMORY_OOB, "memory mapping address/size overflow");
+                return false;
+            }
+            if (static_cast<size_t>(virtual_address) + size > current_size) {
+                cpu_.resize_memory(static_cast<size_t>(virtual_address) + size);
             }
             return true;
         } catch (const std::exception& e) {
@@ -145,7 +150,8 @@ public:
 
     bool write_memory(uint64_t virtual_address, const std::vector<uint8_t>& data) {
         clear_error();
-        if (virtual_address + data.size() > cpu_.get_memory_size()) {
+        size_t mem_size = cpu_.get_memory_size();
+        if (virtual_address > mem_size || data.size() > mem_size - virtual_address) {
             set_error(EngineErrorCode::MEMORY_OOB, "write would exceed VM memory bounds");
             return false;
         }
@@ -164,11 +170,13 @@ public:
     }
 
     bool read_memory(uint64_t virtual_address, std::vector<uint8_t>& data, size_t size) {
-        if (virtual_address + size > cpu_.get_memory_size()) {
+        size_t mem_size = cpu_.get_memory_size();
+        if (virtual_address > mem_size || size > mem_size - virtual_address) {
             return false;
         }
         const auto& mem = cpu_.get_memory();
-        data.assign(mem.begin() + virtual_address, mem.begin() + virtual_address + size);
+        data.assign(mem.begin() + static_cast<size_t>(virtual_address),
+                    mem.begin() + static_cast<size_t>(virtual_address) + size);
         return true;
     }
 
