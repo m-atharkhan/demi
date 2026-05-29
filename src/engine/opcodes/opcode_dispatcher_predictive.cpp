@@ -238,21 +238,92 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             break;
         }
         
-        // For complex operations, delegate to external handlers
+        case static_cast<uint8_t>(Opcode::INC64): {
+            #ifndef NDEBUG
+            if (__builtin_expect(pc + 1 >= program.size(), 0)) {
+                running = false;
+                return;
+            }
+            #endif
+            uint8_t reg = program[pc + 1];
+            #ifndef NDEBUG
+            if (__builtin_expect(reg >= cpu.get_registers_64().size(), 0)) {
+                running = false;
+                return;
+            }
+            #endif
+            uint64_t value = cpu.get_registers_64()[reg];
+            uint64_t result = value + 1;
+            uint32_t flags = cpu.get_flags();
+            if (value == 0x7FFFFFFFFFFFFFFF) {
+                flags |= FLAG_OVERFLOW;
+            } else {
+                flags &= ~FLAG_OVERFLOW;
+            }
+            if (result == 0) {
+                flags |= FLAG_ZERO;
+            } else {
+                flags &= ~FLAG_ZERO;
+            }
+            if ((result >> 63) & 1) {
+                flags |= FLAG_SIGN;
+            } else {
+                flags &= ~FLAG_SIGN;
+            }
+            cpu.set_flags(flags);
+            cpu.get_registers_64()[reg] = result;
+            if (reg < 8) {
+                cpu.get_registers()[reg] = static_cast<uint32_t>(result);
+            }
+            cpu.set_pc(pc + 2);
+            break;
+        }
+        
+        case static_cast<uint8_t>(Opcode::DEC64): {
+            #ifndef NDEBUG
+            if (__builtin_expect(pc + 1 >= program.size(), 0)) {
+                running = false;
+                return;
+            }
+            #endif
+            uint8_t reg = program[pc + 1];
+            #ifndef NDEBUG
+            if (__builtin_expect(reg >= cpu.get_registers_64().size(), 0)) {
+                running = false;
+                return;
+            }
+            #endif
+            uint64_t value = cpu.get_registers_64()[reg];
+            uint64_t result = value - 1;
+            uint32_t flags = cpu.get_flags();
+            if (value == 0x8000000000000000) {
+                flags |= FLAG_OVERFLOW;
+            } else {
+                flags &= ~FLAG_OVERFLOW;
+            }
+            if (result == 0) {
+                flags |= FLAG_ZERO;
+            } else {
+                flags &= ~FLAG_ZERO;
+            }
+            if ((result >> 63) & 1) {
+                flags |= FLAG_SIGN;
+            } else {
+                flags &= ~FLAG_SIGN;
+            }
+            cpu.set_flags(flags);
+            cpu.get_registers_64()[reg] = result;
+            if (reg < 8) {
+                cpu.get_registers()[reg] = static_cast<uint32_t>(result);
+            }
+            cpu.set_pc(pc + 2);
+            break;
+        }
+        
+        // For complex operations, delegate to the consolidated dispatcher
         default: {
-            // Delegate to the inlined dispatcher for opcodes it knows about
-            // (e.g. 64-bit instructions, SUB, JMP, CALL, …).
-            // Guard first: if the opcode is not in the range that the inlined
-            // dispatcher handles, reject it here rather than recursing blindly
-            // into undefined behaviour territory.
-            //
-            // The inlined dispatcher's own switch will hit its own default and
-            // call dispatch_opcode() which is the authoritative catch-all. If
-            // that returns with running==false it means the opcode was invalid.
             uint32_t fallback_pc = cpu.get_pc();
-            dispatch_opcode_inlined_optimized(cpu, program, running);
-            // If PC did not advance and running is still true something is very
-            // wrong (infinite loop risk). Treat it as an invalid opcode.
+            dispatch_opcode(cpu, program, running);
             if (__builtin_expect(running && cpu.get_pc() == fallback_pc, 0)) {
                 #ifndef NDEBUG
                 Logging::DebugHandler::instance().report(
