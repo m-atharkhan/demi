@@ -144,10 +144,10 @@ const char* demi_engine_last_error(demi_engine_t engine) {
     if (!ctx) {
         return "invalid or null engine handle";
     }
-    if (!ctx->last_error.empty()) {
-        return ctx->last_error.c_str();
+    if (ctx->last_error.empty()) {
+        ctx->last_error = ctx->engine->last_error();
     }
-    return ctx->engine->last_error().c_str();
+    return ctx->last_error.c_str();
 }
 
 int demi_engine_last_error_code(demi_engine_t engine) {
@@ -234,7 +234,7 @@ bool demi_engine_read_memory(demi_engine_t engine, uint64_t virtual_address, uin
         if (!ctx->engine->read_memory(virtual_address, bytes, size)) {
             return false;
         }
-        std::memcpy(data, bytes.data(), bytes.size());
+        std::memcpy(data, bytes.data(), std::min(bytes.size(), size));
         return true;
     } catch (const std::exception& e) {
         ctx->last_error = e.what();
