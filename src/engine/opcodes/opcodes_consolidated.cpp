@@ -111,6 +111,8 @@ void handle_mod64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 #include "mul64.hpp"
 #include "div64.hpp"
 #include "and64.hpp"
+#include "or64.hpp"
+#include "xor64.hpp"
 #include "cmp64.hpp"
 #include "movex.hpp"
 #include "addex.hpp"
@@ -2378,6 +2380,7 @@ void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Forward declarations for 64-bit operations implemented later in this file
 void handle_inc64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+void handle_not64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 void handle_dec64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 
 namespace {
@@ -3241,6 +3244,15 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
         case Opcode::AND64:
             handle_and64(cpu, program, running);
             break;
+        case Opcode::OR64:
+            handle_or64(cpu, program, running);
+            break;
+        case Opcode::XOR64:
+            handle_xor64(cpu, program, running);
+            break;
+        case Opcode::NOT64:
+            handle_not64(cpu, program, running);
+            break;
         case Opcode::CMP64:
             handle_cmp64(cpu, program, running);
             break;
@@ -3966,4 +3978,48 @@ void handle_modecmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running
     }
 
     cpu.print_state("MODECMP");
+}
+
+void handle_not64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    uint32_t pc = cpu.get_pc();
+
+    if (pc + 1 < program.size()) {
+        uint8_t reg = program[pc + 1];
+
+        DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
+            "[PC=0x{:04X}] [NOT64] Bitwise NOT of 64-bit register R{}",
+            pc, reg
+        ), DebugLevel::DETAIL);
+
+        uint64_t value = cpu.get_register_64(static_cast<Register>(reg));
+        uint64_t result = ~value;
+
+        uint32_t flags = cpu.get_flags();
+
+        if (result == 0) {
+            flags |= FLAG_ZERO;
+        } else {
+            flags &= ~FLAG_ZERO;
+        }
+
+        if ((result >> 63) & 1) {
+            flags |= FLAG_SIGN;
+        } else {
+            flags &= ~FLAG_SIGN;
+        }
+
+        cpu.set_flags(flags);
+        cpu.set_register_64(static_cast<Register>(reg), result);
+
+        DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
+            "[PC=0x{:04X}] [NOT64] Result: R{} = 0x{:016X} = ~0x{:016X}",
+            pc, reg, result, value
+        ), DebugLevel::DETAIL);
+
+        cpu.set_pc(pc + 2);
+    } else {
+        running = false;
+    }
+
+    cpu.print_state("NOT64");
 }

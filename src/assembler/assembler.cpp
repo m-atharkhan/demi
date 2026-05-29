@@ -638,7 +638,7 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         else if (mnemonic == "MOD") mnemonic = "MOD64";
         else if (mnemonic == "LOAD_IMM") mnemonic = "LOAD_IMM64";
         else if (mnemonic == "LOAD") mnemonic = "LOADEX";
-        else if (mnemonic == "STORE") mnemonic = "STOREEX";
+        else if (mnemonic == "STORE") mnemonic = "STOREX";
     }
 
     // Pad bytecode to current_address before emitting instruction
@@ -1481,33 +1481,48 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
                mnemonic == "XOR64" || 
                mnemonic == "MOD64" || mnemonic == "MULEX" ||
                mnemonic == "DIVEX") {
-        // Format: INSTRUCTION dest_reg, src_reg1, src_reg2 (3 operands)
-        if (instruction.operands.size() != 3) {
-            add_error(mnemonic + " requires 3 operands", instruction.line, instruction.column);
-            return;
-        }
+        // Format: INSTRUCTION dest, src (2 operands - dest = dest op src)
+        //     OR: INSTRUCTION dest, src1, src2 (3 operands - dest = src1 op src2)
+        // Runtime handlers expect 3 register bytes (4 byte total encoding).
 
-        // Destination register (first operand)
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("First operand must be a destination register", instruction.line, instruction.column);
-            return;
-        }
+        if (instruction.operands.size() == 2) {
+            // 2-operand form: dest, src -> dest = dest op src
+            // Opcode already emitted at line 824; emit 3 register bytes (dest, dest, src)
+            auto dest_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get());
+            auto src_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get());
+            if (!dest_expr || !src_expr) {
+                add_error(mnemonic + " requires register operands", instruction.line, instruction.column);
+                return;
+            }
+            uint8_t dest = get_register_number(dest_expr->name);
+            uint8_t src = get_register_number(src_expr->name);
+            emit_byte(dest);
+            emit_byte(dest);  // src1 = dest for 2-operand semantics
+            emit_byte(src);
+        } else if (instruction.operands.size() == 3) {
+            // 3-operand form: dest, src1, src2 -> dest = src1 op src2
+            if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
+                emit_byte(get_register_number(reg_expr->name));
+            } else {
+                add_error("First operand must be a destination register", instruction.line, instruction.column);
+                return;
+            }
 
-        // Source register 1 (second operand)
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("Second operand must be a source register", instruction.line, instruction.column);
-            return;
-        }
+            if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get())) {
+                emit_byte(get_register_number(reg_expr->name));
+            } else {
+                add_error("Second operand must be a source register", instruction.line, instruction.column);
+                return;
+            }
 
-        // Source register 2 (third operand)
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[2].get())) {
-            emit_byte(get_register_number(reg_expr->name));
+            if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[2].get())) {
+                emit_byte(get_register_number(reg_expr->name));
+            } else {
+                add_error("Third operand must be a source register", instruction.line, instruction.column);
+                return;
+            }
         } else {
-            add_error("Third operand must be a source register", instruction.line, instruction.column);
+            add_error(mnemonic + " requires 2 or 3 operands", instruction.line, instruction.column);
             return;
         }
     } else if (mnemonic == "FLD" || mnemonic == "FST" || 
@@ -1964,7 +1979,7 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
         else if (effective_mnemonic == "MOD") effective_mnemonic = "MOD64";
         else if (effective_mnemonic == "LOAD_IMM") effective_mnemonic = "LOAD_IMM64";
         else if (effective_mnemonic == "LOAD") effective_mnemonic = "LOADEX";
-        else if (effective_mnemonic == "STORE") effective_mnemonic = "STOREEX";
+        else if (effective_mnemonic == "STORE") effective_mnemonic = "STOREX";
     }
 
     // Basic instruction size calculations for Demi Engine
@@ -2060,7 +2075,7 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
                effective_mnemonic == "SHR" || effective_mnemonic == "SHL64" ||
                effective_mnemonic == "SHR64") {
         return 3; // opcode + register + port/immediate/register
-    } else if (effective_mnemonic == "LOADEX" || effective_mnemonic == "STOREX" || effective_mnemonic == "STOREEX") {
+    } else if (effective_mnemonic == "LOADEX" || effective_mnemonic == "STOREX" || effective_mnemonic == "STOREX") {
         return 10; // opcode + register + 8-byte address
     }
 
