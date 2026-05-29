@@ -591,7 +591,7 @@ bool FusionEngine::fuse_inc_dec_cmp(CPU& cpu, const std::vector<uint8_t>& progra
                  pattern_name(pattern), pc, incdec_reg, val, cmp_reg2, val2, new_val);
     
     if (Config::debug) {
-        DEBUG_INFO(Logging::DebugCategory::PERF_OPTIMIZATION, "[FUSION] {}+CMP at PC=0x{:04X}: R{} -> {} cmp {}", pc, incdec_reg, new_val, val2);
+        DEBUG_INFO(Logging::DebugCategory::PERF_OPTIMIZATION, "[FUSION] {}+CMP at PC=0x{:04X}: R{} -> {} cmp {}", pattern_name(pattern), pc, incdec_reg, new_val, val2);
     }
     return true;
 }
