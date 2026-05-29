@@ -386,13 +386,13 @@ void CPU::print_stack_frame(const std::string& label) const {
 // Fetches the next byte as an operand and advances PC
 uint8_t CPU::fetch_operand() {
     DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "Fetching operand at PC=0x{:04X}", get_pc());
-    if (get_pc() + 1 >= memory.size()) {
+    if (static_cast<size_t>(get_pc()) + 1 >= memory.size()) {
         DEBUG_CRITICAL(Logging::DebugCategory::MEM_BOUNDS, "Operand fetch out of bounds at PC=0x{:04X}, memory size={}", get_pc(), memory.size());
         return 0;
     }
-    uint8_t operand = memory[get_pc() + 1];
+    uint8_t operand = memory[static_cast<size_t>(get_pc()) + 1];
     DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "Fetched operand=0x{:02X}, advancing PC from 0x{:04X}", operand, get_pc());
-    set_pc(get_pc() + 1);
+    set_pc(static_cast<uint32_t>(static_cast<size_t>(get_pc()) + 1));
     DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "PC advanced to 0x{:04X}", get_pc());
     return operand;
 }
@@ -1071,7 +1071,7 @@ void CPU::handle_syscall(bool& running) {
             return;
             
         case Syscall::SYS_READ:
-            if (arg2 < memory.size() && arg2 + arg3 <= memory.size()) {
+            if (arg2 < memory.size() && static_cast<size_t>(arg2) + static_cast<size_t>(arg3) <= memory.size()) {
                 if (stdin_hook_ && arg1 == 0) {
                     std::vector<uint8_t> data;
                     stdin_hook_(arg3, data);
@@ -1119,9 +1119,9 @@ void CPU::handle_syscall(bool& running) {
             break;
             
         case Syscall::SYS_WRITE:
-            if (arg2 < memory.size() && arg2 + arg3 <= memory.size()) {
+            if (arg2 < memory.size() && static_cast<size_t>(arg2) + static_cast<size_t>(arg3) <= memory.size()) {
                 if (stdout_hook_ && (arg1 == 1 || arg1 == 2)) {
-                    std::vector<uint8_t> data(&memory[arg2], &memory[arg2 + arg3]);
+                    std::vector<uint8_t> data(&memory[arg2], &memory[static_cast<size_t>(arg2) + static_cast<size_t>(arg3)]);
                     stdout_hook_(arg1, data);
                     result = arg3;
                 } else {
