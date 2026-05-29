@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <stdexcept>
+#include <unordered_set>
 
 #include "../config.hpp"
 #include "../debug/debug_handler.hpp"
@@ -598,6 +599,9 @@ public:
     bool has_security_fault() const { return has_security_fault_; }
     void clear_security_fault() { has_security_fault_ = false; }
 
+    void register_vm_fd(int fd) { vm_opened_fds_.insert(fd); }
+    bool is_vm_fd(int fd) const { return vm_opened_fds_.count(fd) > 0; }
+
     // Register synchronization (public for opcode handlers)
     void sync_legacy_registers();
 
@@ -633,6 +637,8 @@ private:
 
     // Speculative Execution Engine (temporarily disabled)
     // SpeculativeExecution::SpeculativeExecutor speculative_executor;
+
+    std::unordered_set<int> vm_opened_fds_;
 
     uint8_t readPort(uint8_t port);
     void writePort(uint8_t port, uint8_t value);

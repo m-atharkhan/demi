@@ -1080,7 +1080,7 @@ void CPU::handle_syscall(bool& running) {
                         std::copy(data.begin(), data.begin() + count, memory.begin() + arg2);
                     }
                     result = count;
-                } else {
+                } else if (arg1 <= 2 || is_vm_fd(arg1)) {
                     // Line-buffered read: read byte by byte until newline or limit reached
                     // This makes sys_read work correctly with piped input
                     result = 0;
@@ -1100,6 +1100,13 @@ void CPU::handle_syscall(bool& running) {
                             break;  // Stop at newline (line-buffered behavior)
                         }
                     }
+                } else {
+                    Logging::ErrorHandler::instance().report_runtime(
+                        Logging::ErrorCode::IO_GENERIC,
+                        fmt::format("[SECURITY] {}: fd={} not managed by VM", sc_name, arg1),
+                        get_pc(),
+                        "Sandbox fd bounds exceeded");
+                    result = -EBADF;
                 }
                 Logging::DebugHandler::instance().report(
                     Logging::DebugCategory::CPU_EXECUTION,
@@ -1124,12 +1131,19 @@ void CPU::handle_syscall(bool& running) {
                     std::vector<uint8_t> data(&memory[arg2], &memory[static_cast<size_t>(arg2) + static_cast<size_t>(arg3)]);
                     stdout_hook_(arg1, data);
                     result = arg3;
-                } else {
+                } else if (arg1 <= 2 || is_vm_fd(arg1)) {
 #ifdef _WIN32
                     result = ::_write(arg1, &memory[arg2], arg3);
 #else
                     result = ::write(arg1, &memory[arg2], arg3);
 #endif
+                } else {
+                    Logging::ErrorHandler::instance().report_runtime(
+                        Logging::ErrorCode::IO_GENERIC,
+                        fmt::format("[SECURITY] {}: fd={} not managed by VM", sc_name, arg1),
+                        get_pc(),
+                        "Sandbox fd bounds exceeded");
+                    result = -EBADF;
                 }
                 Logging::DebugHandler::instance().report(
                     Logging::DebugCategory::CPU_EXECUTION,
@@ -1174,8 +1188,14 @@ void CPU::handle_syscall(bool& running) {
 #ifdef _WIN32
                     result = ::_open(final_path.c_str(), arg2, arg3);
 #else
-                    result = ::open(final_path.c_str(), arg2, arg3);
+                    {
+                        int sanitized_flags = arg2 & (O_RDONLY | O_WRONLY | O_RDWR);
+                        result = ::open(final_path.c_str(), sanitized_flags, arg3);
+                    }
 #endif
+                    if (result >= 0) {
+                        register_vm_fd(result);
+                    }
                     Logging::DebugHandler::instance().report(
                         Logging::DebugCategory::CPU_EXECUTION,
                         fmt::format("[SYSCALL] {}('{}' -> '{}', flags=0x{:X}, mode=0{:o}) = {}",
@@ -1201,11 +1221,23 @@ void CPU::handle_syscall(bool& running) {
             break;
 
         case Syscall::SYS_CLOSE:
+            if (!is_vm_fd(arg1) && arg1 > 2) {
+                Logging::ErrorHandler::instance().report_runtime(
+                    Logging::ErrorCode::IO_GENERIC,
+                    fmt::format("[SECURITY] {}: fd={} not managed by VM", sc_name, arg1),
+                    get_pc(),
+                    "Sandbox fd bounds exceeded");
+                result = -EBADF;
+            } else {
 #ifdef _WIN32
-            result = ::_close(arg1);
+                result = ::_close(arg1);
 #else
-            result = ::close(arg1);
+                result = ::close(arg1);
 #endif
+                if (result == 0) {
+                    vm_opened_fds_.erase(arg1);
+                }
+            }
             Logging::DebugHandler::instance().report(
                 Logging::DebugCategory::CPU_EXECUTION,
                 fmt::format("[SYSCALL] {}(fd={}) = {}", sc_name, arg1, result),
@@ -1223,7 +1255,16 @@ void CPU::handle_syscall(bool& running) {
             break;
             
         case Syscall::SYS_IOCTL:
-            result = syscall(SYS_ioctl, arg1, arg2, arg3);
+            if (arg1 <= 2 || is_vm_fd(arg1)) {
+                result = syscall(SYS_ioctl, arg1, arg2, arg3);
+            } else {
+                Logging::ErrorHandler::instance().report_runtime(
+                    Logging::ErrorCode::IO_GENERIC,
+                    fmt::format("[SECURITY] {}: fd={} not managed by VM", sc_name, arg1),
+                    get_pc(),
+                    "Sandbox fd bounds exceeded");
+                result = -EBADF;
+            }
             Logging::DebugHandler::instance().report(
                 Logging::DebugCategory::CPU_EXECUTION,
                 fmt::format("[SYSCALL] {}(fd={}, request={}, arg={}) = {}",
