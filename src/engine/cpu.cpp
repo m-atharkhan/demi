@@ -419,69 +419,70 @@ uint64_t CPU::read_address_from_program(const std::vector<uint8_t>& program, uin
 // In release builds (NDEBUG defined), these are compiled to no-ops with zero overhead.
 // In debug builds, they check bounds and report errors via ErrorHandler.
 bool CPU::validate_memory_read(uint32_t addr, size_t size) const {
-#ifndef NDEBUG
     if (addr + size > memory.size()) {
+#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS,
             fmt::format("Debug: Memory read out of bounds at address=0x{:08X}, size={}, memory size={}", addr, size, memory.size()),
             get_pc(),
             "Memory bounds violation (read)");
+#endif
         return false;
     }
-#endif
     return true;
 }
 
 bool CPU::validate_memory_write(uint32_t addr, size_t size) const {
-#ifndef NDEBUG
     if (addr + size > memory.size()) {
+#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS,
             fmt::format("Debug: Memory write out of bounds at address=0x{:08X}, size={}, memory size={}", addr, size, memory.size()),
             get_pc(),
             "Memory bounds violation (write)");
+#endif
         return false;
     }
-#endif
     return true;
 }
 
 bool CPU::validate_stack_push(size_t bytes) const {
-#ifndef NDEBUG
     uint32_t sp = get_sp();
     if (sp < stack_limit_ + bytes) {
+#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_STACK_OVERFLOW,
             fmt::format("Debug: Stack overflow at SP=0x{:08X}, need {} bytes, stack_limit=0x{:08X}", sp, bytes, stack_limit_),
             get_pc(),
             "Stack overflow (push)");
+#endif
         return false;
     }
-#endif
     return true;
 }
 
 bool CPU::validate_stack_pop(size_t bytes) const {
-#ifndef NDEBUG
     uint32_t sp = get_sp();
     if (sp + bytes > memory.size()) {
+#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_STACK_UNDERFLOW,
             fmt::format("Debug: Stack underflow at SP=0x{:08X}, bytes={}, memory size={}", sp, bytes, memory.size()),
             get_pc(),
             "Stack underflow (pop)");
+#endif
         return false;
     }
-    // Also check that SP is not below the stack limit (indicates corrupted stack)
     if (sp < stack_limit_) {
+#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_STACK_UNDERFLOW,
             fmt::format("Debug: Stack pointer below stack limit at SP=0x{:08X}, stack_limit=0x{:08X}", sp, stack_limit_),
             get_pc(),
             "Stack underflow (SP below limit)");
+#endif
         return false;
     }
-#endif
     return true;
 }
 

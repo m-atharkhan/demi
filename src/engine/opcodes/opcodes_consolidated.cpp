@@ -298,12 +298,10 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         throw CPUException(message);
     }
 
-#ifndef NDEBUG
     if (!cpu.validate_stack_push(8)) {
         running = false;
         throw CPUException("Stack overflow during CALL");
     }
-#endif
 
     // Reset offset at each call
     cpu.set_arg_offset(8);
