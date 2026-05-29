@@ -236,109 +236,50 @@ DebugHandler& DebugHandler::force() {
 
 std::string DebugHandler::category_to_string(DebugCategory category) {
     switch (category) {
-        // CPU/Engine
-        case DebugCategory::CPU_EXECUTION:
-            return "CPU_EXECUTION (0x001)";
-        case DebugCategory::CPU_REGISTERS:
-            return "CPU_REGISTERS (0x002)";
-        case DebugCategory::CPU_FLAGS:
-            return "CPU_FLAGS (0x003)";
-        case DebugCategory::CPU_STACK:
-            return "CPU_STACK (0x004)";
-        case DebugCategory::CPU_JUMP:
-            return "CPU_JUMP (0x005)";
-        case DebugCategory::CPU_DISPATCHER:
-            return "CPU_DISPATCHER (0x006)";
-        case DebugCategory::CPU_PREDICTION:
-            return "CPU_PREDICTION (0x007)";
-        case DebugCategory::CPU_PIPELINE:
-            return "CPU_PIPELINE (0x008)";
-            
-        // Assembly/Parser
-        case DebugCategory::ASM_PARSING:
-            return "ASM_PARSING (0x100)";
-        case DebugCategory::ASM_INSTRUCTION:
-            return "ASM_INSTRUCTION (0x101)";
-        case DebugCategory::ASM_DIRECTIVE:
-            return "ASM_DIRECTIVE (0x102)";
-        case DebugCategory::ASM_SYMBOL:
-            return "ASM_SYMBOL (0x103)";
-        case DebugCategory::ASM_FORWARD_REF:
-            return "ASM_FORWARD_REF (0x104)";
-        case DebugCategory::ASM_ENCODING:
-            return "ASM_ENCODING (0x105)";
-        case DebugCategory::ASM_OPTIMIZATION:
-            return "ASM_OPTIMIZATION (0x106)";
-        case DebugCategory::ASM_HEXDUMP:
-            return "ASM_HEXDUMP (0x107)";
-            
-        // Memory/Storage
-        case DebugCategory::MEM_ACCESS:
-            return "MEM_ACCESS (0x200)";
-        case DebugCategory::MEM_ALLOCATION:
-            return "MEM_ALLOCATION (0x201)";
-        case DebugCategory::MEM_BOUNDS:
-            return "MEM_BOUNDS (0x202)";
-        case DebugCategory::MEM_VIRTUAL:
-            return "MEM_VIRTUAL (0x203)";
-        case DebugCategory::MEM_CACHE:
-            return "MEM_CACHE (0x204)";
-        case DebugCategory::MEM_PROTECTION:
-            return "MEM_PROTECTION (0x205)";
-            
-        // I/O/Device
-        case DebugCategory::IO_DEVICE:
-            return "IO_DEVICE (0x300)";
-        case DebugCategory::IO_FILE:
-            return "IO_FILE (0x301)";
-        case DebugCategory::IO_CONSOLE:
-            return "IO_CONSOLE (0x302)";
-        case DebugCategory::IO_RAMDISK:
-            return "IO_RAMDISK (0x303)";
-        case DebugCategory::IO_NETWORK:
-            return "IO_NETWORK (0x304)";
-        case DebugCategory::IO_INTERRUPT:
-            return "IO_INTERRUPT (0x305)";
-            
-        // Test/Execution
-        case DebugCategory::TEST_EXECUTION:
-            return "TEST_EXECUTION (0x400)";
-        case DebugCategory::TEST_ASSERTION:
-            return "TEST_ASSERTION (0x401)";
-        case DebugCategory::TEST_FRAMEWORK:
-            return "TEST_FRAMEWORK (0x402)";
-        case DebugCategory::TEST_VALIDATION:
-            return "TEST_VALIDATION (0x403)";
-        case DebugCategory::TEST_PERFORMANCE:
-            return "TEST_PERFORMANCE (0x404)";
-            
-        // GUI/Interface
-        case DebugCategory::GUI_WINDOW:
-            return "GUI_WINDOW (0x500)";
-        case DebugCategory::GUI_CONTROLS:
-            return "GUI_CONTROLS (0x501)";
-        case DebugCategory::GUI_RENDERING:
-            return "GUI_RENDERING (0x502)";
-        case DebugCategory::GUI_EVENTS:
-            return "GUI_EVENTS (0x503)";
-        case DebugCategory::GUI_STATE:
-            return "GUI_STATE (0x504)";
-            
-        // Performance/Profiling
-        case DebugCategory::PERF_TIMING:
-            return "PERF_TIMING (0x600)";
-        case DebugCategory::PERF_COUNTERS:
-            return "PERF_COUNTERS (0x601)";
-        case DebugCategory::PERF_OPTIMIZATION:
-            return "PERF_OPTIMIZATION (0x602)";
-        case DebugCategory::PERF_BOTTLENECKS:
-            return "PERF_BOTTLENECKS (0x603)";
-            
-        case DebugCategory::DEBUG_GENERIC:
-            return "DEBUG_GENERIC (0x999)";
-            
-        default:
-            return "UNKNOWN_DEBUG_CATEGORY";
+        case DebugCategory::CPU_EXECUTION:   return "CPU_EXECUTION";
+        case DebugCategory::CPU_REGISTERS:   return "CPU_REGISTERS";
+        case DebugCategory::CPU_FLAGS:       return "CPU_FLAGS";
+        case DebugCategory::CPU_STACK:       return "CPU_STACK";
+        case DebugCategory::CPU_JUMP:        return "CPU_JUMP";
+        case DebugCategory::CPU_DISPATCHER:  return "CPU_DISPATCHER";
+        case DebugCategory::CPU_PREDICTION:  return "CPU_PREDICTION";
+        case DebugCategory::CPU_PIPELINE:    return "CPU_PIPELINE";
+        case DebugCategory::ASM_PARSING:     return "ASM_PARSING";
+        case DebugCategory::ASM_INSTRUCTION: return "ASM_INSTRUCTION";
+        case DebugCategory::ASM_DIRECTIVE:   return "ASM_DIRECTIVE";
+        case DebugCategory::ASM_SYMBOL:      return "ASM_SYMBOL";
+        case DebugCategory::ASM_FORWARD_REF: return "ASM_FORWARD_REF";
+        case DebugCategory::ASM_ENCODING:    return "ASM_ENCODING";
+        case DebugCategory::ASM_OPTIMIZATION:return "ASM_OPTIMIZATION";
+        case DebugCategory::ASM_HEXDUMP:     return "ASM_HEXDUMP";
+        case DebugCategory::MEM_ACCESS:      return "MEM_ACCESS";
+        case DebugCategory::MEM_ALLOCATION:  return "MEM_ALLOCATION";
+        case DebugCategory::MEM_BOUNDS:      return "MEM_BOUNDS";
+        case DebugCategory::MEM_VIRTUAL:     return "MEM_VIRTUAL";
+        case DebugCategory::MEM_CACHE:       return "MEM_CACHE";
+        case DebugCategory::MEM_PROTECTION:  return "MEM_PROTECTION";
+        case DebugCategory::IO_DEVICE:       return "IO_DEVICE";
+        case DebugCategory::IO_FILE:         return "IO_FILE";
+        case DebugCategory::IO_CONSOLE:      return "IO_CONSOLE";
+        case DebugCategory::IO_RAMDISK:      return "IO_RAMDISK";
+        case DebugCategory::IO_NETWORK:      return "IO_NETWORK";
+        case DebugCategory::IO_INTERRUPT:    return "IO_INTERRUPT";
+        case DebugCategory::TEST_EXECUTION:  return "TEST_EXECUTION";
+        case DebugCategory::TEST_ASSERTION:  return "TEST_ASSERTION";
+        case DebugCategory::TEST_FRAMEWORK:  return "TEST_FRAMEWORK";
+        case DebugCategory::TEST_VALIDATION: return "TEST_VALIDATION";
+        case DebugCategory::TEST_PERFORMANCE:return "TEST_PERFORMANCE";
+        case DebugCategory::GUI_WINDOW:      return "GUI_WINDOW";
+        case DebugCategory::GUI_CONTROLS:    return "GUI_CONTROLS";
+        case DebugCategory::GUI_RENDERING:   return "GUI_RENDERING";
+        case DebugCategory::GUI_EVENTS:      return "GUI_EVENTS";
+        case DebugCategory::GUI_STATE:       return "GUI_STATE";
+        case DebugCategory::PERF_TIMING:     return "PERF_TIMING";
+        case DebugCategory::PERF_COUNTERS:   return "PERF_COUNTERS";
+        case DebugCategory::PERF_OPTIMIZATION:return "PERF_OPTIMIZATION";
+        case DebugCategory::PERF_BOTTLENECKS:return "PERF_BOTTLENECKS";
+        case DebugCategory::DEBUG_GENERIC:   return "DEBUG_GENERIC";
+        default:                             return "UNKNOWN_DEBUG_CATEGORY";
     }
 }
 
@@ -574,81 +515,9 @@ void DebugHandler::log_debug(const DebugContext& debug) {
     
     // FIXED: Direct C stdio output to avoid Logger circular dependency deadlock
     
-    // Category name lookup
-    std::string category_name;
-    switch (debug.category) {
-        // CPU/Engine categories
-        case DebugCategory::CPU_EXECUTION: category_name = "CPU_EXECUTION"; break;
-        case DebugCategory::CPU_REGISTERS: category_name = "CPU_REGISTERS"; break;
-        case DebugCategory::CPU_FLAGS: category_name = "CPU_FLAGS"; break;
-        case DebugCategory::CPU_STACK: category_name = "CPU_STACK"; break;
-        case DebugCategory::CPU_JUMP: category_name = "CPU_JUMP"; break;
-        case DebugCategory::CPU_DISPATCHER: category_name = "CPU_DISPATCHER"; break;
-        case DebugCategory::CPU_PREDICTION: category_name = "CPU_PREDICTION"; break;
-        case DebugCategory::CPU_PIPELINE: category_name = "CPU_PIPELINE"; break;
-        
-        // Assembly/Parser categories
-        case DebugCategory::ASM_PARSING: category_name = "ASM_PARSING"; break;
-        case DebugCategory::ASM_INSTRUCTION: category_name = "ASM_INSTRUCTION"; break;
-        case DebugCategory::ASM_DIRECTIVE: category_name = "ASM_DIRECTIVE"; break;
-        case DebugCategory::ASM_SYMBOL: category_name = "ASM_SYMBOL"; break;
-        case DebugCategory::ASM_FORWARD_REF: category_name = "ASM_FORWARD_REF"; break;
-        case DebugCategory::ASM_ENCODING: category_name = "ASM_ENCODING"; break;
-        case DebugCategory::ASM_OPTIMIZATION: category_name = "ASM_OPTIMIZATION"; break;
-        case DebugCategory::ASM_HEXDUMP: category_name = "ASM_HEXDUMP"; break;
-        
-        // Memory/Storage categories
-        case DebugCategory::MEM_ACCESS: category_name = "MEM_ACCESS"; break;
-        case DebugCategory::MEM_ALLOCATION: category_name = "MEM_ALLOCATION"; break;
-        case DebugCategory::MEM_BOUNDS: category_name = "MEM_BOUNDS"; break;
-        case DebugCategory::MEM_VIRTUAL: category_name = "MEM_VIRTUAL"; break;
-        case DebugCategory::MEM_CACHE: category_name = "MEM_CACHE"; break;
-        case DebugCategory::MEM_PROTECTION: category_name = "MEM_PROTECTION"; break;
-        
-        // I/O/Device categories
-        case DebugCategory::IO_DEVICE: category_name = "IO_DEVICE"; break;
-        case DebugCategory::IO_FILE: category_name = "IO_FILE"; break;
-        case DebugCategory::IO_CONSOLE: category_name = "IO_CONSOLE"; break;
-        case DebugCategory::IO_RAMDISK: category_name = "IO_RAMDISK"; break;
-        case DebugCategory::IO_NETWORK: category_name = "IO_NETWORK"; break;
-        case DebugCategory::IO_INTERRUPT: category_name = "IO_INTERRUPT"; break;
-        
-        // Test/Execution categories
-        case DebugCategory::TEST_EXECUTION: category_name = "TEST_EXECUTION"; break;
-        case DebugCategory::TEST_ASSERTION: category_name = "TEST_ASSERTION"; break;
-        case DebugCategory::TEST_FRAMEWORK: category_name = "TEST_FRAMEWORK"; break;
-        case DebugCategory::TEST_VALIDATION: category_name = "TEST_VALIDATION"; break;
-        case DebugCategory::TEST_PERFORMANCE: category_name = "TEST_PERFORMANCE"; break;
-        
-        // GUI/Interface categories  
-        case DebugCategory::GUI_WINDOW: category_name = "GUI_WINDOW"; break;
-        case DebugCategory::GUI_CONTROLS: category_name = "GUI_CONTROLS"; break;
-        case DebugCategory::GUI_RENDERING: category_name = "GUI_RENDERING"; break;
-        case DebugCategory::GUI_EVENTS: category_name = "GUI_EVENTS"; break;
-        case DebugCategory::GUI_STATE: category_name = "GUI_STATE"; break;
-        
-        // Performance/Profiling categories
-        case DebugCategory::PERF_TIMING: category_name = "PERF_TIMING"; break;
-        case DebugCategory::PERF_COUNTERS: category_name = "PERF_COUNTERS"; break;
-        case DebugCategory::PERF_OPTIMIZATION: category_name = "PERF_OPTIMIZATION"; break;
-        case DebugCategory::PERF_BOTTLENECKS: category_name = "PERF_BOTTLENECKS"; break;
-        
-        // Generic
-        case DebugCategory::DEBUG_GENERIC: category_name = "DEBUG_GENERIC"; break;
-        
-        default: category_name = "UNKNOWN"; break;
-    }
+    std::string category_name = category_to_string(debug.category);
     
-    // Level name lookup
-    std::string level_name;
-    switch (debug.level) {
-        case DebugLevel::TRACE: level_name = "TRACE"; break;
-        case DebugLevel::DETAIL: level_name = "DETAIL"; break;
-        case DebugLevel::INFO: level_name = "INFO"; break;
-        case DebugLevel::IMPORTANT: level_name = "IMPORTANT"; break;
-        case DebugLevel::CRITICAL: level_name = "CRITICAL"; break;
-        default: level_name = "UNKNOWN"; break;
-    }
+    std::string level_name = level_to_string(debug.level);
     
     // Thread-safe direct output using C stdio (no Logger dependency)
     static std::mutex output_mutex;

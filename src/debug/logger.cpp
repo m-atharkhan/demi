@@ -75,7 +75,7 @@ void Logger::log(LogLevel level, const std::string& message) {
     std::string trimmed_message = message;
     
     // Remove ANSI escape sequences first
-    std::regex ansi_code_re("\033\\[[0-9;]*m");
+    static const std::regex ansi_code_re("\033\\[[0-9;]*m");
     trimmed_message = std::regex_replace(trimmed_message, ansi_code_re, "");
     
     // Then trim whitespace

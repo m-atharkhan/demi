@@ -296,8 +296,8 @@ bool DebugConfig::matches_pattern(const std::string& category_name, const std::s
     return false;
 }
 
-std::unordered_map<DebugCategory, std::string> DebugConfig::get_all_categories() {
-    return {
+const std::unordered_map<DebugCategory, std::string>& DebugConfig::get_all_categories() {
+    static const std::unordered_map<DebugCategory, std::string> categories = {
         // CPU/Engine
         {DebugCategory::CPU_EXECUTION, "CPU_EXECUTION"},
         {DebugCategory::CPU_REGISTERS, "CPU_REGISTERS"},
@@ -355,6 +355,7 @@ std::unordered_map<DebugCategory, std::string> DebugConfig::get_all_categories()
         
         {DebugCategory::DEBUG_GENERIC, "DEBUG_GENERIC"}
     };
+    return categories;
 }
 
 } // namespace Logging
