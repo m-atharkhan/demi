@@ -228,7 +228,29 @@ void Preprocessor::handle_include(const std::string& filename, const std::string
         }
     }
     
-    std::string full_path = include_path.string();
+    // Canonicalize to prevent path traversal (../ sequences)
+    std::error_code ec;
+    std::filesystem::path canonical = std::filesystem::weakly_canonical(include_path, ec);
+    if (ec) {
+        add_error("Invalid include path: " + include_path.string());
+        return;
+    }
+    
+    // Verify canonical path stays within base directory
+    if (!base_path.empty()) {
+        std::filesystem::path canonical_base = std::filesystem::weakly_canonical(base_path, ec);
+        if (!ec) {
+            auto [base_end, path_it] = std::mismatch(
+                canonical_base.begin(), canonical_base.end(),
+                canonical.begin(), canonical.end());
+            if (base_end != canonical_base.end()) {
+                add_error("Path traversal in include: " + filename + " resolves outside base directory");
+                return;
+            }
+        }
+    }
+    
+    std::string full_path = canonical.string();
     
     // Check for circular includes
     if (std::find(included_files.begin(), included_files.end(), full_path) != included_files.end()) {
