@@ -50,7 +50,7 @@ void DebugHandler::report(const DebugContext& debug) {
     // Record in session if enabled
     if (session_recording_enabled_) {
         if (recorded_session_.size() >= max_recorded_entries_) {
-            recorded_session_.erase(recorded_session_.begin());
+            recorded_session_.pop_front();
         }
         recorded_session_.push_back(debug);
     }

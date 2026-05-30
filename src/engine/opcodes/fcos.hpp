@@ -15,8 +15,7 @@ inline void handle_FCOS(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& p
     double result = std::cos(value);
     
     // Replace ST(0) with result
-    cpu.fpu_pop();
-    cpu.fpu_push(result);
+    cpu.fpu_store(0, result);
     
     Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
         fmt::format("[PC={:#06x}] [FCOS] cos({}) = {}", 

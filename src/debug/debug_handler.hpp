@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_map>
 #include <chrono>
+#include <deque>
 #include <mutex>
 #include <fmt/core.h>
 #include "../config.hpp"
@@ -388,7 +389,7 @@ private:
     // Statistics and throttling
     std::unordered_map<DebugCategory, size_t> message_counts_;
     std::unordered_map<DebugCategory, std::chrono::steady_clock::time_point> last_message_times_;
-    std::vector<DebugContext> recorded_session_;
+    std::deque<DebugContext> recorded_session_;
     mutable std::mutex debug_mutex_;
     
     /**
