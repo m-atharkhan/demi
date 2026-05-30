@@ -115,6 +115,36 @@ private:
     // Instruction encoding
     void encode_instruction(const Instruction& instruction);
     size_t get_instruction_size(const std::string& mnemonic, const std::vector<std::unique_ptr<Expression>>& operands);
+
+    // Encoder function type and map (mnemonic -> handler)
+    using EncoderFunc = void (AssemblerEngine::*)(const Instruction&, uint8_t);
+    std::unordered_map<std::string, EncoderFunc> encoder_map_;
+    void init_encoder_map();
+
+    // Encoder handler methods (one per opcode group)
+    void enc_debug(const Instruction& instr, uint8_t opcode);
+    void enc_load_imm(const Instruction& instr, uint8_t opcode);
+    void enc_load_imm64(const Instruction& instr, uint8_t opcode);
+    void enc_mov(const Instruction& instr, uint8_t opcode);
+    void enc_alu_2reg(const Instruction& instr, uint8_t opcode);
+    void enc_alu_3reg(const Instruction& instr, uint8_t opcode);
+    void enc_mode(const Instruction& instr, uint8_t opcode);
+    void enc_jump(const Instruction& instr, uint8_t opcode);
+    void enc_single_reg(const Instruction& instr, uint8_t opcode);
+    void enc_io(const Instruction& instr, uint8_t opcode);
+    void enc_load_store(const Instruction& instr, uint8_t opcode);
+    void enc_loadex_storex(const Instruction& instr, uint8_t opcode);
+    void enc_shift(const Instruction& instr, uint8_t opcode);
+    void enc_fpu_ldst(const Instruction& instr, uint8_t opcode);
+    void enc_fpu_arith(const Instruction& instr, uint8_t opcode);
+    void enc_fild(const Instruction& instr, uint8_t opcode);
+    void enc_fist(const Instruction& instr, uint8_t opcode);
+    void enc_fpu_ctrl(const Instruction& instr, uint8_t opcode);
+    void enc_fstsw(const Instruction& instr, uint8_t opcode);
+    void enc_sse_cmp(const Instruction& instr, uint8_t opcode);
+    void enc_sse(const Instruction& instr, uint8_t opcode);
+    void enc_no_operands(const Instruction& instr, uint8_t opcode);
+    void enc_int(const Instruction& instr, uint8_t opcode);
     
     // Data directive handling
     void handle_db_directive(const std::vector<std::unique_ptr<Expression>>& args);
