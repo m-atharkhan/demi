@@ -38,8 +38,11 @@ public:
         // Try to open the file for reading
         loadFromFile();
     }
+    bool dirty_ = false;
 
-    ~FileDevice() override = default;
+    ~FileDevice() override {
+        if (dirty_) saveToFile();
+    }
 
     uint8_t read() override {
         std::lock_guard<std::mutex> lock(mutex);
@@ -109,16 +112,26 @@ public:
             ++position;
         }
 
-        // Save to file
-        saveToFile();
+        // Mark dirty - actual file write deferred to flush
+        dirty_ = true;
     }
 
     std::string getName() const override {
         return fmt::format("File Device ({})", filepath);
     }
 
+    void flush() {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (dirty_) {
+            saveToFile();
+            dirty_ = false;
+        }
+    }
+
     void reset() override {
         std::lock_guard<std::mutex> lock(mutex);
+        if (dirty_) saveToFile();
+        dirty_ = false;
         position = 0;
         loadFromFile();
     }
