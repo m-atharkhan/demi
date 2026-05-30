@@ -174,13 +174,15 @@ public:
      */
     void reset();
 
+    static constexpr uint8_t MAX_NESTING_LEVEL = 8;  // Maximum nested interrupts
+    static constexpr size_t MAX_QUEUE_SIZE = 256;    // Maximum pending interrupts
+
 private:
     bool interrupts_enabled_;                       // Global interrupt enable flag
     uint32_t ivt_base_;                            // Interrupt Vector Table base address
     std::queue<uint8_t> interrupt_queue_;          // Pending interrupts
     std::array<uint32_t, 256> interrupt_handlers_; // Handler addresses for each vector
     uint8_t interrupt_nesting_level_;              // Current nesting depth
-    static constexpr uint8_t MAX_NESTING_LEVEL = 8; // Maximum nested interrupts
 
     /**
      * @brief Check if a vector is a non-maskable interrupt

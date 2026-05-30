@@ -862,7 +862,32 @@ bool CPU::handle_pending_interrupts(const std::vector<uint8_t>& program, bool& r
     // Read handler address from IVT in memory
     // IVT base address + (vector * 4) gives us the handler address location
     uint32_t ivt_base = interrupt_controller_.get_ivt_base();
-    uint32_t handler_entry_address = ivt_base + (vector * 4);
+    uint32_t max_ivt_offset = static_cast<uint32_t>(vector) * 4 + 4;
+
+    // M10: Guard against IVT base near end of memory causing wrap-around
+    if (ivt_base > memory.size() || max_ivt_offset > memory.size() - ivt_base) {
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS,
+            fmt::format("[CPU] IVT access out of bounds: base=0x{:08X}, vector=0x{:02X}, memory size={}",
+                ivt_base, vector, memory.size()),
+            get_pc(),
+            "IVT out of bounds");
+        running = false;
+        return false;
+    }
+
+    uint32_t handler_entry_address = ivt_base + (static_cast<uint32_t>(vector) * 4);
+
+    // Reject interrupt if nesting would exceed maximum (M2)
+    if (interrupt_controller_.get_nesting_level() >= DemiEngine_Interrupts::InterruptController::MAX_NESTING_LEVEL) {
+        Logging::ErrorHandler::instance().report_runtime(
+            Logging::ErrorCode::CPU_GENERIC,
+            fmt::format("[CPU] Interrupt nesting overflow ({} levels), rejecting vector 0x{:02X}",
+                interrupt_controller_.get_nesting_level(), vector),
+            get_pc(),
+            "Interrupt nesting overflow - rejected");
+        return false;
+    }
     
     // Read 32-bit handler address from memory
     uint32_t handler_address = read_mem32(handler_entry_address);
@@ -907,16 +932,14 @@ void CPU::save_interrupt_state() {
     uint32_t sp = get_sp();
 
     // Validate stack space for interrupt state save (4 bytes FLAGS + 4 CS + 4 PC + 16*8 registers)
-#ifndef NDEBUG
     if (!validate_stack_push(4 + 4 + 4 + 16 * 8)) {
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_STACK_OVERFLOW,
-            fmt::format("Debug: Stack overflow during interrupt state save at SP=0x{:08X}", sp),
+            fmt::format("Stack overflow during interrupt state save at SP=0x{:08X}", sp),
             get_pc(),
             "Stack overflow (interrupt save)");
         return;
     }
-#endif
     
     // Push FLAGS
     set_sp(sp - 4);
@@ -957,16 +980,14 @@ void CPU::restore_interrupt_state() {
     uint32_t sp = get_sp();
 
     // Validate stack before restoring interrupt state
-#ifndef NDEBUG
     if (!validate_stack_pop(4 + 4 + 4 + 16 * 8)) {
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_STACK_UNDERFLOW,
-            fmt::format("Debug: Stack underflow during interrupt state restore at SP=0x{:08X}", sp),
+            fmt::format("Stack underflow during interrupt state restore at SP=0x{:08X}", sp),
             get_pc(),
             "Stack underflow (interrupt restore)");
         return;
     }
-#endif
     
     // Restore general-purpose registers (in reverse order)
     for (int i = 15; i >= 0; i--) {
