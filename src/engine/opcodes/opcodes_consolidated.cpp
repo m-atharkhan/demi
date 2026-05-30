@@ -524,6 +524,12 @@ void handle_div(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             cpu.set_register_mode_aware(static_cast<Register>(reg1), quotient);
             // Set remainder in RDX (register 2) to match x86 DIV behavior
             cpu.set_register_mode_aware(static_cast<Register>(2), remainder);
+
+            uint32_t flags = cpu.get_flags();
+            flags &= ~(FLAG_ZERO | FLAG_SIGN | FLAG_CARRY | FLAG_OVERFLOW);
+            if (quotient == 0) flags |= FLAG_ZERO;
+            if (static_cast<int64_t>(quotient) < 0) flags |= FLAG_SIGN;
+            cpu.set_flags(flags);
             
             DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} / {} = {} (remainder in RDX: {})", reg1, val1, val2, quotient, remainder);
         }

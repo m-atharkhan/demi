@@ -48,6 +48,19 @@ void handle_mul64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
     // Set result in 64-bit register array
     cpu.get_registers_64()[dest_reg] = result;
 
+    // Set flags based on the result
+    bool zero = (result == 0);
+    bool sign = (result < 0);
+    __int128 full_product = static_cast<__int128>(value1) * static_cast<__int128>(value2);
+    bool overflow = (full_product != static_cast<__int128>(result));
+
+    uint32_t flags = cpu.get_flags();
+    flags &= ~(FLAG_ZERO | FLAG_SIGN | FLAG_CARRY | FLAG_OVERFLOW);
+    if (zero) flags |= FLAG_ZERO;
+    if (sign) flags |= FLAG_SIGN;
+    if (overflow) flags |= FLAG_CARRY | FLAG_OVERFLOW;
+    cpu.set_flags(flags);
+
     // Also update legacy register if it's a legacy register (R0-R7)
     if (dest_reg < 8) {
         cpu.get_registers()[dest_reg] = static_cast<uint32_t>(result);
