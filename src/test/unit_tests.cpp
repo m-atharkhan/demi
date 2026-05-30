@@ -3266,6 +3266,612 @@ TEST_CASE(disa_compiler_all_io_opcodes, "disa_compiler") {
     ctx.assert_eq(true, has_syscall);
 }
 
+// ============================================================================
+// ENCODER MAP DISPATCH TESTS (TASK-033)
+// ============================================================================
+// Verify the map-based encode_instruction dispatch produces correct bytecode
+// for every opcode group, including the previously-broken SHL64/SHR64 path.
+// ============================================================================
+
+TEST_CASE(encoder_map_no_operands, "encoder_map") {
+    // All no-operand instructions should produce a single opcode byte
+    // plus HALT for program termination
+    ctx.assemble_code(R"(
+        NOP
+        HALT
+    )");
+    ctx.assert_program_size(2);
+    ctx.assert_byte_at(0, 0x00); // NOP
+    ctx.assert_byte_at(1, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_no_operands_fpu, "encoder_map") {
+    ctx.assemble_code(R"(
+        FINIT
+        FABS
+        FCHS
+        FSQRT
+        FSIN
+        FCOS
+        FTAN
+        HALT
+    )");
+    ctx.assert_program_size(8);
+    ctx.assert_byte_at(0, 0xB0); // FINIT
+    ctx.assert_byte_at(1, 0xAE); // FABS
+    ctx.assert_byte_at(2, 0xAF); // FCHS
+    ctx.assert_byte_at(3, 0xAD); // FSQRT
+    ctx.assert_byte_at(4, 0xAA); // FSIN
+    ctx.assert_byte_at(5, 0xAB); // FCOS
+    ctx.assert_byte_at(6, 0xAC); // FTAN
+    ctx.assert_byte_at(7, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_no_operands_interrupt, "encoder_map") {
+    ctx.assemble_code(R"(
+        CLI
+        STI
+        IRET
+        HALT
+    )");
+    ctx.assert_program_size(4);
+    ctx.assert_byte_at(0, 0xFA); // CLI
+    ctx.assert_byte_at(1, 0xFB); // STI
+    ctx.assert_byte_at(2, 0xCF); // IRET
+    ctx.assert_byte_at(3, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_no_operands_simd, "encoder_map") {
+    ctx.assemble_code(R"(
+        VADD
+        VMUL
+        VDOT
+        HALT
+    )");
+    ctx.assert_program_size(4);
+    ctx.assert_byte_at(0, 0xD4); // VADD
+    ctx.assert_byte_at(1, 0xD5); // VMUL
+    ctx.assert_byte_at(2, 0xD6); // VDOT
+    ctx.assert_byte_at(3, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_single_reg, "encoder_map") {
+    // Register map: EAX=0, ECX=1, EDX=2, EBX=3
+    ctx.assemble_code(R"(
+        PUSH EAX
+        POP EBX
+        INC ECX
+        DEC EDX
+        HALT
+    )");
+    ctx.assert_program_size(9);
+    ctx.assert_byte_at(0, 0x08); // PUSH
+    ctx.assert_byte_at(1, 0x00); // EAX=0
+    ctx.assert_byte_at(2, 0x09); // POP
+    ctx.assert_byte_at(3, 0x03); // EBX=3
+    ctx.assert_byte_at(4, 0x12); // INC
+    ctx.assert_byte_at(5, 0x01); // ECX=1
+    ctx.assert_byte_at(6, 0x13); // DEC
+    ctx.assert_byte_at(7, 0x02); // EDX=2
+    ctx.assert_byte_at(8, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_single_reg_64bit, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE64
+        NOT RAX
+        INC RBX
+        DEC RCX
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x59); // NOT64 (auto-upgraded)
+    ctx.assert_byte_at(2, 0x00); // RAX
+    ctx.assert_byte_at(3, 0x5D); // INC64
+    ctx.assert_byte_at(4, 0x03); // RBX
+    ctx.assert_byte_at(5, 0x5E); // DEC64
+    ctx.assert_byte_at(6, 0x01); // RCX
+    ctx.assert_byte_at(7, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_jump, "encoder_map") {
+    ctx.assemble_code(R"(
+        JMP _j2
+    _j1:
+        ADD EAX, EBX
+        HALT
+    _j2:
+        JMP _j1
+    )");
+    // JMP = 5 bytes (opcode + 4-byte addr), ADD = 3 bytes, HALT = 1 byte, JMP = 5 bytes
+    ctx.assert_program_size(14);
+    ctx.assert_byte_at(0, 0x05); // JMP opcode
+    ctx.assert_byte_at(5, 0x02); // ADD opcode
+    ctx.assert_byte_at(6, 0x00); // EAX=0
+    ctx.assert_byte_at(7, 0x03); // EBX=3
+    ctx.assert_byte_at(8, 0xFF); // HALT
+    ctx.assert_byte_at(9, 0x05); // JMP opcode
+}
+
+TEST_CASE(encoder_map_conditional_jumps, "encoder_map") {
+    ctx.assemble_code(R"(
+        CMP EAX, EBX
+        JZ _equal
+        JNZ _not_equal
+        JE _equal
+        JNE _not_equal
+        JS _sign
+        JNS _nosign
+        HALT
+    _equal:
+        JC _carry
+        HALT
+    _not_equal:
+        JNC _nocarry
+        HALT
+    _sign:
+        JO _overflow
+        HALT
+    _nosign:
+        JNO _nooverflow
+        HALT
+    _carry:
+        HALT
+    _nocarry:
+        HALT
+    _overflow:
+        JG _greater
+        HALT
+    _nooverflow:
+        JL _less
+        HALT
+    _greater:
+        JGE _greaterequal
+        HALT
+    _less:
+        JLE _lessequal
+        HALT
+    _greaterequal:
+        HALT
+    _lessequal:
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x0A); // CMP
+    // JZ should follow after CMP
+    ctx.assert_byte_at(3, 0x0B); // JZ (alias of JE)
+}
+
+TEST_CASE(encoder_map_alu_2reg, "encoder_map") {
+    // Register map: EAX=0, ECX=1, EBX=3, EDX=2
+    ctx.assemble_code(R"(
+        ADD EAX, EBX
+        SUB ECX, EDX
+        MUL EAX, EBX
+        DIV ECX, EDX
+        AND EAX, ECX
+        OR EBX, EDX
+        XOR EAX, ECX
+        CMP EBX, EDX
+        MOD EAX, EBX
+        HALT
+    )");
+    ctx.assert_program_size(28);
+    ctx.assert_byte_at(0, 0x02); // ADD
+    ctx.assert_byte_at(1, 0x00); ctx.assert_byte_at(2, 0x03); // EAX=0, EBX=3
+    ctx.assert_byte_at(3, 0x03); // SUB
+    ctx.assert_byte_at(4, 0x01); ctx.assert_byte_at(5, 0x02); // ECX=1, EDX=2
+    ctx.assert_byte_at(6, 0x10); // MUL
+    ctx.assert_byte_at(7, 0x00); ctx.assert_byte_at(8, 0x03);
+    ctx.assert_byte_at(9, 0x11);  // DIV
+    ctx.assert_byte_at(10, 0x01); ctx.assert_byte_at(11, 0x02);
+    ctx.assert_byte_at(12, 0x14); // AND
+    ctx.assert_byte_at(13, 0x00); ctx.assert_byte_at(14, 0x01); // EAX, ECX
+    ctx.assert_byte_at(15, 0x15); // OR
+    ctx.assert_byte_at(16, 0x03); ctx.assert_byte_at(17, 0x02); // EBX, EDX
+    ctx.assert_byte_at(18, 0x16); // XOR
+    ctx.assert_byte_at(19, 0x00); ctx.assert_byte_at(20, 0x01); // EAX, ECX
+    ctx.assert_byte_at(21, 0x0A); // CMP
+    ctx.assert_byte_at(24, 0x29); // MOD
+}
+
+TEST_CASE(encoder_map_alu_3reg, "encoder_map") {
+    // MUL64/DIV64/AND64/OR64/XOR64/MOD64 use 3-register encoding format
+    ctx.assemble_code(R"(
+        MODE64
+        MUL64 RAX, RBX, RCX
+        DIV64 RDX, RAX, RBX
+        AND64 RCX, RDX, RAX
+        OR64  RBX, RCX, RDX
+        XOR64 RAX, RBX, RCX
+        MOD64 RDX, RAX, RBX
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71);  // MODE64
+    // MUL64 = opcode + 3 registers = 4 bytes
+    ctx.assert_byte_at(1, 0x54);  // MUL64
+    ctx.assert_byte_at(2, 0x00);  // RAX (dest)
+    ctx.assert_byte_at(3, 0x03);  // RBX (src1)
+    ctx.assert_byte_at(4, 0x01);  // RCX (src2)
+    ctx.assert_byte_at(5, 0x55);  // DIV64
+    ctx.assert_byte_at(6, 0x02);  // RDX (dest)
+    ctx.assert_byte_at(7, 0x00);  // RAX (src1)
+    ctx.assert_byte_at(8, 0x03);  // RBX (src2)
+    ctx.assert_byte_at(9, 0x56);  // AND64
+    ctx.assert_byte_at(13, 0x57); // OR64
+    ctx.assert_byte_at(17, 0x58); // XOR64
+    ctx.assert_byte_at(21, 0x5F); // MOD64
+}
+
+TEST_CASE(encoder_map_mov_reg_reg, "encoder_map") {
+    ctx.assemble_code(R"(
+        MOV EAX, EBX
+        HALT
+    )");
+    ctx.assert_program_size(4);
+    ctx.assert_byte_at(0, 0x04); // MOV
+    ctx.assert_byte_at(1, 0x00); // EAX=0
+    ctx.assert_byte_at(2, 0x03); // EBX=3
+    ctx.assert_byte_at(3, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_mov_imm, "encoder_map") {
+    ctx.assemble_code(R"(
+        MOV EAX, 42
+        HALT
+    )");
+    // MOV reg, imm should become LOAD_IMM64 (10 bytes)
+    ctx.assert_program_size(11); // LOAD_IMM64 (10) + HALT (1)
+    ctx.assert_byte_at(0, 0x53); // LOAD_IMM64
+    ctx.assert_byte_at(1, 0x00); // EAX
+    ctx.assert_byte_at(2, 42);   // imm byte 0
+}
+
+TEST_CASE(encoder_map_mov_mem, "encoder_map") {
+    ctx.assemble_code(R"(
+        STORE EAX, 100
+        LOAD EBX, 100
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x07); // STORE
+    ctx.assert_byte_at(1, 0x00); // EAX
+    // 32-bit address at bytes 2-5
+    ctx.assert_byte_at(6, 0x06); // LOAD
+    ctx.assert_byte_at(7, 0x03); // EBX=3
+}
+
+TEST_CASE(encoder_map_mov_bracket_syntax, "encoder_map") {
+    ctx.assemble_code(R"(
+        LOAD_IMM ESI, 200
+        LOAD EAX, [ESI]
+        STORE EBX, [ESI]
+        HALT
+    )");
+    // LOAD [reg] -> LOADR (3 bytes: opcode + dst_reg + addr_reg)
+    // STORE [reg] -> STORER (3 bytes: opcode + addr_reg + value_reg)
+    ctx.assert_byte_at(6, 0x41); // LOADR
+    ctx.assert_byte_at(7, 0x00); // EAX
+    ctx.assert_byte_at(8, 0x06); // ESI
+    ctx.assert_byte_at(9, 0x43); // STORER
+    ctx.assert_byte_at(10, 0x06); // ESI=6 (addr_reg first for STORER)
+    ctx.assert_byte_at(11, 0x03); // EBX=3 (value_reg)
+}
+
+TEST_CASE(encoder_map_mov_extended, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE64
+        MOVEX R8, R9
+        MOV R8, R9
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x60); // MOVEX
+    ctx.assert_byte_at(2, 0x08); // R8
+    ctx.assert_byte_at(3, 0x09); // R9
+    // MOV with extended regs auto-uses MOVEX
+    ctx.assert_byte_at(4, 0x60); // MOVEX
+}
+
+TEST_CASE(encoder_map_load_store_misc, "encoder_map") {
+    // SWAP is reg, memory-address
+    ctx.assemble_code(R"(
+        LEA EAX, 100
+        SWAP EAX, 200
+        LOADR EAX, ESI
+        STORER EBX, EDI
+        HALT
+    )");
+    // LEA = 6 bytes (1+1+4), SWAP = 6 bytes (1+1+4), LOADR=3, STORER=3, HALT=1 = 19
+    ctx.assert_program_size(19);
+    ctx.assert_byte_at(0, 0x20); // LEA
+    ctx.assert_byte_at(6, 0x21); // SWAP
+    ctx.assert_byte_at(12, 0x41); // LOADR
+    ctx.assert_byte_at(15, 0x43); // STORER
+}
+
+TEST_CASE(encoder_map_io, "encoder_map") {
+    ctx.assemble_code(R"(
+        OUT EAX, 0x80
+        IN EBX, 0x81
+        OUTB ECX, 0x82
+        INB EDX, 0x83
+        HALT
+    )");
+    ctx.assert_program_size(13); // 4*(opcode + reg + port) + HALT
+    ctx.assert_byte_at(0, 0x31); // OUT
+    ctx.assert_byte_at(1, 0x00); // EAX
+    ctx.assert_byte_at(2, 0x80); // port
+    ctx.assert_byte_at(3, 0x30); // IN
+    ctx.assert_byte_at(4, 0x03); // EBX=3
+    ctx.assert_byte_at(5, 0x81); // port
+    ctx.assert_byte_at(6, 0x33); // OUTB
+    ctx.assert_byte_at(7, 0x01); // ECX=1
+    ctx.assert_byte_at(8, 0x82); // port
+    ctx.assert_byte_at(9, 0x32);  // INB
+    ctx.assert_byte_at(10, 0x02); // EDX=2
+    ctx.assert_byte_at(11, 0x83); // port
+}
+
+TEST_CASE(encoder_map_shift, "encoder_map") {
+    ctx.assemble_code(R"(
+        SHL EAX, 2
+        SHR EBX, 4
+        HALT
+    )");
+    ctx.assert_program_size(7); // 2*(opcode + reg + imm) + HALT
+    ctx.assert_byte_at(0, 0x18); // SHL
+    ctx.assert_byte_at(1, 0x00); // EAX
+    ctx.assert_byte_at(2, 2);    // shift amount
+    ctx.assert_byte_at(3, 0x19); // SHR
+    ctx.assert_byte_at(4, 0x03); // EBX=3
+    ctx.assert_byte_at(5, 4);    // shift amount
+    ctx.assert_byte_at(6, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_shift_64bit, "encoder_map") {
+    // This was previously broken: SHL/SHR with 64-bit registers
+    // would auto-upgrade to SHL64/SHR64, which had no matching if-else branch
+    ctx.assemble_code(R"(
+        MODE64
+        SHL RAX, 3
+        SHR RBX, 1
+        HALT
+    )");
+    ctx.assert_program_size(8); // MODE64(1) + 2*(opcode+reg+imm) + HALT(1)
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x5A); // SHL64 (auto-upgraded from SHL)
+    ctx.assert_byte_at(2, 0x00); // RAX
+    ctx.assert_byte_at(3, 3);    // shift amount
+    ctx.assert_byte_at(4, 0x5B); // SHR64 (auto-upgraded from SHR)
+    ctx.assert_byte_at(5, 0x03); // RBX
+    ctx.assert_byte_at(6, 1);    // shift amount
+    ctx.assert_byte_at(7, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_shift_64bit_direct, "encoder_map") {
+    // Direct SHL64/SHR64 usage (no auto-upgrade needed)
+    ctx.assemble_code(R"(
+        MODE64
+        SHL64 RAX, 5
+        SHR64 RBX, 2
+        HALT
+    )");
+    ctx.assert_program_size(8);
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x5A); // SHL64
+    ctx.assert_byte_at(2, 0x00); // RAX
+    ctx.assert_byte_at(3, 5);    // shift amount
+    ctx.assert_byte_at(4, 0x5B); // SHR64
+    ctx.assert_byte_at(5, 0x03); // RBX
+    ctx.assert_byte_at(6, 2);    // shift amount
+    ctx.assert_byte_at(7, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_cmp_immediate, "encoder_map") {
+    // CMP with immediate should expand to LOAD_IMM temp_reg, imm + CMP dest, temp
+    ctx.assemble_code(R"(
+        CMP EAX, 100
+        HALT
+    )");
+    // LOAD_IMM temp_reg, imm = 1+1+4 = 6 bytes
+    // CMP dest, temp_reg = 1+1+1 = 3 bytes
+    // Total = 9 + 1 HALT = 10 bytes
+    ctx.assert_program_size(10);
+    ctx.assert_byte_at(0, 0x01); // LOAD_IMM opcode
+    ctx.assert_byte_at(1, 0x02); // temp_reg (RDX default for x86)
+    // bytes 2-5: immediate value
+    ctx.assert_byte_at(2, 100);  // imm low byte
+    ctx.assert_byte_at(6, 0x0A); // CMP opcode
+    ctx.assert_byte_at(7, 0x00); // EAX
+    ctx.assert_byte_at(8, 0x02); // temp_reg (RDX)
+    ctx.assert_byte_at(9, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_cmp_immediate_64bit, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE64
+        CMP RAX, 1000
+        HALT
+    )");
+    // CMP with immediate expansion uses LOAD_IMM (not LOAD_IMM64) for temp register
+    // LOAD_IMM (6 bytes: 1+1+4) + CMP64 (3 bytes) = 9
+    // MODE64 (1) + 9 + HALT (1) = 11
+    ctx.assert_program_size(11);
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x01); // LOAD_IMM opcode (expanded from CMP immediate)
+}
+
+TEST_CASE(encoder_map_alu_3_operand, "encoder_map") {
+    // 3-operand ALU form for 64-bit ops: dest, src1, src2 -> dest = src1 op src2
+    ctx.assemble_code(R"(
+        MODE64
+        ADD64 RAX, RBX, RCX
+        SUB64 RDX, RAX, RBX
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71);  // MODE64
+    // ADD64 RAX, RBX, RCX -> if dest != src1, emits MOV64 dest,src1 + ADD64 dest,src2
+    // RAX != RBX, so: MOV64 RAX,RBX (3 bytes) + ADD64 RAX,RCX (3 bytes) = 6
+    ctx.assert_byte_at(1, 0x52);  // MOV64
+    ctx.assert_byte_at(2, 0x00);  // RAX (dest in MOV)
+    ctx.assert_byte_at(3, 0x03);  // RBX (src in MOV)
+    ctx.assert_byte_at(4, 0x50);  // ADD64 opcode
+    ctx.assert_byte_at(5, 0x00);  // RAX (dest)
+    ctx.assert_byte_at(6, 0x01);  // RCX (src2)
+    // SUB64 RDX, RAX, RBX -> RDX != RAX
+    ctx.assert_byte_at(7, 0x52);  // MOV64 RDX, RAX
+    ctx.assert_byte_at(8, 0x02);  // RDX
+    ctx.assert_byte_at(9, 0x00);  // RAX
+    ctx.assert_byte_at(10, 0x51); // SUB64 opcode
+    ctx.assert_byte_at(11, 0x02); // RDX
+    ctx.assert_byte_at(12, 0x03); // RBX
+}
+
+TEST_CASE(encoder_map_sse_simd, "encoder_map") {
+    ctx.assemble_code(R"(
+        MOVAPS XMM0, XMM1
+        ADDPS XMM2, XMM3
+        MULPS XMM4, XMM5
+        HALT
+    )");
+    ctx.assert_program_size(10); // 3*(1 opcode + 2 regs) + 1 HALT
+    ctx.assert_byte_at(0, 0x80); // MOVAPS
+    ctx.assert_byte_at(1, 50);   // XMM0 register number (base 50)
+    ctx.assert_byte_at(2, 52);   // XMM1 register number
+    ctx.assert_byte_at(3, 0x82); // ADDPS
+    ctx.assert_byte_at(4, 54);   // XMM2
+    ctx.assert_byte_at(5, 56);   // XMM3
+}
+
+TEST_CASE(encoder_map_sse_cmp, "encoder_map") {
+    ctx.assemble_code(R"(
+        CMPPS XMM0, XMM1, 0
+        HALT
+    )");
+    ctx.assert_program_size(5); // opcode + dst + src + predicate + HALT
+    ctx.assert_byte_at(0, 0x8C); // CMPPS
+    ctx.assert_byte_at(1, 50);   // XMM0 (dst)
+    ctx.assert_byte_at(2, 52);   // XMM1 (src)
+    ctx.assert_byte_at(3, 0);    // predicate
+    ctx.assert_byte_at(4, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_fpu_load_store, "encoder_map") {
+    // FPU memory ops: opcode + type(1 byte) + 4-byte address = 6 bytes each
+    ctx.assemble_code(R"(
+        FLD [100]
+        FST [200]
+        FSTP [300]
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0xA0); // FLD opcode
+    ctx.assert_byte_at(1, 0x01); // memory type
+    ctx.assert_byte_at(6, 0xA1); // FST opcode
+    ctx.assert_byte_at(12, 0xA2); // FSTP opcode
+}
+
+TEST_CASE(encoder_map_fpu_arithmetic, "encoder_map") {
+    ctx.assemble_code(R"(
+        FADD [100]
+        FSUB [200]
+        FMUL [300]
+        FDIV [400]
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0xA6); // FADD
+    ctx.assert_byte_at(1, 0x01); // memory type
+    ctx.assert_byte_at(6, 0xA7); // FSUB
+    ctx.assert_byte_at(12, 0xA8); // FMUL
+    ctx.assert_byte_at(18, 0xA9); // FDIV
+}
+
+TEST_CASE(encoder_map_fpu_other, "encoder_map") {
+    // FILD/FIST/FISTP: opcode + type + 4-byte addr = 6 bytes each
+    // FSTCW/FLDCW: opcode + 4-byte addr = 5 bytes each
+    ctx.assemble_code(R"(
+        FILD [100]
+        FIST [200]
+        FISTP [300]
+        FSTCW [400]
+        FLDCW [500]
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0xA3); // FILD
+    ctx.assert_byte_at(6, 0xA4); // FIST
+    ctx.assert_byte_at(12, 0xA5); // FISTP
+    ctx.assert_byte_at(18, 0xB2); // FSTCW
+    ctx.assert_byte_at(23, 0xB3); // FLDCW
+}
+
+TEST_CASE(encoder_map_fstsw_reg, "encoder_map") {
+    ctx.assemble_code(R"(
+        FSTSW R0
+        HALT
+    )");
+    ctx.assert_program_size(3);
+    ctx.assert_byte_at(0, 0xB4); // FSTSW
+    ctx.assert_byte_at(1, 0x01); // operand type = register (R0 mapped to RAX)
+    ctx.assert_byte_at(2, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_fstsw_mem, "encoder_map") {
+    ctx.assemble_code(R"(
+        FSTSW 0x200
+        HALT
+    )");
+    ctx.assert_program_size(7);
+    ctx.assert_byte_at(0, 0xB4); // FSTSW
+    ctx.assert_byte_at(1, 0x00); // operand type = memory
+}
+
+TEST_CASE(encoder_map_int, "encoder_map") {
+    ctx.assemble_code(R"(
+        INT 0x80
+        HALT
+    )");
+    ctx.assert_program_size(3);
+    ctx.assert_byte_at(0, 0xCD); // INT
+    ctx.assert_byte_at(1, 0x80); // vector
+    ctx.assert_byte_at(2, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_mode_switch, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE32
+        MODE64
+        HALT
+    )");
+    ctx.assert_program_size(3);
+    ctx.assert_byte_at(0, 0x70); // MODE32
+    ctx.assert_byte_at(1, 0x71); // MODE64
+    ctx.assert_byte_at(2, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_loadex_storex, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE64
+        LOADEX R8, 0x1000
+        STOREX R9, 0x2000
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x66); // LOADEX
+    ctx.assert_byte_at(2, 0x08); // R8
+    // 8-byte address follows (bytes 3-10)
+    ctx.assert_byte_at(11, 0x67); // STOREX
+    ctx.assert_byte_at(12, 0x09); // R9
+    // 8-byte address follows (bytes 13-20)
+}
+
+TEST_CASE(encoder_map_unknown_instruction, "encoder_map") {
+    // Unknown instruction should produce assemble_code throwing an error
+    ctx.assert_throws([&]() {
+        ctx.assemble_code(R"(
+            FANTASY_INSTR EAX, EBX
+            HALT
+        )");
+    });
+}
+
 TEST_CASE(elf_emitter_valid_header, "elf_emitter") {
     CodeGen::ELFEmitter emitter;
     std::vector<uint8_t> code = {0xC3};
