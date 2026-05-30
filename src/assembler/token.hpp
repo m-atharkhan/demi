@@ -114,28 +114,28 @@ struct Token {
     bool is_float() const { return std::holds_alternative<double>(value); }
     bool is_string() const { return std::holds_alternative<std::string>(value); }
     
-    int64_t as_int() const { 
-        if (std::holds_alternative<int64_t>(value)) return std::get<int64_t>(value);
-        if (std::holds_alternative<uint64_t>(value)) return static_cast<int64_t>(std::get<uint64_t>(value));
-        return 0;
+    int64_t as_int() const {
+        if (auto* p = std::get_if<int64_t>(&value)) return *p;
+        if (auto* p = std::get_if<uint64_t>(&value)) return static_cast<int64_t>(*p);
+        return std::get<int64_t>(value);
     }
-    
-    uint64_t as_uint() const { 
-        if (std::holds_alternative<uint64_t>(value)) return std::get<uint64_t>(value);
-        if (std::holds_alternative<int64_t>(value)) return static_cast<uint64_t>(std::get<int64_t>(value));
-        return 0;
+
+    uint64_t as_uint() const {
+        if (auto* p = std::get_if<uint64_t>(&value)) return *p;
+        if (auto* p = std::get_if<int64_t>(&value)) return static_cast<uint64_t>(*p);
+        return std::get<uint64_t>(value);
     }
-    
+
     double as_float() const {
-        if (std::holds_alternative<double>(value)) return std::get<double>(value);
-        if (std::holds_alternative<int64_t>(value)) return static_cast<double>(std::get<int64_t>(value));
-        if (std::holds_alternative<uint64_t>(value)) return static_cast<double>(std::get<uint64_t>(value));
-        return 0.0;
+        if (auto* p = std::get_if<double>(&value)) return *p;
+        if (auto* p = std::get_if<int64_t>(&value)) return static_cast<double>(*p);
+        if (auto* p = std::get_if<uint64_t>(&value)) return static_cast<double>(*p);
+        return std::get<double>(value);
     }
-    
+
     std::string as_string() const {
-        if (std::holds_alternative<std::string>(value)) return std::get<std::string>(value);
-        return text;
+        if (auto* p = std::get_if<std::string>(&value)) return *p;
+        return std::get<std::string>(value);
     }
 };
 
