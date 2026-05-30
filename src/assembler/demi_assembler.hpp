@@ -88,6 +88,7 @@ private:
     
     void collect_errors(const std::vector<std::string>& errors);
     std::string read_file(const std::string& filename);
+    std::vector<uint8_t> assemble_internal(const std::string& source, const std::string& base_path);
 };
 
 /**

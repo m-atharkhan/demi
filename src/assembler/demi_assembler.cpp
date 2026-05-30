@@ -13,117 +13,11 @@
 namespace Assembler {
 
 std::vector<uint8_t> DemiAssembler::assemble_string(const std::string& source) {
-    clear_errors();
-
-    // Preprocessing
-    Preprocessor preprocessor;
-    std::string preprocessed_source = preprocessor.preprocess(source);
-    
-    if (preprocessor.has_errors()) {
-        collect_errors(preprocessor.get_errors());
-        return {};
-    }
-
-    // Lexical analysis
-    Lexer lexer(preprocessed_source);
-    auto tokens = lexer.tokenize();
-
-    if (lexer.has_errors()) {
-        collect_errors(lexer.get_errors());
-        return {};
-    }
-
-    // Parsing
-    Parser parser(tokens);
-    auto program = parser.parse();
-
-    if (parser.has_errors()) {
-        collect_errors(parser.get_errors());
-        return {};
-    }
-
-    DEBUG_INFO(Logging::DebugCategory::TEST_EXECUTION, "Parsed {} statements", program->statements.size());
-
-    // Code generation
-    AssemblerEngine assembler;
-    assembler.set_entry_point_symbol(entry_point_symbol);
-    // Architecture detection
-    if (Config::architecture == Architecture::AUTO) {
-        Architecture detected = assembler.detect_architecture(*program);
-        Config::architecture = detected;
-    }
-    auto bytecode = assembler.assemble(*program);
-
-    if (assembler.has_errors()) {
-        collect_errors(assembler.get_errors());
-        return {};
-    }
-
-    // Store symbols
-    symbols = assembler.get_symbols();
-    
-    // Store entry address
-    entry_address = assembler.get_entry_address();
-    entry_address = assembler.get_entry_address();
-    
-    // Store memory size from .memory directive
-    memory_size = assembler.get_memory_size();
-
-    return bytecode;
+    return assemble_internal(source, "");
 }
 
 std::vector<uint8_t> DemiAssembler::assemble_string(const std::string& source, const std::string& base_path) {
-    clear_errors();
-
-    // Preprocessing with proper base path
-    Preprocessor preprocessor;
-    std::string preprocessed_source = preprocessor.preprocess(source, base_path);
-    
-    if (preprocessor.has_errors()) {
-        collect_errors(preprocessor.get_errors());
-        return {};
-    }
-
-    // Lexical analysis
-    Lexer lexer(preprocessed_source);
-    auto tokens = lexer.tokenize();
-
-    if (lexer.has_errors()) {
-        collect_errors(lexer.get_errors());
-        return {};
-    }
-
-    // Parsing
-    Parser parser(tokens);
-    auto program = parser.parse();
-
-    if (parser.has_errors()) {
-        collect_errors(parser.get_errors());
-        return {};
-    }
-
-    // Code generation
-    AssemblerEngine assembler;
-    // Architecture detection
-    if (Config::architecture == Architecture::AUTO) {
-        Architecture detected = assembler.detect_architecture(*program);
-        Config::architecture = detected;
-    }
-    auto bytecode = assembler.assemble(*program);
-
-    if (assembler.has_errors()) {
-        collect_errors(assembler.get_errors());
-        return {};
-    }
-    
-    // Store symbols and entry address
-    symbols = assembler.get_symbols();
-    entry_address = assembler.get_entry_address();
-    
-    // Store memory size from .memory directive
-    memory_size = assembler.get_memory_size();
-
-    return bytecode;
+    return assemble_internal(source, base_path);
 }
 
 std::vector<uint8_t> DemiAssembler::assemble_file(const std::string& filename) {
@@ -131,16 +25,22 @@ std::vector<uint8_t> DemiAssembler::assemble_file(const std::string& filename) {
     if (source.empty() && has_errors()) {
         return {};
     }
+    std::string base_path = std::filesystem::path(filename).parent_path().string();
+    return assemble_internal(source, base_path);
+}
 
+std::vector<uint8_t> DemiAssembler::assemble_internal(const std::string& source, const std::string& base_path) {
     clear_errors();
 
-    // Get the directory of the source file for relative includes
-    std::string base_path = std::filesystem::path(filename).parent_path().string();
-    
-    // Preprocessing with proper base path
+    // Preprocessing
     Preprocessor preprocessor;
-    std::string preprocessed_source = preprocessor.preprocess(source, base_path);
-    
+    std::string preprocessed_source;
+    if (base_path.empty()) {
+        preprocessed_source = preprocessor.preprocess(source);
+    } else {
+        preprocessed_source = preprocessor.preprocess(source, base_path);
+    }
+
     if (preprocessor.has_errors()) {
         collect_errors(preprocessor.get_errors());
         return {};
@@ -164,14 +64,9 @@ std::vector<uint8_t> DemiAssembler::assemble_file(const std::string& filename) {
         return {};
     }
 
-    // Check for conflicting test assertions - simplified for now
-    // InAssemblyTestValidator test_validator;
-    // auto validation_errors = test_validator.validate_test_assertions(*program);
-
-    // Assembly
+    // Code generation
     AssemblerEngine assembler;
     assembler.set_entry_point_symbol(entry_point_symbol);
-    // Architecture detection
     if (Config::architecture == Architecture::AUTO) {
         Architecture detected = assembler.detect_architecture(*program);
         Config::architecture = detected;
@@ -183,13 +78,8 @@ std::vector<uint8_t> DemiAssembler::assemble_file(const std::string& filename) {
         return {};
     }
 
-    // Store symbols for debugging
     symbols = assembler.get_symbols();
-    
-    // Store entry address
     entry_address = assembler.get_entry_address();
-    
-    // Store memory size from .memory directive
     memory_size = assembler.get_memory_size();
 
     return bytecode;
