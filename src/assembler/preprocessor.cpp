@@ -137,14 +137,15 @@ std::string Preprocessor::process_line(const std::string& line, const std::strin
 std::string Preprocessor::expand_macros(const std::string& text) {
     std::string result = text;
     
-    // Simple macro expansion - replace all defined macros
     for (const auto& [name, macro] : macros) {
         if (macro.is_function_macro) {
-            // Function macro - look for pattern: NAME(args)
-            std::regex pattern(name + R"(\s*\(([^)]*)\))");
+            auto& pattern = macro_regex_cache_[name];
+            if (pattern == nullptr) {
+                pattern = std::make_unique<std::regex>(name + R"(\s*\(([^)]*)\))");
+            }
             std::smatch match;
             
-            while (std::regex_search(result, match, pattern)) {
+            while (std::regex_search(result, match, *pattern)) {
                 std::string args_str = match[1].str();
                 std::vector<std::string> args = parse_macro_args(args_str);
                 std::string expanded = expand_function_macro(macro, args);
@@ -442,17 +443,7 @@ bool Preprocessor::should_include_line() {
     if (conditional_stack.empty()) {
         return true;
     }
-    
-    // Check all nested conditionals
-    std::stack<ConditionalState> temp_stack = conditional_stack;
-    while (!temp_stack.empty()) {
-        if (!temp_stack.top().is_true) {
-            return false;
-        }
-        temp_stack.pop();
-    }
-    
-    return true;
+    return conditional_stack.top().is_true;
 }
 
 } // namespace Assembler
