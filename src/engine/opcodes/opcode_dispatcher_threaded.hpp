@@ -3,25 +3,7 @@
 #include "../cpu.hpp"
 #include "../../debug/logger.hpp"
 
-// Optimized threaded code dispatcher for better performance
-// Uses computed goto (compiler extension) instead of switch statement
-//
-// COMPILER COMPATIBILITY:
-// - GCC 2.95+: Full support for computed goto
-// - Clang: Full support for computed goto  
-// - MSVC: No support - will fallback to switch-case dispatcher
-// - Other compilers: Will fallback to switch-case dispatcher
-//
-// PERFORMANCE BENEFITS:
-// - Eliminates branch prediction overhead from switch statements
-// - Direct jump dispatch reduces instruction count per opcode
-// - Measured ~8% performance improvement on intensive workloads
-//
-// IMPORTANT LIMITATIONS:
-// - INCOMPATIBLE WITH ADDRESSSANITIZER: AddressSanitizer interferes with computed goto
-//   by modifying function prologues and memory layout, causing segmentation faults.
-//   When debugging with AddressSanitizer, the code automatically falls back to switch-case.
-// - Debug builds may show reduced performance gains due to reduced optimizations
+// Threaded code dispatcher using computed goto (GCC/Clang only; falls back to switch-case otherwise)
 
 // Feature detection for computed goto support
 // Computed goto is a GCC extension available since GCC 2.95

@@ -740,8 +740,6 @@ void Assembler::AssemblerEngine::process_directive(const Assembler::Directive& d
     } else if (directive.name == ".equ") {
         // EQU is already processed in first_pass, skip it here
         return;
-    } else if (false) {
-        // .db directive removed - use DB instruction instead
     } else if (directive.name == ".dw") {
         handle_dw_directive(directive.arguments);
     } else if (directive.name == ".dd") {

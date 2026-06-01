@@ -257,14 +257,11 @@ void CPU::sync_from_legacy_registers() {
     }
 }
 
-// Factory method for test compatibility - creates CPU with old memory size
 CPU CPU::create_test_cpu() {
     return CPU(CPU_TEST_MEMORY_SIZE);
 }
 
-// Dynamic memory resizing
 void CPU::resize_memory(size_t new_size) {
-    // Validate new size bounds
     if (new_size < CPU_MIN_MEMORY_SIZE) {
         Logging::DebugHandler::instance().report(
             Logging::DebugCategory::MEM_ALLOCATION,
@@ -300,7 +297,6 @@ void CPU::resize_memory(size_t new_size) {
         Logging::DebugLevel::INFO);
 }
 
-// Reset the CPU state
 void CPU::reset() {
     std::fill(registers.begin(), registers.end(), 0);
     std::fill(legacy_registers.begin(), legacy_registers.end(), 0);
@@ -328,7 +324,6 @@ void CPU::reset() {
     sync_legacy_registers();
 }
 
-// Print the CPU state (debugging information)
 void CPU::print_state(const std::string& info) const {
     // If debug is not enabled, do not print the state
     if (!Config::debug) return;
@@ -369,7 +364,6 @@ void CPU::print_stack_frame(const std::string& label) const {
         label, get_fp(), get_sp(), arg_offset);
 }
 
-// Fetches the next byte as an operand and advances PC
 uint8_t CPU::fetch_operand() {
     DEBUG_TRACE(Logging::DebugCategory::CPU_EXECUTION, "Fetching operand at PC=0x{:04X}", get_pc());
     if (static_cast<size_t>(get_pc()) + 1 >= memory.size()) {
@@ -383,7 +377,6 @@ uint8_t CPU::fetch_operand() {
     return operand;
 }
 
-// Helper to read address from program stream
 uint64_t CPU::read_address_from_program(const std::vector<uint8_t>& program, uint64_t offset) const {
     if (offset >= program.size()) {
         throw CPUException("Program counter out of bounds reading address");
@@ -472,7 +465,6 @@ bool CPU::validate_stack_pop(size_t bytes) const {
     return true;
 }
 
-// Reads a 32-bit value from memory at the given address (little-endian)
 uint32_t CPU::read_mem32(uint32_t addr) const {
     if (addr % 4 != 0) {
 #ifndef NDEBUG
@@ -494,7 +486,6 @@ uint32_t CPU::read_mem32(uint32_t addr) const {
            (static_cast<uint32_t>(memory[addr + 3]) << 24);
 }
 
-// Writes a 32-bit value to memory at the given address (little-endian)
 void CPU::write_mem32(uint32_t addr, uint32_t value) {
     if (addr % 4 != 0) {
 #ifndef NDEBUG
@@ -731,7 +722,6 @@ void CPU::writePortString(uint8_t port, const std::string& str) {
     vhw::DeviceManager::instance().writePortString(port, str);
 }
 
-// FPU Stack Management Implementation
 void CPU::fpu_push(double value) {
     // Convert double to x87 80-bit format (simplified implementation)
     // For now, we'll store as 64-bit mantissa + 16-bit exponent/sign
@@ -837,10 +827,6 @@ void CPU::fpu_init() {
         set_register(meta_reg, 0);  // exponent/sign part
     }
 }
-
-// ============================================================================
-// Interrupt System Implementation
-// ============================================================================
 
 void CPU::trigger_interrupt(uint8_t vector) {
     interrupt_controller_.queue_interrupt(vector);
