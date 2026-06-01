@@ -43,9 +43,9 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["POP"] = static_cast<uint8_t>(Opcode::POP);
     mnemonic_to_opcode["CMP"] = static_cast<uint8_t>(Opcode::CMP);
     mnemonic_to_opcode["JZ"] = static_cast<uint8_t>(Opcode::JZ);
-    mnemonic_to_opcode["JE"] = static_cast<uint8_t>(Opcode::JZ);   // Alias for JZ
+    mnemonic_to_opcode["JE"] = static_cast<uint8_t>(Opcode::JZ);
     mnemonic_to_opcode["JNZ"] = static_cast<uint8_t>(Opcode::JNZ);
-    mnemonic_to_opcode["JNE"] = static_cast<uint8_t>(Opcode::JNZ); // Alias for JNZ
+    mnemonic_to_opcode["JNE"] = static_cast<uint8_t>(Opcode::JNZ);
     mnemonic_to_opcode["JS"] = static_cast<uint8_t>(Opcode::JS);
     mnemonic_to_opcode["JNS"] = static_cast<uint8_t>(Opcode::JNS);
     mnemonic_to_opcode["JC"] = static_cast<uint8_t>(Opcode::JC);
@@ -1539,11 +1539,6 @@ void Assembler::AssemblerEngine::emit_forward_ref(const std::string& symbol, siz
     }
 }
 
-/**
- * @brief Helper function to detect if an instruction operand uses bracket syntax (register indirect addressing)
- * @param operand The operand expression to check
- * @return true if operand is [register], false otherwise
- */
 bool Assembler::AssemblerEngine::is_bracket_register_syntax(const Assembler::Expression* operand) {
     if (auto mem_expr = dynamic_cast<const Assembler::MemoryReferenceExpression*>(operand)) {
         if (dynamic_cast<const Assembler::RegisterExpression*>(mem_expr->base.get())) {
