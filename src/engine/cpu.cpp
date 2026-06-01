@@ -1269,7 +1269,11 @@ void CPU::handle_syscall(bool& running) {
             
         case Syscall::SYS_IOCTL:
             if (arg1 <= 2 || is_vm_fd(arg1)) {
+#ifdef _WIN32
+                result = -ENOSYS;
+#else
                 result = syscall(SYS_ioctl, arg1, arg2, arg3);
+#endif
             } else {
                 Logging::ErrorHandler::instance().report_runtime(
                     Logging::ErrorCode::IO_GENERIC,
