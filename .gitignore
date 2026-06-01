@@ -123,3 +123,9 @@ compile_commands.json
 
 # Trunk (lint/format tooling)
 .trunk/
+
+# Private development files (never commit)
+ai_subtasks.md
+session-ses_18fc.md
+AGENTS.md
+opencode.json

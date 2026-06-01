@@ -27,29 +27,27 @@
 #include <iostream>
 #include <iomanip>
 
-#include "cpu_registers.hpp"  // Include the new register system
-#include "branch_prediction.hpp"  // Include branch prediction
-// #include "speculative_execution.hpp"  // Include speculative execution (temporarily disabled)
-#include "../config.hpp"  // Include config for quiet mode check
+#include "cpu_registers.hpp"
+#include "branch_prediction.hpp"
+// #include "speculative_execution.hpp"
+#include "../config.hpp"
 #include "opcodes/opcode_dispatcher.hpp"
 #include "opcodes/opcode_dispatcher_threaded.hpp"
-#include "opcodes/opcode_dispatcher_unified.hpp"  // Add unified dispatcher
-#include "opcodes/opcode_dispatcher_inlined.hpp"  // Add optimized inlined dispatcher
-#include "opcodes/opcode_dispatcher_predictive.hpp"  // Add branch predictive dispatcher
-#include "opcodes/instruction_fusion.hpp"  // Instruction fusion optimizer
+#include "opcodes/opcode_dispatcher_unified.hpp"
+#include "opcodes/opcode_dispatcher_inlined.hpp"
+#include "opcodes/opcode_dispatcher_predictive.hpp"
+#include "opcodes/instruction_fusion.hpp"
 
 using namespace DemiEngine_Registers;
 using namespace DemiEngine;
 
-// Constants for CPU configuration
-constexpr size_t CPU_LEGACY_REGISTER_COUNT = 8;  // For backward compatibility
-constexpr size_t CPU_DEFAULT_MEMORY_SIZE = 1024 * 1024; // 1MB default (massive increase from 256 bytes)
-constexpr size_t CPU_TEST_MEMORY_SIZE = 256; // Maintain old size for test compatibility
-constexpr size_t CPU_MIN_MEMORY_SIZE = 256; // Allow 256 bytes minimum for test compatibility
-constexpr size_t CPU_MAX_MEMORY_SIZE = 64 * 1024 * 1024; // 64MB maximum for performance
+constexpr size_t CPU_LEGACY_REGISTER_COUNT = 8;
+constexpr size_t CPU_DEFAULT_MEMORY_SIZE = 1024 * 1024;
+constexpr size_t CPU_TEST_MEMORY_SIZE = 256;
+constexpr size_t CPU_MIN_MEMORY_SIZE = 256;
+constexpr size_t CPU_MAX_MEMORY_SIZE = 64 * 1024 * 1024;
 const uint32_t INVALID_ADDR = static_cast<uint32_t>(-1);
 
-// Standalone function to compute valid instruction starts
 std::unordered_set<size_t> compute_valid_instruction_starts(const std::vector<uint8_t>& program) {
     std::unordered_set<size_t> starts;
     size_t pc = 0;
@@ -160,22 +158,18 @@ std::unordered_set<size_t> compute_valid_instruction_starts(const std::vector<ui
     return starts;
 }
 
-// CPU constructor
 CPU::CPU(size_t memory_size)
-    : cpu_mode(CPUMode::MODE_32BIT), // Default to 32-bit mode for backward compatibility
+    : cpu_mode(CPUMode::MODE_32BIT),
       registers(TOTAL_REGISTERS, 0), legacy_registers(CPU_LEGACY_REGISTER_COUNT, 0) {
 
-    // Initialize mode based on config
     if (Config::architecture == Architecture::X64) {
         cpu_mode = CPUMode::MODE_64BIT;
     }
 
-    // Determine actual memory size to use
     if (memory_size == 0) {
-        memory_size = CPU_DEFAULT_MEMORY_SIZE; // Use default 1MB
+        memory_size = CPU_DEFAULT_MEMORY_SIZE;
     }
 
-    // Validate memory size bounds
     if (memory_size < CPU_MIN_MEMORY_SIZE) {
         Logging::DebugHandler::instance().report(
             Logging::DebugCategory::MEM_ALLOCATION,
@@ -193,24 +187,21 @@ CPU::CPU(size_t memory_size)
         memory_size = CPU_MAX_MEMORY_SIZE;
     }
 
-    // Initialize memory
     memory.resize(memory_size, 0);
 
-    // Initialize special registers
-    registers[static_cast<size_t>(Register::RIP)] = 0;  // Program counter
-    registers[static_cast<size_t>(Register::RSP)] = memory.size();  // Stack pointer
-    registers[static_cast<size_t>(Register::RBP)] = memory.size();  // Frame pointer
-    registers[static_cast<size_t>(Register::RFLAGS)] = 0;  // Flags
+    registers[static_cast<size_t>(Register::RIP)] = 0;
+    registers[static_cast<size_t>(Register::RSP)] = memory.size();
+    registers[static_cast<size_t>(Register::RBP)] = memory.size();
+    registers[static_cast<size_t>(Register::RFLAGS)] = 0;
 
     arg_offset = 0;
     stack_limit_ = DEFAULT_STACK_LIMIT;
     last_accessed_addr = INVALID_ADDR;
     last_modified_addr = INVALID_ADDR;
 
-    // Sync legacy registers for backward compatibility
     sync_legacy_registers();
 
-    // Only log CPU initialization if not in test mode
+    if (!Config::test_mode) {
     if (!Config::test_mode) {
         Logging::DebugHandler::instance().report(
             Logging::DebugCategory::CPU_EXECUTION,
