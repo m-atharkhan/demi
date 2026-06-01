@@ -25,7 +25,6 @@
 class TestContext;
 class TestFramework;
 
-// Test case structure
 struct TestCase {
     std::string name;
     std::string category;
@@ -37,7 +36,6 @@ struct TestCase {
         : name(n), category(cat), test_func(func), expect_error(expect_err) {}
 };
 
-// Test result structure
 struct TestResult {
     std::string name;
     std::string category;
@@ -50,7 +48,6 @@ struct TestResult {
         : name(n), category(cat), passed(p), message(msg), duration_ms(dur) {}
 };
 
-// Test suite for organizing tests
 class TestSuite {
 public:
     TestSuite(const std::string& name) : name_(name) {}
@@ -67,7 +64,6 @@ private:
     std::vector<TestCase> tests_;
 };
 
-// Exception for test assertion failures
 class AssertionFailure : public std::exception {
 public:
     explicit AssertionFailure(const std::string& message) : message_(message) {}
@@ -77,7 +73,6 @@ private:
     std::string message_;
 };
 
-// Test context - provides testing environment and assertions
 class TestContext {
 public:
     TestContext() : cpu(CPU::create_test_cpu()), program() {
@@ -89,7 +84,6 @@ public:
 
     ~TestContext() = default;
 
-    // Program loading
     void load_program(const std::vector<uint8_t>& prog) {
         program = prog;
     }
@@ -116,7 +110,6 @@ public:
         }
     }
 
-    // Quick operations
     void load_immediate(int reg, uint32_t value) {
         if (reg < 0 || reg >= 8) {
             throw std::runtime_error("Invalid register: " + std::to_string(reg));
@@ -210,7 +203,6 @@ public:
         return cpu.get_sp();
     }
 
-    // Register assertions
     void assert_register_eq(int reg, uint32_t expected) {
         uint32_t actual = get_register(reg);
         if (actual != expected) {
@@ -238,7 +230,6 @@ public:
         }
     }
 
-    // Memory assertions
     void assert_memory_eq(uint32_t addr, uint8_t expected) {
         uint8_t actual = get_memory(addr);
         if (actual != expected) {
@@ -254,7 +245,6 @@ public:
         }
     }
 
-    // Flag assertions
     void assert_flag_set(uint32_t flag) {
         uint32_t flags = get_flags();
         if (!(flags & flag)) {
@@ -282,7 +272,6 @@ public:
         }
     }
 
-    // CPU state assertions
     void assert_pc_eq(uint32_t expected) {
         uint32_t actual = get_pc();
         if (actual != expected) {
@@ -301,7 +290,7 @@ public:
         }
     }
 
-    // ==================== CPU Mode Assertions ====================
+    
     
     // Assert CPU is in 32-bit mode
     void assert_32bit_mode() {
@@ -397,7 +386,7 @@ public:
         return cpu.get_operand_mask();
     }
     
-    // ==================== Enhanced Flag Assertions ====================
+    
     
     // Assert zero flag is set
     void assert_zero_flag_set() {
@@ -439,7 +428,7 @@ public:
         assert_flag_clear(FLAG_SIGN);
     }
     
-    // ==================== Memory Assertions (Enhanced) ====================
+    
     
     // Assert 32-bit value at memory address (little-endian)
     void assert_memory_dword_eq(uint32_t addr, uint32_t expected) {
