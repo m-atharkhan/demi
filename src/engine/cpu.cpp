@@ -202,7 +202,6 @@ CPU::CPU(size_t memory_size)
     sync_legacy_registers();
 
     if (!Config::test_mode) {
-    if (!Config::test_mode) {
         Logging::DebugHandler::instance().report(
             Logging::DebugCategory::CPU_EXECUTION,
             fmt::format("Virtual CPU initialized with {} bytes ({:.1f}MB) of memory and {} total registers",
@@ -213,7 +212,6 @@ CPU::CPU(size_t memory_size)
 
 CPU::~CPU() = default;
 
-// Extended register access methods
 uint64_t CPU::get_register(Register reg) const {
     auto index = static_cast<size_t>(reg);
     if (index < TOTAL_REGISTERS) {
@@ -242,19 +240,16 @@ void CPU::set_register(Register reg, uint64_t value) {
     }
 }
 
-// Get register name for debugging
 std::string CPU::get_register_name(Register reg) const {
     return RegisterNames::get_name(reg);
 }
 
-// Synchronize legacy 32-bit registers with new 64-bit registers (for backward compatibility)
 void CPU::sync_legacy_registers() {
     for (size_t i = 0; i < CPU_LEGACY_REGISTER_COUNT && i < TOTAL_REGISTERS; ++i) {
         legacy_registers[i] = static_cast<uint32_t>(registers[i]);
     }
 }
 
-// Synchronize from legacy registers to new registers (when legacy code modifies registers)
 void CPU::sync_from_legacy_registers() {
     for (size_t i = 0; i < CPU_LEGACY_REGISTER_COUNT && i < TOTAL_REGISTERS; ++i) {
         // Only update the lower 32 bits, preserve upper 32 bits
