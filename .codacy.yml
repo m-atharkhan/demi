@@ -21,6 +21,16 @@ engines:
       - "benchmarks/**"
       - "extern/**"
 
+  # Flawfinder: exclude device files from the "read buffer boundary" pattern.
+  # Our Device::read() interface returns a scalar uint8_t — there is no buffer
+  # to overflow. Flawfinder pattern-matches the function name "read" and flags
+  # it, but this is a false positive by design.
+  flawfinder:
+    exclude_paths:
+      - "src/engine/devices/**"
+      - "src/engine/device.hpp"
+      - "src/engine/device_manager.hpp"
+
 # Global file exclusions
 exclude_paths:
   - "build/**"
@@ -37,14 +47,3 @@ exclude_paths:
 languages:
   cpp:
     enabled: true
-
-# Tool-specific configuration
-tools:
-  flawfinder:
-    # The "read" pattern flags our virtual Device::read() interface as if it
-    # were an unbounded POSIX read(). All our implementations return a scalar
-    # uint8_t — no buffer, no overflow risk.
-    exclude_paths:
-      - "src/engine/devices/**"
-      - "src/engine/device.hpp"
-      - "src/engine/device_manager.hpp"

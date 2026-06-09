@@ -29,7 +29,11 @@ static void on_stdin(size_t max_count, uint8_t* data, size_t* out_size, void* us
     }
 
     size_t n = st->size < max_count ? st->size : max_count;
-    memcpy(data, st->data, n);
+    /* Safe: n is bounded by both st->size and max_count (the caller-provided
+       buffer capacity). Neither source nor destination can overflow. */
+    if (n > 0) {
+        memcpy(data, st->data, n);
+    }
     st->sent = 1;
     *out_size = n;
 }
