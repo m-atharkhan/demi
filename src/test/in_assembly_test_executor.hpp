@@ -29,7 +29,7 @@ struct InAssemblyTestResult {
     std::vector<AssertionResult> assertion_results;
     std::string error_message;
     
-    InAssemblyTestResult(const std::string& test_name)
+    explicit InAssemblyTestResult(const std::string& test_name)
         : name(test_name), passed(true), error_message("") {}
     
     void add_assertion(const AssertionResult& result) {

@@ -828,7 +828,8 @@ public:
             }
         }
 
-        // In quiet mode, show compact summary
+        // Config::quiet is a runtime toggle (--quiet flag). When set,
+        // verbose output is suppressed — intentional, not dead code.
         if (Config::quiet) {
             // Show failures if any
             if (!failures.empty()) {
@@ -956,6 +957,8 @@ private:
 
         // Suppress debug and error output if error is expected
         // But not in test debug modes - user wants to see diagnostics
+        // Config::test_debug is a runtime toggle; when off, verbose output
+        // for expected-error tests is suppressed — intentional, not dead code.
         if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
             Logging::DebugHandler::instance().set_suppress_output(true);
             Logging::ErrorHandler::instance().set_quiet_mode(true);
@@ -974,6 +977,8 @@ private:
             // Track if test produces output (used for pretty separators in ALL mode)
             bool has_output = false;
 
+            // Config::test_show_mode is a runtime toggle; in ALL mode all
+            // results are shown. The comparison is intentional, not dead code.
             const bool suppress_stream_output =
                 test.expect_error || (Config::test_show_mode != TestShowMode::ALL && !Config::test_debug);
 
@@ -1050,6 +1055,7 @@ private:
 
             // Check if we expected an error but didn't get one
             if (test.expect_error && Config::error_count == 0) {
+                // Config::test_debug is a runtime toggle; when off, output is suppressed
                 if (!Config::test_debug && !Config::assembly_test_debug) {
                     Logging::DebugHandler::instance().set_suppress_output(false);
                     Logging::ErrorHandler::instance().set_quiet_mode(false);
@@ -1076,7 +1082,9 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
-            if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
+            // Config::test_debug is a runtime toggle; when off, verbose output
+        // for expected-error tests is suppressed — intentional, not dead code.
+        if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
                 Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
@@ -1098,7 +1106,9 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
-            if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
+            // Config::test_debug is a runtime toggle; when off, verbose output
+        // for expected-error tests is suppressed — intentional, not dead code.
+        if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
                 Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
@@ -1121,7 +1131,9 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
-            if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
+            // Config::test_debug is a runtime toggle; when off, verbose output
+        // for expected-error tests is suppressed — intentional, not dead code.
+        if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
                 Logging::ErrorHandler::instance().set_quiet_mode(false);
             }

@@ -166,6 +166,8 @@ CPU::CPU(size_t memory_size)
     : cpu_mode(CPUMode::MODE_32BIT),
       registers(TOTAL_REGISTERS, 0), legacy_registers(CPU_LEGACY_REGISTER_COUNT, 0) {
 
+    // Config::architecture is set at startup from CLI/env. Default is not X64;
+    // the user can opt into 64-bit mode. Intentional, not dead code.
     if (Config::architecture == Architecture::X64) {
         cpu_mode = CPUMode::MODE_64BIT;
     }
@@ -307,6 +309,8 @@ void CPU::reset() {
     std::fill(memory.begin(), memory.end(), 0); // Clear memory
 
     // Reset CPU mode based on configuration - default to 32-bit for backward compatibility
+    // Config::architecture is set at startup from CLI/env. Default is not X64;
+    // the user can opt into 64-bit mode. Intentional, not dead code.
     if (Config::architecture == Architecture::X64) {
         cpu_mode = CPUMode::MODE_64BIT;
     } else {

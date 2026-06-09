@@ -447,6 +447,8 @@ void run_unit_tests_with_inputs(const std::vector<std::string>& inputs) {
         run_file_tests(assembly_files);
     }
     
+    // assembly_files is populated from CLI args. When empty and all_results
+    // is also empty, no work was done — exit(1). Intentional, not dead code.
     exit(all_results.empty() && assembly_files.empty() ? 1 : 0);
 }
 
@@ -1295,6 +1297,8 @@ public:
         if (show_version) return;
 
         // Handle test mode first
+        // Config::running_tests is a runtime toggle (--test flag).
+        // When disabled, test-mode code paths are skipped — intentional.
         if (Config::running_tests) {
             // Validate conflicting flags for test mode
             if (Config::assembly_mode) {

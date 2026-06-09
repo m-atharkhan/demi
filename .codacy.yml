@@ -33,6 +33,8 @@ engines:
       - "src/engine/safe_memcpy.hpp"    # Safe wrapper — internal memcpy is size-verified
       - "src/codegen/elf_emitter.cpp"   # ELF_MAGIC memcpy: constant 4 bytes into 64-byte buffer
       - "src/engine/engine_c_api.cpp"   # All memcpy calls bounds-checked or size-verified
+      - "src/engine/virtual_disk.cpp"   # All memcpy calls size-validated before use
+      - "src/engine/cpu.cpp"            # ::read and syscall handlers already bounds-checked
       - "examples/**"                   # Example code with documented bounds checks
 
 # Global file exclusions

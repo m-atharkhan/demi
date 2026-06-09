@@ -71,6 +71,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
     switch (opcode) {
         case static_cast<uint8_t>(Opcode::NOP): {
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[PC=0x{:04X}] [NOP] PC={}", pc, pc);
                 cpu.print_state("NOP");
@@ -112,6 +114,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             #endif
             
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, 
                     "[PC=0x{:04X}] [LOAD_IMM] R{} = {}", pc, reg, value);
@@ -177,6 +181,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             }
             
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, 
                     "[PC=0x{:04X}] [ADD] R{} = {} + {} = {}", 
@@ -217,6 +223,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             }
             
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, 
                     "[PC=0x{:04X}] [MOV] R{} = R{} ({})", 
@@ -230,6 +238,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
         
         case static_cast<uint8_t>(Opcode::HALT): {
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[PC=0x{:04X}] [HALT]", cpu.get_pc());
             }
