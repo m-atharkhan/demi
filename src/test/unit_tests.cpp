@@ -4,6 +4,7 @@
 #include "../codegen/register_allocator.hpp"
 #include "../codegen/disa_compiler.hpp"
 #include "../codegen/elf_emitter.hpp"
+#include "../engine/safe_memcpy.hpp"
 
 // Example unit tests using the new framework
 
