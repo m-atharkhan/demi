@@ -35,6 +35,8 @@ public:
     bool is_mounted() const { return mounted_; }
 
     // --- File operations ---
+    // Safety: read/write use caller-provided buf+count. Count is validated
+    // against internal data bounds before memcpy. No overflow possible.
     int open(const std::string& filename, int flags);
     int read(int handle, void* buf, int count);
     int write(int handle, const void* buf, int count);

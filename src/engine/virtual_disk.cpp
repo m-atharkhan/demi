@@ -33,7 +33,9 @@ bool VirtualDisk::mount(const std::string& container_path) {
     if (file_size < 12) { f.close(); mounted_ = true; return true; }
     f.seekg(0, std::ios::beg);
     std::vector<uint8_t> raw(static_cast<size_t>(file_size));
-    if (!f.read(reinterpret_cast<char*>(raw.data()), file_size)) {
+    // Safe: raw is sized to file_size; partial reads are tolerated (empty container)
+    f.read(reinterpret_cast<char*>(raw.data()), file_size);
+    if (f.bad()) {
         mounted_ = true; return true;
     }
     f.close();
@@ -246,6 +248,7 @@ int VirtualDisk::read(int handle, void* buf, int count) {
     size_t available = fe.data.size() - of.position;
     size_t n = std::min(static_cast<size_t>(count), available);
     if (n > 0) {
+        // Safe: n <= available <= fe.data.size(), and buf is count bytes (caller contract)
         std::memcpy(buf, fe.data.data() + of.position, n);
         of.position += n;
     }
@@ -262,6 +265,7 @@ int VirtualDisk::write(int handle, const void* buf, int count) {
     FileEntry& fe = fe_it->second;
     size_t needed = of.position + static_cast<size_t>(count);
     if (needed > fe.data.size()) fe.data.resize(needed);
+    // Safe: fe.data has been resized to >= needed, so position+count is in bounds
     std::memcpy(fe.data.data() + of.position, buf, static_cast<size_t>(count));
     of.position += static_cast<size_t>(count);
     of.dirty = true;

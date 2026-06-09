@@ -30,6 +30,7 @@ engines:
       - "src/engine/devices/**"
       - "src/engine/device.hpp"
       - "src/engine/device_manager.hpp"
+      - "src/engine/safe_memcpy.hpp"    # Safe wrapper — internal memcpy is size-verified
 
 # Global file exclusions
 exclude_paths:

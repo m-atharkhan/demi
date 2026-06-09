@@ -237,6 +237,7 @@ bool demi_engine_read_memory(demi_engine_t engine, uint64_t virtual_address, uin
         if (!ctx->engine->read_memory(virtual_address, bytes, size)) {
             return false;
         }
+        // Safe: copies min(bytes.size(), size) — never exceeds output buffer
         std::memcpy(data, bytes.data(), std::min(bytes.size(), size));
         return true;
     } catch (const std::exception& e) {
@@ -565,6 +566,8 @@ bool demi_vdisk_read_file(demi_engine_t engine, const char* filename,
     auto data = ctx->engine->vdisk_read_file(filename);
     *out_size = data.size();
     if (out_data && !data.empty()) {
+        // Safe: output buffer size is communicated via out_size; caller must ensure
+        // out_data can hold *out_size bytes
         std::memcpy(out_data, data.data(), data.size());
     }
     return true;

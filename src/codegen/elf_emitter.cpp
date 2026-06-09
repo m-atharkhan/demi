@@ -49,6 +49,8 @@ void ELFEmitter::write_ehdr(std::vector<uint8_t>& buf, uint64_t entry, uint64_t 
     uint8_t* e = &buf[buf.size() - ELF_EH_SIZE];
 
     // e_ident[16]
+    // Safe: ELF_MAGIC is a compile-time constant 4-byte array; e is buffer-sized
+    // to ELF_EH_SIZE (64 bytes), guaranteed larger than 4
     std::memcpy(e, ELF_MAGIC, 4);
     e[4] = ELF_CLASS_64;
     e[5] = ELF_DATA_2LSB;
