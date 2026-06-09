@@ -127,5 +127,5 @@ compile_commands.json
 # Private development files (never commit)
 ai_subtasks.md
 session-ses_18fc.md
-AGENTS.md
 opencode.json
+examples/embedding/*/embedding_*
