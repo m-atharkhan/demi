@@ -1,3 +1,4 @@
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <iomanip>
 #include <chrono>
@@ -1328,6 +1329,27 @@ void CPU::handle_syscall(bool& running) {
             result = memory.size();
             break;
             
+        case Syscall::SYS_ACCESS: {
+            if (arg1 >= memory.size()) { set_register_32(Register::RAX, static_cast<uint32_t>(-EFAULT)); return; }
+            long result_ac = access(reinterpret_cast<const char*>(&memory[arg1]), static_cast<int>(arg2));
+            if (result_ac == -1) result_ac = -errno;
+            set_register_32(Register::RAX, static_cast<uint32_t>(result_ac));
+            return;
+        }
+        case Syscall::SYS_GETCWD: {
+            if (arg1 >= memory.size() || arg2 == 0) { set_register_32(Register::RAX, static_cast<uint32_t>(-EFAULT)); return; }
+            char* result_gc = getcwd(reinterpret_cast<char*>(&memory[arg1]), arg2);
+            if (!result_gc) { set_register_32(Register::RAX, static_cast<uint32_t>(-errno)); }
+            else { set_register_32(Register::RAX, 0); }
+            return;
+        }
+        case Syscall::SYS_WAITPID: {
+            int status = 0;
+            long result_wp = waitpid(static_cast<pid_t>(arg1), &status, static_cast<int>(arg3));
+            if (result_wp == -1) result_wp = -errno;
+            set_register_32(Register::RAX, static_cast<uint32_t>(result_wp));
+            return;
+        }
         case Syscall::SYS_STAT: {
             long result_stat = ::stat(reinterpret_cast<const char*>(&memory[arg1]), reinterpret_cast<struct stat*>(&memory[arg2]));
             if (result_stat == -1) result_stat = -errno;

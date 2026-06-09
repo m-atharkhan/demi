@@ -45,6 +45,9 @@ public:
             case DemiEngine::Syscall::SYS_CLOSE:
                 return (allow_read_ || allow_write_) ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
 
+            case DemiEngine::Syscall::SYS_ACCESS:
+            case DemiEngine::Syscall::SYS_GETCWD:
+                return allow_read_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
             case DemiEngine::Syscall::SYS_READLINK:
                 return allow_read_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
             case DemiEngine::Syscall::SYS_STAT:
@@ -58,6 +61,8 @@ public:
                 return allow_ioctl_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
 
             case DemiEngine::Syscall::SYS_FORK:
+            case DemiEngine::Syscall::SYS_WAITPID:
+                return allow_exec_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
             case DemiEngine::Syscall::SYS_EXECVE:
                 return allow_exec_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
 

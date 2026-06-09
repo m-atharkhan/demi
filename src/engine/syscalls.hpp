@@ -18,6 +18,7 @@ enum class Syscall : uint32_t {
     // Process Control
     SYS_EXIT        = 1,
     SYS_FORK        = 2,
+    SYS_ACCESS       = 33,
     SYS_WAITPID     = 7,
     SYS_EXECVE      = 11,
     SYS_KILL        = 37,
@@ -34,7 +35,6 @@ enum class Syscall : uint32_t {
     SYS_UNLINK      = 10,
     SYS_CHDIR       = 12,
     SYS_LSEEK       = 19,
-    SYS_ACCESS      = 33,
     SYS_RENAME      = 38,
     SYS_MKDIR       = 39,
     SYS_RMDIR       = 40,
@@ -46,6 +46,7 @@ enum class Syscall : uint32_t {
     SYS_STAT        = 106,
     SYS_FSTAT       = 108,
     SYS_READLINK     = 85,
+    SYS_GETCWD       = 183,
     SYS_FSYNC       = 118,
     
     // Memory Management
@@ -92,7 +93,10 @@ enum class Syscall : uint32_t {
 inline Syscall to_syscall(uint32_t num) {
     switch (num) {
         case 1: return Syscall::SYS_EXIT;
+        case 7: return Syscall::SYS_WAITPID;
         case 2: return Syscall::SYS_FORK;
+        case 33: return Syscall::SYS_ACCESS;
+        case 183: return Syscall::SYS_GETCWD;
         case 3: return Syscall::SYS_READ;
         case 4: return Syscall::SYS_WRITE;
         case 5: return Syscall::SYS_OPEN;
@@ -114,6 +118,9 @@ inline Syscall to_syscall(uint32_t num) {
 inline const char* syscall_name(Syscall sc) {
     switch (sc) {
         case Syscall::SYS_EXIT: return "sys_exit";
+            case Syscall::SYS_ACCESS: return "sys_access";
+            case Syscall::SYS_GETCWD: return "sys_getcwd";
+            case Syscall::SYS_WAITPID: return "sys_waitpid";
         case Syscall::SYS_FORK: return "sys_fork";
             case Syscall::SYS_UNLINK: return "sys_unlink";
         case Syscall::SYS_EXECVE: return "sys_execve";
