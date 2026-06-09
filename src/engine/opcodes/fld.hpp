@@ -2,7 +2,7 @@
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
 #include "../../debug/debug_handler.hpp"
-#include <cstring>
+#include "../safe_memcpy.hpp"
 #include <fmt/format.h>
 
 void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
@@ -36,8 +36,7 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             
             // Read 32-bit float from memory
             uint32_t raw_float = cpu.read_mem32(addr);
-            float float_val;
-            std::memcpy(&float_val, &raw_float, sizeof(float));
+            float float_val = safe_bitcast<float>(raw_float);
             
             // Push onto FPU stack as double
             cpu.fpu_push(static_cast<double>(float_val));
@@ -58,8 +57,7 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             // Read 64-bit double from memory
             uint64_t raw_double = static_cast<uint64_t>(cpu.read_mem32(addr)) |
                                   (static_cast<uint64_t>(cpu.read_mem32(addr + 4)) << 32);
-            double double_val;
-            std::memcpy(&double_val, &raw_double, sizeof(double));
+            double double_val = safe_bitcast<double>(raw_double);
             
             cpu.fpu_push(double_val);
             Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FLD] Loaded double {} from addr 0x{:04X}", double_val, addr), Logging::DebugLevel::DETAIL);
@@ -83,8 +81,7 @@ void handle_FLD(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
                                   (static_cast<uint64_t>(program[cpu.get_pc() + 7]) << 56);
             cpu.set_pc(cpu.get_pc() + 8);
             
-            double double_val;
-            std::memcpy(&double_val, &raw_double, sizeof(double));
+            double double_val = safe_bitcast<double>(raw_double);
             
             cpu.fpu_push(double_val);
             Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION, fmt::format("[FLD] Loaded immediate double {}", double_val), Logging::DebugLevel::DETAIL);

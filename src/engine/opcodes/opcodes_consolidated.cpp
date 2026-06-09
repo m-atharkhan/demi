@@ -12,7 +12,7 @@
 #include <fmt/core.h>
 #include <iomanip>
 #include <cmath>
-#include <cstring>
+#include "../safe_memcpy.hpp"
 
 using Logging::DebugHandler;
 using Logging::DebugCategory;
@@ -2422,30 +2422,30 @@ inline void unpack_ps(uint64_t low, uint64_t high, float out[4]) {
     bits[1] = static_cast<uint32_t>((low >> 32) & 0xFFFFFFFFULL);
     bits[2] = static_cast<uint32_t>(high & 0xFFFFFFFFULL);
     bits[3] = static_cast<uint32_t>((high >> 32) & 0xFFFFFFFFULL);
-    std::memcpy(&out[0], &bits[0], sizeof(uint32_t));
-    std::memcpy(&out[1], &bits[1], sizeof(uint32_t));
-    std::memcpy(&out[2], &bits[2], sizeof(uint32_t));
-    std::memcpy(&out[3], &bits[3], sizeof(uint32_t));
+    out[0] = safe_bitcast<float>(bits[0]);
+    out[1] = safe_bitcast<float>(bits[1]);
+    out[2] = safe_bitcast<float>(bits[2]);
+    out[3] = safe_bitcast<float>(bits[3]);
 }
 
 inline void pack_ps(const float in[4], uint64_t& low, uint64_t& high) {
     uint32_t bits[4];
-    std::memcpy(&bits[0], &in[0], sizeof(uint32_t));
-    std::memcpy(&bits[1], &in[1], sizeof(uint32_t));
-    std::memcpy(&bits[2], &in[2], sizeof(uint32_t));
-    std::memcpy(&bits[3], &in[3], sizeof(uint32_t));
+    bits[0] = safe_bitcast<uint32_t>(in[0]);
+    bits[1] = safe_bitcast<uint32_t>(in[1]);
+    bits[2] = safe_bitcast<uint32_t>(in[2]);
+    bits[3] = safe_bitcast<uint32_t>(in[3]);
     low = (static_cast<uint64_t>(bits[1]) << 32) | static_cast<uint64_t>(bits[0]);
     high = (static_cast<uint64_t>(bits[3]) << 32) | static_cast<uint64_t>(bits[2]);
 }
 
 inline void unpack_pd(uint64_t low, uint64_t high, double out[2]) {
-    std::memcpy(&out[0], &low, sizeof(uint64_t));
-    std::memcpy(&out[1], &high, sizeof(uint64_t));
+    out[0] = safe_bitcast<double>(low);
+    out[1] = safe_bitcast<double>(high);
 }
 
 inline void pack_pd(const double in[2], uint64_t& low, uint64_t& high) {
-    std::memcpy(&low, &in[0], sizeof(uint64_t));
-    std::memcpy(&high, &in[1], sizeof(uint64_t));
+    low = safe_bitcast<uint64_t>(in[0]);
+    high = safe_bitcast<uint64_t>(in[1]);
 }
 
 } // namespace

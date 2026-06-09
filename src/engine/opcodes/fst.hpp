@@ -2,7 +2,7 @@
 #include "../cpu.hpp"
 #include "../../assembler/opcodes.hpp"
 #include "../../debug/debug_handler.hpp"
-#include <cstring>
+#include "../safe_memcpy.hpp"
 #include <fmt/format.h>
 
 void handle_FST(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
@@ -39,8 +39,7 @@ void handle_FST(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             
             // Convert double to 32-bit float
             float float_val = static_cast<float>(value);
-            uint32_t raw_float;
-            std::memcpy(&raw_float, &float_val, sizeof(float));
+            uint32_t raw_float = safe_bitcast<uint32_t>(float_val);
             
             // Write to memory
             cpu.write_mem32(addr, raw_float);
@@ -59,8 +58,7 @@ void handle_FST(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             cpu.set_pc(cpu.get_pc() + addr_size);
             
             // Convert double to raw bytes
-            uint64_t raw_double;
-            std::memcpy(&raw_double, &value, sizeof(double));
+            uint64_t raw_double = safe_bitcast<uint64_t>(value);
             
             // Write to memory (little-endian)
             cpu.write_mem32(addr, static_cast<uint32_t>(raw_double & 0xFFFFFFFF));

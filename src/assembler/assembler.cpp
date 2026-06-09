@@ -8,6 +8,7 @@
 #include <cstring>
 #include "assembler.hpp"
 #include "opcodes.hpp"
+#include "../engine/safe_memcpy.hpp"
 #include "../debug/error_handler.hpp"
 #include "../debug/debug_handler.hpp"
 #include "../config.hpp"
@@ -1301,7 +1302,7 @@ void Assembler::AssemblerEngine::enc_fpu_ldst(const Instruction& instr, uint8_t 
         if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instr.operands[0].get())) {
             emit_byte(0x02);
             double double_val = static_cast<double>(imm_expr->value);
-            uint64_t raw_double; std::memcpy(&raw_double, &double_val, sizeof(double));
+            uint64_t raw_double = safe_bitcast<uint64_t>(double_val);
             for (int i = 0; i < 8; ++i) emit_byte(static_cast<uint8_t>((raw_double >> (8 * i)) & 0xFF));
             return;
         }
@@ -1319,7 +1320,7 @@ void Assembler::AssemblerEngine::enc_fpu_arith(const Instruction& instr, uint8_t
     if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instr.operands[0].get())) {
         emit_byte(0x02);
         double double_val = static_cast<double>(imm_expr->value);
-        uint64_t raw_double; std::memcpy(&raw_double, &double_val, sizeof(double));
+        uint64_t raw_double = safe_bitcast<uint64_t>(double_val);
         for (int i = 0; i < 8; ++i) emit_byte(static_cast<uint8_t>((raw_double >> (8 * i)) & 0xFF));
         return;
     }
