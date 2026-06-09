@@ -39,7 +39,7 @@ public:
     size_t line;
     size_t column;
     
-    ASTNode(ASTNodeType t, size_t ln = 0, size_t col = 0) 
+    explicit ASTNode(ASTNodeType t, size_t ln = 0, size_t col = 0) 
         : type(t), line(ln), column(col) {}
     virtual ~ASTNode() = default;
 };
@@ -56,7 +56,7 @@ public:
     std::string name;
     int register_number;  // -1 if not resolved yet
     
-    RegisterExpression(const std::string& reg_name, size_t ln = 0, size_t col = 0)
+    explicit RegisterExpression(const std::string& reg_name, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::REGISTER, ln, col), name(reg_name), register_number(-1) {}
 };
 
@@ -88,7 +88,7 @@ class IdentifierExpression : public Expression {
 public:
     std::string name;
     
-    IdentifierExpression(const std::string& id_name, size_t ln = 0, size_t col = 0)
+    explicit IdentifierExpression(const std::string& id_name, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::IDENTIFIER, ln, col), name(id_name) {}
 };
 
@@ -105,7 +105,7 @@ public:
     std::unique_ptr<Expression> base;           // [base + offset]
     std::unique_ptr<Expression> offset;        // optional offset
     
-    MemoryReferenceExpression(std::unique_ptr<Expression> base_expr, 
+    explicit MemoryReferenceExpression(std::unique_ptr<Expression> base_expr, 
                              std::unique_ptr<Expression> offset_expr = nullptr,
                              size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::MEMORY_REF, ln, col), 
@@ -123,7 +123,7 @@ class Label : public Statement {
 public:
     std::string name;
     
-    Label(const std::string& label_name, size_t ln = 0, size_t col = 0)
+    explicit Label(const std::string& label_name, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::LABEL, ln, col), name(label_name) {}
 };
 

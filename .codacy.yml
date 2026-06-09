@@ -38,6 +38,7 @@ engines:
       - "src/engine/cpu.cpp"            # ::read and syscall handlers already bounds-checked
       - "examples/**"                   # Example code with documented bounds checks
       - "examples/embedding/embedding_06_stdin_c/main.c"  # Explicit path for PR analysis
+      - "examples/embedding/embedding_06_stdin_c/**"       # Glob variant
 
 # Global file exclusions
 exclude_paths:
