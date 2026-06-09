@@ -745,7 +745,8 @@ public:
         const std::vector<TestResult>& display_results =
             (Config::test_show_mode == TestShowMode::ALL) ? results : shown_results;
 
-        // Print header (skip in quiet mode)
+        // Config::quiet is a runtime toggle (--quiet flag). When set,
+        // test result headers are suppressed — intentional, not dead code.
         if (!Config::quiet) {
             std::cout << "\n" << fmt::format("{}┌────────────────────────────────────────────────────────────┐{}\n",
                                     "\033[36m", "\033[0m");

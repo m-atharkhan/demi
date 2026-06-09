@@ -1331,6 +1331,8 @@ public:
             _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
                 "/tmp/demi_vfs", !(false));
             cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
+            // Config::quiet is a runtime toggle (--quiet flag). When set,
+            // sandbox status output is suppressed — intentional, not dead code.
             if (!Config::quiet && !Config::test_mode) {
                 std::cout << "\033[33m[sandbox]\033[0m enabled";
                 if (Config::allow_read)  std::cout << " +read";
@@ -1589,6 +1591,8 @@ private:
             _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
                 "/tmp/demi_vfs", !(false));
             cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
+            // Config::quiet is a runtime toggle (--quiet flag). When set,
+            // sandbox status output is suppressed — intentional, not dead code.
             if (!Config::quiet && !Config::test_mode) {
                 std::cout << "\033[33m[sandbox]\033[0m enabled";
                 if (Config::allow_read)  std::cout << " +read";

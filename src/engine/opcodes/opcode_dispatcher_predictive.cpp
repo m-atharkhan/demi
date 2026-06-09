@@ -160,6 +160,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
                 flags &= ~FLAG_OVERFLOW;
             }
             
+            // result==0 is a legitimate arithmetic outcome checked here;
+            // cppcheck cannot determine its value statically
             if (result == 0) {
                 flags |= FLAG_ZERO;
             } else {
@@ -260,6 +262,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             } else {
                 flags &= ~FLAG_OVERFLOW;
             }
+            // result==0 is a legitimate arithmetic outcome checked here;
+            // cppcheck cannot determine its value statically
             if (result == 0) {
                 flags |= FLAG_ZERO;
             } else {
@@ -301,6 +305,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             } else {
                 flags &= ~FLAG_OVERFLOW;
             }
+            // result==0 is a legitimate arithmetic outcome checked here;
+            // cppcheck cannot determine its value statically
             if (result == 0) {
                 flags |= FLAG_ZERO;
             } else {

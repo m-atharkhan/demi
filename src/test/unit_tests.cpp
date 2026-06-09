@@ -879,8 +879,8 @@ TEST_CASE(fpu_arithmetic_operations, "fpu_registers") {
     // Test that we can read back floating point values correctly
     uint64_t st0_raw = ctx.cpu.get_register(Register::ST0);
     uint64_t st1_raw = ctx.cpu.get_register(Register::ST1);
-    double st0_val = *reinterpret_cast<double*>(&st0_raw);
-    double st1_val = *reinterpret_cast<double*>(&st1_raw);
+    double st0_val = safe_bitcast<double>(st0_raw);
+    double st1_val = safe_bitcast<double>(st1_raw);
     
     ctx.assert_eq(st0_val, 10.0, "ST0 should contain 10.0");
     ctx.assert_eq(st1_val, 5.0, "ST1 should contain 5.0");
