@@ -195,35 +195,7 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["PACKB"] = 0xDA;
     mnemonic_to_opcode["UNPACKB"] = 0xDB;
 
-    // SSE/SIMD Operations (0x80-0x99 range per cpu.hpp)
-    mnemonic_to_opcode["MOVAPS"] = 0x80;  // Move Aligned Packed Single
-    mnemonic_to_opcode["MOVUPS"] = 0x81;  // Move Unaligned Packed Single
-    mnemonic_to_opcode["ADDPS"] = 0x82;   // Add Packed Single
-    mnemonic_to_opcode["SUBPS"] = 0x83;   // Subtract Packed Single
-    mnemonic_to_opcode["MULPS"] = 0x84;   // Multiply Packed Single
-    mnemonic_to_opcode["DIVPS"] = 0x85;   // Divide Packed Single
-    mnemonic_to_opcode["SQRTPS"] = 0x86;  // Square Root Packed Single
-    mnemonic_to_opcode["MAXPS"] = 0x87;   // Maximum Packed Single
-    mnemonic_to_opcode["MINPS"] = 0x88;   // Minimum Packed Single
-    mnemonic_to_opcode["ANDPS"] = 0x89;   // Bitwise AND Packed Single
-    mnemonic_to_opcode["ORPS"] = 0x8A;    // Bitwise OR Packed Single
-    mnemonic_to_opcode["XORPS"] = 0x8B;   // Bitwise XOR Packed Single
-    mnemonic_to_opcode["CMPPS"] = 0x8C;   // Compare Packed Single
-
-    // Packed Double Operations
-    mnemonic_to_opcode["MOVAPD"] = 0x8D;  // Move Aligned Packed Double
-    mnemonic_to_opcode["MOVUPD"] = 0x8E;  // Move Unaligned Packed Double
-    mnemonic_to_opcode["ADDPD"] = 0x8F;   // Add Packed Double
-    mnemonic_to_opcode["SUBPD"] = 0x90;   // Subtract Packed Double
-    mnemonic_to_opcode["MULPD"] = 0x91;   // Multiply Packed Double
-    mnemonic_to_opcode["DIVPD"] = 0x92;   // Divide Packed Double
-    mnemonic_to_opcode["SQRTPD"] = 0x93;  // Square Root Packed Double
-    mnemonic_to_opcode["MAXPD"] = 0x94;   // Maximum Packed Double
-    mnemonic_to_opcode["MINPD"] = 0x95;   // Minimum Packed Double
-    mnemonic_to_opcode["ANDPD"] = 0x96;   // Bitwise AND Packed Double
-    mnemonic_to_opcode["ORPD"] = 0x97;    // Bitwise OR Packed Double
-    mnemonic_to_opcode["XORPD"] = 0x98;   // Bitwise XOR Packed Double
-    mnemonic_to_opcode["CMPPD"] = 0x99;   // Compare Packed Double
+    // SSE/SIMD ops already mapped above via Opcode enum (lines 130-161)
 }
 
 void AssemblerEngine::init_register_table() {
@@ -1648,7 +1620,8 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
         return 5; // opcode + 4-byte address
     } else if (effective_mnemonic == "PUSH" || effective_mnemonic == "POP" || effective_mnemonic == "INC" ||
                effective_mnemonic == "DEC" || effective_mnemonic == "NOT" || effective_mnemonic == "INC64" ||
-               effective_mnemonic == "DEC64" || effective_mnemonic == "NOT64") {
+               effective_mnemonic == "DEC64" || effective_mnemonic == "NOT64" ||
+               effective_mnemonic == "PUSHEX" || effective_mnemonic == "POPEX") {
         return 2; // opcode + register
     } else if (effective_mnemonic == "LOADR" || effective_mnemonic == "STORER") {
         DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} -> 3 bytes (explicit LOADR/STORER)", effective_mnemonic);
@@ -1677,7 +1650,7 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
                effective_mnemonic == "SHR" || effective_mnemonic == "SHL64" ||
                effective_mnemonic == "SHR64") {
         return 3; // opcode + register + port/immediate/register
-    } else if (effective_mnemonic == "LOADEX" || effective_mnemonic == "STOREX" || effective_mnemonic == "STOREX") {
+    } else if (effective_mnemonic == "LOADEX" || effective_mnemonic == "STOREX") {
         return 10; // opcode + register + 8-byte address
     }
 
