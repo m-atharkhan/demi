@@ -29,11 +29,9 @@ static void on_stdin(size_t max_count, uint8_t* data, size_t* out_size, void* us
     }
 
     size_t n = st->size < max_count ? st->size : max_count;
-    /* Safe: n is bounded by both st->size and max_count (the caller-provided
-       buffer capacity). Neither source nor destination can overflow. */
-    if (n > 0) {
-        memcpy(data, st->data, n);
-    }
+    /* Bounds: n = min(st->size, max_count). st->data is st->size bytes,
+       data is at least max_count bytes (caller guarantee). */
+    memcpy(data, st->data, n);
     st->sent = 1;
     *out_size = n;
 }
@@ -82,9 +80,10 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    /* host_input is guaranteed non-null: either a string literal or argv[i] */
     stdin_state_t stdin_state = {
         (const uint8_t*)host_input,
-        strlen(host_input),
+        host_input ? strlen(host_input) : 0,
         0
     };
 

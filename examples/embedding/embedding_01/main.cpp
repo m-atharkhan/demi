@@ -11,7 +11,10 @@ static std::vector<uint8_t> load_binary_file(const std::string& filepath) {
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     std::vector<uint8_t> buffer(static_cast<size_t>(size));
-    file.read(reinterpret_cast<char*>(buffer.data()), size);
+    if (size > 0) {
+        // Safe: buffer is sized to 'size', reading exactly 'size' bytes
+        file.read(reinterpret_cast<char*>(buffer.data()), size);
+    }
     return buffer;
 }
 
