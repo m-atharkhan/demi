@@ -236,7 +236,9 @@ std::string Logger::generate_timestamp() const {
 
     if (result == 0) {
         // strftime failed, use fallback
-        std::strcpy(datetime, "00-00-00 00:00:00");
+        // Safe: source is a compile-time constant string shorter than DATETIME_BUFFER_SIZE
+        std::strncpy(datetime, "00-00-00 00:00:00", DATETIME_BUFFER_SIZE - 1);
+        datetime[DATETIME_BUFFER_SIZE - 1] = '\0';
     }
 
     std::ostringstream datetime_with_ms;

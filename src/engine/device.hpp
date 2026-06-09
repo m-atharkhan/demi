@@ -7,13 +7,18 @@
 namespace vhw {
 
 /**
- * Base interface for all I/O devices, both virtual and real
+ * Base interface for all I/O devices, both virtual and real.
+ *
+ * Safety: All read() implementations return a scalar uint8_t value — there is
+ * no buffer parameter, so no buffer overflow is possible. Codacy/flawfinder
+ * may flag the method name "read" but this is a false positive: the interface
+ * contract guarantees single-byte, bounded access.
  */
 class Device {
 public:
     virtual ~Device() = default;
 
-    // Read a value from the device
+    // Read a single byte from the device. Always bounded — returns uint8_t.
     virtual uint8_t read() = 0;
 
     // Write a value to the device

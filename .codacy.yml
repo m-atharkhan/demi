@@ -1,0 +1,50 @@
+---
+# Codacy configuration for Demi Engine
+# https://docs.codacy.com/repositories-configure/codacy-configuration-file/
+
+engines:
+  # C++ static analysis with Cppcheck
+  cppcheck:
+    language: c++
+
+  # Duplication detection
+  duplication:
+    minTokenMatch: 60
+    skipLexicalErrors: true
+    ignoreLiterals: true
+    ignoreIdentifiers: false
+
+  # Cyclomatic complexity
+  metric:
+    exclude_paths:
+      - "tests/**"
+      - "benchmarks/**"
+      - "extern/**"
+
+# Global file exclusions
+exclude_paths:
+  - "build/**"
+  - "build-*/**"
+  - "bin/**"
+  - "extern/**"
+  - ".codacy/**"
+  - ".trunk/**"
+  - "compile_commands.json"
+  - "*.o"
+  - "*.d"
+
+# Languages
+languages:
+  cpp:
+    enabled: true
+
+# Tool-specific configuration
+tools:
+  flawfinder:
+    # The "read" pattern flags our virtual Device::read() interface as if it
+    # were an unbounded POSIX read(). All our implementations return a scalar
+    # uint8_t — no buffer, no overflow risk.
+    exclude_paths:
+      - "src/engine/devices/**"
+      - "src/engine/device.hpp"
+      - "src/engine/device_manager.hpp"

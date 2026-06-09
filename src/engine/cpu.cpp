@@ -1121,6 +1121,8 @@ void CPU::handle_syscall(bool& running) {
                     result = 0;
                     for (uint64_t i = 0; i < arg3; i++) {
                         char ch;
+                        // Safe: reading exactly 1 byte into a single char; no buffer risk
+                        // Bounds: arg2 + i is validated against memory.size before loop
 #ifdef _WIN32
                         ssize_t bytes = ::_read(arg1, &ch, 1);
 #else

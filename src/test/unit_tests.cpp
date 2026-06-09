@@ -1338,7 +1338,7 @@ TEST_CASE(org_and_db_integration, "assembler") {
     
     // Verify data section at 0x50
     const char* first_str = "First string";
-    for (size_t i = 0; i < strlen(first_str); i++) {
+    for (size_t i = 0; first_str[i] != '\0'; i++) {
         large_ctx.assert_byte_at(0x50 + i, first_str[i]);
     }
     
