@@ -50,6 +50,29 @@ When `--sandbox` (or `enable_sandbox`) is enabled:
 ### Watchdog Protection
 When allowing untrusted assembly code, infinite loops (e.g. `loop: JMP loop`) can tie up the host thread. `max_execution_ticks` creates a quota system; if the VM executes more instructions than allowed, it throws a `WATCHDOG_TIMEOUT` and shuts down cleanly.
 
+The default value is **5,000,000 ticks** (5 million). This is enough for most real workloads while preventing unbounded execution. Set to `0` to disable the watchdog entirely (only do this for trusted code).
+
+You can configure this in `demi_config_t`:
+
+```c
+demi_config_t cfg = demi_engine_default_config();
+cfg.max_execution_ticks = 100'000'000;  // 100M for heavy workloads
+demi_engine_t vm = demi_engine_create(&cfg);
+```
+
+Or in the C++ API:
+
+```cpp
+demi::Config config;
+config.max_execution_ticks = 100'000'000;  // 100M ticks
+demi::Engine vm(config);
+```
+
+> **Penetration test note (2026-06-09):** Prior to this default, `max_execution_ticks`
+> was 0 (unlimited). A tight `JMP` loop consumed 100% CPU indefinitely with no
+> termination. The 5M default prevents this. See `notes/demi/pentest-c-engine-api.md`
+> for the full report.
+
 ## Virtual Memory & VRAM Hooking
 
 If you are embedding DummyEngine in a Game (e.g., Minecraft mod), you map memory regions manually and intercept writes to implement "VRAM" or Memory-Mapped I/O:
