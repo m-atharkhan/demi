@@ -1111,6 +1111,10 @@ void CPU::handle_syscall(bool& running) {
                     auto* vd = io_vfs_->get_virtual_disk();
                     int handle = virtual_fds_[arg1];
                     result = vd->read(handle, &memory[arg2], static_cast<int>(arg3));
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->read(handle, &memory[arg2], static_cast<int>(arg3));
                 } else if (arg1 <= 2 || is_vm_fd(arg1)) {
                     // Line-buffered read: read byte by byte until newline or limit reached
                     // This makes sys_read work correctly with piped input
@@ -1162,6 +1166,10 @@ void CPU::handle_syscall(bool& running) {
                     std::vector<uint8_t> data(&memory[arg2], &memory[static_cast<size_t>(arg2) + static_cast<size_t>(arg3)]);
                     stdout_hook_(arg1, data);
                     result = arg3;
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->write(handle, &memory[arg2], static_cast<int>(arg3));
                 } else if (is_virtual_fd(arg1)) {
                     auto* vd = io_vfs_->get_virtual_disk();
                     int handle = virtual_fds_[arg1];
@@ -1241,7 +1249,7 @@ void CPU::handle_syscall(bool& running) {
                     if (io_vfs_ && io_vfs_->has_virtual_disk() &&
                         sandbox_check == demi::sandbox::SyscallResult::HANDLED_INTERNALLY) {
                         auto* vd = io_vfs_->get_virtual_disk();
-                        int handle = vd->open(vd->resolve_path(std::string(pathname)), static_cast<int>(arg2));
+                        int handle = vd->open(std::string(pathname), static_cast<int>(arg2));
                         if (handle >= 0) {
                             int synth_fd = 1000 + static_cast<int>(virtual_fds_.size());
                             virtual_fds_[synth_fd] = handle;
@@ -1334,6 +1342,16 @@ void CPU::handle_syscall(bool& running) {
             long result_ac = access(reinterpret_cast<const char*>(&memory[arg1]), static_cast<int>(arg2));
             if (result_ac == -1) result_ac = -errno;
             set_register_32(Register::RAX, static_cast<uint32_t>(result_ac));
+            return;
+        }
+        case Syscall::SYS_GETDENTS: {
+            if (arg2 >= memory.size() || arg3 == 0 || arg2 + arg3 > memory.size()) {
+                set_register_32(Register::RAX, static_cast<uint32_t>(-EFAULT));
+                return;
+            }
+            long result_gd = syscall(SYS_getdents, static_cast<unsigned int>(arg1), &memory[arg2], static_cast<unsigned int>(arg3));
+            if (result_gd == -1) result_gd = -errno;
+            set_register_32(Register::RAX, static_cast<uint32_t>(result_gd));
             return;
         }
         case Syscall::SYS_GETCWD: {

@@ -171,7 +171,7 @@ public:
         // Process boolean flags first (debug, verbose, etc.)
         for (const auto& parsed : parsed_args) {
             if (parsed.name == "debug" || parsed.name == "verbose" || parsed.name == "extended_registers" || 
-                parsed.name == "memdump" || parsed.name == "gui" || parsed.name == "interactive" || parsed.name == "sandbox" || parsed.name == "allow_read" || parsed.name == "allow_write" || parsed.name == "allow_exec" || parsed.name == "allow_ioctl") {
+                parsed.name == "memdump" || parsed.name == "gui" || parsed.name == "interactive" || parsed.name == "sandbox" || parsed.name == "allow_read" || parsed.name == "allow_write" || parsed.name == "allow_exec" || parsed.name == "allow_ioctl" && parsed.name != "vfs_container" || parsed.name == "vfs_container") {
                 auto def = find_arg_def(parsed.name);
                 if (def && def->value_action) {
                     def->value_action(parsed.value);
@@ -192,7 +192,7 @@ public:
         // Process value arguments next (files, paths, etc.)
         for (const auto& parsed : parsed_args) {
             if (parsed.name != "debug" && parsed.name != "verbose" && parsed.name != "extended_registers" && 
-                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" && parsed.name != "sandbox" && parsed.name != "allow_read" && parsed.name != "allow_write" && parsed.name != "allow_exec" && parsed.name != "allow_ioctl" &&
+                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" && parsed.name != "sandbox" && parsed.name != "allow_read" && parsed.name != "allow_write" && parsed.name != "allow_exec" && parsed.name != "allow_ioctl" && parsed.name != "vfs_container" &&
                 parsed.name != "help" && parsed.name != "test" && parsed.name != "unit_test" && 
                 parsed.name != "assembly_test" && parsed.name != "assembly_test_quiet" &&
                 parsed.name != "debug_verbose" && parsed.name != "debug_quiet" && parsed.name != "hexdump") {
@@ -945,6 +945,8 @@ public:
             [this](bool value) { Config::allow_exec = value; });
         parser.add_bool_arg("allow_ioctl", "--allow-ioctl", "", "Allow raw ioctl in sandbox mode", "Sandbox",
             [this](bool value) { Config::allow_ioctl = value; });
+        parser.add_value_arg("vfs_container", "--vfs-container", "", "Path to VFS container file (default: /tmp/demi_sandbox.vfs)", "Sandbox",
+            [this](const std::string& val) { Config::vfs_container = val; });
 
         // Architecture arguments
         parser.add_value_arg("architecture", "--architecture", "-arch", "Set CPU architecture (x86, x64, auto)", "Execution",
@@ -1334,6 +1336,7 @@ public:
                 if (Config::allow_read)  std::cout << " +read";
                 if (Config::allow_write) std::cout << " +write";
                 if (Config::allow_exec)  std::cout << " +exec";
+                if (Config::allow_ioctl) std::cout << " +ioctl";
                 std::cout << std::endl;
             }
         }
@@ -1591,6 +1594,7 @@ private:
                 if (Config::allow_read)  std::cout << " +read";
                 if (Config::allow_write) std::cout << " +write";
                 if (Config::allow_exec)  std::cout << " +exec";
+                if (Config::allow_ioctl) std::cout << " +ioctl";
                 std::cout << std::endl;
             }
         }

@@ -62,6 +62,7 @@ public:
     inline static bool allow_write = false;     // --allow-write: allow host file writes in sandbox
     inline static bool allow_exec  = false;     // --allow-exec: allow fork+execve in sandbox
     inline static bool allow_ioctl = false;    // --allow-ioctl: allow raw ioctl in sandbox
+    inline static std::string vfs_container = "/tmp/demi_sandbox.vfs";  // --vfs-container: VFS container path
     inline static bool assembly_test_debug = false;  // Assembly test debug mode - verbose output for assembly test diagnostics
     inline static std::string test_select = "";  // Select specific test(s) by name (comma-separated)
     inline static bool show_test_metadata = false;  // Show test metadata (description, author, category, tags)

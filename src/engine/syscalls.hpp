@@ -47,6 +47,7 @@ enum class Syscall : uint32_t {
     SYS_FSTAT       = 108,
     SYS_READLINK     = 85,
     SYS_GETCWD       = 183,
+    SYS_GETDENTS     = 141,
     SYS_FSYNC       = 118,
     
     // Memory Management
@@ -97,6 +98,7 @@ inline Syscall to_syscall(uint32_t num) {
         case 2: return Syscall::SYS_FORK;
         case 33: return Syscall::SYS_ACCESS;
         case 183: return Syscall::SYS_GETCWD;
+        case 141: return Syscall::SYS_GETDENTS;
         case 3: return Syscall::SYS_READ;
         case 4: return Syscall::SYS_WRITE;
         case 5: return Syscall::SYS_OPEN;
@@ -119,6 +121,7 @@ inline const char* syscall_name(Syscall sc) {
     switch (sc) {
         case Syscall::SYS_EXIT: return "sys_exit";
             case Syscall::SYS_ACCESS: return "sys_access";
+            case Syscall::SYS_GETDENTS: return "sys_getdents";
             case Syscall::SYS_GETCWD: return "sys_getcwd";
             case Syscall::SYS_WAITPID: return "sys_waitpid";
         case Syscall::SYS_FORK: return "sys_fork";

@@ -46,6 +46,8 @@ public:
                 return (allow_read_ || allow_write_) ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
 
             case DemiEngine::Syscall::SYS_ACCESS:
+            case DemiEngine::Syscall::SYS_GETDENTS:
+                return allow_read_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
             case DemiEngine::Syscall::SYS_GETCWD:
                 return allow_read_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
             case DemiEngine::Syscall::SYS_READLINK:
