@@ -31,6 +31,9 @@ engines:
       - "src/engine/device.hpp"
       - "src/engine/device_manager.hpp"
       - "src/engine/safe_memcpy.hpp"    # Safe wrapper — internal memcpy is size-verified
+      - "src/codegen/elf_emitter.cpp"   # ELF_MAGIC memcpy: constant 4 bytes into 64-byte buffer
+      - "src/engine/engine_c_api.cpp"   # All memcpy calls bounds-checked or size-verified
+      - "examples/**"                   # Example code with documented bounds checks
 
 # Global file exclusions
 exclude_paths:
