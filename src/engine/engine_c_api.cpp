@@ -91,7 +91,7 @@ demi_config_t demi_engine_default_config(void) {
     config.enable_sandbox = false;
     config.strict_io = false;
     config.io_root_path = "/tmp/demi_vfs";
-    config.max_execution_ticks = 0;
+    config.max_execution_ticks = 5'000'000;  // 5M ticks default — prevents unbounded execution
     config.memory_size = 1024 * 1024 * 16;
     return config;
 }
