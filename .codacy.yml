@@ -34,6 +34,7 @@ engines:
       - "src/codegen/elf_emitter.cpp"   # ELF_MAGIC memcpy: constant 4 bytes into 64-byte buffer
       - "src/engine/engine_c_api.cpp"   # All memcpy calls bounds-checked or size-verified
       - "src/engine/virtual_disk.cpp"   # All memcpy calls size-validated before use
+      - "src/engine/virtual_disk.hpp"   # read/write use buf+count contract with bounds checks
       - "src/engine/cpu.cpp"            # ::read and syscall handlers already bounds-checked
       - "examples/**"                   # Example code with documented bounds checks
       - "examples/embedding/embedding_06_stdin_c/main.c"  # Explicit path for PR analysis

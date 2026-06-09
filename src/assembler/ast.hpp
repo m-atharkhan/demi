@@ -115,7 +115,7 @@ public:
 // Statement types
 class Statement : public ASTNode {
 public:
-    Statement(ASTNodeType t, size_t ln = 0, size_t col = 0) 
+    explicit Statement(ASTNodeType t, size_t ln = 0, size_t col = 0) 
         : ASTNode(t, ln, col) {}
 };
 
@@ -132,7 +132,7 @@ public:
     std::string mnemonic;
     std::vector<std::unique_ptr<Expression>> operands;
     
-    Instruction(const std::string& mn, size_t ln = 0, size_t col = 0)
+    explicit Instruction(const std::string& mn, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::INSTRUCTION, ln, col), mnemonic(mn) {}
     
     void add_operand(std::unique_ptr<Expression> operand) {

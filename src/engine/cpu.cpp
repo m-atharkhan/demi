@@ -334,6 +334,8 @@ void CPU::reset() {
 
 void CPU::print_state(const std::string& info) const {
     // If debug is not enabled, do not print the state
+    // Config::debug is a runtime toggle (--debug flag). When disabled,
+    // state printing is a no-op — intentional, not dead code.
     if (!Config::debug) return;
 
     // Get current time
@@ -365,6 +367,8 @@ void CPU::print_state(const std::string& info) const {
 
 void CPU::print_stack_frame(const std::string& label) const {
     // If debug is not enabled, do not print the state
+    // Config::debug is a runtime toggle (--debug flag). When disabled,
+    // state printing is a no-op — intentional, not dead code.
     if (!Config::debug) return;
 
     // Use DebugHandler instead of Logger to avoid deadlock

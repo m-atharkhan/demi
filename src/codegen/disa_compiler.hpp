@@ -39,7 +39,7 @@ private:
     std::unordered_map<uint8_t, bool> slot_contains_valid;
 
 public:
-    DISAToX86Compiler() = default;
+    DISAToX86Compiler() : current_bytecode_pos(0) {}
 
     // Main compilation interface
     // entry_point: bytecode offset where code starts (data before this is embedded into memory)

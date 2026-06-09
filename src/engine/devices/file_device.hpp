@@ -101,7 +101,9 @@ public:
             fileBuffer.push_back(value);
             position = fileBuffer.size();
         } else {
-            // Double-check bounds before accessing (defense in depth)
+            // Defense-in-depth: position was already checked above (position < size
+            // in the 'if' branch). This second check catches edge cases and is
+            // intentional, not always-false dead code.
             if (position >= fileBuffer.size()) {
                 Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File device position {} is beyond buffer size {}, cannot write", position, fileBuffer.size()), Logging::DebugLevel::CRITICAL);
                 return;
