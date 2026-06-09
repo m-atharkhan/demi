@@ -397,9 +397,17 @@ public:
         get_fpu_register(st_reg, mantissa, exponent_sign);
         
         // Simple conversion for testing - in practice would need full 80-bit conversion
-        // For now, interpret mantissa as 64-bit double representation
-        double* double_ptr = reinterpret_cast<double*>(&mantissa);
-        return *double_ptr;
+        // For now, interpret mantissa as 64-bit double representation via safe memcpy
+        double result;
+        std::memcpy(&result, &mantissa, sizeof(double));
+        return result;
+    }
+
+    // Convert 64-bit integer representation to double using type-safe bitcast
+    double fpu_get_double_x64(uint64_t raw) const {
+        double result;
+        std::memcpy(&result, &raw, sizeof(double));
+        return result;
     }
 
     // AVX register access (256-bit YMM registers)
