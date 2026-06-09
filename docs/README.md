@@ -1,102 +1,93 @@
 # DemiEngine Documentation
 
-Welcome to the DemiEngine documentation! DemiEngine is a virtual machine and assembly toolchain that will serve as the foundation for the Demi programming language - featuring 134 registers, 63 implemented opcodes (151 planned), and a complete assembly development environment.
+## Quick Navigation
 
-> 📋 **[Complete Documentation Index](DOCUMENTATION_INDEX.md)** - Full navigation guide with categorized document listings
+| Category | Document | Description |
+|----------|----------|-------------|
+| **Getting Started** | [Main README](../README.md) | Project overview and quick start |
+| | [Quick Reference](reference/QUICK_REFERENCE.md) | Fast command and instruction lookup |
+| | [Usage Guide](usage/README.md) | Programming guide and tutorials |
+| **Development** | [Roadmap](../roadmap.md) | Development roadmap |
+| | [Future Opcodes](development/FUTURE_OPCODES.md) | Planned opcodes |
+| | [Demi Language Plan](development/DEMI_LANGUAGE_PLAN.md) | High-level language spec |
+| | [Native Compiler Plan](development/NATIVE_COMPILER_PLAN.md) | x86-64 code generation |
+| **Testing** | [Test Framework Design](testing/TEST_FRAMEWORK_DESIGN.md) | Testing architecture |
+| | [Test Quick Reference](testing/TEST_QUICK_REFERENCE.md) | Running and writing tests |
+| | [Test Flags](testing/TEST_FLAGS.md) | CPU flags testing |
+| **Codebase** | [Architecture](codebase/README.md) | Core system design |
+| | [API Reference](codebase/API_REFERENCE.md) | API documentation |
+| | [CPU Module](codebase/modules/cpu.md) | CPU implementation |
+| | [Assembler Module](codebase/modules/assembler.md) | Assembler architecture |
+| | [Device Manager](codebase/modules/device_manager.md) | Device I/O system |
+| **Support** | [Troubleshooting](usage/TROUBLESHOOTING.md) | Common issues and solutions |
+| | [Contributing](../CONTRIBUTING.md) | Development guidelines |
 
-## 📚 Documentation Structure
+## Directory Structure
 
-### 🚀 [Quick Reference](./QUICK_REFERENCE.md)
-
-Fast lookup for commands, instruction set, implementation status, and common patterns. **Start here** for quick answers!
-
-### 🛠️ [Development & Planning](./development/README.md)
-
-Development roadmaps, future feature plans, and implementation specifications.
-
-- **[Future Opcodes](./development/FUTURE_OPCODES.md)** - Complete plan for implementing 88 additional opcodes (SIMD, FPU, AVX, MMX)
-- **[Demi Language Plan](./development/DEMI_LANGUAGE_PLAN.md)** - High-level language frontend specification (Stage 6)
-- **[Native Compiler Plan](./development/NATIVE_COMPILER_PLAN.md)** - x86-64 code generation design
-
-### 🧪 [Testing Documentation](./testing/README.md)
-
-Complete testing framework documentation, test writing guides, and status reports.
-
-- **[Test Framework Design](./testing/TEST_FRAMEWORK_DESIGN.md)** - Architecture and design
-- **[Test Quick Reference](./testing/TEST_QUICK_REFERENCE.md)** - Running and writing tests
-- **Current Status**: 516 passed, 3 skipped, 0 failed (145 unit + 371 in-assembly; 519 total)
-
-### 💻 [Codebase Documentation](./codebase/README.md)
-
-Technical documentation for developers working on DemiEngine itself. API references, architecture overviews, and implementation details.
-
-- **[Architecture & Components](./codebase/README.md)** - Core system design
-- **[API Reference](./codebase/API_REFERENCE.md)** - Complete class and function documentation
-- **[Module Documentation](./codebase/modules/)** - Detailed module documentation (CPU, Assembler, Devices, etc.)
-
-### 📖 [Usage Documentation](./usage/README.md)
-
-User guides for programming the virtual computer. Writing assembly programs, understanding the instruction set, and working with devices.
-
-### 🔧 [Troubleshooting Guide](./TROUBLESHOOTING.md)
-
-Solutions for common problems, debugging tips, and best practices.
-
-## ⚡ Quick Start
-
-```bash
-# Build DemiEngine
-make
-
-# Run assembly program
-./bin/demi-engine -A examples/hello_world.asm
-
-# Run hex program
-./bin/demi-engine -H tests/hex/helloworld.hex
-
-# Run all tests
-./bin/demi-engine -ut && ./bin/demi-engine -at
-
-# Run specific test category
-./bin/demi-engine --unit-test           # 145 unit tests
-./bin/demi-engine --assembly-test       # 374 in-assembly tests (3 skipped)
-
-# Show help
-./bin/demi-engine --help
+```
+docs/
+├── README.md                    # This file
+├── reference/
+│   ├── QUICK_REFERENCE.md       # Fast lookup reference
+│   ├── FPU_REFERENCE.md         # FPU instruction reference
+│   ├── SIMD_REFERENCE.md        # SIMD instruction reference
+│   └── SIMD_COMPARISON.md       # SIMD comparison guide
+├── development/
+│   ├── FUTURE_OPCODES.md
+│   ├── DEMI_LANGUAGE_PLAN.md
+│   ├── NATIVE_COMPILER_PLAN.md
+│   └── REGISTER_IMPLEMENTATION_NOTES.md
+├── testing/
+│   ├── TEST_FRAMEWORK_DESIGN.md
+│   ├── TEST_QUICK_REFERENCE.md
+│   ├── TEST_FLAGS.md
+│   └── ...
+├── codebase/
+│   ├── README.md
+│   ├── API_REFERENCE.md
+│   └── modules/
+│       ├── cpu.md
+│       ├── assembler.md
+│       ├── device_manager.md
+│       └── testing.md
+├── usage/
+│   ├── README.md
+│   ├── FEATURES.md
+│   └── TROUBLESHOOTING.md
+└── archive/
+    └── ... (historical docs)
 ```
 
-## 📊 Project Status
+## Task-Based Guides
 
-**Current Phase**: Assembly Language Expansion (Stage 1)
+**Learn DemiEngine**: [Main README](../README.md) → [Quick Reference](reference/QUICK_REFERENCE.md) → [Usage Guide](usage/README.md) → [Examples](../examples/README.md)
 
-### Implemented Features ✅
+**Write Assembly**: [Usage Guide](usage/README.md) → [Quick Reference](reference/QUICK_REFERENCE.md) → [Example Programs](../examples/README.md) → [Test Programs](../tests/asm/)
 
-- **134 Registers**: x86-64 style register architecture
-- **63 Opcodes**: Core instruction set (arithmetic, logic, memory, control flow, I/O, stack)
-- **Assembly Toolchain**: Lexer → Parser → Assembler → Bytecode
-- **Device I/O**: Extensible device framework
-- **Testing**: 516 passed, 3 skipped, 0 failed (145 unit + 371 in-assembly; 519 total)
-- **Native Executables**: x86-64 ELF generation with embedded VM
+**Understand the Codebase**: [Architecture Overview](codebase/README.md) → [API Reference](codebase/API_REFERENCE.md) → [Module Docs](codebase/modules/)
 
-### Planned Features 🔄
+**Write Tests**: [Test Framework Design](testing/TEST_FRAMEWORK_DESIGN.md) → [Test Quick Reference](testing/TEST_QUICK_REFERENCE.md) → [Test Flags](testing/TEST_FLAGS.md)
 
-- **88 Additional Opcodes**: SIMD (26), FPU (23), AVX (20), MMX (11), Extended 64-bit (18)
-- **Native Code Generation**: Direct x86-64 compilation (Stage 2)
-- **Demi Language Frontend**: High-level language with customization (Stage 6)
+**Future Plans**: [Roadmap](../roadmap.md) → [Future Opcodes](development/FUTURE_OPCODES.md) → [Demi Language Plan](development/DEMI_LANGUAGE_PLAN.md) → [Native Compiler](development/NATIVE_COMPILER_PLAN.md)
 
-**Total Opcodes**: 151 defined, 63 implemented (42% - expanding to 100% in Q1-Q2 2026)
+**Troubleshoot**: [Troubleshooting Guide](usage/TROUBLESHOOTING.md) → [Test Status](testing/TEST_FRAMEWORK_STATUS.md)
 
-## 📚 Additional Resources
+**Contribute**: [Contributing Guide](../CONTRIBUTING.md) → [Architecture Overview](codebase/README.md) → [Test Framework](testing/TEST_FRAMEWORK_DESIGN.md)
 
-- **Project Roadmap**: `/roadmap.md` - Complete development plan and future stages
-- **Contributing**: `/CONTRIBUTING.md` - Development guidelines and contribution process
-- **Examples**: `/examples/` - Example assembly programs
-- **Tests**: `/tests/` - Comprehensive test suite
+## Current Status
 
-## 🆘 Getting Help
+**Phase**: Native code generation and language frontend
+**Test results**: 269 unit tests pass / 542 assembly tests (539 pass, 0 fail, 3 skip)
 
-- **Quick answers**: [Quick Reference](./QUICK_REFERENCE.md)
-- **Programming guide**: [Usage Documentation](./usage/README.md)
-- **Technical details**: [Codebase Documentation](./codebase/README.md)
-- **Common issues**: [Troubleshooting Guide](./TROUBLESHOOTING.md)
-- **Test help**: [Testing Documentation](./testing/README.md)
+- Backend: 134 registers, all core opcodes, SIMD, FPU, MMX, AVX
+- Native codegen: x86-64 ELF output functional, I/O translation in progress
+- Demi language: Planned
+
+## External Resources
+
+- Repository: https://github.com/bobrossrtx/demi
+- Issues: https://github.com/bobrossrtx/demi/issues
+- License: MIT
+
+---
+Last updated: May 2026

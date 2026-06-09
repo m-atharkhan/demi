@@ -42,7 +42,7 @@ Register Ranges (Internal Enumeration):
 #### VADD - Vector Addition
 
 ```assembly
-VADD <dest_xmm>, <src_xmm>    ; dest = dest + src (element-wise)
+VADD                        ; element-wise addition (implicit XMM regs)
 ```
 
 **Description**: Adds corresponding elements from two XMM registers.
@@ -50,7 +50,7 @@ VADD <dest_xmm>, <src_xmm>    ; dest = dest + src (element-wise)
 **Format**:
 
 - Opcode: `0xD4`
-- Format: `VADD <xmm_dest> <xmm_src>`
+- Format: `VADD` (no operands — uses XMM0/R0-R3 and XMM1/R4-R7)
 
 **Example**:
 
@@ -97,7 +97,7 @@ VADD XMM0, XMM1
 #### VMUL - Vector Multiplication
 
 ```assembly
-VMUL <dest_xmm>, <src_xmm>    ; dest = dest * src (element-wise)
+VMUL                        ; element-wise multiplication (implicit XMM regs)
 ```
 
 **Description**: Multiplies corresponding elements from two XMM registers.
@@ -105,7 +105,7 @@ VMUL <dest_xmm>, <src_xmm>    ; dest = dest * src (element-wise)
 **Format**:
 
 - Opcode: `0xD5`
-- Format: `VMUL <xmm_dest> <xmm_src>`
+- Format: `VMUL` (no operands — uses XMM0/R0-R3 and XMM1/R4-R7)
 
 **Example**:
 
@@ -151,7 +151,7 @@ VMUL XMM0, XMM1
 #### VDOT - Vector Dot Product
 
 ```assembly
-VDOT <dest_xmm>, <src_xmm>    ; dest[0] = sum(dest[i] * src[i])
+VDOT                        ; dot product (implicit XMM regs)
 ```
 
 **Description**: Computes the dot product of two vectors and stores result in first component.
@@ -159,7 +159,7 @@ VDOT <dest_xmm>, <src_xmm>    ; dest[0] = sum(dest[i] * src[i])
 **Format**:
 
 - Opcode: `0xD6`
-- Format: `VDOT <xmm_dest> <xmm_src>`
+- Format: `VDOT` (no operands)
 
 **Example**:
 
@@ -204,7 +204,7 @@ VDOT XMM0, XMM1
 #### VCMPGT - Vector Compare Greater Than
 
 ```assembly
-VCMPGT <dest_xmm>, <src_xmm>  ; dest[i] = (dest[i] > src[i]) ? -1 : 0
+VCMPGT                      ; elem-wise greater-than (implicit XMM regs)
 ```
 
 **Description**: Compares elements and sets result to all 1s (true) or all 0s (false).
@@ -212,7 +212,7 @@ VCMPGT <dest_xmm>, <src_xmm>  ; dest[i] = (dest[i] > src[i]) ? -1 : 0
 **Format**:
 
 - Opcode: `0xD9`
-- Format: `VCMPGT <xmm_dest> <xmm_src>`
+- Format: `VCMPGT` (no operands)
 
 **Example**:
 
@@ -229,7 +229,7 @@ VCMPGT XMM0, XMM1
 #### VMAX - Vector Maximum
 
 ```assembly
-VMAX <dest_xmm>, <src_xmm>    ; dest[i] = max(dest[i], src[i])
+VMAX                        ; elem-wise maximum (implicit XMM regs)
 ```
 
 **Description**: Stores the maximum of each pair of corresponding elements.
@@ -237,7 +237,7 @@ VMAX <dest_xmm>, <src_xmm>    ; dest[i] = max(dest[i], src[i])
 **Format**:
 
 - Opcode: `0xD7`
-- Format: `VMAX <xmm_dest> <xmm_src>`
+- Format: `VMAX` (no operands)
 
 **Example**:
 
@@ -291,7 +291,7 @@ VBROADCAST <dest_xmm>, <src_reg>  ; Broadcast scalar to all elements
 **Format**:
 
 - Opcode: `0xD8`
-- Format: `VBROADCAST <xmm_dest> <scalar_src>`
+- Format: `VBROADCAST` (no operands)
 
 **Example**:
 
@@ -330,7 +330,7 @@ VBROADCAST XMM0, R0
 #### PACKB - Pack Bytes
 
 ```assembly
-PACKB <dest_xmm>, <src_xmm>   ; Pack bytes with saturation
+PACKB                       ; pack bytes with saturation
 ```
 
 **Description**: Packs bytes from source and destination into destination with saturation.
@@ -338,7 +338,7 @@ PACKB <dest_xmm>, <src_xmm>   ; Pack bytes with saturation
 **Format**:
 
 - Opcode: `0xDA`
-- Format: `PACKB <xmm_dest> <xmm_src>`
+- Format: `PACKB` (no operands)
 
 **Example**:
 
@@ -374,7 +374,7 @@ PACKB XMM0, XMM1
 #### UNPACKB - Unpack Bytes
 
 ```assembly
-UNPACKB <dest_xmm>, <src_xmm> ; Unpack bytes
+UNPACKB                     ; unpack bytes
 ```
 
 **Description**: Unpacks bytes from source register.
@@ -382,7 +382,7 @@ UNPACKB <dest_xmm>, <src_xmm> ; Unpack bytes
 **Format**:
 
 - Opcode: `0xDB`
-- Format: `UNPACKB <xmm_dest> <xmm_src>`
+- Format: `UNPACKB` (no operands)
 
 **Example**:
 
