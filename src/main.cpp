@@ -21,6 +21,8 @@ namespace fs = std::experimental::filesystem;
 #endif
 
 #include "config.hpp"
+#include "engine/sandbox_policy.hpp"
+#include "engine/vfs.hpp"
 #include "engine/cpu.hpp"
 #include "engine/device_factory.hpp"
 
@@ -932,6 +934,16 @@ public:
                 Config::entry_point_symbol = value;
             });
 
+        // Sandbox arguments
+        parser.add_action_arg("sandbox", "--sandbox", "", "Enable sandbox mode (restricts file I/O, exec, network)", "Sandbox",
+            [this]() { Config::sandbox_enabled = true; });
+        parser.add_action_arg("allow_read", "--allow-read", "", "Allow host file reads when sandbox is enabled", "Sandbox",
+            [this]() { Config::allow_read = true; });
+        parser.add_action_arg("allow_write", "--allow-write", "", "Allow host file writes when sandbox is enabled", "Sandbox",
+            [this]() { Config::allow_write = true; });
+        parser.add_action_arg("allow_exec", "--allow-exec", "", "Allow fork+execve when sandbox is enabled", "Sandbox",
+            [this]() { Config::allow_exec = true; });
+
         // Architecture arguments
         parser.add_value_arg("architecture", "--architecture", "-arch", "Set CPU architecture (x86, x64, auto)", "Execution",
             [this](const std::string& value) {
@@ -1304,6 +1316,25 @@ public:
 
         CPU cpu;
         cpu.reset();
+        // ── Sandbox setup ──
+        std::unique_ptr<demi::sandbox::SyscallDispatcher> _sandbox_disp;
+        std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
+        if (Config::sandbox_enabled) {
+            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true);
+            _sandbox_disp->set_allow_read(Config::allow_read);
+            _sandbox_disp->set_allow_write(Config::allow_write);
+            _sandbox_disp->set_allow_exec(Config::allow_exec);
+            _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
+                "/tmp/demi_vfs", !(Config::allow_read || Config::allow_write));
+            cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
+            if (!Config::quiet && !Config::test_mode) {
+                std::cout << "\033[33m[sandbox]\033[0m enabled";
+                if (Config::allow_read)  std::cout << " +read";
+                if (Config::allow_write) std::cout << " +write";
+                if (Config::allow_exec)  std::cout << " +exec";
+                std::cout << std::endl;
+            }
+        }
 
         std::vector<uint8_t> program;
         if (!Config::program_file.empty()) {
@@ -1545,6 +1576,25 @@ private:
         // Initialize CPU and devices
         CPU cpu;
         cpu.reset();
+        // ── Sandbox setup ──
+        std::unique_ptr<demi::sandbox::SyscallDispatcher> _sandbox_disp;
+        std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
+        if (Config::sandbox_enabled) {
+            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true);
+            _sandbox_disp->set_allow_read(Config::allow_read);
+            _sandbox_disp->set_allow_write(Config::allow_write);
+            _sandbox_disp->set_allow_exec(Config::allow_exec);
+            _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
+                "/tmp/demi_vfs", !(Config::allow_read || Config::allow_write));
+            cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
+            if (!Config::quiet && !Config::test_mode) {
+                std::cout << "\033[33m[sandbox]\033[0m enabled";
+                if (Config::allow_read)  std::cout << " +read";
+                if (Config::allow_write) std::cout << " +write";
+                if (Config::allow_exec)  std::cout << " +exec";
+                std::cout << std::endl;
+            }
+        }
         initialize_devices();
 
         // Set PC to entry address if available

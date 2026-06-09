@@ -91,9 +91,11 @@ enum class Syscall : uint32_t {
 inline Syscall to_syscall(uint32_t num) {
     switch (num) {
         case 1: return Syscall::SYS_EXIT;
+        case 2: return Syscall::SYS_FORK;
         case 3: return Syscall::SYS_READ;
         case 4: return Syscall::SYS_WRITE;
         case 5: return Syscall::SYS_OPEN;
+        case 11: return Syscall::SYS_EXECVE;
         case 6: return Syscall::SYS_CLOSE;
         case 45: return Syscall::SYS_BRK;
         case 54: return Syscall::SYS_IOCTL;
@@ -107,6 +109,8 @@ inline Syscall to_syscall(uint32_t num) {
 inline const char* syscall_name(Syscall sc) {
     switch (sc) {
         case Syscall::SYS_EXIT: return "sys_exit";
+        case Syscall::SYS_FORK: return "sys_fork";
+        case Syscall::SYS_EXECVE: return "sys_execve";
         case Syscall::SYS_READ: return "sys_read";
         case Syscall::SYS_WRITE: return "sys_write";
         case Syscall::SYS_OPEN: return "sys_open";
