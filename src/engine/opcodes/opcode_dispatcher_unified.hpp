@@ -5,13 +5,7 @@
 // Forward declaration
 class CPU;
 
-/**
- * Unified opcode dispatcher that eliminates duplication between
- * threaded and fallback dispatchers.
- * 
- * This uses the OpcodeRegistry to ensure both dispatcher types
- * use exactly the same opcode mappings and handlers.
- */
+// Unified dispatcher that shares opcode mappings between threaded and fallback paths
 
 // Unified threaded dispatcher (uses computed goto if available)
 void dispatch_opcode_unified(CPU& cpu, const std::vector<uint8_t>& program, bool& running);

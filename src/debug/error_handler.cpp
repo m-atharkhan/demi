@@ -206,8 +206,9 @@ std::string ErrorHandler::format_error(const ErrorContext& error) {
 }
 
 void ErrorHandler::log_error(const ErrorContext& error) {
-    // In quiet mode, only log FATAL errors
-    if (quiet_mode_ && error.severity != ErrorSeverity::FATAL) {
+    // In quiet mode or test mode, only log FATAL errors
+    // But allow output in test debug modes for diagnostics
+    if ((quiet_mode_ || Config::test_mode) && !Config::test_debug && !Config::assembly_test_debug && error.severity != ErrorSeverity::FATAL) {
         return;
     }
     

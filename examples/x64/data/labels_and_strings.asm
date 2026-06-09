@@ -5,7 +5,7 @@
 ; Uses 64-bit addressing with .data and .text sections
 
 .data
-    mystring: DB 'Hello from labeled data!', 10
+    mystring: DB 'Hello from labeled data!', 10, 0
 
 .text
 .org 0x100

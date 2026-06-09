@@ -1,5 +1,8 @@
+#include <memory>
 #include "assembly_test_executor.hpp"
 #include "../assembler/lexer.hpp"
+#include "../engine/sandbox_policy.hpp"
+#include "../engine/vfs.hpp"
 #include "../assembler/parser.hpp"
 #include "../debug/error_handler.hpp"
 #include "../debug/debug_handler.hpp"
@@ -108,6 +111,15 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
 
     const bool defer_test_line_output = (Config::test_show_mode != TestShowMode::ALL);
     
+    // Auto-skip Sandbox tests when not running under --sandbox
+    if (test_case.category == "Sandbox" && !Config::sandbox_enabled) {
+        if (!defer_test_line_output && !Config::quiet_assembly_test) {
+            std::cout << test_case.name << " (requires --sandbox)" << std::endl;
+        }
+        result.skipped = true;
+        result.passed = false;
+        return result;
+    }
     // Check if test is marked to skip
     if (test_case.get_skip()) {
         if (!defer_test_line_output && !Config::quiet_assembly_test) {
@@ -150,6 +162,17 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
             test_memory_size = assembler.get_memory_size();
         }
         CPU cpu(test_memory_size);  // Use configurable memory size
+
+        // Wire sandbox if enabled via CLI
+        std::unique_ptr<demi::sandbox::SyscallDispatcher> _test_sd;
+        std::unique_ptr<demi::sandbox::VirtualFileSystem> _test_vfs;
+        if (Config::sandbox_enabled) {
+            _test_sd = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _test_sd->set_allow_read(Config::allow_read); _test_sd->set_allow_write(Config::allow_write); _test_sd->set_allow_exec(Config::allow_exec); _test_sd->set_allow_ioctl(Config::allow_ioctl);
+            _test_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
+                "/tmp/demi_vfs", true);
+            cpu.set_sandbox_environment(_test_sd.get(), _test_vfs.get());
+        }
+
         output_capture.clear();
         
         // Note: Test metadata will be printed after test execution based on filter mode
@@ -473,21 +496,21 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
             code_line = code_line.substr(start);
             
             // Check if we've reached the first .test block
-            if (code_line.find(".test") == 0) {
+            if (code_line.compare(0, 5, ".test") == 0) {
                 found_first_test = true;
                 break;
             }
             
             // Include file-level preprocessing directives
-            if (code_line.find(".include") == 0 || 
-                code_line.find(".define") == 0 ||
-                code_line.find(".undef") == 0 ||
-                code_line.find(".ifdef") == 0 ||
-                code_line.find(".ifndef") == 0 ||
-                code_line.find(".elif") == 0 ||
-                code_line.find(".else") == 0 ||
-                code_line.find(".endif") == 0 ||
-                code_line.find(".memory") == 0) {
+            if (code_line.compare(0, 8, ".include") == 0 || 
+                code_line.compare(0, 7, ".define") == 0 ||
+                code_line.compare(0, 6, ".undef") == 0 ||
+                code_line.compare(0, 6, ".ifdef") == 0 ||
+                code_line.compare(0, 7, ".ifndef") == 0 ||
+                code_line.compare(0, 5, ".elif") == 0 ||
+                code_line.compare(0, 5, ".else") == 0 ||
+                code_line.compare(0, 6, ".endif") == 0 ||
+                code_line.compare(0, 7, ".memory") == 0) {
                 source << source_lines[i] << "\n"; // Use original line with whitespace
             }
         }
@@ -503,15 +526,15 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
             code_line = code_line.substr(start);
             
             // Include preprocessing directives from test context
-            if (code_line.find(".include") == 0 || 
-                code_line.find(".define") == 0 ||
-                code_line.find(".undef") == 0 ||
-                code_line.find(".ifdef") == 0 ||
-                code_line.find(".ifndef") == 0 ||
-                code_line.find(".elif") == 0 ||
-                code_line.find(".else") == 0 ||
-                code_line.find(".endif") == 0 ||
-                code_line.find(".memory") == 0) {
+            if (code_line.compare(0, 8, ".include") == 0 || 
+                code_line.compare(0, 7, ".define") == 0 ||
+                code_line.compare(0, 6, ".undef") == 0 ||
+                code_line.compare(0, 6, ".ifdef") == 0 ||
+                code_line.compare(0, 7, ".ifndef") == 0 ||
+                code_line.compare(0, 5, ".elif") == 0 ||
+                code_line.compare(0, 5, ".else") == 0 ||
+                code_line.compare(0, 6, ".endif") == 0 ||
+                code_line.compare(0, 7, ".memory") == 0) {
                 source << code_line << "\n";
             }
         }
@@ -554,8 +577,8 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
         size_t start = trimmed.find_first_not_of(" \t");
         if (start != std::string::npos) {
             trimmed = trimmed.substr(start);
-            if (trimmed.find(".ifdef") == 0 || trimmed.find(".ifndef") == 0 || 
-                trimmed.find(".else") == 0 || trimmed.find(".endif") == 0) {
+            if (trimmed.compare(0, 6, ".ifdef") == 0 || trimmed.compare(0, 7, ".ifndef") == 0 || 
+                trimmed.compare(0, 5, ".else") == 0 || trimmed.compare(0, 6, ".endif") == 0) {
                 use_brace_tracking = true;
                 break;
             }
@@ -589,21 +612,21 @@ std::vector<uint8_t> TestExecutor::assemble_test_code(const std::vector<std::uni
                     
                     // Skip test metadata directives but include actual assembly code
                     // Skip test metadata directives
-                    if (code_line.find(".description") == 0 ||
-                        code_line.find(".author") == 0 ||
-                        code_line.find(".category") == 0 ||
-                        code_line.find(".tag") == 0 ||
-                        code_line.find(".benchmark") == 0 ||
-                        code_line.find(".warmup") == 0 ||
-                        code_line.find(".iterations") == 0 ||
-                        code_line.find(".measure") == 0 ||
-                        code_line.find(".maxsteps") == 0 ||
-                        code_line.find(".assert_") == 0 ||
-                        code_line.find(".expect_") == 0 ||
-                        code_line.find(".entry_point") == 0 ||
-                        code_line.find("#") == 0 ||
-                        code_line.find("{") == 0 ||
-                        code_line.find("}") == 0 ||
+                    if (code_line.compare(0, 12, ".description") == 0 ||
+                        code_line.compare(0, 7, ".author") == 0 ||
+                        code_line.compare(0, 9, ".category") == 0 ||
+                        code_line.compare(0, 4, ".tag") == 0 ||
+                        code_line.compare(0, 10, ".benchmark") == 0 ||
+                        code_line.compare(0, 7, ".warmup") == 0 ||
+                        code_line.compare(0, 11, ".iterations") == 0 ||
+                        code_line.compare(0, 8, ".measure") == 0 ||
+                        code_line.compare(0, 9, ".maxsteps") == 0 ||
+                        code_line.compare(0, 8, ".assert_") == 0 ||
+                        code_line.compare(0, 8, ".expect_") == 0 ||
+                        code_line.compare(0, 12, ".entry_point") == 0 ||
+                        (!code_line.empty() && code_line[0] == '#') ||
+                        (!code_line.empty() && code_line[0] == '{') ||
+                        (!code_line.empty() && code_line[0] == '}') ||
                         code_line.empty() ||
                         code_line[0] == ';') {
                         continue; // Skip metadata and comments

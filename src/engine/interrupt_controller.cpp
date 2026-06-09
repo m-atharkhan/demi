@@ -36,6 +36,15 @@ void InterruptController::disable_interrupts() {
 }
 
 void InterruptController::queue_interrupt(uint8_t vector) {
+    if (interrupt_queue_.size() >= MAX_QUEUE_SIZE) {
+        Logging::DebugHandler::instance().report(
+            Logging::DebugCategory::IO_INTERRUPT,
+            fmt::format("[InterruptController] Interrupt queue full ({} entries), dropping vector 0x{:02X}",
+                MAX_QUEUE_SIZE, vector),
+            Logging::DebugLevel::IMPORTANT);
+        return;
+    }
+
     // Non-maskable interrupts always queue
     if (is_nmi(vector) || interrupts_enabled_) {
         interrupt_queue_.push(vector);

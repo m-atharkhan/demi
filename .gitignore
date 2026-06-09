@@ -74,6 +74,11 @@ test_*.asm
 
 # Generated files
 src/program_data.hpp
+examples/embedding/*/*.hex
+examples/embedding/*/*_cpp
+examples/embedding/*/*_c
+examples/embedding/*/embedding_02_c
+examples/embedding/*/embedding_03_output_capture
 
 # External dependencies
 extern/
@@ -118,3 +123,9 @@ compile_commands.json
 
 # Trunk (lint/format tooling)
 .trunk/
+
+# Private development files (never commit)
+ai_subtasks.md
+session-ses_18fc.md
+opencode.json
+examples/embedding/*/embedding_*

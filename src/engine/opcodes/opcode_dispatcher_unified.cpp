@@ -2,7 +2,9 @@
 #include "opcode_registry.hpp"
 #include "../cpu.hpp"
 #include "../../debug/debug_handler.hpp"
+#include "../opcodes/opcode_profiler.hpp"
 #include <fmt/format.h>
+#include <atomic>
 
 // Suppress pedantic warnings about computed gotos - they are intentional for performance
 // Suppress pedantic warnings for performance-critical computed gotos
@@ -44,7 +46,20 @@ void dispatch_opcode_unified(CPU& cpu, const std::vector<uint8_t>& program, bool
             running = false;
             return;
         }
-        goto *dispatch_table[program[cpu.get_pc()]];
+        {
+            uint8_t next_op = program[cpu.get_pc()];
+            void* next_target = dispatch_table[next_op];
+            if (__builtin_expect(next_target == nullptr, 0)) {
+                Logging::DebugHandler::instance().report(
+                    Logging::DebugCategory::CPU_EXECUTION,
+                    fmt::format("Dispatch table null entry for opcode 0x{:02X} at PC={}",
+                                next_op, cpu.get_pc()),
+                    Logging::DebugLevel::CRITICAL);
+                running = false;
+                return;
+            }
+            goto *next_target;
+        }
     }
 
     // Invalid opcode handler
@@ -56,10 +71,12 @@ void dispatch_opcode_unified(CPU& cpu, const std::vector<uint8_t>& program, bool
         return;
     }
 
-    // Dispatch table initialization
+    // Dispatch table initialization (thread-safe: atomic acquire/release)
+    // Note: std::call_once with lambdas cannot capture label addresses (&&label);
+    // atomic acquire/release is the correct pattern for computed-goto dispatch tables.
 init_dispatch_table:
-    static bool initialized = false;
-    if (!initialized) {
+    static std::atomic<bool> initialized{false};
+    if (!initialized.load(std::memory_order_acquire)) {
         // Get all handlers from registry
         const auto& handlers = OpcodeRegistry::instance().get_handlers();
         
@@ -72,10 +89,10 @@ init_dispatch_table:
             }
         }
         
-        initialized = true;
+        initialized.store(true, std::memory_order_release);
         Logging::DebugHandler::instance().report(Logging::DebugCategory::CPU_EXECUTION,
             "Unified threaded dispatcher initialized", Logging::DebugLevel::DETAIL);
-    }
+    } // end atomic init guard
 
     // Jump to main dispatch loop
     goto dispatch_start;
@@ -87,9 +104,25 @@ dispatch_start:
         return;
     }
 
-    // Get opcode and jump directly to handler
-    uint8_t opcode = program[cpu.get_pc()];
-    goto *dispatch_table[opcode];
+    {
+        // opcode is uint8_t so the value is always in [0, 255]; the dispatch
+        // table has exactly 256 entries so the index is always in-range.
+        // Guard against a null entry (partial init race or future table changes).
+        uint8_t opcode = program[cpu.get_pc()];
+        // Profile opcode execution (TASK-005)
+        OPCODE_PROFILE(opcode);
+        void* target = dispatch_table[opcode];
+        if (__builtin_expect(target == nullptr, 0)) {
+            Logging::DebugHandler::instance().report(
+                Logging::DebugCategory::CPU_EXECUTION,
+                fmt::format("Dispatch table null entry for opcode 0x{:02X} at PC={}",
+                            opcode, cpu.get_pc()),
+                Logging::DebugLevel::CRITICAL);
+            running = false;
+            return;
+        }
+        goto *target;
+    }
 }
 
 #else
@@ -111,6 +144,8 @@ void dispatch_opcode_unified_fallback(CPU& cpu, const std::vector<uint8_t>& prog
     }
 
     uint8_t opcode = program[cpu.get_pc()];
+    // Profile opcode execution (TASK-005)
+    OPCODE_PROFILE(opcode);
     auto handler = OpcodeRegistry::instance().get_handler(opcode);
     
     if (handler) {

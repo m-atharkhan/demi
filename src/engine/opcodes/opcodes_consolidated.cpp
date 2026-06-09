@@ -12,7 +12,7 @@
 #include <fmt/core.h>
 #include <iomanip>
 #include <cmath>
-#include <cstring>
+#include "../safe_memcpy.hpp"
 
 using Logging::DebugHandler;
 using Logging::DebugCategory;
@@ -111,6 +111,8 @@ void handle_mod64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 #include "mul64.hpp"
 #include "div64.hpp"
 #include "and64.hpp"
+#include "or64.hpp"
+#include "xor64.hpp"
 #include "cmp64.hpp"
 #include "movex.hpp"
 #include "addex.hpp"
@@ -285,6 +287,20 @@ void handle_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         ErrorHandler::instance().report_runtime(ErrorCode::CPU_CALL_STACK_OVERFLOW, message, pc, context);
         running = false;
         throw CPUException(message);
+    }
+
+    // Check for stack overflow (SP going below reasonable minimum for push of 8 bytes)
+    if (cpu.get_sp() < 12) {
+        std::string context = fmt::format("Stack pointer: 0x{:X}, minimum safe SP: 0x000C (needs 8 bytes for FP + return addr)", cpu.get_sp());
+        std::string message = "Stack overflow during CALL: insufficient space";
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_OVERFLOW, message, pc, context);
+        running = false;
+        throw CPUException(message);
+    }
+
+    if (!cpu.validate_stack_push(8)) {
+        running = false;
+        throw CPUException("Stack overflow during CALL");
     }
 
     // Reset offset at each call
@@ -508,6 +524,12 @@ void handle_div(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             cpu.set_register_mode_aware(static_cast<Register>(reg1), quotient);
             // Set remainder in RDX (register 2) to match x86 DIV behavior
             cpu.set_register_mode_aware(static_cast<Register>(2), remainder);
+
+            uint32_t flags = cpu.get_flags();
+            flags &= ~(FLAG_ZERO | FLAG_SIGN | FLAG_CARRY | FLAG_OVERFLOW);
+            if (quotient == 0) flags |= FLAG_ZERO;
+            if (static_cast<int64_t>(quotient) < 0) flags |= FLAG_SIGN;
+            cpu.set_flags(flags);
             
             DEBUG_DETAIL(Logging::DebugCategory::CPU_REGISTERS, "R{}: {} / {} = {} (remainder in RDX: {})", reg1, val1, val2, quotient, remainder);
         }
@@ -680,6 +702,7 @@ void handle_inc(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             uint64_t result = val + 1;
             uint64_t mask = cpu.get_operand_mask();
             uint64_t masked_result = result & mask;
+            
             
             // Flags
             uint32_t current_flags = cpu.get_flags();
@@ -983,7 +1006,7 @@ void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
         // Read address using helper that respects CPU mode
         uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
         
-        // Check bounds
+        // Check register bounds
         if (reg >= cpu.get_registers().size()) {
             std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid register in LOAD instruction";
@@ -991,23 +1014,19 @@ void handle_load(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             running = false;
             return;
         }
+        // Check memory bounds
         if (addr >= cpu.get_memory().size()) {
-            std::string context = fmt::format("Attempted access at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
+            std::string context = fmt::format("Attempted read at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
             std::string message = "Memory read out of bounds in LOAD instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
             return;
         }
+        // Debug-only additional validation
+        cpu.validate_memory_read(static_cast<uint32_t>(addr), 1);
         
         // Load value from memory address into destination register
-        // Note: LOAD reads a byte from memory. For word/dword loads, use other instructions or multiple LOADs
-        // But wait, the implementation was reading a byte.
-        // "cpu.get_registers()[reg] = cpu.get_memory()[addr];"
-        // This implies LOAD loads a single byte into the register.
-        
         cpu.set_register_mode_aware(static_cast<Register>(reg), cpu.get_memory()[addr]);
-        
-
         
         cpu.set_pc(cpu.get_pc() + 2 + addr_size);
     } else {
@@ -1030,7 +1049,7 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             std::string message = "Invalid destination register in LOADR instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         
         // Check address register bounds
@@ -1039,7 +1058,7 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             std::string message = "Invalid address register in LOADR instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         
         // Get the address from the address register
@@ -1051,8 +1070,10 @@ void handle_loadr(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             std::string message = "Memory read out of bounds in LOADR instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
+        // Debug-only additional validation
+        cpu.validate_memory_read(addr, 1);
         
         // Load value from memory address into destination register
         // LOADR loads a single byte, so we need to zero-extend it properly
@@ -1084,7 +1105,7 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
             std::string message = "Invalid address register in STORER instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
 
         // Check value register bounds
@@ -1093,7 +1114,7 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
             std::string message = "Invalid value register in STORER instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
         
         // Get the address from the address register
@@ -1105,8 +1126,10 @@ void handle_storer(CPU& cpu, const std::vector<uint8_t>& program, bool& running)
             std::string message = "Memory write out of bounds in STORER instruction";
             ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
             running = false;
-            throw CPUException(message);
+            return;
         }
+        // Debug-only additional validation
+        cpu.validate_memory_write(addr, 1);
         
         // Store value from value_reg into memory address
         cpu.get_memory()[addr] = static_cast<uint8_t>(cpu.get_register_mode_aware(static_cast<Register>(value_reg)) & 0xFF);
@@ -1540,6 +1563,13 @@ void handle_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             running = false;
             throw CPUException(message);
         }
+
+#ifndef NDEBUG
+        if (!cpu.validate_stack_pop(4)) {
+            running = false;
+            throw CPUException("Stack underflow during POP");
+        }
+#endif
         
         uint32_t value = cpu.read_mem32(cpu.get_sp());
         if (!cpu.is_valid_register(static_cast<Register>(reg))) {
@@ -1589,6 +1619,15 @@ void handle_push_arg(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& prog
     uint32_t pc = cpu.get_pc();
     uint8_t reg = cpu.fetch_operand();
 
+    // Check for stack overflow (SP going below reasonable minimum)
+    if (cpu.get_sp() < 4) {
+        std::string context = fmt::format("Stack pointer: 0x{:X}, minimum safe SP: 0x0004", cpu.get_sp());
+        std::string message = "Stack overflow during PUSH_ARG: insufficient space";
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_OVERFLOW, message, pc, context);
+        running = false;
+        throw CPUException(message);
+    }
+
     DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
         "[PC=0x{:04X}] [PUSH_ARG] SP={} Pushing R{}={}",
         pc, cpu.get_sp(), static_cast<int>(reg), cpu.get_registers()[reg]
@@ -1629,6 +1668,13 @@ void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             running = false;
             throw CPUException(message);
         }
+
+#ifndef NDEBUG
+        if (!cpu.validate_stack_push(4)) {
+            running = false;
+            throw CPUException("Stack overflow during PUSH");
+        }
+#endif
         
         cpu.set_sp(cpu.get_sp() - 4);
         // Sync only SP to legacy R4 (don't overwrite other legacy registers)
@@ -1643,10 +1689,22 @@ void handle_push(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Implementation from push_flag.cpp
 void handle_push_flag(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, [[maybe_unused]] bool& running) {
+    uint32_t pc = cpu.get_pc();
+
     DebugHandler::instance().report(DebugCategory::CPU_STACK, fmt::format(
         "[PC=0x{:04X}] [PUSHF] PC={} Pushing FLAGS={:08X}",
-        cpu.get_pc(), cpu.get_pc(), cpu.get_flags()
+        pc, pc, cpu.get_flags()
     ), DebugLevel::DETAIL);
+
+    // Check for stack overflow (SP going below reasonable minimum)
+    if (cpu.get_sp() < 4) {
+        std::string context = fmt::format("Stack pointer: 0x{:X}, minimum safe SP: 0x0004", cpu.get_sp());
+        std::string message = "Stack overflow during PUSH_FLAG: insufficient space";
+        ErrorHandler::instance().report_runtime(ErrorCode::CPU_STACK_OVERFLOW, message, pc, context);
+        running = false;
+        throw CPUException(message);
+    }
+
     cpu.set_sp(cpu.get_sp() - 4);
     cpu.write_mem32(cpu.get_sp(), cpu.get_flags());
     cpu.set_pc(cpu.get_pc() + 1);  // PUSH_FLAG is a single-byte instruction
@@ -1672,6 +1730,13 @@ void handle_ret(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& program, 
         running = false;
         throw CPUException(message);
     }
+
+#ifndef NDEBUG
+    if (!cpu.validate_stack_pop(8)) {
+        running = false;
+        throw CPUException("Stack underflow during RET");
+    }
+#endif
 
     // Stack layout from CALL:
     // SP: return address
@@ -1833,7 +1898,7 @@ void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         uint8_t reg = program[cpu.get_pc() + 1];
         uint64_t addr = cpu.read_address_from_program(program, cpu.get_pc() + 2);
         
-        // Check bounds
+        // Check register bounds
         if (reg >= cpu.get_registers().size()) {
             std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
             std::string message = "Invalid register in STORE instruction";
@@ -1841,6 +1906,7 @@ void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             running = false;
             return;
         }
+        // Check memory bounds
         if (addr >= cpu.get_memory().size()) {
             std::string context = fmt::format("Attempted write at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
             std::string message = "Memory write out of bounds in STORE instruction";
@@ -1848,6 +1914,8 @@ void handle_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
             running = false;
             return;
         }
+        // Debug-only additional validation
+        cpu.validate_memory_write(static_cast<uint32_t>(addr), 1);
         
         // STORE writes the lower byte of the register to memory
         cpu.get_memory()[addr] = static_cast<uint8_t>(cpu.get_register_mode_aware(static_cast<Register>(reg)) & 0xFF);
@@ -1954,19 +2022,43 @@ void handle_swap(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
             cpu.get_pc(), cpu.get_pc(), reg, addr
         ), DebugLevel::DETAIL);
 
-        if (reg < cpu.get_registers().size() && addr < cpu.get_memory().size()) {
-            uint64_t reg_val = cpu.get_register_mode_aware(static_cast<Register>(reg));
-            uint8_t mem_val = cpu.get_memory()[addr];
-            
-            // Swap: reg gets mem byte, mem gets reg lower byte
-            cpu.set_register_mode_aware(static_cast<Register>(reg), static_cast<uint64_t>(mem_val));
-            cpu.get_memory()[addr] = static_cast<uint8_t>(reg_val & 0xFF);
-            
-            DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
-                "[PC=0x{:04X}] [SWAP] R{} = {}, memory[0x{:X}] = {}",
-                cpu.get_pc(), reg, mem_val, addr, static_cast<uint8_t>(reg_val & 0xFF)
-            ), DebugLevel::DETAIL);
+        // Validate register bounds
+        if (reg >= cpu.get_registers().size()) {
+            std::string context = fmt::format("Register R{} out of range (0-{})", reg, cpu.get_registers().size() - 1);
+            std::string message = "Invalid register in SWAP instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_INVALID_REGISTER, message, cpu.get_pc(), context);
+            running = false;
+            cpu.set_pc(cpu.get_pc() + 2 + addr_size);
+            cpu.print_state("SWAP");
+            return;
         }
+
+        // Validate memory bounds
+        if (addr >= cpu.get_memory().size()) {
+            std::string context = fmt::format("Attempted access at 0x{:X}, memory range: 0x0000-0x{:X}", addr, cpu.get_memory().size() - 1);
+            std::string message = "Memory access out of bounds in SWAP instruction";
+            ErrorHandler::instance().report_runtime(ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS, message, cpu.get_pc(), context);
+            running = false;
+            cpu.set_pc(cpu.get_pc() + 2 + addr_size);
+            cpu.print_state("SWAP");
+            return;
+        }
+        
+        // Debug-only additional validation
+        cpu.validate_memory_read(addr, 1);
+        cpu.validate_memory_write(addr, 1);
+
+        uint64_t reg_val = cpu.get_register_mode_aware(static_cast<Register>(reg));
+        uint8_t mem_val = cpu.get_memory()[addr];
+        
+        // Swap: reg gets mem byte, mem gets reg lower byte
+        cpu.set_register_mode_aware(static_cast<Register>(reg), static_cast<uint64_t>(mem_val));
+        cpu.get_memory()[addr] = static_cast<uint8_t>(reg_val & 0xFF);
+        
+        DebugHandler::instance().report(DebugCategory::MEM_ACCESS, fmt::format(
+            "[PC=0x{:04X}] [SWAP] R{} = {}, memory[0x{:X}] = {}",
+            cpu.get_pc(), reg, mem_val, addr, static_cast<uint8_t>(reg_val & 0xFF)
+        ), DebugLevel::DETAIL);
         cpu.set_pc(cpu.get_pc() + 2 + addr_size);
     } else {
         running = false;
@@ -2292,6 +2384,7 @@ void handle_jle(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
 
 // Forward declarations for 64-bit operations implemented later in this file
 void handle_inc64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+void handle_not64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 void handle_dec64(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 
 namespace {
@@ -2329,30 +2422,30 @@ inline void unpack_ps(uint64_t low, uint64_t high, float out[4]) {
     bits[1] = static_cast<uint32_t>((low >> 32) & 0xFFFFFFFFULL);
     bits[2] = static_cast<uint32_t>(high & 0xFFFFFFFFULL);
     bits[3] = static_cast<uint32_t>((high >> 32) & 0xFFFFFFFFULL);
-    std::memcpy(&out[0], &bits[0], sizeof(uint32_t));
-    std::memcpy(&out[1], &bits[1], sizeof(uint32_t));
-    std::memcpy(&out[2], &bits[2], sizeof(uint32_t));
-    std::memcpy(&out[3], &bits[3], sizeof(uint32_t));
+    out[0] = safe_bitcast<float>(bits[0]);
+    out[1] = safe_bitcast<float>(bits[1]);
+    out[2] = safe_bitcast<float>(bits[2]);
+    out[3] = safe_bitcast<float>(bits[3]);
 }
 
 inline void pack_ps(const float in[4], uint64_t& low, uint64_t& high) {
     uint32_t bits[4];
-    std::memcpy(&bits[0], &in[0], sizeof(uint32_t));
-    std::memcpy(&bits[1], &in[1], sizeof(uint32_t));
-    std::memcpy(&bits[2], &in[2], sizeof(uint32_t));
-    std::memcpy(&bits[3], &in[3], sizeof(uint32_t));
+    bits[0] = safe_bitcast<uint32_t>(in[0]);
+    bits[1] = safe_bitcast<uint32_t>(in[1]);
+    bits[2] = safe_bitcast<uint32_t>(in[2]);
+    bits[3] = safe_bitcast<uint32_t>(in[3]);
     low = (static_cast<uint64_t>(bits[1]) << 32) | static_cast<uint64_t>(bits[0]);
     high = (static_cast<uint64_t>(bits[3]) << 32) | static_cast<uint64_t>(bits[2]);
 }
 
 inline void unpack_pd(uint64_t low, uint64_t high, double out[2]) {
-    std::memcpy(&out[0], &low, sizeof(uint64_t));
-    std::memcpy(&out[1], &high, sizeof(uint64_t));
+    out[0] = safe_bitcast<double>(low);
+    out[1] = safe_bitcast<double>(high);
 }
 
 inline void pack_pd(const double in[2], uint64_t& low, uint64_t& high) {
-    std::memcpy(&low, &in[0], sizeof(uint64_t));
-    std::memcpy(&high, &in[1], sizeof(uint64_t));
+    low = safe_bitcast<uint64_t>(in[0]);
+    high = safe_bitcast<uint64_t>(in[1]);
 }
 
 } // namespace
@@ -3155,6 +3248,15 @@ void dispatch_opcode(CPU& cpu, const std::vector<uint8_t>& program, bool& runnin
         case Opcode::AND64:
             handle_and64(cpu, program, running);
             break;
+        case Opcode::OR64:
+            handle_or64(cpu, program, running);
+            break;
+        case Opcode::XOR64:
+            handle_xor64(cpu, program, running);
+            break;
+        case Opcode::NOT64:
+            handle_not64(cpu, program, running);
+            break;
         case Opcode::CMP64:
             handle_cmp64(cpu, program, running);
             break;
@@ -3428,6 +3530,8 @@ void handle_add64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         }
 
         // Check for zero
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
         if (result == 0) {
             flags |= FLAG_ZERO;
         } else {
@@ -3557,6 +3661,8 @@ void handle_sub64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         }
 
         // Check for zero
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
         if (result == 0) {
             flags |= FLAG_ZERO;
         } else {
@@ -3639,6 +3745,8 @@ void handle_inc64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         }
 
         // Check for zero
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
         if (result == 0) {
             flags |= FLAG_ZERO;
         } else {
@@ -3701,6 +3809,8 @@ void handle_dec64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         }
 
         // Check for zero
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
         if (result == 0) {
             flags |= FLAG_ZERO;
         } else {
@@ -3880,4 +3990,50 @@ void handle_modecmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running
     }
 
     cpu.print_state("MODECMP");
+}
+
+void handle_not64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) {
+    uint32_t pc = cpu.get_pc();
+
+    if (pc + 1 < program.size()) {
+        uint8_t reg = program[pc + 1];
+
+        DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
+            "[PC=0x{:04X}] [NOT64] Bitwise NOT of 64-bit register R{}",
+            pc, reg
+        ), DebugLevel::DETAIL);
+
+        uint64_t value = cpu.get_register_64(static_cast<Register>(reg));
+        uint64_t result = ~value;
+
+        uint32_t flags = cpu.get_flags();
+
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
+        if (result == 0) {
+            flags |= FLAG_ZERO;
+        } else {
+            flags &= ~FLAG_ZERO;
+        }
+
+        if ((result >> 63) & 1) {
+            flags |= FLAG_SIGN;
+        } else {
+            flags &= ~FLAG_SIGN;
+        }
+
+        cpu.set_flags(flags);
+        cpu.set_register_64(static_cast<Register>(reg), result);
+
+        DebugHandler::instance().report(DebugCategory::CPU_EXECUTION, fmt::format(
+            "[PC=0x{:04X}] [NOT64] Result: R{} = 0x{:016X} = ~0x{:016X}",
+            pc, reg, result, value
+        ), DebugLevel::DETAIL);
+
+        cpu.set_pc(pc + 2);
+    } else {
+        running = false;
+    }
+
+    cpu.print_state("NOT64");
 }

@@ -2,6 +2,14 @@
 
 #include <cstdint>
 
+#ifdef _WIN32
+// MingW / Windows headers sometimes define these as macros, clashing with our enum
+#undef SYS_OPEN
+#undef SYS_CLOSE
+#undef SYS_READ
+#undef SYS_WRITE
+#endif
+
 namespace DemiEngine {
 
 // Linux i386 syscall numbers (INT 0x80)
@@ -10,6 +18,7 @@ enum class Syscall : uint32_t {
     // Process Control
     SYS_EXIT        = 1,
     SYS_FORK        = 2,
+    SYS_ACCESS       = 33,
     SYS_WAITPID     = 7,
     SYS_EXECVE      = 11,
     SYS_KILL        = 37,
@@ -26,7 +35,6 @@ enum class Syscall : uint32_t {
     SYS_UNLINK      = 10,
     SYS_CHDIR       = 12,
     SYS_LSEEK       = 19,
-    SYS_ACCESS      = 33,
     SYS_RENAME      = 38,
     SYS_MKDIR       = 39,
     SYS_RMDIR       = 40,
@@ -35,6 +43,11 @@ enum class Syscall : uint32_t {
     SYS_IOCTL       = 54,
     SYS_FCNTL       = 55,
     SYS_DUP2        = 63,
+    SYS_STAT        = 106,
+    SYS_FSTAT       = 108,
+    SYS_READLINK     = 85,
+    SYS_GETCWD       = 183,
+    SYS_GETDENTS     = 141,
     SYS_FSYNC       = 118,
     
     // Memory Management
@@ -65,8 +78,6 @@ enum class Syscall : uint32_t {
     
     // Information
     SYS_UNAME       = 122,
-    SYS_STAT        = 106,
-    SYS_FSTAT       = 108,
     SYS_LSTAT       = 107,
     
     // Other
@@ -83,11 +94,21 @@ enum class Syscall : uint32_t {
 inline Syscall to_syscall(uint32_t num) {
     switch (num) {
         case 1: return Syscall::SYS_EXIT;
+        case 7: return Syscall::SYS_WAITPID;
+        case 2: return Syscall::SYS_FORK;
+        case 33: return Syscall::SYS_ACCESS;
+        case 183: return Syscall::SYS_GETCWD;
+        case 141: return Syscall::SYS_GETDENTS;
         case 3: return Syscall::SYS_READ;
         case 4: return Syscall::SYS_WRITE;
         case 5: return Syscall::SYS_OPEN;
+        case 10: return Syscall::SYS_UNLINK;
+        case 11: return Syscall::SYS_EXECVE;
         case 6: return Syscall::SYS_CLOSE;
         case 45: return Syscall::SYS_BRK;
+        case 106: return Syscall::SYS_STAT;
+        case 108: return Syscall::SYS_FSTAT;
+        case 85: return Syscall::SYS_READLINK;
         case 54: return Syscall::SYS_IOCTL;
         case 90: return Syscall::SYS_MMAP;
         case 192: return Syscall::SYS_MMAP2;
@@ -99,11 +120,19 @@ inline Syscall to_syscall(uint32_t num) {
 inline const char* syscall_name(Syscall sc) {
     switch (sc) {
         case Syscall::SYS_EXIT: return "sys_exit";
+            case Syscall::SYS_ACCESS: return "sys_access";
+            case Syscall::SYS_GETDENTS: return "sys_getdents";
+            case Syscall::SYS_GETCWD: return "sys_getcwd";
+            case Syscall::SYS_WAITPID: return "sys_waitpid";
+        case Syscall::SYS_FORK: return "sys_fork";
+            case Syscall::SYS_UNLINK: return "sys_unlink";
+        case Syscall::SYS_EXECVE: return "sys_execve";
         case Syscall::SYS_READ: return "sys_read";
         case Syscall::SYS_WRITE: return "sys_write";
         case Syscall::SYS_OPEN: return "sys_open";
         case Syscall::SYS_CLOSE: return "sys_close";
         case Syscall::SYS_BRK: return "sys_brk";
+            case Syscall::SYS_READLINK: return "sys_readlink";
         case Syscall::SYS_IOCTL: return "sys_ioctl";
         case Syscall::SYS_MMAP: return "sys_mmap";
         case Syscall::SYS_MMAP2: return "sys_mmap2";

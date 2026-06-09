@@ -38,8 +38,11 @@ public:
         // Try to open the file for reading
         loadFromFile();
     }
+    bool dirty_ = false;
 
-    ~FileDevice() override = default;
+    ~FileDevice() override {
+        if (dirty_) saveToFile();
+    }
 
     uint8_t read() override {
         std::lock_guard<std::mutex> lock(mutex);
@@ -98,7 +101,9 @@ public:
             fileBuffer.push_back(value);
             position = fileBuffer.size();
         } else {
-            // Double-check bounds before accessing (defense in depth)
+            // Defense-in-depth: position was already checked above (position < size
+            // in the 'if' branch). This second check catches edge cases and is
+            // intentional, not always-false dead code.
             if (position >= fileBuffer.size()) {
                 Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File device position {} is beyond buffer size {}, cannot write", position, fileBuffer.size()), Logging::DebugLevel::CRITICAL);
                 return;
@@ -109,16 +114,26 @@ public:
             ++position;
         }
 
-        // Save to file
-        saveToFile();
+        // Mark dirty - actual file write deferred to flush
+        dirty_ = true;
     }
 
     std::string getName() const override {
         return fmt::format("File Device ({})", filepath);
     }
 
+    void flush() {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (dirty_) {
+            saveToFile();
+            dirty_ = false;
+        }
+    }
+
     void reset() override {
         std::lock_guard<std::mutex> lock(mutex);
+        if (dirty_) saveToFile();
+        dirty_ = false;
         position = 0;
         loadFromFile();
     }
@@ -188,18 +203,28 @@ private:
         if (fs::exists(parentPath)) {
             struct stat st;
             std::string parentPathStr = parentPath.string(); // Convert to string to avoid use-after-free
+#ifdef _WIN32
+            // No symlink check for Windows
+#else
             if (lstat(parentPathStr.c_str(), &st) == 0) {
                 if (S_ISLNK(st.st_mode)) {
                     Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path parent directory is a symbolic link (security risk): '{}'", parentPath.string()), Logging::DebugLevel::CRITICAL);
                     return false;
                 }
             }
+#endif
         }
 
         // If file exists, check if it's a symlink or special file
         if (fs::exists(fullPath)) {
             struct stat st;
             std::string fullPathStr = fullPath.string(); // Convert to string to avoid use-after-free
+#ifdef _WIN32
+            if (stat(fullPathStr.c_str(), &st) == 0) {
+                // Windows stat handles mostly regular files here
+                // We'll trust fs::is_regular_file from C++17
+            }
+#else
             if (lstat(fullPathStr.c_str(), &st) == 0) {
                 if (S_ISLNK(st.st_mode)) {
                     Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_FILE, fmt::format("File path is a symbolic link (security risk): '{}'", path), Logging::DebugLevel::CRITICAL);
@@ -212,6 +237,7 @@ private:
                     return false;
                 }
             }
+#endif
         }
 
         return true;

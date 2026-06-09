@@ -39,7 +39,7 @@ public:
     size_t line;
     size_t column;
     
-    ASTNode(ASTNodeType t, size_t ln = 0, size_t col = 0) 
+    explicit ASTNode(ASTNodeType t, size_t ln = 0, size_t col = 0) 
         : type(t), line(ln), column(col) {}
     virtual ~ASTNode() = default;
 };
@@ -47,7 +47,7 @@ public:
 // Expression types
 class Expression : public ASTNode {
 public:
-    Expression(ASTNodeType t, size_t ln = 0, size_t col = 0) 
+    explicit Expression(ASTNodeType t, size_t ln = 0, size_t col = 0) 
         : ASTNode(t, ln, col) {}
 };
 
@@ -56,7 +56,7 @@ public:
     std::string name;
     int register_number;  // -1 if not resolved yet
     
-    RegisterExpression(const std::string& reg_name, size_t ln = 0, size_t col = 0)
+    explicit RegisterExpression(const std::string& reg_name, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::REGISTER, ln, col), name(reg_name), register_number(-1) {}
 };
 
@@ -64,7 +64,7 @@ class ImmediateExpression : public Expression {
 public:
     int64_t value;
     
-    ImmediateExpression(int64_t val, size_t ln = 0, size_t col = 0)
+    explicit ImmediateExpression(int64_t val, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::IMMEDIATE, ln, col), value(val) {}
 };
 
@@ -72,7 +72,7 @@ class FloatExpression : public Expression {
 public:
     double value;
     
-    FloatExpression(double val, size_t ln = 0, size_t col = 0)
+    explicit FloatExpression(double val, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::FLOAT, ln, col), value(val) {}
 };
 
@@ -80,7 +80,7 @@ class STRegisterExpression : public Expression {
 public:
     uint8_t index;  // ST(0) to ST(7)
     
-    STRegisterExpression(uint8_t st_index, size_t ln = 0, size_t col = 0)
+    explicit STRegisterExpression(uint8_t st_index, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::ST_REGISTER, ln, col), index(st_index) {}
 };
 
@@ -88,7 +88,7 @@ class IdentifierExpression : public Expression {
 public:
     std::string name;
     
-    IdentifierExpression(const std::string& id_name, size_t ln = 0, size_t col = 0)
+    explicit IdentifierExpression(const std::string& id_name, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::IDENTIFIER, ln, col), name(id_name) {}
 };
 
@@ -96,7 +96,7 @@ class StringLiteralExpression : public Expression {
 public:
     std::string value;
     
-    StringLiteralExpression(const std::string& str_value, size_t ln = 0, size_t col = 0)
+    explicit StringLiteralExpression(const std::string& str_value, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::STRING_LITERAL, ln, col), value(str_value) {}
 };
 
@@ -105,7 +105,7 @@ public:
     std::unique_ptr<Expression> base;           // [base + offset]
     std::unique_ptr<Expression> offset;        // optional offset
     
-    MemoryReferenceExpression(std::unique_ptr<Expression> base_expr, 
+    explicit MemoryReferenceExpression(std::unique_ptr<Expression> base_expr, 
                              std::unique_ptr<Expression> offset_expr = nullptr,
                              size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::MEMORY_REF, ln, col), 
@@ -115,7 +115,7 @@ public:
 // Statement types
 class Statement : public ASTNode {
 public:
-    Statement(ASTNodeType t, size_t ln = 0, size_t col = 0) 
+    explicit Statement(ASTNodeType t, size_t ln = 0, size_t col = 0) 
         : ASTNode(t, ln, col) {}
 };
 
@@ -123,7 +123,7 @@ class Label : public Statement {
 public:
     std::string name;
     
-    Label(const std::string& label_name, size_t ln = 0, size_t col = 0)
+    explicit Label(const std::string& label_name, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::LABEL, ln, col), name(label_name) {}
 };
 
@@ -132,7 +132,7 @@ public:
     std::string mnemonic;
     std::vector<std::unique_ptr<Expression>> operands;
     
-    Instruction(const std::string& mn, size_t ln = 0, size_t col = 0)
+    explicit Instruction(const std::string& mn, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::INSTRUCTION, ln, col), mnemonic(mn) {}
     
     void add_operand(std::unique_ptr<Expression> operand) {
@@ -145,7 +145,7 @@ public:
     std::string name;
     std::vector<std::unique_ptr<Expression>> arguments;
     
-    Directive(const std::string& directive_name, size_t ln = 0, size_t col = 0)
+    explicit Directive(const std::string& directive_name, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::DIRECTIVE, ln, col), name(directive_name) {}
     
     void add_argument(std::unique_ptr<Expression> arg) {
@@ -167,7 +167,7 @@ public:
     TestAssertionType assertion_type;
     std::vector<std::unique_ptr<Expression>> arguments;
     
-    TestAssertion(TestAssertionType type, size_t ln = 0, size_t col = 0)
+    explicit TestAssertion(TestAssertionType type, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::TEST_ASSERTION, ln, col), assertion_type(type) {}
     
     TestAssertion(TestAssertionType type, std::vector<std::unique_ptr<Expression>>&& args, size_t ln = 0, size_t col = 0)
@@ -207,7 +207,7 @@ public:
     bool category_set = false;
     bool entry_point_set = false;
     
-    TestCase(const std::string& test_name, size_t ln = 0, size_t col = 0)
+    explicit TestCase(const std::string& test_name, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::TEST_CASE, ln, col), name(test_name) {}
     
     TestCase(const std::string& test_name, std::vector<std::unique_ptr<Statement>>&& test_body, size_t ln = 0, size_t col = 0)

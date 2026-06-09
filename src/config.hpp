@@ -56,14 +56,25 @@ public:
     inline static bool quiet_assembly_test = false;  // Quiet mode for assembly tests
     inline static bool quiet = false;  // Global quiet mode - suppress logs and only show results
     inline static bool test_mode = false;  // Test mode - suppress verbose logs during testing
+    inline static bool test_debug = false;  // Test debug mode - verbose output for test diagnostics
+    inline static bool sandbox_enabled = false;  // --sandbox: enable sandbox mode
+    inline static bool allow_read  = false;     // --allow-read: allow host file reads in sandbox
+    inline static bool allow_write = false;     // --allow-write: allow host file writes in sandbox
+    inline static bool allow_exec  = false;     // --allow-exec: allow fork+execve in sandbox
+    inline static bool allow_ioctl = false;    // --allow-ioctl: allow raw ioctl in sandbox
+    inline static std::string vfs_container = "/tmp/demi_sandbox.vfs";  // --vfs-container: VFS container path
+    inline static bool assembly_test_debug = false;  // Assembly test debug mode - verbose output for assembly test diagnostics
+    inline static std::string test_select = "";  // Select specific test(s) by name (comma-separated)
     inline static bool show_test_metadata = false;  // Show test metadata (description, author, category, tags)
     inline static TestShowMode test_show_mode = TestShowMode::ALL;  // Test filtering mode
     inline static std::string debug_file = "debug.log";
     inline static std::string program_file = "";  // Hex file input
     inline static std::string assembly_file = "";  // Assembly source file
     inline static std::string assembly_output = "";  // Assembly bytecode output file (for -ao option)
+    inline static std::string hex_out = "";  // Output assembled bytecode as a string hex byte array
     inline static std::string output_name = "";  // Output name for compiled executable
     inline static std::string entry_point_symbol = "_start";  // Entry point symbol name
+    inline static bool profiling = false;  // Opcode profiling enabled
     inline static int error_count = 0;
 
     // Architecture detection and warning state

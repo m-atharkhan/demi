@@ -29,12 +29,19 @@ private:
     std::unordered_map<uint8_t, int32_t> spill_slots;       // DemiEngine reg → stack offset
     int32_t next_spill_offset;
 
+    // LRU tracking for eviction
+    std::unordered_map<uint8_t, uint64_t> lru_timestamps;   // virt_reg → last access time
+    uint64_t lru_counter;                                    // monotonically increasing counter
+
     // Statistics
     size_t spill_count;
     size_t allocation_count;
 
 public:
     RegisterAllocator();
+
+    // Allow external consumers to update LRU timestamp
+    void update_lru_custom(uint8_t virt_reg);
 
     // Core allocation interface
     X86Register allocate_register(uint8_t virt_reg);
@@ -67,6 +74,8 @@ public:
 private:
     std::optional<X86Register> find_free_register();
     int32_t allocate_spill_slot();
+    void update_lru(uint8_t virt_reg);
+    static bool is_caller_saved(X86Register reg);
 };
 
 } // namespace CodeGen

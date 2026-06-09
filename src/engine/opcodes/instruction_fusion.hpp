@@ -23,6 +23,9 @@
 // 5. LOAD + ADD/SUB/MUL                -> Memory-arithmetic
 // 6. INC/DEC + CMP                     -> Inc/Dec-compare
 // 7. MOV + arithmetic                  -> Move-arithmetic
+// 8. PUSH + POP                        -> Redundant push-pop elimination
+// 9. PUSH + PUSH + CALL                -> Call-with-arguments fusion
+// 10. LOAD_IMM + STORE                -> Immediate-to-memory store
 
 namespace InstructionFusion {
 
@@ -49,14 +52,17 @@ enum class FusionPattern {
     LOAD_ADD,            // LOAD Rx, [addr] + ADD Rx, Ry -> Memory-add
     LOAD_SUB,            // LOAD Rx, [addr] + SUB Rx, Ry -> Memory-sub
     MOV_ADD,             // MOV Rx, Ry + ADD Rx, Rz -> Move-add
-    MOV_SUB              // MOV Rx, Ry + SUB Rx, Rz -> Move-sub
+    MOV_SUB,             // MOV Rx, Ry + SUB Rx, Rz -> Move-sub
+    PUSH_POP,            // PUSH Rx + POP Rx -> No-op (or MOV when different reg)
+    PUSH_PUSH_CALL,      // PUSH Rx + PUSH Ry + CALL addr -> Fused call-with-args
+    LOAD_IMM_STORE       // LOAD_IMM Rx, imm + STORE Rx, addr -> Immediate-to-memory
 };
 
 // Fusion statistics for profiling
 struct FusionStats {
     uint64_t total_attempts = 0;
     uint64_t successful_fusions = 0;
-    uint64_t pattern_counts[static_cast<int>(FusionPattern::MOV_SUB) + 1] = {0};
+    uint64_t pattern_counts[static_cast<int>(FusionPattern::LOAD_IMM_STORE) + 1] = {0};
     
     void record_fusion(FusionPattern pattern) {
         successful_fusions++;
@@ -112,6 +118,9 @@ private:
     bool fuse_inc_dec_cmp(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
     bool fuse_load_arithmetic(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
     bool fuse_mov_arithmetic(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+    bool fuse_push_pop(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+    bool fuse_push_push_call(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
+    bool fuse_load_imm_store(CPU& cpu, const std::vector<uint8_t>& program, bool& running);
 };
 
 // Global fusion engine instance

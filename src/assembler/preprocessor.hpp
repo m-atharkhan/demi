@@ -5,6 +5,8 @@
 #include <vector>
 #include <stack>
 #include <filesystem>
+#include <memory>
+#include <regex>
 
 namespace Assembler {
 
@@ -57,6 +59,7 @@ public:
     
 private:
     std::unordered_map<std::string, MacroDefinition> macros;
+    std::unordered_map<std::string, std::unique_ptr<std::regex>> macro_regex_cache_;
     std::stack<ConditionalState> conditional_stack;
     std::vector<std::string> included_files;  // Track to prevent circular includes
     std::vector<std::string> errors;

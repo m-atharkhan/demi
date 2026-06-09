@@ -106,3 +106,131 @@ subroutine:
 end_test:
     ; Test completed
 }
+
+.test "stack overflow on excessive push" {
+    .description "Tests that stack overflow is detected when pushing too many values"
+    .author "bobrossrtx"
+    .category "Stack Overflow"
+    .tag "error"
+    .tag "overflow"
+    .tag "push"
+    .memory 256
+    .maxsteps 500
+    .expect_error true
+    
+    ; Push enough values to overflow the stack (needs ~62 pushes for SP < 8)
+    LOAD_IMM EAX, 42
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX
+    PUSH EAX  ; 64th push should trigger overflow
+}
+
+.test "stack underflow on excess pop" {
+    .description "Tests that stack underflow is detected when popping from empty stack"
+    .author "bobrossrtx"
+    .category "Stack Underflow"
+    .tag "error"
+    .tag "underflow"
+    .tag "pop"
+    .memory 256
+    .maxsteps 50
+    .expect_error true
+    
+    ; Push one value then pop twice (second pop should underflow)
+    LOAD_IMM EAX, 100
+    PUSH EAX
+    POP EBX
+    POP ECX  ; This should trigger stack underflow
+}
+
+.test "call stack overflow (deep recursion)" {
+    .description "Tests that excessive call nesting triggers call stack overflow"
+    .author "bobrossrtx"
+    .category "Stack Overflow"
+    .tag "error"
+    .tag "overflow"
+    .tag "call"
+    .tag "recursion"
+    .memory 2048
+    .maxsteps 2000
+    .expect_error true
+    
+recurse:
+    CALL recurse  ; Infinite recursion - should hit max call depth
+    RET
+}
+
+.test "ret without call" {
+    .description "Tests that RET without a matching CALL triggers stack underflow"
+    .author "bobrossrtx"
+    .category "Stack Underflow"
+    .tag "error"
+    .tag "underflow"
+    .tag "ret"
+    .memory 256
+    .maxsteps 10
+    .expect_error true
+    
+    RET  ; No matching CALL - should cause stack underflow
+}

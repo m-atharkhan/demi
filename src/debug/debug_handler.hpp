@@ -6,8 +6,10 @@
 #include <vector>
 #include <unordered_map>
 #include <chrono>
+#include <deque>
 #include <mutex>
 #include <fmt/core.h>
+#include "../config.hpp"
 
 namespace Logging {
 
@@ -387,7 +389,7 @@ private:
     // Statistics and throttling
     std::unordered_map<DebugCategory, size_t> message_counts_;
     std::unordered_map<DebugCategory, std::chrono::steady_clock::time_point> last_message_times_;
-    std::vector<DebugContext> recorded_session_;
+    std::deque<DebugContext> recorded_session_;
     mutable std::mutex debug_mutex_;
     
     /**
@@ -416,6 +418,7 @@ private:
 
 #define DEBUG_CPU(message, ...) \
     do { \
+        if (!::Config::debug) break; \
         Logging::DebugContext debug_ctx{Logging::DebugCategory::CPU_EXECUTION, fmt::format(message, ##__VA_ARGS__), Logging::DebugLevel::INFO}; \
         debug_ctx.function = __FUNCTION__; \
         debug_ctx.file = __FILE__; \
@@ -425,6 +428,7 @@ private:
 
 #define DEBUG_INSTRUCTION(name, pc, operands, result) \
     do { \
+        if (!::Config::debug) break; \
         Logging::DebugContext debug_ctx{Logging::DebugCategory::ASM_INSTRUCTION, fmt::format("{} @ PC=0x{:04X}: {} -> {}", name, pc, operands, result), Logging::DebugLevel::TRACE}; \
         debug_ctx.function = __FUNCTION__; \
         debug_ctx.file = __FILE__; \
@@ -434,6 +438,7 @@ private:
 
 #define DEBUG_MEMORY(message, addr, value, op) \
     do { \
+        if (!::Config::debug) break; \
         Logging::DebugContext debug_ctx{Logging::DebugCategory::MEM_ACCESS, fmt::format("{}: addr=0x{:08X}, value=0x{:08X}, op={}", message, addr, value, op), Logging::DebugLevel::DETAIL}; \
         debug_ctx.function = __FUNCTION__; \
         debug_ctx.file = __FILE__; \
@@ -443,6 +448,7 @@ private:
 
 #define DEBUG_CATEGORY(cat, level, message, ...) \
     do { \
+        if (!::Config::debug && level != Logging::DebugLevel::CRITICAL) break; \
         Logging::DebugContext debug_ctx{cat, fmt::format(message, ##__VA_ARGS__), level}; \
         debug_ctx.function = __FUNCTION__; \
         debug_ctx.file = __FILE__; \

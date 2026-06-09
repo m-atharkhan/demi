@@ -5,24 +5,7 @@
 // Forward declaration
 class CPU;
 
-/**
- * High-performance dispatcher with aggressive inlining
- * 
- * This dispatcher inlines the most common operations directly to eliminate
- * function call overhead. Operations are selected for inlining based on:
- * 
- * 1. Frequency of use (NOP, LOAD_IMM, ADD, MOV)
- * 2. Simplicity (few CPU cycles, minimal logic)  
- * 3. Critical path operations (HALT for termination)
- * 
- * Performance benefits:
- * - Eliminates function call overhead for common operations (3-5 cycles saved)
- * - Enables better CPU pipeline optimization through inlining
- * - Reduces instruction cache pressure from function calls
- * - Allows conditional compilation of debug checks
- * 
- * Expected performance improvement: 15-25% for typical programs
- */
+// High-performance dispatcher with inlined handlers for common operations
 
 // Check if threaded code is supported
 #ifndef USE_THREADED_CODE

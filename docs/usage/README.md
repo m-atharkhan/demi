@@ -41,28 +41,55 @@ This section provides user guides for programming the DemiEngine virtual compute
 
 ```bash
 demi-engine Usage: demi-engine [options]
+
+General Options:
   --help                -h      Shows help information
-  --debug               -d      Enable debug mode with detailed logging
-  --verbose             -v      Show informational messages (use --verbose=false to disable)
-  --extended-registers  -er     Show extended register output (50 registers)
-  --debug-file          -f      Debug file path
+  --version             -V      Shows version information
+  --verbose             -v      Show informational messages
+
+Execution Options:
   --hex                 -H      Path to hex file (hex bytes, space or newline separated)
-  --test                -t      Run built-in unit tests, or test a specific file if path provided
-  --unit-test           -ut     Run built-in unit tests only, or test a specific file if path provided
-  --integration-test    -it     Run integration tests only, or test a specific file if path provided
-  --assembly-test       -at     Run in-assembly tests only, or test a specific file if path provided
-  --assembly-test-quiet -atq    Run in-assembly tests in quiet mode (title and description only)
   --assembly            -A      Assembly mode: assemble and run .asm file
-  --compile             -o      Compile program into a standalone executable (optionally specify output name)
+  --assembly-output     -ao     Output assembled bytecode to file (default: out.hex)
+  --compile             -o      Compile program into a standalone executable
+  --entry-point         -e      Specify entry point symbol (default: _start)
+  --architecture        -arch   Set CPU architecture (x86, x64, auto)
+
+Sandbox Options:
+  --sandbox                     Enable sandbox mode (VFS jail, restricts I/O and exec)
+  --allow-read                  Allow real filesystem reads in sandbox mode
+  --allow-write                 Allow real filesystem writes in sandbox mode
+  --allow-exec                  Allow fork+execve in sandbox mode
+
+Debugging Options:
+  --debug               -d      Enable debug mode
+  --debug-level         -dl     Set debug level (trace, detail, info, important, critical, all)
+  --debug-verbose       -dv     Enable debug with verbose output (TRACE level)
+  --debug-quiet         -dq     Enable debug with minimal output (IMPORTANT level)
+  --extended-registers  -er     Show extended register output (50 registers)
   --memdump             -m      Print memory dump after execution
+  --hexdump                     Enable bytecode hex dump output after assembly
+
+Testing Options:
+  --test                -t      Run all unit and assembly tests
+  --unit-test           -ut     Run unit tests only
+  --assembly-test       -at     Run in-assembly tests only
+  --assembly-test-quiet -atq    Run assembly tests in quiet mode
+  --test-filter                 Filter test output (all|fails|success)
+  --test-select         -ts     Run specific test(s) by name (comma-separated)
 
 Examples:
   demi-engine -H program.hex                    # Run hex program
   demi-engine -A program.asm                    # Assemble and run .asm file
-  demi-engine -t                                # Run all unit tests
-  demi-engine -at tests/asm/test_arithmetic.asm # Test specific file
-  demi-engine -atq                              # Run all assembly tests (quiet mode)
-  demi-engine -o myprogram program.hex          # Compile to standalone executable
+  demi-engine -t                                # Run all tests (283 unit + 546 assembly)
+  demi-engine -at tests/sandbox_e2e.test.asm    # Test specific file
+  demi-engine -o myprogram program.hex          # Compile to native ELF executable
+
+  # Sandbox examples
+  demi-engine --sandbox -A untrusted.asm        # Run in VFS jail
+  demi-engine --sandbox --allow-write -A tool.asm   # + real file writes
+  demi-engine --sandbox --allow-exec -A build.asm   # + process execution
+  demi-engine --sandbox --allow-read --allow-write --allow-exec -A app.asm  # full access
 ```
 
 ## Hex Programming
@@ -88,7 +115,7 @@ Hex programs consist of:
 01 00 10 00 00 00    # LOAD_IMM R0, 0x10
 
 # Print string to console
-1F 00 01            # OUTSTR port=1, R0
+39 00 01            # OUTSTR port=1, R0
 
 # Halt program
 FF                  # HALT
@@ -269,25 +296,25 @@ FF    # HALT - end program
 10 00 01    # MUL R0, R1  (R0 = R0 * R1)
 ```
 
-#### DIV (0x12)
+#### DIV (0x11)
 
-**Format**: `12 <dst_reg> <src_reg>`
+**Format**: `11 <dst_reg> <src_reg>`
 **Purpose**: Divide dst_reg by src_reg, store in dst_reg
 **Note**: Division by zero halts program with error
 **Example**:
 
 ```hex
-12 05 06    # DIV R5, R6  (R5 = R5 / R6)
+11 05 06    # DIV R5, R6
 ```
 
-#### INC (0x13)
+#### INC (0x12)
 
-**Format**: `13 <reg>`
+**Format**: `12 <reg>`
 **Purpose**: Increment register by 1
 **Example**:
 
 ```hex
-13 00    # INC R0  (R0 = R0 + 1)
+12 00    # INC R0
 ```
 
 #### DEC (0x13)
@@ -297,7 +324,7 @@ FF    # HALT - end program
 **Example**:
 
 ```hex
-13 07    # DEC R7  (R7 = R7 - 1)
+13 07    # DEC R7
 ```
 
 ### Memory Operations
@@ -319,7 +346,7 @@ FF    # HALT - end program
 **Example**:
 
 ```hex
-03 02 01    # STORE [R2], R1  (memory[R2] = R1)
+07 02 01    # STORE [R2], R1
 ```
 
 ### Control Flow
@@ -371,155 +398,165 @@ FF    # HALT - end program
 
 The stack grows downward from high memory. The Stack Pointer (SP) always points to the top of the stack.
 
-#### PUSH (0x0A)
+#### PUSH (0x08)
 
-**Format**: `0A <reg>`
+**Format**: `08 <reg>`
 **Purpose**: Push register value onto stack
-**Effect**: SP decreases by 4, memory[SP] = reg
+**Effect**: SP -= 4, memory[SP] = reg
 **Example**:
 
 ```hex
-0A 00    # PUSH R0  (push R0 onto stack)
+08 00    # PUSH R0
 ```
 
-#### POP (0x0B)
+#### POP (0x09)
 
-**Format**: `0B <reg>`
+**Format**: `09 <reg>`
 **Purpose**: Pop value from stack into register
-**Effect**: reg = memory[SP], SP increases by 4
+**Effect**: reg = memory[SP], SP += 4
 **Example**:
 
 ```hex
-0B 01    # POP R1  (pop top of stack into R1)
+09 01    # POP R1
 ```
 
-#### CALL (0x0C)
+#### CALL (0x1A)
 
-**Format**: `0C <32-bit-address>`
-**Purpose**: Call subroutine (push return address, jump)
+**Format**: `1A <32-bit-address>`
+**Purpose**: Call subroutine
 **Effect**: Push PC+5 onto stack, jump to address
 **Example**:
 
 ```hex
-0C 50 00 00 00    # CALL 0x50  (call function at 0x50)
+1A 50 00 00 00    # CALL 0x50
 ```
 
-#### RET (0x0D)
+#### RET (0x1B)
 
-**Format**: `0D`
+**Format**: `1B`
 **Purpose**: Return from subroutine
 **Effect**: Pop return address from stack, jump to it
 **Example**:
 
 ```hex
-0D    # RET  (return to caller)
+1B    # RET
 ```
 
 ### I/O Operations
 
 DemiEngine uses port-based I/O to communicate with devices.
 
-#### IN (0x18)
+#### IN (0x30)
 
-**Format**: `18 <dst_reg> <port>`
+**Format**: `30 <dst_reg> <port>`
 **Purpose**: Read byte from device port
 **Example**:
 
 ```hex
-18 00 01    # IN R0, 1  (read byte from port 1 into R0)
+30 00 01    # IN R0, 1
 ```
 
-#### OUT (0x19)
+#### OUT (0x31)
 
-**Format**: `19 <port> <src_reg>`
+**Format**: `31 <port> <src_reg>`
 **Purpose**: Write byte to device port
 **Example**:
 
 ```hex
-19 01 00    # OUT 1, R0  (write R0 to port 1)
+31 01 00    # OUT 1, R0
 ```
 
-#### INW (0x1A) / OUTW (0x1B)
+#### INB / OUTB (0x32 / 0x33)
+
+**Purpose**: Byte I/O operations
+**Example**:
+
+```hex
+32 00 02    # INB R0, 2
+33 02 01    # OUTB 2, R1
+```
+
+#### INW / OUTW (0x34 / 0x35)
 
 **Purpose**: 16-bit word I/O operations
 **Example**:
 
 ```hex
-1A 00 02    # INW R0, 2   (read word from port 2)
-1B 02 01    # OUTW 2, R1  (write word to port 2)
+34 00 02    # INW R0, 2
+35 02 01    # OUTW 2, R1
 ```
 
-#### INL (0x1C) / OUTL (0x1D)
+#### INL / OUTL (0x36 / 0x37)
 
 **Purpose**: 32-bit dword I/O operations
 **Example**:
 
 ```hex
-1C 03 04    # INL R3, 4   (read dword from port 4)
-1D 04 03    # OUTL 4, R3  (write dword to port 4)
+36 03 04    # INL R3, 4
+37 04 03    # OUTL 4, R3
 ```
 
-#### INSTR (0x1E) / OUTSTR (0x1F)
+#### INSTR / OUTSTR (0x38 / 0x39)
 
 **Purpose**: String I/O operations
 **Example**:
 
 ```hex
-1E 00 01    # INSTR R0, 1   (read string from port 1, address in R0)
-1F 01 02    # OUTSTR 1, R2  (write string to port 1, address in R2)
+38 00 01    # INSTR R0, 1
+39 01 02    # OUTSTR 1, R2
 ```
 
 ### Bitwise Operations
 
-#### AND (0x15)
+#### AND (0x14)
+
+**Format**: `14 <dst_reg> <src_reg>`
+**Purpose**: Bitwise AND
+**Example**:
+
+```hex
+14 00 01    # AND R0, R1
+```
+
+#### OR (0x15)
 
 **Format**: `15 <dst_reg> <src_reg>`
-**Purpose**: Bitwise AND operation
+**Purpose**: Bitwise OR
 **Example**:
 
 ```hex
-15 00 01    # AND R0, R1  (R0 = R0 & R1)
+15 02 03    # OR R2, R3
 ```
 
-#### OR (0x16)
+#### XOR (0x16)
 
 **Format**: `16 <dst_reg> <src_reg>`
-**Purpose**: Bitwise OR operation
+**Purpose**: Bitwise XOR
 **Example**:
 
 ```hex
-16 02 03    # OR R2, R3  (R2 = R2 | R3)
+16 04 05    # XOR R4, R5
 ```
 
-#### XOR (0x17)
+#### NOT (0x17)
 
-**Format**: `17 <dst_reg> <src_reg>`
-**Purpose**: Bitwise XOR operation
+**Format**: `17 <reg>`
+**Purpose**: Bitwise NOT
 **Example**:
 
 ```hex
-17 04 05    # XOR R4, R5  (R4 = R4 ^ R5)
+17 00    # NOT R0
 ```
 
-#### NOT (0x20)
+#### SHL (0x18) / SHR (0x19)
 
-**Format**: `20 <reg>`
-**Purpose**: Bitwise NOT operation
-**Example**:
-
-```hex
-20 00    # NOT R0  (R0 = ~R0)
-```
-
-#### SHL (0x21) / SHR (0x22)
-
-**Format**: `21 <reg> <shift_amount>`
+**Format**: `18 <reg> <shift_amount>` or `19 <reg> <shift_amount>`
 **Purpose**: Shift left/right by immediate amount
 **Example**:
 
 ```hex
-21 00 02    # SHL R0, 2  (R0 = R0 << 2)
-22 01 03    # SHR R1, 3  (R1 = R1 >> 3)
+18 00 02    # SHL R0, 2
+19 01 03    # SHR R1, 3
 ```
 
 ## Device Programming
@@ -548,7 +585,7 @@ DemiEngine's modular device system allows programs to interact with various virt
 01 00 20 00 00 00    # LOAD_IMM R0, 0x20
 
 # Output string to console
-1F 01 00            # OUTSTR port=1, R0
+39 01 00            # OUTSTR port=1, R0
 
 # Halt
 FF                  # HALT
@@ -567,10 +604,10 @@ FF                  # HALT
 01 00 50 00 00 00    # LOAD_IMM R0, 0x50
 
 # Read string from user
-1E 00 01            # INSTR R0, 1
+38 00 01            # INSTR R0, 1
 
 # Echo it back
-1F 01 00            # OUTSTR 1, R0
+39 01 00            # OUTSTR 1, R0
 
 FF                  # HALT
 ```
@@ -593,18 +630,18 @@ FF                  # HALT
 
 # Load filename address
 01 00 40 00 00 00    # LOAD_IMM R0, 0x40
-19 02 00            # OUT 2, R0  (send filename)
+31 02 00            # OUT 2, R0  (send filename)
 
 # Set operation to read (0)
 01 01 00 00 00 00    # LOAD_IMM R1, 0
-19 02 01            # OUT 2, R1
+31 02 01            # OUT 2, R1
 
 # Set buffer address
 01 02 60 00 00 00    # LOAD_IMM R2, 0x60
-19 02 02            # OUT 2, R2
+31 02 02            # OUT 2, R2
 
 # Read status
-18 03 02            # IN R3, 2   (0=success, 1=error)
+30 03 02            # IN R3, 2   (0=success, 1=error)
 
 FF                  # HALT
 

@@ -6,8 +6,6 @@ This script reads the Makefile configuration and generates proper compile comman
 
 import json
 import os
-import glob
-from pathlib import Path
 
 def find_source_files(src_dir):
     """Find all C++ source files in the project."""
@@ -24,9 +22,8 @@ def find_source_files(src_dir):
 def generate_compile_commands():
     """Generate compile_commands.json for the Demi project."""
     
-    # Project configuration - matching your Makefile
-    project_dir = "/workspaces/demi"
-    src_dir = "src"
+    project_dir = os.path.abspath(os.path.dirname(__file__))
+    src_dir = os.path.join(project_dir, "src")
     
     # Compiler flags from your Makefile (debug configuration)
     compile_flags = [
@@ -69,7 +66,7 @@ def generate_compile_commands():
         })
     
     # Add external library sources (fmt)
-    fmt_src = "extern/fmt/src/format.cc"
+    fmt_src = os.path.join(project_dir, "extern/fmt/src/format.cc")
     if os.path.exists(fmt_src):
         compile_commands.append({
             "directory": project_dir,
@@ -82,7 +79,8 @@ def generate_compile_commands():
 def main():
     """Main function to generate and write compile_commands.json."""
     try:
-        os.chdir("/workspaces/demi")
+        project_dir = os.path.abspath(os.path.dirname(__file__))
+        os.chdir(project_dir)
         compile_commands = generate_compile_commands()
         
         # Write to file

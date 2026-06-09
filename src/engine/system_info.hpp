@@ -122,9 +122,15 @@ public:
         constexpr size_t MIN_RECOMMENDED = 1024 * 1024;       // 1MB minimum
         constexpr size_t MAX_RECOMMENDED = 4ULL * 1024 * 1024 * 1024; // 4GB maximum
         
+        // MIN_RECOMMENDED is a clamp floor for size_t 'recommended'. When
+        // recommended is 0 (uninitialized), this forces a sane default.
+        // Intentional, not always-true dead code.
         if (recommended < MIN_RECOMMENDED) {
             recommended = MIN_RECOMMENDED;
         }
+        // recommended is an unsigned type (size_t) so it can never exceed
+        // MAX_RECOMMENDED when MAX_RECOMMENDED is also size_t. This clamp
+        // exists for future-proofing if the type changes — intentional.
         if (recommended > MAX_RECOMMENDED) {
             recommended = MAX_RECOMMENDED;
         }

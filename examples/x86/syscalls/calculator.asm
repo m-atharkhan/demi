@@ -218,7 +218,7 @@ itoa:
     CMP EAX, 0
     JNZ itoa_convert
     LOAD_IMM EBX, 48        ; '0'
-    STORER EBX, EDI         ; Store at address in EDI
+    STORER EDI, EBX         ; Store at address in EDI
     LOAD_IMM ESI, 1
     RET
     
@@ -231,7 +231,7 @@ itoa_digit_loop:
     DIV EAX, ECX            ; Divide by 10, quotient in EAX, remainder in EDX
     LOAD_IMM ECX, 48
     ADD EDX, ECX            ; Convert remainder to ASCII
-    STORER EDX, EDI         ; Store at address in EDI
+    STORER EDI, EDX         ; Store at address in EDI
     INC EDI
     INC ESI
     
@@ -249,8 +249,8 @@ itoa_reverse_loop:
     
     LOADR EAX, ECX          ; Load from start
     LOADR EBX, EDI          ; Load from end
-    STORER EBX, ECX         ; Store at start
-    STORER EAX, EDI         ; Store at end
+    STORER ECX, EBX         ; Store at start
+    STORER EDI, EAX         ; Store at end
     
     INC ECX
     DEC EDI

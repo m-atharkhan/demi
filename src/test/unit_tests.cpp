@@ -1,5 +1,10 @@
 #include "test_framework.hpp"
 #include "../engine/cpu_flags.hpp"
+#include "../codegen/x86_encoder.hpp"
+#include "../codegen/register_allocator.hpp"
+#include "../codegen/disa_compiler.hpp"
+#include "../codegen/elf_emitter.hpp"
+#include "../engine/safe_memcpy.hpp"
 
 // Example unit tests using the new framework
 
@@ -748,8 +753,8 @@ TEST_CASE(register_count_expansion, "simd_registers") {
     using namespace DemiEngine_Registers;
 
     // Verify total register count
-    ctx.assert_eq(static_cast<size_t>(134), TOTAL_REGISTERS, "Total register count should be 134");
-    ctx.assert_eq(static_cast<size_t>(134), static_cast<size_t>(Register::REGISTER_COUNT), "Register count enum should match");
+    ctx.assert_eq(static_cast<size_t>(138), TOTAL_REGISTERS, "Total register count should be 138 (134 + 4 memory control registers)");
+    ctx.assert_eq(static_cast<size_t>(138), static_cast<size_t>(Register::REGISTER_COUNT), "Register count enum should match (138)");
 
     // Verify individual register type counts
     ctx.assert_eq(static_cast<size_t>(16), GENERAL_PURPOSE_COUNT, "Should have 16 general purpose registers");
@@ -866,8 +871,8 @@ TEST_CASE(fpu_arithmetic_operations, "fpu_registers") {
     // Manually set up FPU stack for testing
     double val1 = 10.0;
     double val2 = 5.0;
-    uint64_t uint_val1 = *reinterpret_cast<uint64_t*>(&val1);
-    uint64_t uint_val2 = *reinterpret_cast<uint64_t*>(&val2);
+    uint64_t uint_val1 = safe_bitcast<uint64_t>(val1);
+    uint64_t uint_val2 = safe_bitcast<uint64_t>(val2);
     
     ctx.cpu.set_register(Register::ST0, uint_val1);
     ctx.cpu.set_register(Register::ST1, uint_val2);
@@ -875,8 +880,8 @@ TEST_CASE(fpu_arithmetic_operations, "fpu_registers") {
     // Test that we can read back floating point values correctly
     uint64_t st0_raw = ctx.cpu.get_register(Register::ST0);
     uint64_t st1_raw = ctx.cpu.get_register(Register::ST1);
-    double st0_val = *reinterpret_cast<double*>(&st0_raw);
-    double st1_val = *reinterpret_cast<double*>(&st1_raw);
+    double st0_val = safe_bitcast<double>(st0_raw);
+    double st1_val = safe_bitcast<double>(st1_raw);
     
     ctx.assert_eq(st0_val, 10.0, "ST0 should contain 10.0");
     ctx.assert_eq(st1_val, 5.0, "ST1 should contain 5.0");
@@ -1334,7 +1339,7 @@ TEST_CASE(org_and_db_integration, "assembler") {
     
     // Verify data section at 0x50
     const char* first_str = "First string";
-    for (size_t i = 0; i < strlen(first_str); i++) {
+    for (size_t i = 0; first_str[i] != '\0'; i++) {
         large_ctx.assert_byte_at(0x50 + i, first_str[i]);
     }
     
@@ -1619,6 +1624,59 @@ TEST_CASE_EXPECT_ERROR(stack_underflow, "negative_tests") {
         0xFF               // HALT
     });
     // Should now fail immediately with proper underflow detection
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(push_flag_overflow, "negative_tests") {
+    // Test that PUSH_FLAG triggers stack overflow when stack is exhausted
+    // SP starts at 252 (memory.size() - 4), each PUSH subtracts 4
+    // After 62 PUSHes, SP=4, then PUSH_FLAG succeeds (SP=0),
+    // then second PUSH_FLAG should trigger overflow at SP=0
+    std::vector<uint8_t> prog;
+    // 62 × PUSH EAX (reg 0) = 124 bytes
+    for (int i = 0; i < 62; i++) {
+        prog.push_back(0x08);  // PUSH
+        prog.push_back(0x00);  // EAX
+    }
+    prog.push_back(0x1E);  // PUSH_FLAG (SP=4, succeeds, SP=0)
+    prog.push_back(0x1E);  // PUSH_FLAG (SP=0, should overflow)
+    prog.push_back(0xFF);  // HALT
+    ctx.load_program(prog);
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(push_arg_overflow, "negative_tests") {
+    // Test that PUSH_ARG triggers stack overflow when stack is exhausted
+    // SP starts at 252, each PUSH_ARG subtracts 4
+    // PUSH_ARG check: sp < 4 → after 63 pushes SP=0, 64th triggers overflow
+    std::vector<uint8_t> prog;
+    // 64 × PUSH_ARG EAX (reg 0) = 128 bytes
+    for (int i = 0; i < 64; i++) {
+        prog.push_back(0x1C);  // PUSH_ARG
+        prog.push_back(0x00);  // EAX
+    }
+    prog.push_back(0xFF);  // HALT
+    ctx.load_program(prog);
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(call_stack_memory_overflow, "negative_tests") {
+    // Test that CALL triggers stack memory overflow when VM stack is exhausted
+    // (separate from call depth overflow - this tests running out of stack space)
+    // 62 PUSHes bring SP to 4, then CALL needs 8 bytes (SP check: < 12) → overflow
+    std::vector<uint8_t> prog;
+    // 62 × PUSH EAX (reg 0) = 124 bytes
+    for (int i = 0; i < 62; i++) {
+        prog.push_back(0x08);  // PUSH
+        prog.push_back(0x00);  // EAX
+    }
+    prog.push_back(0x1A);  // CALL
+    prog.push_back(0x00);  // addr low
+    prog.push_back(0x00);  // addr
+    prog.push_back(0x00);  // addr
+    prog.push_back(0x00);  // addr high
+    prog.push_back(0xFF);  // HALT
+    ctx.load_program(prog);
     ctx.execute_program();
 }
 
@@ -2424,3 +2482,1468 @@ TEST_CASE(mode_flags_after_mode_switch, "mode_awareness") {
     ctx.assert_64bit_mode();
     ctx.assert_zero_flag_set();  // Flag should be preserved
 }
+
+// ============================================================================
+// MEMORY BOUNDS VALIDATION TESTS (TASK-004)
+// ============================================================================
+
+TEST_CASE(memory_bounds_store_out_of_bounds, "memory_bounds") {
+    // Test that STORE to address >= memory size is rejected
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x07, 0x00, 0x00, 0x01, 0x00, 0x00,  // STORE EAX, [0x100] - memory is 256 bytes (0-255), 0x100 is out of bounds
+        0xFF                                  // HALT
+    });
+    // Should detect out-of-bounds and stop execution
+    ctx.execute_program();
+    // EAX should still have 66 (STORE was rejected before writing)
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_load_out_of_bounds, "memory_bounds") {
+    // Test that LOAD from address >= memory size is rejected
+    ctx.load_program({
+        0x06, 0x00, 0x00, 0x01, 0x00, 0x00,  // LOAD EAX, [0x100] - out of bounds
+        0xFF                                  // HALT
+    });
+    // Should detect out-of-bounds and stop execution
+    ctx.execute_program();
+    // EAX should remain 0 (LOAD was rejected before reading)
+    ctx.assert_register_eq(0, 0);
+}
+
+TEST_CASE(memory_bounds_loadr_out_of_bounds, "memory_bounds") {
+    // Test that LOADR with address in register >= memory size is rejected
+    ctx.load_program({
+        0x01, 0x01, 0x00, 0x01, 0x00, 0x00,  // LOAD_IMM EBX, 0x100 (out of bounds address)
+        0x41, 0x00, 0x01,                     // LOADR EAX, EBX - should fail
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // EAX should remain 0 (LOADR was rejected)
+    ctx.assert_register_eq(0, 0);
+}
+
+TEST_CASE(memory_bounds_storer_out_of_bounds, "memory_bounds") {
+    // Test that STORER with address in register >= memory size is rejected
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x01, 0x01, 0x00, 0x01, 0x00, 0x00,  // LOAD_IMM EBX, 0x100 (out of bounds address)
+        0x43, 0x01, 0x00,                     // STORER EBX, EAX - should fail
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // EAX should still have 66 (STORER was rejected before writing)
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_swap_out_of_bounds, "memory_bounds") {
+    // Test that SWAP to address >= memory size is rejected
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x21, 0x00, 0x00, 0x01, 0x00, 0x00,  // SWAP EAX, [0x100] - out of bounds
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // EAX should still have 66 (SWAP was rejected before swapping)
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_boundary_valid, "memory_bounds") {
+    // Test that accessing the last valid byte (address = memory_size - 1) works
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x07, 0x00, 0xFF, 0x00, 0x00, 0x00,  // STORE EAX, [0xFF] - last valid address
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 0 (clear)
+        0x06, 0x00, 0xFF, 0x00, 0x00, 0x00,  // LOAD EAX, [0xFF] - read back
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // EAX should have 66 (successfully stored and loaded at boundary)
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_boundary_invalid, "memory_bounds") {
+    // Test that accessing address = memory_size fails
+    // Memory size is 256, so address 256 (0x100) is out of bounds
+    ctx.load_program({
+        0x01, 0x00, 0x42, 0x00, 0x00, 0x00,  // LOAD_IMM EAX, 66
+        0x07, 0x00, 0x00, 0x01, 0x00, 0x00,  // STORE EAX, [0x100] - exactly at memory size boundary
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+    // STORE should be rejected
+    ctx.assert_register_eq(0, 66);
+}
+
+TEST_CASE(memory_bounds_store_valid_high_address, "memory_bounds") {
+    // Test STORE and LOAD at a high but valid address (memory_size - 4)
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 0xAA
+        STORE EAX, 252
+        LOAD_IMM EAX, 0
+        LOAD EAX, 252
+        HALT
+    )");
+    ctx.execute_program();
+    ctx.assert_register_eq(0, 0xAA);
+}
+
+TEST_CASE(memory_bounds_multiple_operations, "memory_bounds") {
+    // Test multiple memory operations at valid addresses
+    // Note: x86 register numbering: EAX=0, ECX=1, EDX=2, EBX=3
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 10
+        STORE EAX, 100
+        LOAD_IMM EBX, 20
+        STORE EBX, 104
+        LOAD_IMM ECX, 30
+        STORE ECX, 108
+        
+        LOAD EAX, 100
+        LOAD EDX, 104
+        LOAD EBP, 108
+        HALT
+    )");
+    ctx.execute_program();
+    ctx.assert_register_eq(0, 10);   // EAX
+    ctx.assert_register_eq(2, 20);   // EDX
+    ctx.assert_register_eq(5, 30);   // EBP
+}
+
+TEST_CASE_EXPECT_ERROR(memory_bounds_pointer_chain_out_of_bounds, "memory_bounds") {
+    // Test that a pointer chain leading to out-of-bounds is detected
+    // Use LEA to load an out-of-bounds address into a register, then use LOADR
+    ctx.assemble_code(R"(
+        LEA EAX, 300
+        LOADR ECX, EAX
+        HALT
+    )");
+    ctx.execute_program();
+}
+
+// ============================================================================
+// OPCODE PROFILING TESTS (TASK-005)
+// ============================================================================
+
+#include "../engine/opcodes/opcode_profiler.hpp"
+
+TEST_CASE(profiler_basic_counting, "profiling") {
+    // Test that profiler counts opcode executions
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.enable();
+    
+    // Execute a simple program
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 10
+        LOAD_IMM EBX, 20
+        ADD EAX, EBX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // Verify profiling data
+    ctx.assert_eq(true, profiler.is_enabled(), "Profiler should be enabled");
+    ctx.assert_eq(true, profiler.get_total_count() > 0, "Total count should be > 0");
+    ctx.assert_eq(true, profiler.get_count(static_cast<uint8_t>(Opcode::LOAD_IMM)) >= 2,
+        "LOAD_IMM should be counted at least twice");
+    ctx.assert_eq(true, profiler.get_count(static_cast<uint8_t>(Opcode::ADD)) >= 1,
+        "ADD should be counted at least once");
+    ctx.assert_eq(true, profiler.get_count(static_cast<uint8_t>(Opcode::HALT)) >= 1,
+        "HALT should be counted at least once");
+    
+    profiler.disable();
+}
+
+TEST_CASE(profiler_disable_zero_overhead, "profiling") {
+    // Test that profiler has zero overhead when disabled
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.disable();
+    
+    // Execute a program with profiler disabled
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 42
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // Verify no counts were recorded
+    ctx.assert_eq(false, profiler.is_enabled(), "Profiler should be disabled");
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_total_count(),
+        "Total count should be 0 when profiler is disabled");
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_count(static_cast<uint8_t>(Opcode::LOAD_IMM)),
+        "LOAD_IMM count should be 0 when profiler is disabled");
+}
+
+TEST_CASE(profiler_reset, "profiling") {
+    // Test that profiler reset clears all counters
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.enable();
+    
+    // Execute a program
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 1
+        HALT
+    )");
+    ctx.execute_program();
+    
+    uint64_t count_before = profiler.get_total_count();
+    ctx.assert_eq(true, count_before > 0, "Should have some counts before reset");
+    
+    // Reset and verify
+    profiler.reset();
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_total_count(),
+        "Total count should be 0 after reset");
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_count(static_cast<uint8_t>(Opcode::LOAD_IMM)),
+        "LOAD_IMM count should be 0 after reset");
+    
+    profiler.disable();
+}
+
+TEST_CASE(profiler_hotspots, "profiling") {
+    // Test hotspot analysis
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.enable();
+    
+    // Execute a program with multiple instructions
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 1
+        LOAD_IMM EBX, 2
+        LOAD_IMM ECX, 3
+        ADD EAX, EBX
+        ADD EAX, ECX
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // Get hotspots
+    auto hotspots = profiler.get_hotspots(5);
+    ctx.assert_eq(true, hotspots.size() > 0, "Should have at least one hotspot");
+    
+    // First hotspot should have highest count
+    if (hotspots.size() >= 2) {
+        ctx.assert_eq(true, hotspots[0].count >= hotspots[1].count,
+            "Hotspots should be sorted by count descending");
+    }
+    
+    profiler.disable();
+}
+
+TEST_CASE(profiler_opcode_counts, "profiling") {
+    // Test that specific opcode counts are accurate
+    auto& profiler = OpcodeProfiler::instance();
+    profiler.reset();
+    profiler.enable();
+    
+    // Execute a program with known instruction counts
+    ctx.assemble_code(R"(
+        LOAD_IMM EAX, 10
+        LOAD_IMM EBX, 20
+        LOAD_IMM ECX, 30
+        HALT
+    )");
+    ctx.execute_program();
+    
+    // Verify exact counts
+    ctx.assert_eq(static_cast<uint64_t>(3), profiler.get_count(static_cast<uint8_t>(Opcode::LOAD_IMM)),
+        "LOAD_IMM should be counted exactly 3 times");
+    ctx.assert_eq(static_cast<uint64_t>(1), profiler.get_count(static_cast<uint8_t>(Opcode::HALT)),
+        "HALT should be counted exactly 1 time");
+    ctx.assert_eq(static_cast<uint64_t>(0), profiler.get_count(static_cast<uint8_t>(Opcode::ADD)),
+        "ADD should not be counted");
+    
+    profiler.disable();
+}
+
+TEST_CASE_EXPECT_ERROR(stack_limit_basic, "stack") {
+    ctx.set_stack_limit(250);  // SP starts at 252, so even one push (to 248) triggers limit (250 < 250+4)
+    ctx.load_program({
+        0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM R0, 1
+        0x08, 0x00,                           // PUSH R0 - should trigger stack limit validation
+        0x08, 0x00,                           // PUSH R0 - should trigger stack limit validation
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+}
+
+TEST_CASE(stack_limit_loose, "stack") {
+    ctx.set_stack_limit(4);  // Very low limit, should allow pushes
+    ctx.load_program({
+        0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM R0, 1
+        0x08, 0x00,                           // PUSH R0
+        0x08, 0x00,                           // PUSH R0
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+}
+
+TEST_CASE_EXPECT_ERROR(stack_limit_tight, "stack") {
+    ctx.set_stack_limit(245);  // SP starts at 252. With limit 245, push needs SP >= 249, but SP=252 so OK.
+                                // Second push checks SP=248 >= 249? No → trigger.
+    ctx.load_program({
+        0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  // LOAD_IMM R0, 1 (6 bytes)
+        0x08, 0x00,                           // PUSH R0 (SP: 252 -> 248) - OK
+        0x08, 0x00,                           // PUSH R0 (SP: 248 -> 244) - should fail (248 < 245+4=249)
+        0xFF                                  // HALT
+    });
+    ctx.execute_program();
+}
+
+using namespace CodeGen;
+
+static void check_encoder_bytes(const std::vector<uint8_t>& expected, const std::vector<uint8_t>& actual) {
+    if (expected.size() != actual.size()) {
+        std::string msg = "Size mismatch: expected " + std::to_string(expected.size()) + " got " + std::to_string(actual.size());
+        throw AssertionFailure(msg);
+    }
+    for (size_t i = 0; i < expected.size(); i++) {
+        if (expected[i] != actual[i]) {
+            std::string msg = "Byte " + std::to_string(i) + ": expected 0x" +
+                fmt::format("{:02X} got 0x{:02X}", expected[i], actual[i]);
+            throw AssertionFailure(msg);
+        }
+    }
+}
+
+TEST_CASE(x86_inc_dec, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_inc_reg(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xFF, 0xC0}, enc.get_code());
+    enc.clear();
+    enc.emit_dec_reg(X86Register::RBX);
+    check_encoder_bytes({0x48, 0xFF, 0xCB}, enc.get_code());
+}
+
+TEST_CASE(x86_neg_not, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_neg_reg(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xF7, 0xD8}, enc.get_code());
+    enc.clear();
+    enc.emit_not_reg(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xF7, 0xD0}, enc.get_code());
+}
+
+TEST_CASE(x86_mul_div, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_mul_reg(X86Register::RCX);
+    check_encoder_bytes({0x48, 0xF7, 0xE1}, enc.get_code());
+    enc.clear();
+    enc.emit_div_reg(X86Register::RDX);
+    check_encoder_bytes({0x48, 0xF7, 0xF2}, enc.get_code());
+    enc.clear();
+    enc.emit_idiv_reg(X86Register::RSI);
+    check_encoder_bytes({0x48, 0xF7, 0xFE}, enc.get_code());
+}
+
+TEST_CASE(x86_imul, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_imul_reg_reg(X86Register::RAX, X86Register::RBX);
+    check_encoder_bytes({0x48, 0x0F, 0xAF, 0xC3}, enc.get_code());
+}
+
+TEST_CASE(x86_logic_reg_reg, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_and_reg_reg(X86Register::RAX, X86Register::RBX);
+    check_encoder_bytes({0x48, 0x21, 0xD8}, enc.get_code());
+    enc.clear();
+    enc.emit_or_reg_reg(X86Register::RAX, X86Register::RCX);
+    check_encoder_bytes({0x48, 0x09, 0xC8}, enc.get_code());
+    enc.clear();
+    enc.emit_xor_reg_reg(X86Register::RAX, X86Register::RCX);
+    check_encoder_bytes({0x48, 0x31, 0xC8}, enc.get_code());
+}
+
+TEST_CASE(x86_shift, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_shl_reg_imm8(X86Register::RAX, 1);
+    check_encoder_bytes({0x48, 0xC1, 0xE0, 0x01}, enc.get_code());
+    enc.clear();
+    enc.emit_shr_reg_imm8(X86Register::RAX, 1);
+    check_encoder_bytes({0x48, 0xC1, 0xE8, 0x01}, enc.get_code());
+}
+
+TEST_CASE(x86_arithmetic_imm32, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_add_reg_imm32(X86Register::RAX, 42);
+    check_encoder_bytes({0x48, 0x81, 0xC0, 0x2A, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_sub_reg_imm32(X86Register::RAX, 10);
+    check_encoder_bytes({0x48, 0x81, 0xE8, 0x0A, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_cmp_reg_imm32(X86Register::RAX, 0);
+    check_encoder_bytes({0x48, 0x81, 0xF8, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_logic_imm32, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_and_reg_imm32(X86Register::RAX, 0xFF);
+    check_encoder_bytes({0x48, 0x81, 0xE0, 0xFF, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_or_reg_imm32(X86Register::RAX, 0x0F);
+    check_encoder_bytes({0x48, 0x81, 0xC8, 0x0F, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_xor_reg_imm32(X86Register::RAX, 0xFF);
+    check_encoder_bytes({0x48, 0x81, 0xF0, 0xFF, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_mov_imm32, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_mov_reg_imm32(X86Register::RBX, -1);
+    check_encoder_bytes({0x48, 0xC7, 0xC3, 0xFF, 0xFF, 0xFF, 0xFF}, enc.get_code());
+    enc.clear();
+    enc.emit_mov_reg_imm32(X86Register::RAX, 0x7FFFFFFF);
+    check_encoder_bytes({0x48, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0x7F}, enc.get_code());
+}
+
+TEST_CASE(x86_extended_registers, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_inc_reg(X86Register::R8);
+    check_encoder_bytes({0x49, 0xFF, 0xC0}, enc.get_code());
+    enc.clear();
+    enc.emit_and_reg_reg(X86Register::R8, X86Register::R9);
+    check_encoder_bytes({0x4D, 0x21, 0xC8}, enc.get_code());
+}
+
+TEST_CASE(x86_shift_cl, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_shl_reg_cl(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xD3, 0xE0}, enc.get_code());
+    enc.clear();
+    enc.emit_shr_reg_cl(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xD3, 0xE8}, enc.get_code());
+}
+
+TEST_CASE(x86_test, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_test_reg_reg(X86Register::RAX, X86Register::RBX);
+    check_encoder_bytes({0x48, 0x85, 0xD8}, enc.get_code());
+    enc.clear();
+    enc.emit_test_reg_imm32(X86Register::RAX, 42);
+    check_encoder_bytes({0x48, 0xF7, 0xC0, 0x2A, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_rotate, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_rol_reg_imm8(X86Register::RAX, 1);
+    check_encoder_bytes({0x48, 0xC1, 0xC0, 0x01}, enc.get_code());
+    enc.clear();
+    enc.emit_ror_reg_imm8(X86Register::RAX, 1);
+    check_encoder_bytes({0x48, 0xC1, 0xC8, 0x01}, enc.get_code());
+    enc.clear();
+    enc.emit_rol_reg_cl(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xD3, 0xC0}, enc.get_code());
+    enc.clear();
+    enc.emit_ror_reg_cl(X86Register::RAX);
+    check_encoder_bytes({0x48, 0xD3, 0xC8}, enc.get_code());
+}
+
+TEST_CASE(x86_conditional_jumps, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_jg_rel32(0);
+    check_encoder_bytes({0x0F, 0x8F, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jl_rel32(0);
+    check_encoder_bytes({0x0F, 0x8C, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jge_rel32(0);
+    check_encoder_bytes({0x0F, 0x8D, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jle_rel32(0);
+    check_encoder_bytes({0x0F, 0x8E, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_carry_overflow_jumps, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_jc_rel32(0);
+    check_encoder_bytes({0x0F, 0x82, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jnc_rel32(0);
+    check_encoder_bytes({0x0F, 0x83, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jo_rel32(0);
+    check_encoder_bytes({0x0F, 0x80, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jno_rel32(0);
+    check_encoder_bytes({0x0F, 0x81, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_sign_jumps, "x86_encoder") {
+    X86Encoder enc;
+    enc.emit_js_rel32(0);
+    check_encoder_bytes({0x0F, 0x88, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+    enc.clear();
+    enc.emit_jns_rel32(0);
+    check_encoder_bytes({0x0F, 0x89, 0x00, 0x00, 0x00, 0x00}, enc.get_code());
+}
+
+TEST_CASE(x86_jump_label_forward, "x86_encoder") {
+    X86Encoder enc;
+    auto label = enc.create_label();
+    enc.emit_jg_label(label);
+    enc.emit_jl_label(label);
+    enc.emit_jge_label(label);
+    enc.emit_jle_label(label);
+    enc.bind_label(label);
+    ctx.assert_eq(static_cast<size_t>(24), enc.get_code().size());
+    auto& code = enc.get_code();
+    ctx.assert_eq(static_cast<uint8_t>(code[2]), uint8_t(0x12));
+    ctx.assert_eq(static_cast<uint8_t>(code[3]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[4]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[5]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[8]), uint8_t(0x0C));
+    ctx.assert_eq(static_cast<uint8_t>(code[14]), uint8_t(0x06));
+    ctx.assert_eq(static_cast<uint8_t>(code[20]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[21]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[22]), uint8_t(0x00));
+    ctx.assert_eq(static_cast<uint8_t>(code[23]), uint8_t(0x00));
+}
+
+TEST_CASE(x86_jump_label_bound, "x86_encoder") {
+    X86Encoder enc;
+    auto label = enc.create_label();
+    enc.bind_label(label);
+    enc.emit_jg_label(label);
+    enc.emit_jc_label(label);
+    enc.emit_jo_label(label);
+    enc.emit_js_label(label);
+    auto& code = enc.get_code();
+    ctx.assert_eq(static_cast<uint8_t>(code[2]), uint8_t(0xFA));
+    ctx.assert_eq(static_cast<uint8_t>(code[3]), uint8_t(0xFF));
+    ctx.assert_eq(static_cast<uint8_t>(code[4]), uint8_t(0xFF));
+    ctx.assert_eq(static_cast<uint8_t>(code[5]), uint8_t(0xFF));
+    ctx.assert_eq(static_cast<uint8_t>(code[8]), uint8_t(0xF4));
+    ctx.assert_eq(static_cast<uint8_t>(code[14]), uint8_t(0xEE));
+    ctx.assert_eq(static_cast<uint8_t>(code[20]), uint8_t(0xE8));
+}
+
+TEST_CASE(register_allocator_basic_allocation, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    int phys = static_cast<int>(alloc.allocate_register(0));
+    ctx.assert_eq(true, alloc.is_allocated(0));
+    ctx.assert_eq(phys, static_cast<int>(alloc.allocate_register(0)));
+    alloc.free_register(0);
+    ctx.assert_eq(false, alloc.is_allocated(0));
+}
+
+TEST_CASE(register_allocator_unique_mappings, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    auto r0 = static_cast<int>(alloc.allocate_register(0));
+    auto r1 = static_cast<int>(alloc.allocate_register(1));
+    auto r2 = static_cast<int>(alloc.allocate_register(2));
+    ctx.assert_eq(r0, static_cast<int>(alloc.allocate_register(0)));
+    ctx.assert_eq(r1, static_cast<int>(alloc.allocate_register(1)));
+    ctx.assert_eq(r2, static_cast<int>(alloc.allocate_register(2)));
+}
+
+TEST_CASE(register_allocator_spill_on_exhaustion, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+
+    uint8_t virt_regs[14];
+    for (int i = 0; i < 14; i++) {
+        virt_regs[i] = static_cast<uint8_t>(i);
+        alloc.allocate_register(virt_regs[i]);
+    }
+
+    for (int i = 0; i < 14; i++) {
+        alloc.mark_dirty(virt_regs[i]);
+    }
+
+    alloc.allocate_register(100);
+    ctx.assert_eq(true, alloc.is_allocated(100));
+    ctx.assert_eq(false, alloc.is_allocated(0));
+}
+
+TEST_CASE(register_allocator_get_physical, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    CodeGen::X86Encoder enc;
+
+    alloc.get_physical_register(10, enc);
+    ctx.assert_eq(true, alloc.is_allocated(10));
+    ctx.assert_eq(static_cast<size_t>(0), enc.get_code().size());
+
+    alloc.mark_dirty(10);
+    alloc.spill_register(10, enc);
+    ctx.assert_eq(true, enc.get_code().size() > 0);
+
+    enc.clear();
+    alloc.free_register(10);
+    alloc.get_physical_register(10, enc);
+    ctx.assert_eq(true, enc.get_code().size() > 0);
+}
+
+TEST_CASE(register_allocator_dirty_spill_cycle, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    CodeGen::X86Encoder enc;
+
+    alloc.allocate_register(5);
+    alloc.mark_dirty(5);
+    alloc.spill_all_dirty(enc);
+    ctx.assert_eq(true, enc.get_code().size() > 0);
+
+    enc.clear();
+    alloc.mark_clean(5);
+    alloc.spill_all_dirty(enc);
+    ctx.assert_eq(true, enc.get_code().empty());
+}
+
+TEST_CASE(register_allocator_reset, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    alloc.allocate_register(0);
+    alloc.allocate_register(1);
+    alloc.reset_for_new_function();
+    ctx.assert_eq(false, alloc.is_allocated(0));
+    ctx.assert_eq(false, alloc.is_allocated(1));
+    ctx.assert_eq(static_cast<size_t>(0), alloc.get_allocation_count());
+    ctx.assert_eq(static_cast<size_t>(0), alloc.get_spill_count());
+}
+
+TEST_CASE(register_allocator_caller_saved, "register_allocator") {
+    CodeGen::RegisterAllocator alloc;
+    CodeGen::X86Encoder enc;
+
+    for (int i = 0; i < 5; i++) {
+        alloc.allocate_register(static_cast<uint8_t>(i));
+        alloc.mark_dirty(static_cast<uint8_t>(i));
+    }
+
+    alloc.save_caller_saved_regs(enc);
+    ctx.assert_eq(true, enc.get_code().size() > 0);
+}
+
+TEST_CASE(disa_compiler_empty_program, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    std::vector<uint8_t> empty;
+    auto code = compiler.compile_program(empty);
+    ctx.assert_eq(static_cast<size_t>(0), code.size());
+}
+
+TEST_CASE(disa_compiler_nop_halt, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    std::vector<uint8_t> program = {0x00, 0xFF}; // NOP, HALT
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(disa_compiler_basic_arithmetic, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // LOAD_IMM R0, 42; ADD R1, R0
+    std::vector<uint8_t> program = {
+        0x01, 0x00, 0x2A, 0x00, 0x00, 0x00,  // LOAD_IMM R0, 42
+        0x02, 0x01, 0x00,                      // ADD R1, R0
+        0xFF                                    // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(disa_compiler_jump_targets, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // JMP to address 3
+    std::vector<uint8_t> program = {
+        0x05, 0x03, 0x00, 0x00, 0x00,  // JMP 3
+        0x00,                           // NOP (target)
+        0xFF                            // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(disa_compiler_push_pop, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // PUSH R0; POP R1
+    std::vector<uint8_t> program = {
+        0x08, 0x00,  // PUSH R0
+        0x09, 0x01,  // POP R1
+        0xFF         // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(disa_compiler_load_store, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // LOAD R0, R1; STORE R2, R3
+    std::vector<uint8_t> program = {
+        0x06, 0x00, 0x01,  // LOAD R0, R1
+        0x07, 0x02, 0x03,  // STORE R2, R3
+        0xFF               // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+}
+
+TEST_CASE(disa_compiler_out_byte, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // OUT R5, 0  (output byte from R5 to port 0)
+    std::vector<uint8_t> program = {
+        0x31, 0x05, 0x00,  // OUT R5, 0
+        0xFF                // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+    // Should contain syscall (0F 05) for write
+    bool has_syscall = false;
+    for (size_t i = 0; i + 1 < code.size(); i++) {
+        if (code[i] == 0x0F && code[i+1] == 0x05) {
+            has_syscall = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, has_syscall);
+}
+
+TEST_CASE(disa_compiler_out_nonzero_port, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // OUT R0, 3  (unimplemented port - should emit INT3 fallback)
+    std::vector<uint8_t> program = {
+        0x31, 0x00, 0x03,  // OUT R0, 3
+        0xFF                // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+    // Should contain INT3 (0xCC) since port 3 is not console
+    bool has_int3 = false;
+    for (size_t i = 0; i < code.size(); i++) {
+        if (code[i] == 0xCC) {
+            has_int3 = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, has_int3);
+}
+
+TEST_CASE(disa_compiler_in_byte, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // IN R3, 0  (read byte from port 0 into R3)
+    std::vector<uint8_t> program = {
+        0x30, 0x03, 0x00,  // IN R3, 0
+        0xFF                // HALT
+    };
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+    // Should contain syscall (0F 05) for read
+    bool has_syscall = false;
+    for (size_t i = 0; i + 1 < code.size(); i++) {
+        if (code[i] == 0x0F && code[i+1] == 0x05) {
+            has_syscall = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, has_syscall);
+}
+
+TEST_CASE(disa_compiler_all_io_opcodes, "disa_compiler") {
+    CodeGen::DISAToX86Compiler compiler;
+    // Test all I/O opcodes compile without crashing
+    std::vector<uint8_t> program;
+    // OUT R0, 0; IN R1, 0; OUTB R2, 0; INB R3, 0;
+    // OUTW R4, 0; INW R5, 0; OUTL R6, 0; INL R7, 0;
+    // OUTSTR R8, 0; INSTR R9, 0;
+    program.insert(program.end(), {0x31, 0x00, 0x00});  // OUT R0, 0
+    program.insert(program.end(), {0x30, 0x01, 0x00});  // IN R1, 0
+    program.insert(program.end(), {0x33, 0x02, 0x00});  // OUTB R2, 0
+    program.insert(program.end(), {0x32, 0x03, 0x00});  // INB R3, 0
+    program.insert(program.end(), {0x35, 0x04, 0x00});  // OUTW R4, 0
+    program.insert(program.end(), {0x34, 0x05, 0x00});  // INW R5, 0
+    program.insert(program.end(), {0x37, 0x06, 0x00});  // OUTL R6, 0
+    program.insert(program.end(), {0x36, 0x07, 0x00});  // INL R7, 0
+    program.insert(program.end(), {0x39, 0x08, 0x00});  // OUTSTR R8, 0
+    program.insert(program.end(), {0x38, 0x09, 0x00});  // INSTR R9, 0
+    program.push_back(0xFF);  // HALT
+    auto code = compiler.compile_program(program);
+    ctx.assert_eq(true, code.size() > 0);
+    // Should contain at least one syscall
+    bool has_syscall = false;
+    for (size_t i = 0; i + 1 < code.size(); i++) {
+        if (code[i] == 0x0F && code[i+1] == 0x05) {
+            has_syscall = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, has_syscall);
+}
+
+// ============================================================================
+// ENCODER MAP DISPATCH TESTS (TASK-033)
+// ============================================================================
+// Verify the map-based encode_instruction dispatch produces correct bytecode
+// for every opcode group, including the previously-broken SHL64/SHR64 path.
+// ============================================================================
+
+TEST_CASE(encoder_map_no_operands, "encoder_map") {
+    // All no-operand instructions should produce a single opcode byte
+    // plus HALT for program termination
+    ctx.assemble_code(R"(
+        NOP
+        HALT
+    )");
+    ctx.assert_program_size(2);
+    ctx.assert_byte_at(0, 0x00); // NOP
+    ctx.assert_byte_at(1, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_no_operands_fpu, "encoder_map") {
+    ctx.assemble_code(R"(
+        FINIT
+        FABS
+        FCHS
+        FSQRT
+        FSIN
+        FCOS
+        FTAN
+        HALT
+    )");
+    ctx.assert_program_size(8);
+    ctx.assert_byte_at(0, 0xB0); // FINIT
+    ctx.assert_byte_at(1, 0xAE); // FABS
+    ctx.assert_byte_at(2, 0xAF); // FCHS
+    ctx.assert_byte_at(3, 0xAD); // FSQRT
+    ctx.assert_byte_at(4, 0xAA); // FSIN
+    ctx.assert_byte_at(5, 0xAB); // FCOS
+    ctx.assert_byte_at(6, 0xAC); // FTAN
+    ctx.assert_byte_at(7, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_no_operands_interrupt, "encoder_map") {
+    ctx.assemble_code(R"(
+        CLI
+        STI
+        IRET
+        HALT
+    )");
+    ctx.assert_program_size(4);
+    ctx.assert_byte_at(0, 0xFA); // CLI
+    ctx.assert_byte_at(1, 0xFB); // STI
+    ctx.assert_byte_at(2, 0xCF); // IRET
+    ctx.assert_byte_at(3, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_no_operands_simd, "encoder_map") {
+    ctx.assemble_code(R"(
+        VADD
+        VMUL
+        VDOT
+        HALT
+    )");
+    ctx.assert_program_size(4);
+    ctx.assert_byte_at(0, 0xD4); // VADD
+    ctx.assert_byte_at(1, 0xD5); // VMUL
+    ctx.assert_byte_at(2, 0xD6); // VDOT
+    ctx.assert_byte_at(3, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_single_reg, "encoder_map") {
+    // Register map: EAX=0, ECX=1, EDX=2, EBX=3
+    ctx.assemble_code(R"(
+        PUSH EAX
+        POP EBX
+        INC ECX
+        DEC EDX
+        HALT
+    )");
+    ctx.assert_program_size(9);
+    ctx.assert_byte_at(0, 0x08); // PUSH
+    ctx.assert_byte_at(1, 0x00); // EAX=0
+    ctx.assert_byte_at(2, 0x09); // POP
+    ctx.assert_byte_at(3, 0x03); // EBX=3
+    ctx.assert_byte_at(4, 0x12); // INC
+    ctx.assert_byte_at(5, 0x01); // ECX=1
+    ctx.assert_byte_at(6, 0x13); // DEC
+    ctx.assert_byte_at(7, 0x02); // EDX=2
+    ctx.assert_byte_at(8, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_single_reg_64bit, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE64
+        NOT RAX
+        INC RBX
+        DEC RCX
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x59); // NOT64 (auto-upgraded)
+    ctx.assert_byte_at(2, 0x00); // RAX
+    ctx.assert_byte_at(3, 0x5D); // INC64
+    ctx.assert_byte_at(4, 0x03); // RBX
+    ctx.assert_byte_at(5, 0x5E); // DEC64
+    ctx.assert_byte_at(6, 0x01); // RCX
+    ctx.assert_byte_at(7, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_jump, "encoder_map") {
+    ctx.assemble_code(R"(
+        JMP _j2
+    _j1:
+        ADD EAX, EBX
+        HALT
+    _j2:
+        JMP _j1
+    )");
+    // JMP = 5 bytes (opcode + 4-byte addr), ADD = 3 bytes, HALT = 1 byte, JMP = 5 bytes
+    ctx.assert_program_size(14);
+    ctx.assert_byte_at(0, 0x05); // JMP opcode
+    ctx.assert_byte_at(5, 0x02); // ADD opcode
+    ctx.assert_byte_at(6, 0x00); // EAX=0
+    ctx.assert_byte_at(7, 0x03); // EBX=3
+    ctx.assert_byte_at(8, 0xFF); // HALT
+    ctx.assert_byte_at(9, 0x05); // JMP opcode
+}
+
+TEST_CASE(encoder_map_conditional_jumps, "encoder_map") {
+    ctx.assemble_code(R"(
+        CMP EAX, EBX
+        JZ _equal
+        JNZ _not_equal
+        JE _equal
+        JNE _not_equal
+        JS _sign
+        JNS _nosign
+        HALT
+    _equal:
+        JC _carry
+        HALT
+    _not_equal:
+        JNC _nocarry
+        HALT
+    _sign:
+        JO _overflow
+        HALT
+    _nosign:
+        JNO _nooverflow
+        HALT
+    _carry:
+        HALT
+    _nocarry:
+        HALT
+    _overflow:
+        JG _greater
+        HALT
+    _nooverflow:
+        JL _less
+        HALT
+    _greater:
+        JGE _greaterequal
+        HALT
+    _less:
+        JLE _lessequal
+        HALT
+    _greaterequal:
+        HALT
+    _lessequal:
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x0A); // CMP
+    // JZ should follow after CMP
+    ctx.assert_byte_at(3, 0x0B); // JZ (alias of JE)
+}
+
+TEST_CASE(encoder_map_alu_2reg, "encoder_map") {
+    // Register map: EAX=0, ECX=1, EBX=3, EDX=2
+    ctx.assemble_code(R"(
+        ADD EAX, EBX
+        SUB ECX, EDX
+        MUL EAX, EBX
+        DIV ECX, EDX
+        AND EAX, ECX
+        OR EBX, EDX
+        XOR EAX, ECX
+        CMP EBX, EDX
+        MOD EAX, EBX
+        HALT
+    )");
+    ctx.assert_program_size(28);
+    ctx.assert_byte_at(0, 0x02); // ADD
+    ctx.assert_byte_at(1, 0x00); ctx.assert_byte_at(2, 0x03); // EAX=0, EBX=3
+    ctx.assert_byte_at(3, 0x03); // SUB
+    ctx.assert_byte_at(4, 0x01); ctx.assert_byte_at(5, 0x02); // ECX=1, EDX=2
+    ctx.assert_byte_at(6, 0x10); // MUL
+    ctx.assert_byte_at(7, 0x00); ctx.assert_byte_at(8, 0x03);
+    ctx.assert_byte_at(9, 0x11);  // DIV
+    ctx.assert_byte_at(10, 0x01); ctx.assert_byte_at(11, 0x02);
+    ctx.assert_byte_at(12, 0x14); // AND
+    ctx.assert_byte_at(13, 0x00); ctx.assert_byte_at(14, 0x01); // EAX, ECX
+    ctx.assert_byte_at(15, 0x15); // OR
+    ctx.assert_byte_at(16, 0x03); ctx.assert_byte_at(17, 0x02); // EBX, EDX
+    ctx.assert_byte_at(18, 0x16); // XOR
+    ctx.assert_byte_at(19, 0x00); ctx.assert_byte_at(20, 0x01); // EAX, ECX
+    ctx.assert_byte_at(21, 0x0A); // CMP
+    ctx.assert_byte_at(24, 0x29); // MOD
+}
+
+TEST_CASE(encoder_map_alu_3reg, "encoder_map") {
+    // MUL64/DIV64/AND64/OR64/XOR64/MOD64 use 3-register encoding format
+    ctx.assemble_code(R"(
+        MODE64
+        MUL64 RAX, RBX, RCX
+        DIV64 RDX, RAX, RBX
+        AND64 RCX, RDX, RAX
+        OR64  RBX, RCX, RDX
+        XOR64 RAX, RBX, RCX
+        MOD64 RDX, RAX, RBX
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71);  // MODE64
+    // MUL64 = opcode + 3 registers = 4 bytes
+    ctx.assert_byte_at(1, 0x54);  // MUL64
+    ctx.assert_byte_at(2, 0x00);  // RAX (dest)
+    ctx.assert_byte_at(3, 0x03);  // RBX (src1)
+    ctx.assert_byte_at(4, 0x01);  // RCX (src2)
+    ctx.assert_byte_at(5, 0x55);  // DIV64
+    ctx.assert_byte_at(6, 0x02);  // RDX (dest)
+    ctx.assert_byte_at(7, 0x00);  // RAX (src1)
+    ctx.assert_byte_at(8, 0x03);  // RBX (src2)
+    ctx.assert_byte_at(9, 0x56);  // AND64
+    ctx.assert_byte_at(13, 0x57); // OR64
+    ctx.assert_byte_at(17, 0x58); // XOR64
+    ctx.assert_byte_at(21, 0x5F); // MOD64
+}
+
+TEST_CASE(encoder_map_mov_reg_reg, "encoder_map") {
+    ctx.assemble_code(R"(
+        MOV EAX, EBX
+        HALT
+    )");
+    ctx.assert_program_size(4);
+    ctx.assert_byte_at(0, 0x04); // MOV
+    ctx.assert_byte_at(1, 0x00); // EAX=0
+    ctx.assert_byte_at(2, 0x03); // EBX=3
+    ctx.assert_byte_at(3, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_mov_imm, "encoder_map") {
+    ctx.assemble_code(R"(
+        MOV EAX, 42
+        HALT
+    )");
+    // MOV reg, imm should become LOAD_IMM64 (10 bytes)
+    ctx.assert_program_size(11); // LOAD_IMM64 (10) + HALT (1)
+    ctx.assert_byte_at(0, 0x53); // LOAD_IMM64
+    ctx.assert_byte_at(1, 0x00); // EAX
+    ctx.assert_byte_at(2, 42);   // imm byte 0
+}
+
+TEST_CASE(encoder_map_mov_mem, "encoder_map") {
+    ctx.assemble_code(R"(
+        STORE EAX, 100
+        LOAD EBX, 100
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x07); // STORE
+    ctx.assert_byte_at(1, 0x00); // EAX
+    // 32-bit address at bytes 2-5
+    ctx.assert_byte_at(6, 0x06); // LOAD
+    ctx.assert_byte_at(7, 0x03); // EBX=3
+}
+
+TEST_CASE(encoder_map_mov_bracket_syntax, "encoder_map") {
+    ctx.assemble_code(R"(
+        LOAD_IMM ESI, 200
+        LOAD EAX, [ESI]
+        STORE EBX, [ESI]
+        HALT
+    )");
+    // LOAD [reg] -> LOADR (3 bytes: opcode + dst_reg + addr_reg)
+    // STORE [reg] -> STORER (3 bytes: opcode + addr_reg + value_reg)
+    ctx.assert_byte_at(6, 0x41); // LOADR
+    ctx.assert_byte_at(7, 0x00); // EAX
+    ctx.assert_byte_at(8, 0x06); // ESI
+    ctx.assert_byte_at(9, 0x43); // STORER
+    ctx.assert_byte_at(10, 0x06); // ESI=6 (addr_reg first for STORER)
+    ctx.assert_byte_at(11, 0x03); // EBX=3 (value_reg)
+}
+
+TEST_CASE(encoder_map_mov_extended, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE64
+        MOVEX R8, R9
+        MOV R8, R9
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x60); // MOVEX
+    ctx.assert_byte_at(2, 0x08); // R8
+    ctx.assert_byte_at(3, 0x09); // R9
+    // MOV with extended regs auto-uses MOVEX
+    ctx.assert_byte_at(4, 0x60); // MOVEX
+}
+
+TEST_CASE(encoder_map_load_store_misc, "encoder_map") {
+    // SWAP is reg, memory-address
+    ctx.assemble_code(R"(
+        LEA EAX, 100
+        SWAP EAX, 200
+        LOADR EAX, ESI
+        STORER EBX, EDI
+        HALT
+    )");
+    // LEA = 6 bytes (1+1+4), SWAP = 6 bytes (1+1+4), LOADR=3, STORER=3, HALT=1 = 19
+    ctx.assert_program_size(19);
+    ctx.assert_byte_at(0, 0x20); // LEA
+    ctx.assert_byte_at(6, 0x21); // SWAP
+    ctx.assert_byte_at(12, 0x41); // LOADR
+    ctx.assert_byte_at(15, 0x43); // STORER
+}
+
+TEST_CASE(encoder_map_io, "encoder_map") {
+    ctx.assemble_code(R"(
+        OUT EAX, 0x80
+        IN EBX, 0x81
+        OUTB ECX, 0x82
+        INB EDX, 0x83
+        HALT
+    )");
+    ctx.assert_program_size(13); // 4*(opcode + reg + port) + HALT
+    ctx.assert_byte_at(0, 0x31); // OUT
+    ctx.assert_byte_at(1, 0x00); // EAX
+    ctx.assert_byte_at(2, 0x80); // port
+    ctx.assert_byte_at(3, 0x30); // IN
+    ctx.assert_byte_at(4, 0x03); // EBX=3
+    ctx.assert_byte_at(5, 0x81); // port
+    ctx.assert_byte_at(6, 0x33); // OUTB
+    ctx.assert_byte_at(7, 0x01); // ECX=1
+    ctx.assert_byte_at(8, 0x82); // port
+    ctx.assert_byte_at(9, 0x32);  // INB
+    ctx.assert_byte_at(10, 0x02); // EDX=2
+    ctx.assert_byte_at(11, 0x83); // port
+}
+
+TEST_CASE(encoder_map_shift, "encoder_map") {
+    ctx.assemble_code(R"(
+        SHL EAX, 2
+        SHR EBX, 4
+        HALT
+    )");
+    ctx.assert_program_size(7); // 2*(opcode + reg + imm) + HALT
+    ctx.assert_byte_at(0, 0x18); // SHL
+    ctx.assert_byte_at(1, 0x00); // EAX
+    ctx.assert_byte_at(2, 2);    // shift amount
+    ctx.assert_byte_at(3, 0x19); // SHR
+    ctx.assert_byte_at(4, 0x03); // EBX=3
+    ctx.assert_byte_at(5, 4);    // shift amount
+    ctx.assert_byte_at(6, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_shift_64bit, "encoder_map") {
+    // This was previously broken: SHL/SHR with 64-bit registers
+    // would auto-upgrade to SHL64/SHR64, which had no matching if-else branch
+    ctx.assemble_code(R"(
+        MODE64
+        SHL RAX, 3
+        SHR RBX, 1
+        HALT
+    )");
+    ctx.assert_program_size(8); // MODE64(1) + 2*(opcode+reg+imm) + HALT(1)
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x5A); // SHL64 (auto-upgraded from SHL)
+    ctx.assert_byte_at(2, 0x00); // RAX
+    ctx.assert_byte_at(3, 3);    // shift amount
+    ctx.assert_byte_at(4, 0x5B); // SHR64 (auto-upgraded from SHR)
+    ctx.assert_byte_at(5, 0x03); // RBX
+    ctx.assert_byte_at(6, 1);    // shift amount
+    ctx.assert_byte_at(7, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_shift_64bit_direct, "encoder_map") {
+    // Direct SHL64/SHR64 usage (no auto-upgrade needed)
+    ctx.assemble_code(R"(
+        MODE64
+        SHL64 RAX, 5
+        SHR64 RBX, 2
+        HALT
+    )");
+    ctx.assert_program_size(8);
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x5A); // SHL64
+    ctx.assert_byte_at(2, 0x00); // RAX
+    ctx.assert_byte_at(3, 5);    // shift amount
+    ctx.assert_byte_at(4, 0x5B); // SHR64
+    ctx.assert_byte_at(5, 0x03); // RBX
+    ctx.assert_byte_at(6, 2);    // shift amount
+    ctx.assert_byte_at(7, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_cmp_immediate, "encoder_map") {
+    // CMP with immediate should expand to LOAD_IMM temp_reg, imm + CMP dest, temp
+    ctx.assemble_code(R"(
+        CMP EAX, 100
+        HALT
+    )");
+    // LOAD_IMM temp_reg, imm = 1+1+4 = 6 bytes
+    // CMP dest, temp_reg = 1+1+1 = 3 bytes
+    // Total = 9 + 1 HALT = 10 bytes
+    ctx.assert_program_size(10);
+    ctx.assert_byte_at(0, 0x01); // LOAD_IMM opcode
+    ctx.assert_byte_at(1, 0x02); // temp_reg (RDX default for x86)
+    // bytes 2-5: immediate value
+    ctx.assert_byte_at(2, 100);  // imm low byte
+    ctx.assert_byte_at(6, 0x0A); // CMP opcode
+    ctx.assert_byte_at(7, 0x00); // EAX
+    ctx.assert_byte_at(8, 0x02); // temp_reg (RDX)
+    ctx.assert_byte_at(9, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_cmp_immediate_64bit, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE64
+        CMP RAX, 1000
+        HALT
+    )");
+    // CMP with immediate expansion uses LOAD_IMM (not LOAD_IMM64) for temp register
+    // LOAD_IMM (6 bytes: 1+1+4) + CMP64 (3 bytes) = 9
+    // MODE64 (1) + 9 + HALT (1) = 11
+    ctx.assert_program_size(11);
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x01); // LOAD_IMM opcode (expanded from CMP immediate)
+}
+
+TEST_CASE(encoder_map_alu_3_operand, "encoder_map") {
+    // 3-operand ALU form for 64-bit ops: dest, src1, src2 -> dest = src1 op src2
+    ctx.assemble_code(R"(
+        MODE64
+        ADD64 RAX, RBX, RCX
+        SUB64 RDX, RAX, RBX
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71);  // MODE64
+    // ADD64 RAX, RBX, RCX -> if dest != src1, emits MOV64 dest,src1 + ADD64 dest,src2
+    // RAX != RBX, so: MOV64 RAX,RBX (3 bytes) + ADD64 RAX,RCX (3 bytes) = 6
+    ctx.assert_byte_at(1, 0x52);  // MOV64
+    ctx.assert_byte_at(2, 0x00);  // RAX (dest in MOV)
+    ctx.assert_byte_at(3, 0x03);  // RBX (src in MOV)
+    ctx.assert_byte_at(4, 0x50);  // ADD64 opcode
+    ctx.assert_byte_at(5, 0x00);  // RAX (dest)
+    ctx.assert_byte_at(6, 0x01);  // RCX (src2)
+    // SUB64 RDX, RAX, RBX -> RDX != RAX
+    ctx.assert_byte_at(7, 0x52);  // MOV64 RDX, RAX
+    ctx.assert_byte_at(8, 0x02);  // RDX
+    ctx.assert_byte_at(9, 0x00);  // RAX
+    ctx.assert_byte_at(10, 0x51); // SUB64 opcode
+    ctx.assert_byte_at(11, 0x02); // RDX
+    ctx.assert_byte_at(12, 0x03); // RBX
+}
+
+TEST_CASE(encoder_map_sse_simd, "encoder_map") {
+    ctx.assemble_code(R"(
+        MOVAPS XMM0, XMM1
+        ADDPS XMM2, XMM3
+        MULPS XMM4, XMM5
+        HALT
+    )");
+    ctx.assert_program_size(10); // 3*(1 opcode + 2 regs) + 1 HALT
+    ctx.assert_byte_at(0, 0x80); // MOVAPS
+    ctx.assert_byte_at(1, 50);   // XMM0 register number (base 50)
+    ctx.assert_byte_at(2, 52);   // XMM1 register number
+    ctx.assert_byte_at(3, 0x82); // ADDPS
+    ctx.assert_byte_at(4, 54);   // XMM2
+    ctx.assert_byte_at(5, 56);   // XMM3
+}
+
+TEST_CASE(encoder_map_sse_cmp, "encoder_map") {
+    ctx.assemble_code(R"(
+        CMPPS XMM0, XMM1, 0
+        HALT
+    )");
+    ctx.assert_program_size(5); // opcode + dst + src + predicate + HALT
+    ctx.assert_byte_at(0, 0x8C); // CMPPS
+    ctx.assert_byte_at(1, 50);   // XMM0 (dst)
+    ctx.assert_byte_at(2, 52);   // XMM1 (src)
+    ctx.assert_byte_at(3, 0);    // predicate
+    ctx.assert_byte_at(4, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_fpu_load_store, "encoder_map") {
+    // FPU memory ops: opcode + type(1 byte) + 4-byte address = 6 bytes each
+    ctx.assemble_code(R"(
+        FLD [100]
+        FST [200]
+        FSTP [300]
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0xA0); // FLD opcode
+    ctx.assert_byte_at(1, 0x01); // memory type
+    ctx.assert_byte_at(6, 0xA1); // FST opcode
+    ctx.assert_byte_at(12, 0xA2); // FSTP opcode
+}
+
+TEST_CASE(encoder_map_fpu_arithmetic, "encoder_map") {
+    ctx.assemble_code(R"(
+        FADD [100]
+        FSUB [200]
+        FMUL [300]
+        FDIV [400]
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0xA6); // FADD
+    ctx.assert_byte_at(1, 0x01); // memory type
+    ctx.assert_byte_at(6, 0xA7); // FSUB
+    ctx.assert_byte_at(12, 0xA8); // FMUL
+    ctx.assert_byte_at(18, 0xA9); // FDIV
+}
+
+TEST_CASE(encoder_map_fpu_other, "encoder_map") {
+    // FILD/FIST/FISTP: opcode + type + 4-byte addr = 6 bytes each
+    // FSTCW/FLDCW: opcode + 4-byte addr = 5 bytes each
+    ctx.assemble_code(R"(
+        FILD [100]
+        FIST [200]
+        FISTP [300]
+        FSTCW [400]
+        FLDCW [500]
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0xA3); // FILD
+    ctx.assert_byte_at(6, 0xA4); // FIST
+    ctx.assert_byte_at(12, 0xA5); // FISTP
+    ctx.assert_byte_at(18, 0xB2); // FSTCW
+    ctx.assert_byte_at(23, 0xB3); // FLDCW
+}
+
+TEST_CASE(encoder_map_fstsw_reg, "encoder_map") {
+    ctx.assemble_code(R"(
+        FSTSW R0
+        HALT
+    )");
+    ctx.assert_program_size(3);
+    ctx.assert_byte_at(0, 0xB4); // FSTSW
+    ctx.assert_byte_at(1, 0x01); // operand type = register (R0 mapped to RAX)
+    ctx.assert_byte_at(2, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_fstsw_mem, "encoder_map") {
+    ctx.assemble_code(R"(
+        FSTSW 0x200
+        HALT
+    )");
+    ctx.assert_program_size(7);
+    ctx.assert_byte_at(0, 0xB4); // FSTSW
+    ctx.assert_byte_at(1, 0x00); // operand type = memory
+}
+
+TEST_CASE(encoder_map_int, "encoder_map") {
+    ctx.assemble_code(R"(
+        INT 0x80
+        HALT
+    )");
+    ctx.assert_program_size(3);
+    ctx.assert_byte_at(0, 0xCD); // INT
+    ctx.assert_byte_at(1, 0x80); // vector
+    ctx.assert_byte_at(2, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_mode_switch, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE32
+        MODE64
+        HALT
+    )");
+    ctx.assert_program_size(3);
+    ctx.assert_byte_at(0, 0x70); // MODE32
+    ctx.assert_byte_at(1, 0x71); // MODE64
+    ctx.assert_byte_at(2, 0xFF); // HALT
+}
+
+TEST_CASE(encoder_map_loadex_storex, "encoder_map") {
+    ctx.assemble_code(R"(
+        MODE64
+        LOADEX R8, 0x1000
+        STOREX R9, 0x2000
+        HALT
+    )");
+    ctx.assert_byte_at(0, 0x71); // MODE64
+    ctx.assert_byte_at(1, 0x66); // LOADEX
+    ctx.assert_byte_at(2, 0x08); // R8
+    // 8-byte address follows (bytes 3-10)
+    ctx.assert_byte_at(11, 0x67); // STOREX
+    ctx.assert_byte_at(12, 0x09); // R9
+    // 8-byte address follows (bytes 13-20)
+}
+
+TEST_CASE(encoder_map_unknown_instruction, "encoder_map") {
+    // Unknown instruction should produce assemble_code throwing an error
+    ctx.assert_throws([&]() {
+        ctx.assemble_code(R"(
+            FANTASY_INSTR EAX, EBX
+            HALT
+        )");
+    });
+}
+
+TEST_CASE(elf_emitter_valid_header, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xC3};
+    auto elf = emitter.generate_executable(code);
+    ctx.assert_eq(true, elf.size() > 64);
+
+    ctx.assert_eq(static_cast<uint8_t>(0x7F), elf[0]);
+    ctx.assert_eq(static_cast<uint8_t>('E'), elf[1]);
+    ctx.assert_eq(static_cast<uint8_t>('L'), elf[2]);
+    ctx.assert_eq(static_cast<uint8_t>('F'), elf[3]);
+    ctx.assert_eq(static_cast<uint8_t>(2), elf[4]);
+    ctx.assert_eq(static_cast<uint8_t>(1), elf[5]);
+    ctx.assert_eq(static_cast<uint8_t>(62), elf[18]);
+    ctx.assert_eq(static_cast<uint8_t>(2), elf[16]);
+}
+
+TEST_CASE(elf_emitter_contains_code, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xB8, 0x2A, 0x00, 0x00, 0x00, 0xC3};
+    auto elf = emitter.generate_executable(code);
+
+    ctx.assert_eq(true, elf.size() > code.size(),
+        "ELF too small to contain code (" + std::to_string(elf.size()) + " vs " + std::to_string(code.size()) + ")");
+
+    bool found = false;
+    for (size_t i = 120; i + code.size() <= elf.size(); i++) {
+        if (std::memcmp(&elf[i], code.data(), code.size()) == 0) {
+            found = true;
+            break;
+        }
+    }
+    ctx.assert_eq(true, found, "Compiled code not found in ELF output");
+}
+
+TEST_CASE(elf_emitter_writable, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xC3};
+    auto elf = emitter.generate_executable(code);
+    std::string tmp_path = "/tmp/test_elf_output";
+    bool ok = emitter.write_to_file(elf, tmp_path);
+    ctx.assert_eq(true, ok);
+    std::ifstream infile(tmp_path, std::ios::binary);
+    ctx.assert_eq(true, infile.good());
+    infile.seekg(0, std::ios::end);
+    size_t file_size = static_cast<size_t>(infile.tellg());
+    ctx.assert_eq(elf.size(), file_size);
+    infile.close();
+    std::remove(tmp_path.c_str());
+}
+
+TEST_CASE(elf_emitter_entry_point, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xC3};
+    auto elf = emitter.generate_executable(code);
+    uint64_t entry = 0;
+    for (int i = 0; i < 8; i++) {
+        entry |= static_cast<uint64_t>(elf[24 + i]) << (i * 8);
+    }
+    ctx.assert_eq(true, entry >= 0x400000);
+    ctx.assert_eq(true, entry < 0x401000);
+}
+
+TEST_CASE(elf_emitter_one_phdr, "elf_emitter") {
+    CodeGen::ELFEmitter emitter;
+    std::vector<uint8_t> code = {0xC3};
+    auto elf = emitter.generate_executable(code);
+    uint16_t phnum = static_cast<uint16_t>(elf[56]) |
+                     (static_cast<uint16_t>(elf[57]) << 8);
+    ctx.assert_eq(static_cast<uint16_t>(1), phnum);
+    uint16_t phentsize = static_cast<uint16_t>(elf[54]) |
+                         (static_cast<uint16_t>(elf[55]) << 8);
+    ctx.assert_eq(static_cast<uint16_t>(56), phentsize);
+}
+

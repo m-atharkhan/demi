@@ -15,8 +15,7 @@ inline void handle_FSIN(CPU& cpu, [[maybe_unused]] const std::vector<uint8_t>& p
     double result = std::sin(value);
     
     // Replace ST(0) with result
-    cpu.fpu_pop();
-    cpu.fpu_push(result);
+    cpu.fpu_store(0, result);
     
     DEBUG_INFO(Logging::DebugCategory::CPU_EXECUTION, "[PC={:#06x}] [FSIN] sin({}) = {}", cpu.get_pc(), value, result);
     

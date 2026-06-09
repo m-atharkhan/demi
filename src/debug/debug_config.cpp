@@ -180,7 +180,7 @@ bool DebugConfig::load_from_file(const std::string& filepath) {
                     else if (value == "INFO") handler.set_minimum_level(DebugLevel::INFO);
                     else if (value == "IMPORTANT") handler.set_minimum_level(DebugLevel::IMPORTANT);
                     else if (value == "CRITICAL") handler.set_minimum_level(DebugLevel::CRITICAL);
-                } else if (key.find("category_") == 0) {
+                } else if (key.compare(0, 9, "category_") == 0) {
                     std::string category_name = key.substr(9); // Remove "category_" prefix
                     bool enabled = (value == "true" || value == "1" || value == "yes");
                     
@@ -296,8 +296,8 @@ bool DebugConfig::matches_pattern(const std::string& category_name, const std::s
     return false;
 }
 
-std::unordered_map<DebugCategory, std::string> DebugConfig::get_all_categories() {
-    return {
+const std::unordered_map<DebugCategory, std::string>& DebugConfig::get_all_categories() {
+    static const std::unordered_map<DebugCategory, std::string> categories = {
         // CPU/Engine
         {DebugCategory::CPU_EXECUTION, "CPU_EXECUTION"},
         {DebugCategory::CPU_REGISTERS, "CPU_REGISTERS"},
@@ -355,6 +355,7 @@ std::unordered_map<DebugCategory, std::string> DebugConfig::get_all_categories()
         
         {DebugCategory::DEBUG_GENERIC, "DEBUG_GENERIC"}
     };
+    return categories;
 }
 
 } // namespace Logging

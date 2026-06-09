@@ -5,6 +5,7 @@
 #include "../cpu_flags.hpp"
 #include "../../debug/debug_handler.hpp"
 #include "../../config.hpp"  // For Config::debug
+#include "opcode_profiler.hpp"
 
 void dispatch_opcode_with_prediction(CPU& cpu, 
                                    const std::vector<uint8_t>& program, 
@@ -48,7 +49,15 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
     }
     
     uint8_t opcode = program[pc];
-    
+
+    // Profile opcode execution (TASK-005)
+    OPCODE_PROFILE(opcode);
+
+    // opcode is a uint8_t so its value is always in [0, 255].  The switch
+    // below handles every value either explicitly or via `default`, so there
+    // is no risk of an out-of-range switch index here.  The PC bounds check
+    // above already guarantees program[pc] is a valid memory access.
+    //
     // Check if this is a branch instruction that should be predicted
     if (BranchPrediction::BranchPredictor::is_branch_instruction(opcode)) {
         if (handle_predictive_branch(cpu, program, running, opcode)) {
@@ -62,6 +71,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
     switch (opcode) {
         case static_cast<uint8_t>(Opcode::NOP): {
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[PC=0x{:04X}] [NOP] PC={}", pc, pc);
                 cpu.print_state("NOP");
@@ -103,6 +114,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             #endif
             
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, 
                     "[PC=0x{:04X}] [LOAD_IMM] R{} = {}", pc, reg, value);
@@ -151,6 +164,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
                 flags &= ~FLAG_OVERFLOW;
             }
             
+            // result==0 is a legitimate arithmetic outcome checked here;
+            // cppcheck cannot determine its value statically
             if (result == 0) {
                 flags |= FLAG_ZERO;
             } else {
@@ -166,6 +181,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             }
             
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, 
                     "[PC=0x{:04X}] [ADD] R{} = {} + {} = {}", 
@@ -206,6 +223,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             }
             
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, 
                     "[PC=0x{:04X}] [MOV] R{} = R{} ({})", 
@@ -219,6 +238,8 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
         
         case static_cast<uint8_t>(Opcode::HALT): {
             #ifndef NDEBUG
+            // Config::debug is a runtime toggle (--debug flag). When disabled,
+            // debug-only code paths are compiled out in release — intentional.
             if (Config::debug) {
                 DEBUG_TRACE(Logging::DebugCategory::CPU_DISPATCHER, "[PC=0x{:04X}] [HALT]", cpu.get_pc());
             }
@@ -229,10 +250,107 @@ void dispatch_opcode_predictive(CPU& cpu, const std::vector<uint8_t>& program, b
             break;
         }
         
-        // For complex operations, delegate to external handlers
+        case static_cast<uint8_t>(Opcode::INC64): {
+            #ifndef NDEBUG
+            if (__builtin_expect(pc + 1 >= program.size(), 0)) {
+                running = false;
+                return;
+            }
+            #endif
+            uint8_t reg = program[pc + 1];
+            #ifndef NDEBUG
+            if (__builtin_expect(reg >= cpu.get_registers_64().size(), 0)) {
+                running = false;
+                return;
+            }
+            #endif
+            uint64_t value = cpu.get_registers_64()[reg];
+            uint64_t result = value + 1;
+            uint32_t flags = cpu.get_flags();
+            if (value == 0x7FFFFFFFFFFFFFFF) {
+                flags |= FLAG_OVERFLOW;
+            } else {
+                flags &= ~FLAG_OVERFLOW;
+            }
+            // result==0 is a legitimate arithmetic outcome checked here;
+            // cppcheck cannot determine its value statically
+            if (result == 0) {
+                flags |= FLAG_ZERO;
+            } else {
+                flags &= ~FLAG_ZERO;
+            }
+            if ((result >> 63) & 1) {
+                flags |= FLAG_SIGN;
+            } else {
+                flags &= ~FLAG_SIGN;
+            }
+            cpu.set_flags(flags);
+            cpu.get_registers_64()[reg] = result;
+            if (reg < 8) {
+                cpu.get_registers()[reg] = static_cast<uint32_t>(result);
+            }
+            cpu.set_pc(pc + 2);
+            break;
+        }
+        
+        case static_cast<uint8_t>(Opcode::DEC64): {
+            #ifndef NDEBUG
+            if (__builtin_expect(pc + 1 >= program.size(), 0)) {
+                running = false;
+                return;
+            }
+            #endif
+            uint8_t reg = program[pc + 1];
+            #ifndef NDEBUG
+            if (__builtin_expect(reg >= cpu.get_registers_64().size(), 0)) {
+                running = false;
+                return;
+            }
+            #endif
+            uint64_t value = cpu.get_registers_64()[reg];
+            uint64_t result = value - 1;
+            uint32_t flags = cpu.get_flags();
+            if (value == 0x8000000000000000) {
+                flags |= FLAG_OVERFLOW;
+            } else {
+                flags &= ~FLAG_OVERFLOW;
+            }
+            // result==0 is a legitimate arithmetic outcome checked here;
+            // cppcheck cannot determine its value statically
+            if (result == 0) {
+                flags |= FLAG_ZERO;
+            } else {
+                flags &= ~FLAG_ZERO;
+            }
+            if ((result >> 63) & 1) {
+                flags |= FLAG_SIGN;
+            } else {
+                flags &= ~FLAG_SIGN;
+            }
+            cpu.set_flags(flags);
+            cpu.get_registers_64()[reg] = result;
+            if (reg < 8) {
+                cpu.get_registers()[reg] = static_cast<uint32_t>(result);
+            }
+            cpu.set_pc(pc + 2);
+            break;
+        }
+        
+        // For complex operations, delegate to the consolidated dispatcher
         default: {
-            // Fall back to inlined dispatcher for complex operations (including 64-bit instructions)
-            dispatch_opcode_inlined_optimized(cpu, program, running);
+            uint32_t fallback_pc = cpu.get_pc();
+            dispatch_opcode(cpu, program, running);
+            if (__builtin_expect(running && cpu.get_pc() == fallback_pc, 0)) {
+                #ifndef NDEBUG
+                Logging::DebugHandler::instance().report(
+                    Logging::DebugCategory::CPU_DISPATCHER,
+                    fmt::format("[DISPATCH_PREDICTIVE] Opcode 0x{:02X} at PC={} "
+                                "made no progress; treating as invalid",
+                                opcode, fallback_pc),
+                    Logging::DebugLevel::CRITICAL);
+                #endif
+                running = false;
+            }
             break;
         }
     }

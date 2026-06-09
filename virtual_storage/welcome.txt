@@ -1,0 +1,3 @@
+Welcome to DemiShell VFS!
+This file was pre-created in the virtual file system.
+Try: cat welcome.txt

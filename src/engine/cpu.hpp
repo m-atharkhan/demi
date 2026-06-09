@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <stdexcept>
+#include <unordered_set>
 
 #include "../config.hpp"
 #include "../debug/debug_handler.hpp"
@@ -11,6 +12,10 @@
 #include "branch_prediction.hpp"  // Branch prediction support
 #include "interrupt_controller.hpp"  // Interrupt system support
 // #include "speculative_execution.hpp"  // Speculative execution support (temporarily disabled)
+
+#include "sandbox_policy.hpp"
+#include "vfs.hpp"
+#include "virtual_disk.hpp"
 
 using DemiEngine_Registers::Register;
 using DemiEngine_Registers::RegisterNames;
@@ -241,8 +246,9 @@ class CPU {
 public:
     // Constants
     static constexpr size_t MAX_CALL_DEPTH = 256; // Maximum call stack depth
+    static constexpr uint32_t DEFAULT_STACK_LIMIT = 64; // Default minimum SP (enough for 16 pushes) before overflow detection
     
-    CPU(size_t memory_size = 0); // 0 means use default size
+    explicit CPU(size_t memory_size = 0); // 0 means use default size
     static CPU create_test_cpu(); // Factory method for test compatibility
     ~CPU();
 
@@ -391,9 +397,17 @@ public:
         get_fpu_register(st_reg, mantissa, exponent_sign);
         
         // Simple conversion for testing - in practice would need full 80-bit conversion
-        // For now, interpret mantissa as 64-bit double representation
-        double* double_ptr = reinterpret_cast<double*>(&mantissa);
-        return *double_ptr;
+        // For now, interpret mantissa as 64-bit double representation via safe memcpy
+        double result;
+        std::memcpy(&result, &mantissa, sizeof(double));
+        return result;
+    }
+
+    // Convert 64-bit integer representation to double using type-safe bitcast
+    double fpu_get_double_x64(uint64_t raw) const {
+        double result;
+        std::memcpy(&result, &raw, sizeof(double));
+        return result;
     }
 
     // AVX register access (256-bit YMM registers)
@@ -478,6 +492,21 @@ public:
     void write_mem32(uint32_t addr, uint32_t value);
     uint32_t read_mem32(uint32_t addr) const;
 
+    // Debug-only memory access validation (no-op in release builds)
+    // Returns true if access is valid, false if out-of-bounds
+    bool validate_memory_read(uint32_t addr, size_t size = 1) const;
+    bool validate_memory_write(uint32_t addr, size_t size = 1) const;
+
+    // Stack limit for overflow detection (configurable minimum SP value)
+    uint32_t get_stack_limit() const { return stack_limit_; }
+    void set_stack_limit(uint32_t limit) { stack_limit_ = limit; }
+
+    // Debug-only stack access validation (no-op in release builds)
+    // Returns true if push/pop is safe, false if overflow/underflow would occur
+    // Uses stack_limit_ to detect potential overflow before SP would underflow
+    bool validate_stack_push(size_t bytes = 4) const;
+    bool validate_stack_pop(size_t bytes = 4) const;
+
     void print_stack_frame(const std::string& label) const;
 
     uint32_t get_last_accessed_addr() const { return last_accessed_addr; }
@@ -550,6 +579,38 @@ public:
     // SpeculativeExecution::SpeculativeExecutor& get_speculative_executor() { return speculative_executor; }
     // const SpeculativeExecution::SpeculativeExecutor& get_speculative_executor() const { return speculative_executor; }
 
+    // Sandbox & VFS attachments
+    demi::sandbox::SyscallDispatcher* sandbox_dispatcher_ = nullptr;
+    demi::sandbox::VirtualFileSystem* io_vfs_ = nullptr;
+    bool has_security_fault_ = false;
+
+    // Execution I/O hooks 
+    using SyscallHook = std::function<bool(uint32_t syscall_id, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4, uint32_t arg5, int32_t& result)>;
+    using StdoutHook = std::function<void(int fd, const std::vector<uint8_t>& data)>;
+    using StdinHook = std::function<void(size_t max_count, std::vector<uint8_t>& data)>;
+
+    SyscallHook syscall_hook_;
+    StdoutHook stdout_hook_;
+    StdinHook stdin_hook_;
+
+    void set_hooks(SyscallHook syscall_hook, StdoutHook stdout_hook, StdinHook stdin_hook) {
+        syscall_hook_ = std::move(syscall_hook);
+        stdout_hook_ = std::move(stdout_hook);
+        stdin_hook_ = std::move(stdin_hook);
+    }
+
+    void set_sandbox_environment(demi::sandbox::SyscallDispatcher* dispatcher, 
+                                 demi::sandbox::VirtualFileSystem* vfs) {
+        sandbox_dispatcher_ = dispatcher;
+        io_vfs_ = vfs;
+    }
+
+    bool has_security_fault() const { return has_security_fault_; }
+    void clear_security_fault() { has_security_fault_ = false; }
+
+    void register_vm_fd(int fd) { vm_opened_fds_.insert(fd); }
+    bool is_vm_fd(int fd) const { return vm_opened_fds_.count(fd) > 0; }
+
     // Register synchronization (public for opcode handlers)
     void sync_legacy_registers();
 
@@ -567,6 +628,7 @@ private:
     int arg_offset; // Offset for arguments
     size_t call_depth = 0; // Track CALL stack depth to prevent overflow
     size_t max_call_depth_override = 0; // Override for testing (0 = use MAX_CALL_DEPTH)
+    uint32_t stack_limit_ = DEFAULT_STACK_LIMIT; // Minimum SP threshold for overflow detection
     mutable uint32_t last_accessed_addr = static_cast<uint32_t>(-1);
     uint32_t last_modified_addr = static_cast<uint32_t>(-1);
 
@@ -584,6 +646,10 @@ private:
 
     // Speculative Execution Engine (temporarily disabled)
     // SpeculativeExecution::SpeculativeExecutor speculative_executor;
+
+    std::unordered_set<int> vm_opened_fds_;
+    std::unordered_map<int, int> virtual_fds_;  // real fd -> VirtualDisk handle
+    bool is_virtual_fd(int fd) const { return virtual_fds_.count(fd) > 0; }
 
     uint8_t readPort(uint8_t port);
     void writePort(uint8_t port, uint8_t value);

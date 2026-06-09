@@ -106,7 +106,7 @@ private:
      * @brief Get all debug categories as strings
      * @return Map of category enum to string representation
      */
-    static std::unordered_map<DebugCategory, std::string> get_all_categories();
+    static const std::unordered_map<DebugCategory, std::string>& get_all_categories();
 };
 
 } // namespace Logging

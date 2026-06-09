@@ -75,7 +75,7 @@ void Logger::log(LogLevel level, const std::string& message) {
     std::string trimmed_message = message;
     
     // Remove ANSI escape sequences first
-    std::regex ansi_code_re("\033\\[[0-9;]*m");
+    static const std::regex ansi_code_re("\033\\[[0-9;]*m");
     trimmed_message = std::regex_replace(trimmed_message, ansi_code_re, "");
     
     // Then trim whitespace
@@ -235,8 +235,8 @@ std::string Logger::generate_timestamp() const {
                                   "%y-%m-%d %H:%M:%S", &tm);
 
     if (result == 0) {
-        // strftime failed, use fallback
-        std::strcpy(datetime, "00-00-00 00:00:00");
+        // strftime failed, use fallback — constant shorter than buffer
+        std::snprintf(datetime, DATETIME_BUFFER_SIZE, "%s", "00-00-00 00:00:00");
     }
 
     std::ostringstream datetime_with_ms;

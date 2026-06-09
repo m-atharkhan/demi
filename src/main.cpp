@@ -3,6 +3,8 @@
 #include <string>
 #include <functional>
 #include <unordered_map>
+#include <execinfo.h>
+#include <cxxabi.h>
 #include <fstream>
 #include <filesystem>
 #include <iomanip>
@@ -19,6 +21,8 @@ namespace fs = std::experimental::filesystem;
 #endif
 
 #include "config.hpp"
+#include "engine/sandbox_policy.hpp"
+#include "engine/vfs.hpp"
 #include "engine/cpu.hpp"
 #include "engine/device_factory.hpp"
 
@@ -43,32 +47,13 @@ namespace fs = std::experimental::filesystem;
 #include <sys/wait.h>
 #include <unistd.h>
 
+// Native code generation
+#include "codegen/disa_compiler.hpp"
+#include "codegen/elf_emitter.hpp"
+
 
 class ArgParser;
 
-void initialize_devices() {
-    using namespace vhw;
-
-    DeviceManager::instance().reset();  // Reset device manager to clear any previous state
-    auto console = DeviceFactory::createConsoleDevice(0x01);  // Console on port 0x01
-
-    auto counter = DeviceFactory::createCounterDevice(0x02);  // Counter on port 0x02
-
-    // Set up initial counter value (optional)
-    counter->setCounter(42);
-
-    // Create a file device for virtual file I/O
-    auto file = DeviceFactory::createFileDevice("virtual_storage/vhd.dat", 0x04);    // Create a RAM disk device for block storage
-    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_RAMDISK, "About to create RAMDisk...", Logging::DebugLevel::DETAIL);
-    auto ramdisk = DeviceFactory::createRamDiskDevice(8192, 0x05, 0x06);
-    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_RAMDISK, "RAMDisk created successfully", Logging::DebugLevel::DETAIL);
-
-    // Optionally, create a real serial port device if available
-    // Uncomment and modify the port name as needed for your system
-    // auto serial = DeviceFactory::createSerialPortDevice("/dev/ttyUSB0", 0x03);
-
-    Logging::DebugHandler::instance().report(Logging::DebugCategory::IO_DEVICE, "Device system initialized with standard and storage devices", Logging::DebugLevel::INFO);
-}
 
 enum class ArgType { Value, Action, MultiValue };
 
@@ -186,7 +171,7 @@ public:
         // Process boolean flags first (debug, verbose, etc.)
         for (const auto& parsed : parsed_args) {
             if (parsed.name == "debug" || parsed.name == "verbose" || parsed.name == "extended_registers" || 
-                parsed.name == "memdump" || parsed.name == "gui" || parsed.name == "interactive") {
+                parsed.name == "memdump" || parsed.name == "gui" || parsed.name == "interactive" || parsed.name == "sandbox" || parsed.name == "allow_read" || parsed.name == "allow_write" || parsed.name == "allow_exec" || parsed.name == "allow_ioctl" && parsed.name != "vfs_container" || parsed.name == "vfs_container") {
                 auto def = find_arg_def(parsed.name);
                 if (def && def->value_action) {
                     def->value_action(parsed.value);
@@ -207,7 +192,7 @@ public:
         // Process value arguments next (files, paths, etc.)
         for (const auto& parsed : parsed_args) {
             if (parsed.name != "debug" && parsed.name != "verbose" && parsed.name != "extended_registers" && 
-                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" &&
+                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" && parsed.name != "sandbox" && parsed.name != "allow_read" && parsed.name != "allow_write" && parsed.name != "allow_exec" && parsed.name != "allow_ioctl" && parsed.name != "vfs_container" &&
                 parsed.name != "help" && parsed.name != "test" && parsed.name != "unit_test" && 
                 parsed.name != "assembly_test" && parsed.name != "assembly_test_quiet" &&
                 parsed.name != "debug_verbose" && parsed.name != "debug_quiet" && parsed.name != "hexdump") {
@@ -417,6 +402,7 @@ void run_in_assembly_tests() {
 }
 
 void run_unit_tests_only() {
+    Config::test_mode = true;
     const char* color = Config::debug ? "\033[38;5;208m" : "\033[36m";
     std::cout << color << "┌──────────────────────────────────────────────────────┐\033[0m" << std::endl;
     std::cout << color << "│     Running DemiEngine Unit Tests                    │\033[0m" << std::endl;
@@ -461,6 +447,8 @@ void run_unit_tests_with_inputs(const std::vector<std::string>& inputs) {
         run_file_tests(assembly_files);
     }
     
+    // assembly_files is populated from CLI args. When empty and all_results
+    // is also empty, no work was done — exit(1). Intentional, not dead code.
     exit(all_results.empty() && assembly_files.empty() ? 1 : 0);
 }
 
@@ -648,9 +636,9 @@ bool run_tests() {
     exit(0);
 }
 
-class DemiEngine {
+class DemiApp {
 public:
-    DemiEngine(int argc, char *argv[]) {
+    DemiApp(int argc, char *argv[]) {
         // Help argument
         parser.add_action_arg("help", "--help", "-h", "Shows help information", "General",
             [this]() { parser.print_help(); show_help = true; });
@@ -926,6 +914,12 @@ public:
                 Config::assembly_output = value.empty() ? "out.hex" : value;
             });
 
+        // Hex array output argument
+        parser.add_value_arg("hex_out", "--hex-out", "-hxo", "Output assembled bytecode to file as formatted hex bytes", "Execution",
+            [this](const std::string& value) {
+                Config::hex_out = value.empty() ? "out_array.hex" : value;
+            });
+
         // Compile argument
         parser.add_value_arg("compile", "--compile", "-o", "Compile program into a standalone executable (optionally specify output name)", "Execution",
             [this](const std::string& value) {
@@ -941,6 +935,20 @@ public:
             [this](const std::string& value) {
                 Config::entry_point_symbol = value;
             });
+
+        // Sandbox arguments
+        parser.add_bool_arg("sandbox", "--sandbox", "", "Enable sandbox mode (restricts file I/O, exec, network)", "Sandbox",
+            [this](bool value) { Config::sandbox_enabled = value; });
+        parser.add_bool_arg("allow_read", "--allow-read", "", "Allow host file reads when sandbox is enabled", "Sandbox",
+            [this](bool value) { Config::allow_read = value; });
+        parser.add_bool_arg("allow_write", "--allow-write", "", "Allow host file writes when sandbox is enabled", "Sandbox",
+            [this](bool value) { Config::allow_write = value; });
+        parser.add_bool_arg("allow_exec", "--allow-exec", "", "Allow fork+execve when sandbox is enabled", "Sandbox",
+            [this](bool value) { Config::allow_exec = value; });
+        parser.add_bool_arg("allow_ioctl", "--allow-ioctl", "", "Allow raw ioctl in sandbox mode", "Sandbox",
+            [this](bool value) { Config::allow_ioctl = value; });
+        parser.add_value_arg("vfs_container", "--vfs-container", "", "Path to VFS container file (default: /tmp/demi_sandbox.vfs)", "Sandbox",
+            [this](const std::string& val) { Config::vfs_container = val; });
 
         // Architecture arguments
         parser.add_value_arg("architecture", "--architecture", "-arch", "Set CPU architecture (x86, x64, auto)", "Execution",
@@ -978,7 +986,35 @@ public:
                 }
             });
 
-        parser.parse(argc, argv);
+        // Test debug mode - verbose output for test diagnostics
+        parser.add_bool_arg("test_debug", "--test-debug", "-td",
+            "Enable verbose test debugging output (shows fusion engine, opcode dispatch, etc.)", "Testing",
+            [this](bool value) { Config::test_debug = value; });
+
+        // Test select - run specific test(s) by name
+        parser.add_value_arg("test_select", "--test-select", "-ts",
+            "Run specific test(s) by name (comma-separated, e.g. -ts fusion_inc_cmp,fusion_dec_cmp)", "Testing",
+            [this](const std::string& value) { Config::test_select = value; });
+
+        // Assembly test debug mode - verbose output for assembly test diagnostics
+        parser.add_bool_arg("assembly_test_debug", "--assembly-test-debug", "-atd",
+            "Enable verbose assembly test debugging output", "Testing",
+            [this](bool value) { Config::assembly_test_debug = value; });
+
+                parser.parse(argc, argv);
+        // Debug: check sandbox state after parse
+        if (Config::sandbox_enabled) {
+        }
+
+        // If -td was set standalone (without -t which exits during parsing), trigger tests
+        if (Config::test_debug && !Config::test_mode) {
+            run_unit_tests_only();
+        }
+        // If -atd was set standalone (without -at which sets test_mode), trigger assembly tests
+        if (Config::assembly_test_debug && !Config::test_mode) {
+            Config::test_mode = true;
+            run_assembly_tests_only();
+        }
     }
 
     // Run in compiled mode (create a standalone executable)
@@ -1261,6 +1297,8 @@ public:
         if (show_version) return;
 
         // Handle test mode first
+        // Config::running_tests is a runtime toggle (--test flag).
+        // When disabled, test-mode code paths are skipped — intentional.
         if (Config::running_tests) {
             // Validate conflicting flags for test mode
             if (Config::assembly_mode) {
@@ -1289,6 +1327,25 @@ public:
 
         CPU cpu;
         cpu.reset();
+        // ── Sandbox setup ──
+        std::unique_ptr<demi::sandbox::SyscallDispatcher> _sandbox_disp;
+        std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
+        if (Config::sandbox_enabled) {
+            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _sandbox_disp->set_allow_read(Config::allow_read); _sandbox_disp->set_allow_write(Config::allow_write); _sandbox_disp->set_allow_exec(Config::allow_exec); _sandbox_disp->set_allow_ioctl(Config::allow_ioctl);
+            _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
+                "/tmp/demi_vfs", !(false));
+            cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
+            // Config::quiet is a runtime toggle (--quiet flag). When set,
+            // sandbox status output is suppressed — intentional, not dead code.
+            if (!Config::quiet && !Config::test_mode) {
+                std::cout << "\033[33m[sandbox]\033[0m enabled";
+                if (Config::allow_read)  std::cout << " +read";
+                if (Config::allow_write) std::cout << " +write";
+                if (Config::allow_exec)  std::cout << " +exec";
+                if (Config::allow_ioctl) std::cout << " +ioctl";
+                std::cout << std::endl;
+            }
+        }
 
         std::vector<uint8_t> program;
         if (!Config::program_file.empty()) {
@@ -1439,9 +1496,116 @@ private:
             }
         }
 
+        // Save bytecode to hex array file if -hxo option is specified
+        if (!Config::hex_out.empty()) {
+            try {
+                std::ofstream outfile(Config::hex_out);
+                if (!outfile) {
+                    std::cerr << "Error: Could not open output file: " << Config::hex_out << std::endl;
+                    return;
+                }
+                
+                for (size_t i = 0; i < bytecode.size(); ++i) {
+                    outfile << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(bytecode[i]);
+                    if ((i + 1) % 16 == 0) outfile << std::endl;
+                    else outfile << " ";
+                }
+                if (bytecode.size() % 16 != 0) outfile << std::endl;
+                outfile.close();
+                
+                std::cout << "Hex output written to: " << Config::hex_out << " (" << bytecode.size() << " bytes)" << std::endl;
+
+                // Print symbol table for debugging
+                const auto& symbols = assembler.get_symbols();
+                if (!symbols.empty()) {
+                    std::cout << "\nSymbol Table:" << std::endl;
+                    std::cout << std::string(60, '=') << std::endl;
+                    for (const auto& [name, symbol] : symbols) {
+                        std::cout << fmt::format("{:<30} 0x{:04X}  ({})", name, symbol.address, symbol.defined ? "defined" : "undefined") << std::endl;
+                    }
+                    std::cout << std::string(60, '=') << std::endl;
+                }
+
+                // If hex output is specified, don't execute (assemble-only mode)
+                return;
+            } catch (const std::exception& e) {
+                std::cerr << "Error writing hex output file: " << e.what() << std::endl;
+                return;
+            }
+        }
+
+        // Native compilation: compile bytecode to x86-64 ELF executable
+        if (Config::compile_only) {
+            std::string output_name;
+
+            if (Config::output_name.empty()) {
+                output_name = generate_executable_name(Config::assembly_file);
+            } else {
+                output_name = sanitize_filename(Config::output_name);
+                if (output_name.empty()) {
+                    std::cerr << "Error: Invalid output filename: " << Config::output_name << std::endl;
+                    return;
+                }
+            }
+
+            // Create directory if it doesn't exist
+            fs::path output_path(output_name);
+            if (output_path.has_parent_path()) {
+                fs::path dir = output_path.parent_path();
+                if (!fs::exists(dir)) {
+                    if (!fs::create_directories(dir)) {
+                        std::cerr << "Error: Failed to create directory: " << dir << std::endl;
+                        return;
+                    }
+                }
+            }
+
+            // Compile bytecode to native x86-64
+            CodeGen::DISAToX86Compiler compiler;
+            uint32_t entry_addr = assembler.get_entry_address();
+            auto native_code = compiler.compile_program(bytecode, entry_addr);
+
+            if (Config::verbose) {
+                std::cout << "Compiled to " << native_code.size() << " bytes of native x86-64 code" << std::endl;
+            }
+
+            // Wrap in ELF64 executable
+            CodeGen::ELFEmitter elf_emitter;
+            auto elf_data = elf_emitter.generate_executable(native_code);
+
+            if (elf_emitter.write_to_file(elf_data, output_name)) {
+                std::cout << "Successfully compiled to executable: " << output_name << std::endl;
+                std::string run_path = output_name;
+                if (run_path.substr(0, 2) != "./") {
+                    run_path = "./" + run_path;
+                }
+                std::cout << "You can run it with: " << run_path << std::endl;
+            }
+            return;
+        }
+
         // Initialize CPU and devices
         CPU cpu;
         cpu.reset();
+        // ── Sandbox setup ──
+        std::unique_ptr<demi::sandbox::SyscallDispatcher> _sandbox_disp;
+        std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
+        if (Config::sandbox_enabled) {
+            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _sandbox_disp->set_allow_read(Config::allow_read); _sandbox_disp->set_allow_write(Config::allow_write); _sandbox_disp->set_allow_exec(Config::allow_exec); _sandbox_disp->set_allow_ioctl(Config::allow_ioctl);
+            _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
+                "/tmp/demi_vfs", !(false));
+            cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
+            // Config::quiet is a runtime toggle (--quiet flag). When set,
+            // sandbox status output is suppressed — intentional, not dead code.
+            if (!Config::quiet && !Config::test_mode) {
+                std::cout << "\033[33m[sandbox]\033[0m enabled";
+                if (Config::allow_read)  std::cout << " +read";
+                if (Config::allow_write) std::cout << " +write";
+                if (Config::allow_exec)  std::cout << " +exec";
+                if (Config::allow_ioctl) std::cout << " +ioctl";
+                std::cout << std::endl;
+            }
+        }
         initialize_devices();
 
         // Set PC to entry address if available
@@ -1507,13 +1671,21 @@ private:
             }
         } catch (const std::exception& e) {
             std::cerr << "Runtime error: " << e.what() << std::endl;
+            void* callstack[128];
+            int frames = backtrace(callstack, 128);
+            char** strs = backtrace_symbols(callstack, frames);
+            std::cerr << "Backtrace:" << std::endl;
+            for (int i = 0; i < frames; ++i) {
+                std::cerr << "  " << strs[i] << std::endl;
+            }
+            free(strs);
             Config::error_count++;
         }
     }
 };
 
 int main(int argc, char *argv[]) {
-    DemiEngine app(argc, argv);
+    DemiApp app(argc, argv);
     app.run();
     return 0;
 }

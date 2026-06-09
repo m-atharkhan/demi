@@ -8,6 +8,7 @@
 #include <cstring>
 #include "assembler.hpp"
 #include "opcodes.hpp"
+#include "../engine/safe_memcpy.hpp"
 #include "../debug/error_handler.hpp"
 #include "../debug/debug_handler.hpp"
 #include "../config.hpp"
@@ -19,6 +20,7 @@ uint32_t AssemblerEngine::db_next_addr = 0x100;
 AssemblerEngine::AssemblerEngine() : current_address(0) {
     init_opcode_table();
     init_register_table();
+    init_encoder_map();
 }
 
 AssemblerEngine::~AssemblerEngine() {
@@ -42,9 +44,9 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["POP"] = static_cast<uint8_t>(Opcode::POP);
     mnemonic_to_opcode["CMP"] = static_cast<uint8_t>(Opcode::CMP);
     mnemonic_to_opcode["JZ"] = static_cast<uint8_t>(Opcode::JZ);
-    mnemonic_to_opcode["JE"] = static_cast<uint8_t>(Opcode::JZ);   // Alias for JZ
+    mnemonic_to_opcode["JE"] = static_cast<uint8_t>(Opcode::JZ);
     mnemonic_to_opcode["JNZ"] = static_cast<uint8_t>(Opcode::JNZ);
-    mnemonic_to_opcode["JNE"] = static_cast<uint8_t>(Opcode::JNZ); // Alias for JNZ
+    mnemonic_to_opcode["JNE"] = static_cast<uint8_t>(Opcode::JNZ);
     mnemonic_to_opcode["JS"] = static_cast<uint8_t>(Opcode::JS);
     mnemonic_to_opcode["JNS"] = static_cast<uint8_t>(Opcode::JNS);
     mnemonic_to_opcode["JC"] = static_cast<uint8_t>(Opcode::JC);
@@ -194,35 +196,7 @@ void AssemblerEngine::init_opcode_table() {
     mnemonic_to_opcode["PACKB"] = 0xDA;
     mnemonic_to_opcode["UNPACKB"] = 0xDB;
 
-    // SSE/SIMD Operations (0x80-0x99 range per cpu.hpp)
-    mnemonic_to_opcode["MOVAPS"] = 0x80;  // Move Aligned Packed Single
-    mnemonic_to_opcode["MOVUPS"] = 0x81;  // Move Unaligned Packed Single
-    mnemonic_to_opcode["ADDPS"] = 0x82;   // Add Packed Single
-    mnemonic_to_opcode["SUBPS"] = 0x83;   // Subtract Packed Single
-    mnemonic_to_opcode["MULPS"] = 0x84;   // Multiply Packed Single
-    mnemonic_to_opcode["DIVPS"] = 0x85;   // Divide Packed Single
-    mnemonic_to_opcode["SQRTPS"] = 0x86;  // Square Root Packed Single
-    mnemonic_to_opcode["MAXPS"] = 0x87;   // Maximum Packed Single
-    mnemonic_to_opcode["MINPS"] = 0x88;   // Minimum Packed Single
-    mnemonic_to_opcode["ANDPS"] = 0x89;   // Bitwise AND Packed Single
-    mnemonic_to_opcode["ORPS"] = 0x8A;    // Bitwise OR Packed Single
-    mnemonic_to_opcode["XORPS"] = 0x8B;   // Bitwise XOR Packed Single
-    mnemonic_to_opcode["CMPPS"] = 0x8C;   // Compare Packed Single
-
-    // Packed Double Operations
-    mnemonic_to_opcode["MOVAPD"] = 0x8D;  // Move Aligned Packed Double
-    mnemonic_to_opcode["MOVUPD"] = 0x8E;  // Move Unaligned Packed Double
-    mnemonic_to_opcode["ADDPD"] = 0x8F;   // Add Packed Double
-    mnemonic_to_opcode["SUBPD"] = 0x90;   // Subtract Packed Double
-    mnemonic_to_opcode["MULPD"] = 0x91;   // Multiply Packed Double
-    mnemonic_to_opcode["DIVPD"] = 0x92;   // Divide Packed Double
-    mnemonic_to_opcode["SQRTPD"] = 0x93;  // Square Root Packed Double
-    mnemonic_to_opcode["MAXPD"] = 0x94;   // Maximum Packed Double
-    mnemonic_to_opcode["MINPD"] = 0x95;   // Minimum Packed Double
-    mnemonic_to_opcode["ANDPD"] = 0x96;   // Bitwise AND Packed Double
-    mnemonic_to_opcode["ORPD"] = 0x97;    // Bitwise OR Packed Double
-    mnemonic_to_opcode["XORPD"] = 0x98;   // Bitwise XOR Packed Double
-    mnemonic_to_opcode["CMPPD"] = 0x99;   // Compare Packed Double
+    // SSE/SIMD ops already mapped above via Opcode enum (lines 130-161)
 }
 
 void AssemblerEngine::init_register_table() {
@@ -284,6 +258,176 @@ void AssemblerEngine::init_register_table() {
         // register_sizes is a byte-sized field; represent YMM aliases as 128-bit (lower XMM part).
         register_sizes[ymm] = 128;
     }
+}
+
+void AssemblerEngine::init_encoder_map() {
+    encoder_map_["DEBUG"] = &AssemblerEngine::enc_debug;
+    encoder_map_["LOAD_IMM"] = &AssemblerEngine::enc_load_imm;
+    encoder_map_["LOAD_IMM64"] = &AssemblerEngine::enc_load_imm64;
+
+    encoder_map_["MOV"] = &AssemblerEngine::enc_mov;
+    encoder_map_["MOV64"] = &AssemblerEngine::enc_mov;
+    encoder_map_["MOVEX"] = &AssemblerEngine::enc_mov;
+
+    encoder_map_["ADD"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["SUB"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["CMP"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["MUL"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["DIV"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["MOD"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["AND"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["OR"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["XOR"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["ADD64"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["SUB64"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["CMP64"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["MODECMP"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["ADDEX"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["SUBEX"] = &AssemblerEngine::enc_alu_2reg;
+    encoder_map_["CMPEX"] = &AssemblerEngine::enc_alu_2reg;
+
+    encoder_map_["MUL64"] = &AssemblerEngine::enc_alu_3reg;
+    encoder_map_["DIV64"] = &AssemblerEngine::enc_alu_3reg;
+    encoder_map_["AND64"] = &AssemblerEngine::enc_alu_3reg;
+    encoder_map_["OR64"] = &AssemblerEngine::enc_alu_3reg;
+    encoder_map_["XOR64"] = &AssemblerEngine::enc_alu_3reg;
+    encoder_map_["MOD64"] = &AssemblerEngine::enc_alu_3reg;
+    encoder_map_["MULEX"] = &AssemblerEngine::enc_alu_3reg;
+    encoder_map_["DIVEX"] = &AssemblerEngine::enc_alu_3reg;
+
+    encoder_map_["MODE32"] = &AssemblerEngine::enc_mode;
+    encoder_map_["MODE64"] = &AssemblerEngine::enc_mode;
+
+    encoder_map_["JMP"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JZ"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JE"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JNZ"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JNE"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JS"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JNS"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JC"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JNC"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JO"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JNO"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JG"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JL"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JGE"] = &AssemblerEngine::enc_jump;
+    encoder_map_["JLE"] = &AssemblerEngine::enc_jump;
+    encoder_map_["CALL"] = &AssemblerEngine::enc_jump;
+
+    encoder_map_["PUSH"] = &AssemblerEngine::enc_single_reg;
+    encoder_map_["POP"] = &AssemblerEngine::enc_single_reg;
+    encoder_map_["INC"] = &AssemblerEngine::enc_single_reg;
+    encoder_map_["DEC"] = &AssemblerEngine::enc_single_reg;
+    encoder_map_["NOT"] = &AssemblerEngine::enc_single_reg;
+    encoder_map_["INC64"] = &AssemblerEngine::enc_single_reg;
+    encoder_map_["DEC64"] = &AssemblerEngine::enc_single_reg;
+    encoder_map_["NOT64"] = &AssemblerEngine::enc_single_reg;
+
+    encoder_map_["OUT"] = &AssemblerEngine::enc_io;
+    encoder_map_["IN"] = &AssemblerEngine::enc_io;
+    encoder_map_["OUTB"] = &AssemblerEngine::enc_io;
+    encoder_map_["INB"] = &AssemblerEngine::enc_io;
+    encoder_map_["OUTW"] = &AssemblerEngine::enc_io;
+    encoder_map_["INW"] = &AssemblerEngine::enc_io;
+    encoder_map_["OUTL"] = &AssemblerEngine::enc_io;
+    encoder_map_["INL"] = &AssemblerEngine::enc_io;
+    encoder_map_["OUTSTR"] = &AssemblerEngine::enc_io;
+    encoder_map_["INSTR"] = &AssemblerEngine::enc_io;
+
+    encoder_map_["LOAD"] = &AssemblerEngine::enc_load_store;
+    encoder_map_["LOADR"] = &AssemblerEngine::enc_load_store;
+    encoder_map_["STORE"] = &AssemblerEngine::enc_load_store;
+    encoder_map_["STORER"] = &AssemblerEngine::enc_load_store;
+    encoder_map_["LEA"] = &AssemblerEngine::enc_load_store;
+    encoder_map_["SWAP"] = &AssemblerEngine::enc_load_store;
+
+    encoder_map_["LOADEX"] = &AssemblerEngine::enc_loadex_storex;
+    encoder_map_["STOREX"] = &AssemblerEngine::enc_loadex_storex;
+
+    encoder_map_["SHL"] = &AssemblerEngine::enc_shift;
+    encoder_map_["SHR"] = &AssemblerEngine::enc_shift;
+    encoder_map_["SHL64"] = &AssemblerEngine::enc_shift;
+    encoder_map_["SHR64"] = &AssemblerEngine::enc_shift;
+
+    encoder_map_["FLD"] = &AssemblerEngine::enc_fpu_ldst;
+    encoder_map_["FST"] = &AssemblerEngine::enc_fpu_ldst;
+    encoder_map_["FSTP"] = &AssemblerEngine::enc_fpu_ldst;
+
+    encoder_map_["FADD"] = &AssemblerEngine::enc_fpu_arith;
+    encoder_map_["FSUB"] = &AssemblerEngine::enc_fpu_arith;
+    encoder_map_["FMUL"] = &AssemblerEngine::enc_fpu_arith;
+    encoder_map_["FDIV"] = &AssemblerEngine::enc_fpu_arith;
+
+    encoder_map_["FILD"] = &AssemblerEngine::enc_fild;
+    encoder_map_["FIST"] = &AssemblerEngine::enc_fist;
+    encoder_map_["FISTP"] = &AssemblerEngine::enc_fist;
+
+    encoder_map_["FSTCW"] = &AssemblerEngine::enc_fpu_ctrl;
+    encoder_map_["FLDCW"] = &AssemblerEngine::enc_fpu_ctrl;
+
+    encoder_map_["FSTSW"] = &AssemblerEngine::enc_fstsw;
+
+    encoder_map_["CMPPS"] = &AssemblerEngine::enc_sse_cmp;
+    encoder_map_["CMPPD"] = &AssemblerEngine::enc_sse_cmp;
+
+    encoder_map_["MOVAPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MOVUPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MOVPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["ADDPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["SUBPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MULPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["DIVPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["SQRTPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MAXPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MINPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["ANDPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["ORPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["XORPS"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MOVAPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MOVUPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["ADDPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["SUBPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MULPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["DIVPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["SQRTPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MAXPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["MINPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["ANDPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["ORPD"] = &AssemblerEngine::enc_sse;
+    encoder_map_["XORPD"] = &AssemblerEngine::enc_sse;
+
+    encoder_map_["NOP"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["HALT"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["RET"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["PUSH_FLAG"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["POP_FLAG"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FINIT"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FABS"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FCHS"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FSQRT"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FSIN"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FCOS"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FTAN"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FEXP"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FLN"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FLG2"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FLDPI"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FLDZ"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["FLD1"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["CLI"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["STI"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["IRET"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["VADD"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["VMUL"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["VDOT"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["VMAX"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["VBROADCAST"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["VCMPGT"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["PACKB"] = &AssemblerEngine::enc_no_operands;
+    encoder_map_["UNPACKB"] = &AssemblerEngine::enc_no_operands;
+
+    encoder_map_["INT"] = &AssemblerEngine::enc_int;
 }
 
 std::vector<uint8_t> AssemblerEngine::assemble(const Program& program) {
@@ -541,7 +685,7 @@ void Assembler::AssemblerEngine::second_pass(const Assembler::Program& program) 
         // No instructions at all - default to 0
         entry_address = 0;
         DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING,
-            "[ENTRY_POINT] No entry symbol or instructions found, using address 0");
+            "[ENTRY_POINT] {}", "No entry symbol or instructions found, using address 0");
     }
 }
 
@@ -569,8 +713,6 @@ void Assembler::AssemblerEngine::process_directive(const Assembler::Directive& d
     } else if (directive.name == ".equ") {
         // EQU is already processed in first_pass, skip it here
         return;
-    } else if (false) {
-        // .db directive removed - use DB instruction instead
     } else if (directive.name == ".dw") {
         handle_dw_directive(directive.arguments);
     } else if (directive.name == ".dd") {
@@ -638,7 +780,7 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         else if (mnemonic == "MOD") mnemonic = "MOD64";
         else if (mnemonic == "LOAD_IMM") mnemonic = "LOAD_IMM64";
         else if (mnemonic == "LOAD") mnemonic = "LOADEX";
-        else if (mnemonic == "STORE") mnemonic = "STOREEX";
+        else if (mnemonic == "STORE") mnemonic = "STOREX";
     }
 
     // Pad bytecode to current_address before emitting instruction
@@ -805,1017 +947,470 @@ void Assembler::AssemblerEngine::encode_instruction(const Assembler::Instruction
         return; // Early return, we've handled the entire instruction
     }
 
-    // Don't emit opcode for instructions that handle it themselves (like MOV which can be LOAD_IMM/LOAD/etc, or LOAD which can become LOADR).
-    // Also skip early emission for ALU-like ops, since some forms expand to multiple instructions.
-    const bool is_alu_like = (mnemonic == "ADD" || mnemonic == "SUB" ||
-                             mnemonic == "CMP" ||
-                             mnemonic == "MUL" || mnemonic == "DIV" ||
-                             mnemonic == "MOD" || mnemonic == "AND" ||
-                             mnemonic == "OR" || mnemonic == "XOR" ||
-                             mnemonic == "ADD64" || mnemonic == "SUB64" ||
-                             mnemonic == "CMP64" || mnemonic == "MODECMP" ||
-                             mnemonic == "ADDEX" ||
-                             mnemonic == "SUBEX" || mnemonic == "CMPEX");
-
-    if (mnemonic != "MOV" && mnemonic != "MOV64" && mnemonic != "MOVEX" &&
-        mnemonic != "LOAD" && mnemonic != "STORE" && mnemonic != "LOADR" && mnemonic != "STORER" &&
-        mnemonic != "LEA" && mnemonic != "SWAP" &&
-        !is_alu_like) {
-        emit_byte(opcode);
-    }
-    // Handle different instruction formats
-    if (mnemonic == "DEBUG") {
-        // Format: DEBUG sub_opcode, [operands...]
-        if (instruction.operands.empty()) {
-            add_error("DEBUG requires at least 1 operand (sub-opcode)", instruction.line, instruction.column);
-            return;
-        }
-        
-        // Sub-opcode (Immediate)
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t sub_opcode = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
-        emit_byte(static_cast<uint8_t>(sub_opcode));
-        
-        // Handle operands based on sub-opcode
-        if (sub_opcode == 0) { // PRINT
-             // Operand 2: String or Register
-             if (instruction.operands.size() < 2) {
-                 add_error("DEBUG PRINT requires a second operand", instruction.line, instruction.column);
-                 return;
-             }
-             
-             if (auto str_expr = dynamic_cast<const Assembler::StringLiteralExpression*>(instruction.operands[1].get())) {
-                 emit_byte(1); // Type: String
-                 std::string s = str_expr->value;
-                 if (s.length() > 255) s = s.substr(0, 255); // Limit length
-                 emit_byte(static_cast<uint8_t>(s.length()));
-                 for (char c : s) emit_byte(c);
-             } else if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[1].get())) {
-                 emit_byte(0); // Type: Register
-                 emit_byte(get_register_number(reg_expr->name));
-             } else {
-                 add_error("DEBUG PRINT operand must be string or register", instruction.line, instruction.column);
-             }
-        } else if (sub_opcode == 3) { // MEMDUMP
-             // Start, Length
-             if (instruction.operands.size() < 3) {
-                 add_error("DEBUG MEMDUMP requires start and length", instruction.line, instruction.column);
-                 return;
-             }
-             
-             int64_t start = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-             if (is_symbol) {
-                 emit_forward_ref(symbol_name, 4);
-             } else {
-                 emit_dword(static_cast<uint32_t>(start));
-             }
-             
-             int64_t len = evaluate_expression(*instruction.operands[2], is_symbol, symbol_name);
-             emit_dword(static_cast<uint32_t>(len));
-             
-        } else if (sub_opcode == 4) { // TRACE
-             // Optional operand
-             if (instruction.operands.size() > 1) {
-                 int64_t val = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-                 emit_byte(static_cast<uint8_t>(val));
-             } else {
-                 emit_byte(2); // 2 = Toggle (default)
-             }
-        } else if (sub_opcode == 5) { // ASSERT
-             // Register/memory and value
-             if (instruction.operands.size() < 3) {
-                 add_error("DEBUG ASSERT requires register/memory and value", instruction.line, instruction.column);
-                 return;
-             }
-             if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[1].get())) {
-                 emit_byte(0); // Type: Register
-                 emit_byte(get_register_number(reg_expr->name));
-             } else {
-                 emit_byte(1); // Type: Memory
-                 int64_t addr = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-                 emit_dword(static_cast<uint32_t>(addr));
-             }
-             int64_t value = evaluate_expression(*instruction.operands[2], is_symbol, symbol_name);
-             emit_qword(static_cast<uint64_t>(value));
-        } else if (sub_opcode == 6) { // DUMPSTACK
-             // Optional depth
-             if (instruction.operands.size() > 1) {
-                 int64_t depth = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-                 emit_dword(static_cast<uint32_t>(depth));
-             } else {
-                 emit_dword(16); // Default depth
-             }
-        } else if (sub_opcode == 7) { // WATCH
-             // Address and length
-             if (instruction.operands.size() < 3) {
-                 add_error("DEBUG WATCH requires address and length", instruction.line, instruction.column);
-                 return;
-             }
-             int64_t addr = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-             emit_dword(static_cast<uint32_t>(addr));
-             int64_t len = evaluate_expression(*instruction.operands[2], is_symbol, symbol_name);
-             emit_dword(static_cast<uint32_t>(len));
-        } else if (sub_opcode == 8) { // UNWATCH
-             // Address
-             if (instruction.operands.size() < 2) {
-                 add_error("DEBUG UNWATCH requires address", instruction.line, instruction.column);
-                 return;
-             }
-             int64_t addr = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-             emit_dword(static_cast<uint32_t>(addr));
-        } else if (sub_opcode == 9) { // CHECKPOINT
-             // Label string
-             if (instruction.operands.size() < 2) {
-                 add_error("DEBUG CHECKPOINT requires label", instruction.line, instruction.column);
-                 return;
-             }
-             if (auto str_expr = dynamic_cast<const Assembler::StringLiteralExpression*>(instruction.operands[1].get())) {
-                 std::string s = str_expr->value;
-                 if (s.length() > 255) s = s.substr(0, 255);
-                 emit_byte(static_cast<uint8_t>(s.length()));
-                 for (char c : s) emit_byte(c);
-             } else {
-                 add_error("DEBUG CHECKPOINT label must be string", instruction.line, instruction.column);
-             }
-        } else if (sub_opcode == 10) { // LOG
-             // Level and message
-             if (instruction.operands.size() < 3) {
-                 add_error("DEBUG LOG requires level and message", instruction.line, instruction.column);
-                 return;
-             }
-             int64_t level = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-             emit_byte(static_cast<uint8_t>(level));
-             if (auto str_expr = dynamic_cast<const Assembler::StringLiteralExpression*>(instruction.operands[2].get())) {
-                 std::string s = str_expr->value;
-                 if (s.length() > 255) s = s.substr(0, 255);
-                 emit_byte(static_cast<uint8_t>(s.length()));
-                 for (char c : s) emit_byte(c);
-             } else {
-                 add_error("DEBUG LOG message must be string", instruction.line, instruction.column);
-             }
-        } else if (sub_opcode == 11) { // DUMPREG
-             // Single register
-             if (instruction.operands.size() < 2) {
-                 add_error("DEBUG DUMPREG requires register", instruction.line, instruction.column);
-                 return;
-             }
-             if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[1].get())) {
-                 emit_byte(get_register_number(reg_expr->name));
-             } else {
-                 add_error("DEBUG DUMPREG operand must be register", instruction.line, instruction.column);
-             }
-        } else if (sub_opcode == 12) { // MEMSET
-             // Address, length, value
-             if (instruction.operands.size() < 4) {
-                 add_error("DEBUG MEMSET requires address, length, and value", instruction.line, instruction.column);
-                 return;
-             }
-             int64_t addr = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-             emit_dword(static_cast<uint32_t>(addr));
-             int64_t len = evaluate_expression(*instruction.operands[2], is_symbol, symbol_name);
-             emit_dword(static_cast<uint32_t>(len));
-             int64_t value = evaluate_expression(*instruction.operands[3], is_symbol, symbol_name);
-             emit_byte(static_cast<uint8_t>(value));
-        } else if (sub_opcode == 13) { // STEP
-             // Optional count
-             if (instruction.operands.size() > 1) {
-                 int64_t count = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-                 emit_dword(static_cast<uint32_t>(count));
-             } else {
-                 emit_dword(1); // Default: single step
-             }
-        }
+    // Dispatch to encoder via map lookup
+    auto it = encoder_map_.find(mnemonic);
+    if (it == encoder_map_.end()) {
+        add_error("Instruction encoding not implemented: " + instruction.mnemonic, instruction.line, instruction.column);
         return;
     }
 
-    if (mnemonic == "LOAD_IMM") {
-        // Format: LOAD_IMM reg, immediate
-        // Supports 1-byte (8-bit regs) or 4-byte (32-bit regs) immediates based on register type
-        if (instruction.operands.size() != 2) {
-            add_error("LOAD_IMM requires 2 operands", instruction.line, instruction.column);
-            return;
-        }
+    (this->*(it->second))(instruction, opcode);
+}
 
-        // Register operand
-        std::string reg_name;
-        if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get())) {
-            reg_name = reg_expr->name;
-            emit_byte(get_register_number(reg_name));
+
+void Assembler::AssemblerEngine::enc_debug(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.empty()) {
+        add_error("DEBUG requires at least 1 operand (sub-opcode)", instr.line, instr.column);
+        return;
+    }
+    bool is_symbol;
+    std::string symbol_name;
+    int64_t sub_opcode = evaluate_expression(*instr.operands[0], is_symbol, symbol_name);
+    emit_byte(static_cast<uint8_t>(sub_opcode));
+    if (sub_opcode == 0) {
+         if (instr.operands.size() < 2) { add_error("DEBUG PRINT requires a second operand", instr.line, instr.column); return; }
+         if (auto str_expr = dynamic_cast<const StringLiteralExpression*>(instr.operands[1].get())) {
+             emit_byte(1); std::string s = str_expr->value;
+             if (s.length() > 255) s = s.substr(0, 255);
+             emit_byte(static_cast<uint8_t>(s.length()));
+             for (char c : s) emit_byte(c);
+         } else if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[1].get())) {
+             emit_byte(0); emit_byte(get_register_number(reg_expr->name));
+         } else { add_error("DEBUG PRINT operand must be string or register", instr.line, instr.column); }
+    } else if (sub_opcode == 3) {
+         if (instr.operands.size() < 3) { add_error("DEBUG MEMDUMP requires start and length", instr.line, instr.column); return; }
+         int64_t start = evaluate_expression(*instr.operands[1], is_symbol, symbol_name);
+         if (is_symbol) emit_forward_ref(symbol_name, 4); else emit_dword(static_cast<uint32_t>(start));
+         int64_t len = evaluate_expression(*instr.operands[2], is_symbol, symbol_name);
+         emit_dword(static_cast<uint32_t>(len));
+    } else if (sub_opcode == 4) {
+         if (instr.operands.size() > 1) { int64_t val = evaluate_expression(*instr.operands[1], is_symbol, symbol_name); emit_byte(static_cast<uint8_t>(val)); }
+         else { emit_byte(2); }
+    } else if (sub_opcode == 5) {
+         if (instr.operands.size() < 3) { add_error("DEBUG ASSERT requires register/memory and value", instr.line, instr.column); return; }
+         if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[1].get())) { emit_byte(0); emit_byte(get_register_number(reg_expr->name)); }
+         else { emit_byte(1); int64_t addr = evaluate_expression(*instr.operands[1], is_symbol, symbol_name); emit_dword(static_cast<uint32_t>(addr)); }
+         int64_t value = evaluate_expression(*instr.operands[2], is_symbol, symbol_name);
+         emit_qword(static_cast<uint64_t>(value));
+    } else if (sub_opcode == 6) {
+         if (instr.operands.size() > 1) { int64_t depth = evaluate_expression(*instr.operands[1], is_symbol, symbol_name); emit_dword(static_cast<uint32_t>(depth)); }
+         else { emit_dword(16); }
+    } else if (sub_opcode == 7) {
+         if (instr.operands.size() < 3) { add_error("DEBUG WATCH requires address and length", instr.line, instr.column); return; }
+         int64_t addr = evaluate_expression(*instr.operands[1], is_symbol, symbol_name); emit_dword(static_cast<uint32_t>(addr));
+         int64_t len = evaluate_expression(*instr.operands[2], is_symbol, symbol_name); emit_dword(static_cast<uint32_t>(len));
+    } else if (sub_opcode == 8) {
+         if (instr.operands.size() < 2) { add_error("DEBUG UNWATCH requires address", instr.line, instr.column); return; }
+         int64_t addr = evaluate_expression(*instr.operands[1], is_symbol, symbol_name); emit_dword(static_cast<uint32_t>(addr));
+    } else if (sub_opcode == 9) {
+         if (instr.operands.size() < 2) { add_error("DEBUG CHECKPOINT requires label", instr.line, instr.column); return; }
+         if (auto str_expr = dynamic_cast<const StringLiteralExpression*>(instr.operands[1].get())) {
+             std::string s = str_expr->value; if (s.length() > 255) s = s.substr(0, 255);
+             emit_byte(static_cast<uint8_t>(s.length())); for (char c : s) emit_byte(c);
+         } else { add_error("DEBUG CHECKPOINT label must be string", instr.line, instr.column); }
+    } else if (sub_opcode == 10) {
+         if (instr.operands.size() < 3) { add_error("DEBUG LOG requires level and message", instr.line, instr.column); return; }
+         int64_t level = evaluate_expression(*instr.operands[1], is_symbol, symbol_name); emit_byte(static_cast<uint8_t>(level));
+         if (auto str_expr = dynamic_cast<const StringLiteralExpression*>(instr.operands[2].get())) {
+             std::string s = str_expr->value; if (s.length() > 255) s = s.substr(0, 255);
+             emit_byte(static_cast<uint8_t>(s.length())); for (char c : s) emit_byte(c);
+         } else { add_error("DEBUG LOG message must be string", instr.line, instr.column); }
+    } else if (sub_opcode == 11) {
+         if (instr.operands.size() < 2) { add_error("DEBUG DUMPREG requires register", instr.line, instr.column); return; }
+         if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[1].get())) { emit_byte(get_register_number(reg_expr->name)); }
+         else { add_error("DEBUG DUMPREG operand must be register", instr.line, instr.column); }
+    } else if (sub_opcode == 12) {
+         if (instr.operands.size() < 4) { add_error("DEBUG MEMSET requires address, length, and value", instr.line, instr.column); return; }
+         int64_t addr = evaluate_expression(*instr.operands[1], is_symbol, symbol_name); emit_dword(static_cast<uint32_t>(addr));
+         int64_t len = evaluate_expression(*instr.operands[2], is_symbol, symbol_name); emit_dword(static_cast<uint32_t>(len));
+         int64_t value = evaluate_expression(*instr.operands[3], is_symbol, symbol_name); emit_byte(static_cast<uint8_t>(value));
+    } else if (sub_opcode == 13) {
+         if (instr.operands.size() > 1) { int64_t count = evaluate_expression(*instr.operands[1], is_symbol, symbol_name); emit_dword(static_cast<uint32_t>(count)); }
+         else { emit_dword(1); }
+    }
+}
+
+void Assembler::AssemblerEngine::enc_load_imm(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 2) { add_error("LOAD_IMM requires 2 operands", instr.line, instr.column); return; }
+    std::string reg_name;
+    if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get())) { reg_name = reg_expr->name; emit_byte(get_register_number(reg_name)); }
+    else { add_error("First operand must be a register", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    int64_t value = evaluate_expression(*instr.operands[1], is_symbol, symbol_name);
+    bool is_32bit_reg = (register_sizes.find(reg_name) != register_sizes.end() && register_sizes[reg_name] == 32);
+    size_t imm_size = is_32bit_reg ? 4 : 1;
+    if (is_symbol) { emit_forward_ref(symbol_name, imm_size); }
+    else {
+        if (imm_size == 1) {
+            if (value < 0 || value > 255) { add_error("LOAD_IMM immediate value " + std::to_string(value) + " out of range for 8-bit register (must be 0-255)", instr.line, instr.column); return; }
+            emit_byte(static_cast<uint8_t>(value));
         } else {
-            add_error("First operand must be a register", instruction.line, instruction.column);
-            return;
+            if (value < 0 || value > 0xFFFFFFFF) { add_error("LOAD_IMM immediate value " + std::to_string(value) + " out of range for 32-bit register (must be 0-4294967295)", instr.line, instr.column); return; }
+            emit_dword(static_cast<uint32_t>(value));
         }
+    }
+}
 
-        // Immediate operand - size depends on register type
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
+void Assembler::AssemblerEngine::enc_load_imm64(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 2) { add_error("LOAD_IMM64 requires 2 operands", instr.line, instr.column); return; }
+    if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get())) { emit_byte(get_register_number(reg_expr->name)); }
+    else { add_error("First operand must be a register", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    int64_t value = evaluate_expression(*instr.operands[1], is_symbol, symbol_name);
+    if (is_symbol) { emit_forward_ref(symbol_name, 8); }
+    else { for (int i = 0; i < 8; ++i) { emit_byte(static_cast<uint8_t>((value >> (8 * i)) & 0xFF)); } }
+}
 
-        // Determine immediate size based on register size
-        // Use register_sizes map to correctly identify 32-bit registers (including R0-R7 and EAX-EDI)
-        bool is_32bit_reg = (register_sizes.find(reg_name) != register_sizes.end() && register_sizes[reg_name] == 32);
-        size_t imm_size = is_32bit_reg ? 4 : 1;
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, imm_size);
-        } else {
-            // Validate value range
-            if (imm_size == 1) {
-                if (value < 0 || value > 255) {
-                    add_error("LOAD_IMM immediate value " + std::to_string(value) + 
-                              " out of range for 8-bit register (must be 0-255)", 
-                              instruction.line, instruction.column);
-                    return;
-                }
-                emit_byte(static_cast<uint8_t>(value));
-            } else { // 4-byte for 32-bit registers
-                if (value < 0 || value > 0xFFFFFFFF) {
-                    add_error("LOAD_IMM immediate value " + std::to_string(value) + 
-                              " out of range for 32-bit register (must be 0-4294967295)", 
-                              instruction.line, instruction.column);
-                    return;
-                }
-                emit_dword(static_cast<uint32_t>(value));
+void Assembler::AssemblerEngine::enc_mov(const Instruction& instr, uint8_t opcode) {
+    if (instr.operands.size() != 2) { add_error(instr.mnemonic + " requires 2 operands", instr.line, instr.column); return; }
+    auto dst = instr.operands[0].get();
+    auto src = instr.operands[1].get();
+    if (auto dst_reg = dynamic_cast<const RegisterExpression*>(dst)) {
+        uint8_t dst_reg_num = get_register_number(dst_reg->name);
+        bool is_extended = (dst_reg_num >= 8 && dst_reg_num <= 15);
+        if (auto src_reg = dynamic_cast<const RegisterExpression*>(src)) {
+            uint8_t src_reg_num = get_register_number(src_reg->name);
+            bool src_extended = (src_reg_num >= 8 && src_reg_num <= 15);
+            if (instr.mnemonic == "MOVEX") {
+                if (!(is_extended && src_extended)) { add_error("MOVEX requires both operands to be extended integer registers R8-R15", instr.line, instr.column); return; }
+                emit_byte(static_cast<uint8_t>(Opcode::MOVEX)); emit_byte(dst_reg_num); emit_byte(src_reg_num); return;
             }
-        }
-    } else if (mnemonic == "LOAD_IMM64") {
-        // Format: LOAD_IMM64 reg, immediate (64-bit)
-        if (instruction.operands.size() != 2) {
-            add_error("LOAD_IMM64 requires 2 operands", instruction.line, instruction.column);
-            return;
-        }
-
-        // Register operand
-        if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("First operand must be a register", instruction.line, instruction.column);
-            return;
-        }
-
-        // Immediate operand (64-bit)
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 8); // LOAD_IMM64 uses 8-byte immediate
-        } else {
-            // Emit 8 bytes little-endian
-            for (int i = 0; i < 8; ++i) {
-                emit_byte(static_cast<uint8_t>((value >> (8 * i)) & 0xFF));
+            if (is_extended || src_extended) { emit_byte(static_cast<uint8_t>(Opcode::MOVEX)); }
+            else if (register_sizes[dst_reg->name] == 64 || register_sizes[src_reg->name] == 64) { emit_byte(static_cast<uint8_t>(Opcode::MOV64)); }
+            else { emit_byte(static_cast<uint8_t>(Opcode::MOV)); }
+            emit_byte(dst_reg_num); emit_byte(src_reg_num);
+        } else if (dynamic_cast<const ImmediateExpression*>(src) || dynamic_cast<const IdentifierExpression*>(src)) {
+            int reg_size = register_sizes[dst_reg->name];
+            if (reg_size >= 32) {
+                emit_byte(static_cast<uint8_t>(Opcode::LOAD_IMM64)); emit_byte(dst_reg_num);
+                bool is_symbol; std::string symbol_name;
+                int64_t val = evaluate_expression(*src, is_symbol, symbol_name);
+                if (is_symbol) emit_forward_ref(symbol_name, 8);
+                else for(int i=0; i<8; ++i) emit_byte((uint8_t)((val >> (i*8)) & 0xFF));
+            } else {
+                emit_byte(static_cast<uint8_t>(Opcode::LOAD_IMM)); emit_byte(dst_reg_num);
+                bool is_symbol; std::string symbol_name;
+                int64_t val = evaluate_expression(*src, is_symbol, symbol_name);
+                if (is_symbol) emit_forward_ref(symbol_name, 1);
+                else emit_byte((uint8_t)val);
             }
-        }
-    } else if (mnemonic == "MOV" || mnemonic == "MOV64" || mnemonic == "MOVEX") {
-        if (instruction.operands.size() != 2) {
-            add_error(mnemonic + " requires 2 operands", instruction.line, instruction.column);
-            return;
-        }
-
-        auto dst = instruction.operands[0].get();
-        auto src = instruction.operands[1].get();
-
-        if (auto dst_reg = dynamic_cast<const Assembler::RegisterExpression*>(dst)) {
-            uint8_t dst_reg_num = get_register_number(dst_reg->name);
-            bool is_extended = (dst_reg_num >= 8 && dst_reg_num <= 15);
-            
-            if (auto src_reg = dynamic_cast<const Assembler::RegisterExpression*>(src)) {
-                uint8_t src_reg_num = get_register_number(src_reg->name);
-                bool src_extended = (src_reg_num >= 8 && src_reg_num <= 15);
-
-                // Explicit MOVEX is strict: it only supports integer extended registers R8-R15.
-                // This prevents accidental use with XMM/YMM or legacy registers.
-                if (mnemonic == "MOVEX") {
-                    if (!(is_extended && src_extended)) {
-                        add_error("MOVEX requires both operands to be extended integer registers R8-R15", instruction.line, instruction.column);
-                        return;
-                    }
-                    emit_byte(static_cast<uint8_t>(Opcode::MOVEX));
-                    emit_byte(dst_reg_num);
-                    emit_byte(src_reg_num);
-                    return;
-                }
-                
-                if (is_extended || src_extended) {
-                    emit_byte(static_cast<uint8_t>(Opcode::MOVEX));
-                } else if (register_sizes[dst_reg->name] == 64 || register_sizes[src_reg->name] == 64) {
-                    emit_byte(static_cast<uint8_t>(Opcode::MOV64));
-                } else {
-                    emit_byte(static_cast<uint8_t>(Opcode::MOV));
-                }
+        } else if (auto mem_expr = dynamic_cast<const MemoryReferenceExpression*>(src)) {
+            if (dynamic_cast<const RegisterExpression*>(mem_expr->base.get())) {
+                emit_byte(static_cast<uint8_t>(Opcode::LOADR)); emit_byte(dst_reg_num);
+                auto base_reg = static_cast<const RegisterExpression*>(mem_expr->base.get());
+                emit_byte(get_register_number(base_reg->name));
+            } else {
+                if (is_extended) emit_byte(static_cast<uint8_t>(Opcode::LOADEX));
+                else emit_byte(static_cast<uint8_t>(Opcode::LOAD));
                 emit_byte(dst_reg_num);
-                emit_byte(src_reg_num);
-            } else if (dynamic_cast<const Assembler::ImmediateExpression*>(src) || 
-                       dynamic_cast<const Assembler::IdentifierExpression*>(src)) {
-                
-                int reg_size = register_sizes[dst_reg->name];
-                // DEBUG_INFO(Logging::DebugCategory::ASM_PARSING, "MOV dst={} size={}", dst_reg->name, reg_size);
-                
-                if (reg_size >= 32) { // Use LOAD_IMM64 for 32-bit and 64-bit registers
-                    emit_byte(static_cast<uint8_t>(Opcode::LOAD_IMM64));
-                    emit_byte(dst_reg_num);
-                    bool is_symbol;
-                    std::string symbol_name;
-                    int64_t val = evaluate_expression(*src, is_symbol, symbol_name);
+                bool is_symbol; std::string symbol_name;
+                int64_t val = evaluate_expression(*mem_expr->base, is_symbol, symbol_name);
+                if (is_extended) {
                     if (is_symbol) emit_forward_ref(symbol_name, 8);
                     else for(int i=0; i<8; ++i) emit_byte((uint8_t)((val >> (i*8)) & 0xFF));
                 } else {
-                    // 8-bit register
-                    emit_byte(static_cast<uint8_t>(Opcode::LOAD_IMM));
-                    emit_byte(dst_reg_num);
-                    bool is_symbol;
-                    std::string symbol_name;
-                    int64_t val = evaluate_expression(*src, is_symbol, symbol_name);
-                    if (is_symbol) emit_forward_ref(symbol_name, 1);
-                    else emit_byte((uint8_t)val);
+                    if (is_symbol) emit_forward_ref(symbol_name, 4);
+                    else emit_dword((uint32_t)val);
                 }
-            } else if (auto mem_expr = dynamic_cast<const Assembler::MemoryReferenceExpression*>(src)) {
-                if (dynamic_cast<const Assembler::RegisterExpression*>(mem_expr->base.get())) {
-                    emit_byte(static_cast<uint8_t>(Opcode::LOADR));
-                    emit_byte(dst_reg_num);
-                    auto base_reg = static_cast<const Assembler::RegisterExpression*>(mem_expr->base.get());
-                    emit_byte(get_register_number(base_reg->name));
-                } else {
-                    if (is_extended) emit_byte(static_cast<uint8_t>(Opcode::LOADEX));
-                    else emit_byte(static_cast<uint8_t>(Opcode::LOAD));
-                    emit_byte(dst_reg_num);
-                    bool is_symbol;
-                    std::string symbol_name;
-                    int64_t val = evaluate_expression(*mem_expr->base, is_symbol, symbol_name);
-                    if (is_extended) {
-                        if (is_symbol) emit_forward_ref(symbol_name, 8);
-                        else for(int i=0; i<8; ++i) emit_byte((uint8_t)((val >> (i*8)) & 0xFF));
-                    } else {
-                        if (is_symbol) emit_forward_ref(symbol_name, 4);
-                        else emit_dword((uint32_t)val);
-                    }
-                }
-            } else {
-                add_error("Invalid source operand for MOV", instruction.line, instruction.column);
-                return;
             }
-        } else if (auto dst_mem = dynamic_cast<const Assembler::MemoryReferenceExpression*>(dst)) {
-             if (auto src_reg = dynamic_cast<const Assembler::RegisterExpression*>(src)) {
-                 uint8_t src_reg_num = get_register_number(src_reg->name);
-                 bool is_extended = (src_reg_num >= 8 && src_reg_num <= 15);
-                 if (dynamic_cast<const Assembler::RegisterExpression*>(dst_mem->base.get())) {
-                     emit_byte(static_cast<uint8_t>(Opcode::STORER));
-                     emit_byte(src_reg_num);
-                     auto base_reg = static_cast<const Assembler::RegisterExpression*>(dst_mem->base.get());
-                     emit_byte(get_register_number(base_reg->name));
-                 } else {
-                     if (is_extended) emit_byte(static_cast<uint8_t>(Opcode::STOREX));
-                     else emit_byte(static_cast<uint8_t>(Opcode::STORE));
-                     emit_byte(src_reg_num);
-                     bool is_symbol;
-                     std::string symbol_name;
-                     int64_t val = evaluate_expression(*dst_mem->base, is_symbol, symbol_name);
-                     if (is_extended) {
-                         if (is_symbol) emit_forward_ref(symbol_name, 8);
-                         else for(int i=0; i<8; ++i) emit_byte((uint8_t)((val >> (i*8)) & 0xFF));
-                     } else {
-                         if (is_symbol) emit_forward_ref(symbol_name, 4);
-                         else emit_dword((uint32_t)val);
-                     }
-                 }
+        } else { add_error("Invalid source operand for MOV", instr.line, instr.column); return; }
+    } else if (auto dst_mem = dynamic_cast<const MemoryReferenceExpression*>(dst)) {
+         if (auto src_reg = dynamic_cast<const RegisterExpression*>(src)) {
+             uint8_t src_reg_num = get_register_number(src_reg->name);
+             bool is_extended = (src_reg_num >= 8 && src_reg_num <= 15);
+             if (dynamic_cast<const RegisterExpression*>(dst_mem->base.get())) {
+                 emit_byte(static_cast<uint8_t>(Opcode::STORER)); emit_byte(src_reg_num);
+                 auto base_reg = static_cast<const RegisterExpression*>(dst_mem->base.get());
+                 emit_byte(get_register_number(base_reg->name));
              } else {
-                 add_error("MOV to memory requires register source", instruction.line, instruction.column);
-                 return;
+                 if (is_extended) emit_byte(static_cast<uint8_t>(Opcode::STOREX));
+                 else emit_byte(static_cast<uint8_t>(Opcode::STORE));
+                 emit_byte(src_reg_num);
+                 bool is_symbol; std::string symbol_name;
+                 int64_t val = evaluate_expression(*dst_mem->base, is_symbol, symbol_name);
+                 if (is_extended) {
+                     if (is_symbol) emit_forward_ref(symbol_name, 8);
+                     else for(int i=0; i<8; ++i) emit_byte((uint8_t)((val >> (i*8)) & 0xFF));
+                 } else {
+                     if (is_symbol) emit_forward_ref(symbol_name, 4);
+                     else emit_dword((uint32_t)val);
+                 }
              }
-        } else {
-            add_error("Invalid destination operand for MOV", instruction.line, instruction.column);
+         } else { add_error("MOV to memory requires register source", instr.line, instr.column); return; }
+    } else { add_error("Invalid destination operand for MOV", instr.line, instr.column); return; }
+}
+
+void Assembler::AssemblerEngine::enc_alu_2reg(const Instruction& instr, uint8_t opcode) {
+    const std::string& mnemonic = instr.mnemonic;
+    const bool supports_three_operand = (mnemonic == "MOD" ||
+                         mnemonic == "ADD64" || mnemonic == "SUB64" ||
+                         mnemonic == "MUL64" || mnemonic == "DIV64" ||
+                         mnemonic == "MOD64" || mnemonic == "AND64" ||
+                         mnemonic == "OR64" || mnemonic == "XOR64");
+    if (instr.operands.size() != 2 && instr.operands.size() != 3) { add_error(mnemonic + " requires 2 or 3 operands", instr.line, instr.column); return; }
+    if (instr.operands.size() == 3 && !supports_three_operand) { add_error(mnemonic + " 3-operand form is only supported for MOD and select 64-bit ALU ops", instr.line, instr.column); return; }
+    for (size_t i = 0; i < instr.operands.size(); ++i) {
+        const auto& operand = instr.operands[i];
+        if (!dynamic_cast<const RegisterExpression*>(operand.get())) {
+            std::string operand_type = "unknown";
+            if (dynamic_cast<const ImmediateExpression*>(operand.get())) operand_type = "immediate";
+            else if (dynamic_cast<const IdentifierExpression*>(operand.get())) operand_type = "identifier";
+            else if (dynamic_cast<const StringLiteralExpression*>(operand.get())) operand_type = "string";
+            add_error(mnemonic + " operand " + std::to_string(i+1) + " must be a register (got " + operand_type + ")", instr.line, instr.column);
             return;
         }
-    } else if (mnemonic == "ADD" || mnemonic == "SUB" ||
-               mnemonic == "CMP" ||
-               mnemonic == "MUL" || mnemonic == "DIV" ||
-               mnemonic == "MOD" || mnemonic == "AND" ||
-               mnemonic == "OR" || mnemonic == "XOR" ||
-               mnemonic == "ADD64" || mnemonic == "SUB64" ||
-               mnemonic == "CMP64" || mnemonic == "MODECMP" ||
-               mnemonic == "ADDEX" ||
-               mnemonic == "SUBEX" || mnemonic == "CMPEX") {
-        // Format: INSTRUCTION dest, src (2 operands - dest = dest op src)
-        //     OR: INSTRUCTION dest, src1, src2 (3 operands - dest = src1 op src2)
-        // Note: CMP with immediate second operand is handled earlier in encode_instruction()
-
-        const bool supports_three_operand = (mnemonic == "MOD" ||
-                             mnemonic == "ADD64" || mnemonic == "SUB64" ||
-                             mnemonic == "MUL64" || mnemonic == "DIV64" ||
-                             mnemonic == "MOD64" || mnemonic == "AND64" ||
-                             mnemonic == "OR64" || mnemonic == "XOR64");
-
-        // Support 2-operand form for all ALU-like ops, and 3-operand form only for select 64-bit ops.
-        if (instruction.operands.size() != 2 && instruction.operands.size() != 3) {
-            add_error(mnemonic + " requires 2 or 3 operands", instruction.line, instruction.column);
-            return;
-        }
-
-        if (instruction.operands.size() == 3 && !supports_three_operand) {
-            add_error(mnemonic + " 3-operand form is only supported for MOD and select 64-bit ALU ops", instruction.line, instruction.column);
-            return;
-        }
-
-        // Validate all operands are registers
-        for (size_t i = 0; i < instruction.operands.size(); ++i) {
-            const auto& operand = instruction.operands[i];
-            if (!dynamic_cast<const Assembler::RegisterExpression*>(operand.get())) {
-                std::string operand_type = "unknown";
-                if (dynamic_cast<const Assembler::ImmediateExpression*>(operand.get())) {
-                    operand_type = "immediate";
-                } else if (dynamic_cast<const Assembler::IdentifierExpression*>(operand.get())) {
-                    operand_type = "identifier";
-                } else if (dynamic_cast<const Assembler::StringLiteralExpression*>(operand.get())) {
-                    operand_type = "string";
-                }
-                add_error(mnemonic + " operand " + std::to_string(i+1) + " must be a register (got " + operand_type + ")", 
-                         instruction.line, instruction.column);
-                return;
-            }
-        }
-
-        if (instruction.operands.size() == 2) {
-            // 2-operand form: dest, src -> emit dest, src (dest = dest op src)
-            emit_byte(opcode);
-            auto dest_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get());
-            auto src_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[1].get());
-            emit_byte(get_register_number(dest_reg->name));
-            emit_byte(get_register_number(src_reg->name));
-        } else {
-            // 3-operand form: dest, src1, src2 -> (dest = src1 op src2)
-            // The CPU expects 2 registers where first is both source and dest, so we need to:
-            // 1. If dest != src1: emit MOV64 dest, src1 to copy src1 to dest
-            // 2. Emit OP dest, src2
-            auto dest_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get());
-            auto src1_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[1].get());
-            auto src2_reg = static_cast<const Assembler::RegisterExpression*>(instruction.operands[2].get());
-            
-            uint8_t dest_num = get_register_number(dest_reg->name);
-            uint8_t src1_num = get_register_number(src1_reg->name);
-            uint8_t src2_num = get_register_number(src2_reg->name);
-
-            if (dest_num != src1_num) {
-                const bool is_extended = (dest_num >= 8 || src1_num >= 8);
-                int dest_bits = 0;
-                int src1_bits = 0;
-                auto dest_it = register_sizes.find(dest_reg->name);
-                if (dest_it != register_sizes.end()) dest_bits = dest_it->second;
-                auto src1_it = register_sizes.find(src1_reg->name);
-                if (src1_it != register_sizes.end()) src1_bits = src1_it->second;
-
-                const bool is_64bit_move = (dest_bits == 64 || src1_bits == 64);
-                emit_byte(static_cast<uint8_t>(is_extended ? Opcode::MOVEX : (is_64bit_move ? Opcode::MOV64 : Opcode::MOV)));
-                emit_byte(dest_num);
-                emit_byte(src1_num);
-            }
-            
-            // 2. OP dest, src2
-            emit_byte(opcode);
-            emit_byte(dest_num);
-            emit_byte(src2_num);
-        }
-    } else if (mnemonic == "MODE32" || mnemonic == "MODE64") {
-        // Format: MODE32 or MODE64 (no operands)
-        if (instruction.operands.size() != 0) {
-            add_error(mnemonic + " requires no operands", instruction.line, instruction.column);
-            return;
-        }
-        // Opcode already emitted above, no additional bytes needed
-    } else if (mnemonic == "JMP" || mnemonic == "JZ" || mnemonic == "JE" ||
-               mnemonic == "JNZ" || mnemonic == "JNE" || mnemonic == "JS" ||
-               mnemonic == "JNS" || mnemonic == "JC" ||
-               mnemonic == "JNC" || mnemonic == "JO" ||
-               mnemonic == "JNO" || mnemonic == "JG" ||
-               mnemonic == "JL" || mnemonic == "JGE" ||
-               mnemonic == "JLE" || mnemonic == "CALL") {
-        // Format: JUMP address
-        if (instruction.operands.size() != 1) {
-            add_error(mnemonic + " requires 1 operand", instruction.line, instruction.column);
-            return;
-        }
-
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // DemiEngine uses 32-bit addresses for jumps
-        } else {
-            emit_dword(static_cast<uint32_t>(value));
-        }
-    } else if (mnemonic == "PUSH" || mnemonic == "POP" ||
-               mnemonic == "INC" || mnemonic == "DEC" ||
-               mnemonic == "NOT" || mnemonic == "INC64" ||
-               mnemonic == "DEC64" || mnemonic == "NOT64") {
-        // Format: INSTRUCTION reg
-        if (instruction.operands.size() != 1) {
-            add_error(mnemonic + " requires 1 operand", instruction.line, instruction.column);
-            return;
-        }
-
-        if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("Operand must be a register", instruction.line, instruction.column);
-            return;
-        }
-    } else if (mnemonic == "OUT" || mnemonic == "IN" ||
-               mnemonic == "OUTB" || mnemonic == "INB" ||
-               mnemonic == "OUTW" || mnemonic == "INW" ||
-               mnemonic == "OUTL" || mnemonic == "INL" ||
-               mnemonic == "OUTSTR" || mnemonic == "INSTR") {
-        // Format: OUT reg, port  or  IN reg, port
-        if (instruction.operands.size() != 2) {
-            add_error(mnemonic + " requires 2 operands", instruction.line, instruction.column);
-            return;
-        }
-
-        // Register operand
-        if (auto reg_expr = dynamic_cast<const Assembler::RegisterExpression*>(instruction.operands[0].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("First operand must be a register", instruction.line, instruction.column);
-            return;
-        }
-
-        // Port operand (immediate value)
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t port_value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            add_error("Port number must be an immediate value", instruction.line, instruction.column);
-            return;
-        } else {
-            emit_byte(static_cast<uint8_t>(port_value));
-        }
-    } else if (mnemonic == "LOAD" || mnemonic == "LOADR" || mnemonic == "STORER" || mnemonic == "STORE" ||
-               mnemonic == "LEA" || mnemonic == "SWAP") {
-        // Format: LOAD reg, addr  or  LOADR reg, reg  or  STORER reg, reg  or  STORE reg, addr
-        if (instruction.operands.size() != 2) {
-            add_error(mnemonic + " requires 2 operands", instruction.line, instruction.column);
-            return;
-        }
-
-        // Get destination register
-        uint8_t dst_reg_num;
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
-            dst_reg_num = get_register_number(reg_expr->name);
-        } else {
-            add_error("First operand must be a register", instruction.line, instruction.column);
-            return;
-        }
-
-        // Second operand: Check if it's a memory reference with a register (e.g., LOAD EBX, [ESI])
-        auto& second_operand = instruction.operands[1];
-        if (is_bracket_register_syntax(second_operand.get())) {
-            // Emit LOADR or STORER instead of LOAD/STORE
-            auto mem_expr = static_cast<const MemoryReferenceExpression*>(second_operand.get());
-            auto base_reg = static_cast<const RegisterExpression*>(mem_expr->base.get());
-            uint8_t addr_reg_num = get_register_number(base_reg->name);
-            
-            if (mnemonic == "LOAD") {
-                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS2_EMIT] LOAD with bracket syntax -> emitting LOADR (3 bytes) at 0x{:04X}", current_address);
-                emit_byte(static_cast<uint8_t>(Opcode::LOADR));
-                emit_byte(dst_reg_num);
-                emit_byte(addr_reg_num);
-            } else if (mnemonic == "STORE") {
-                DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS2_EMIT] STORE with bracket syntax -> emitting STORER (3 bytes) at 0x{:04X}", current_address);
-                emit_byte(static_cast<uint8_t>(Opcode::STORER));
-                // STORER encodes as: [opcode] [addr_reg] [value_reg]
-                emit_byte(addr_reg_num);
-                emit_byte(dst_reg_num);
-            } else {
-                add_error(mnemonic + " with register indirect addressing not supported", instruction.line, instruction.column);
-            }
-            return;
-        }
-        
-        // Fall through to address handling for non-bracket syntax
-        DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS2_EMIT] {} without bracket syntax -> emitting normal LOAD/STORE (6 bytes) at 0x{:04X}", mnemonic, current_address);
-        
-        // Emit the opcode for this instruction (LOAD/STORE/LEA/SWAP/LOADR/STORER)
-        emit_byte(opcode);
-        
-        // Emit register byte
-        emit_byte(dst_reg_num);
-        
-        // Second operand: For LOADR/STORER it's a register, for others it's an address
-        if (mnemonic == "LOADR" || mnemonic == "STORER") {
-            // Second operand must be a register
-            if (auto reg_expr = dynamic_cast<const RegisterExpression*>(second_operand.get())) {
-                emit_byte(get_register_number(reg_expr->name));
-            } else {
-                add_error("Second operand must be a register for " + mnemonic, instruction.line, instruction.column);
-                return;
-            }
-        } else {
-            // Address operand
-            bool is_symbol;
-            std::string symbol_name;
-            int64_t addr_value = evaluate_expression(*second_operand, is_symbol, symbol_name);
-
-            if (is_symbol) {
-                emit_forward_ref(symbol_name, 4); // Use 32-bit addresses
-            } else {
-                emit_dword(static_cast<uint32_t>(addr_value));
-            }
-        }
-    } else if (mnemonic == "LOADEX" || mnemonic == "STOREX") {
-        // Format: LOADEX/STOREX reg, 64-bit_address
-        if (instruction.operands.size() != 2) {
-            add_error(mnemonic + " requires 2 operands", instruction.line, instruction.column);
-            return;
-        }
-
-        // Register operand
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("First operand must be a register", instruction.line, instruction.column);
-            return;
-        }
-
-        // Address operand (8 bytes)
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t addr_value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 8); // 8-byte address for extended operations
-        } else {
-            // Emit 8-byte address in little-endian format
-            for (int i = 0; i < 8; i++) {
-                emit_byte(static_cast<uint8_t>((addr_value >> (i * 8)) & 0xFF));
-            }
-        }
-    } else if (mnemonic == "SHL" || mnemonic == "SHR") {
-        // Format: SHL reg, immediate
-        if (instruction.operands.size() != 2) {
-            add_error(mnemonic + " requires 2 operands", instruction.line, instruction.column);
-            return;
-        }
-
-        // Register operand
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("First operand must be a register", instruction.line, instruction.column);
-            return;
-        }
-
-        // Immediate operand
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t value = evaluate_expression(*instruction.operands[1], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            add_error("Shift amount must be an immediate value", instruction.line, instruction.column);
-            return;
-        } else {
-            emit_byte(static_cast<uint8_t>(value));
-        }
-    } else if (mnemonic == "MUL64" || mnemonic == "DIV64" ||
-               mnemonic == "AND64" || mnemonic == "OR64" ||
-               mnemonic == "XOR64" || 
-               mnemonic == "MOD64" || mnemonic == "MULEX" ||
-               mnemonic == "DIVEX") {
-        // Format: INSTRUCTION dest_reg, src_reg1, src_reg2 (3 operands)
-        if (instruction.operands.size() != 3) {
-            add_error(mnemonic + " requires 3 operands", instruction.line, instruction.column);
-            return;
-        }
-
-        // Destination register (first operand)
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("First operand must be a destination register", instruction.line, instruction.column);
-            return;
-        }
-
-        // Source register 1 (second operand)
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("Second operand must be a source register", instruction.line, instruction.column);
-            return;
-        }
-
-        // Source register 2 (third operand)
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[2].get())) {
-            emit_byte(get_register_number(reg_expr->name));
-        } else {
-            add_error("Third operand must be a source register", instruction.line, instruction.column);
-            return;
-        }
-    } else if (mnemonic == "FLD" || mnemonic == "FST" || 
-               mnemonic == "FSTP") {
-        // FPU Load/Store instructions
-        // Format: FLD <memory_addr> or FLD <immediate_double>
-        // For simplicity, we'll support memory address operands
-        if (instruction.operands.size() != 1) {
-            add_error(mnemonic + " requires 1 operand", instruction.line, instruction.column);
-            return;
-        }
-
-        // Check if it's an immediate value (for FLD only)
-        if (mnemonic == "FLD") {
-            if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instruction.operands[0].get())) {
-                // FLD with immediate double value
-                // Operand type 0x02 = immediate 64-bit double
-                emit_byte(0x02);
-                
-                // Convert integer to double and emit as 64-bit value
-                double double_val = static_cast<double>(imm_expr->value);
-                uint64_t raw_double;
-                std::memcpy(&raw_double, &double_val, sizeof(double));
-                
-                // Emit 8 bytes little-endian
-                for (int i = 0; i < 8; ++i) {
-                    emit_byte(static_cast<uint8_t>((raw_double >> (8 * i)) & 0xFF));
-                }
-                return;
-            }
-        }
-
-        // Otherwise, treat as memory address
-        // Operand type 0x01 = memory address (64-bit double)
-        emit_byte(0x01);
-        
-        // Memory address operand
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
-        } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
-        }
-    } else if (mnemonic == "FADD" || mnemonic == "FSUB" || 
-               mnemonic == "FMUL" || mnemonic == "FDIV") {
-        // FPU Arithmetic instructions
-        // Format: FADD <memory_addr> or FADD <immediate_double>
-        if (instruction.operands.size() != 1) {
-            add_error(mnemonic + " requires 1 operand", instruction.line, instruction.column);
-            return;
-        }
-
-        // Check if it's an immediate value
-        if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instruction.operands[0].get())) {
-            // Arithmetic with immediate double value
-            // Operand type 0x02 = immediate 64-bit double
-            emit_byte(0x02);
-            
-            // Convert integer to double and emit as 64-bit value
-            double double_val = static_cast<double>(imm_expr->value);
-            uint64_t raw_double;
-            std::memcpy(&raw_double, &double_val, sizeof(double));
-            
-            // Emit 8 bytes little-endian
-            for (int i = 0; i < 8; ++i) {
-                emit_byte(static_cast<uint8_t>((raw_double >> (8 * i)) & 0xFF));
-            }
-            return;
-        }
-
-        // Otherwise, treat as memory address
-        // Operand type 0x01 = memory address (64-bit double)
-        emit_byte(0x01);
-        
-        // Memory address operand
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
-        } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
-        }
-    } else if (instruction.mnemonic == "FILD") {
-        // FILD - Load integer as floating point
-        // Format: FILD <memory_addr> or FILD <immediate_int>
-        if (instruction.operands.size() != 1) {
-            add_error("FILD requires 1 operand", instruction.line, instruction.column);
-            return;
-        }
-
-        // Check if it's an immediate value
-        if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instruction.operands[0].get())) {
-            // FILD with immediate 32-bit integer
-            // Operand type 0x00 = immediate 32-bit integer
-            emit_byte(0x00);
-            
-            // Emit 4 bytes little-endian
-            int32_t int_val = static_cast<int32_t>(imm_expr->value);
-            uint32_t raw_int = static_cast<uint32_t>(int_val);
-            emit_byte(static_cast<uint8_t>(raw_int & 0xFF));
-            emit_byte(static_cast<uint8_t>((raw_int >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((raw_int >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((raw_int >> 24) & 0xFF));
-            return;
-        }
-
-        // Otherwise, treat as memory address
-        // Operand type 0x01 = memory address (32-bit integer)
-        emit_byte(0x01);
-        
-        // Memory address operand
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
-        } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
-        }
-    } else if (instruction.mnemonic == "FIST" || instruction.mnemonic == "FISTP") {
-        // FIST/FISTP - Store floating point as integer
-        // Format: FIST <memory_addr> or FISTP <memory_addr>
-        if (instruction.operands.size() != 1) {
-            add_error(instruction.mnemonic + " requires 1 operand", instruction.line, instruction.column);
-            return;
-        }
-
-        // Must be a memory address (no immediate for store operations)
-        // Operand type 0x01 = memory address (32-bit integer)
-        emit_byte(0x01);
-        
-        // Memory address operand
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
-        } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
-        }
-    } else if (instruction.mnemonic == "FSTCW" || instruction.mnemonic == "FLDCW") {
-        // FSTCW/FLDCW - Store/Load FPU control word
-        // Format: FSTCW <memory_addr> or FLDCW <memory_addr>
-        if (instruction.operands.size() != 1) {
-            add_error(instruction.mnemonic + " requires 1 operand", instruction.line, instruction.column);
-            return;
-        }
-
-        // Memory address operand (no operand type byte for these)
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
-        } else {
-            // Emit 32-bit address directly
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
-        }
-    } else if (instruction.mnemonic == "FSTSW") {
-        // FSTSW - Store FPU status word
-        // Format: FSTSW <memory_addr> or FSTSW AX
-        if (instruction.operands.size() != 1) {
-            add_error("FSTSW requires 1 operand", instruction.line, instruction.column);
-            return;
-        }
-
-        // Check if operand is AX register (R0 in our case)
-        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get())) {
-            if (reg_expr->name == "R0" || reg_expr->name == "AX") {
-                // Store to AX register
-                emit_byte(0x01); // operand type = register
-                return;
-            }
-        }
-
-        // Otherwise, store to memory address
-        emit_byte(0x00); // operand type = memory
-        
-        bool is_symbol;
-        std::string symbol_name;
-        int64_t addr_value = evaluate_expression(*instruction.operands[0], is_symbol, symbol_name);
-
-        if (is_symbol) {
-            emit_forward_ref(symbol_name, 4); // 32-bit address
-        } else {
-            // Emit 32-bit address
-            emit_byte(static_cast<uint8_t>(addr_value & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF));
-            emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF));
-        }
-    } else if (instruction.mnemonic == "CMPPS" || instruction.mnemonic == "CMPPD") {
-        // SSE comparison instructions: reg, reg, imm8
-        if (instruction.operands.size() != 3) {
-            add_error(instruction.mnemonic + " requires 3 operands (dst, src, predicate)", instruction.line, instruction.column);
-            return;
-        }
-
-        auto dst = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get());
-        auto src = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get());
-        auto pred = dynamic_cast<const ImmediateExpression*>(instruction.operands[2].get());
-        if (!dst || !src || !pred) {
-            add_error(instruction.mnemonic + " operands must be: register, register, immediate", instruction.line, instruction.column);
-            return;
-        }
-
-        emit_byte(get_register_number(dst->name));
-        emit_byte(get_register_number(src->name));
-        emit_byte(static_cast<uint8_t>(pred->value & 0xFF)); // Predicate (0-7)
-    } else if (instruction.mnemonic == "MOVAPS" || instruction.mnemonic == "MOVUPS" || instruction.mnemonic == "MOVPS" ||
-               instruction.mnemonic == "ADDPS" || instruction.mnemonic == "SUBPS" || instruction.mnemonic == "MULPS" ||
-               instruction.mnemonic == "DIVPS" || instruction.mnemonic == "SQRTPS" || instruction.mnemonic == "MAXPS" ||
-               instruction.mnemonic == "MINPS" || instruction.mnemonic == "ANDPS" || instruction.mnemonic == "ORPS" ||
-               instruction.mnemonic == "XORPS" ||
-               instruction.mnemonic == "MOVAPD" || instruction.mnemonic == "MOVUPD" || instruction.mnemonic == "ADDPD" ||
-               instruction.mnemonic == "SUBPD" || instruction.mnemonic == "MULPD" || instruction.mnemonic == "DIVPD" ||
-               instruction.mnemonic == "SQRTPD" || instruction.mnemonic == "MAXPD" || instruction.mnemonic == "MINPD" ||
-               instruction.mnemonic == "ANDPD" || instruction.mnemonic == "ORPD" || instruction.mnemonic == "XORPD") {
-        // SSE-style reg, reg SIMD instructions
-        if (instruction.operands.size() != 2) {
-            add_error(instruction.mnemonic + " requires 2 operands", instruction.line, instruction.column);
-            return;
-        }
-
-        auto dst = dynamic_cast<const RegisterExpression*>(instruction.operands[0].get());
-        auto src = dynamic_cast<const RegisterExpression*>(instruction.operands[1].get());
-        if (!dst || !src) {
-            add_error(instruction.mnemonic + " operands must be registers", instruction.line, instruction.column);
-            return;
-        }
-
-        emit_byte(get_register_number(dst->name));
-        emit_byte(get_register_number(src->name));
-    } else if (instruction.mnemonic == "NOP" || instruction.mnemonic == "HALT" || 
-               instruction.mnemonic == "RET" || instruction.mnemonic == "PUSH_FLAG" || 
-               instruction.mnemonic == "POP_FLAG" || instruction.mnemonic == "FINIT" ||
-               instruction.mnemonic == "FABS" || instruction.mnemonic == "FCHS" ||
-               instruction.mnemonic == "FSQRT" || instruction.mnemonic == "FSIN" ||
-               instruction.mnemonic == "FCOS" || instruction.mnemonic == "FTAN" ||
-               instruction.mnemonic == "FEXP" || instruction.mnemonic == "FLN" ||
-               instruction.mnemonic == "FLG2" || instruction.mnemonic == "FLDPI" ||
-               instruction.mnemonic == "FLDZ" || instruction.mnemonic == "FLD1" ||
-               // Interrupt instructions (no operands)
-               instruction.mnemonic == "CLI" || instruction.mnemonic == "STI" ||
-               instruction.mnemonic == "IRET" ||
-               // SIMD instructions
-               instruction.mnemonic == "VADD" || instruction.mnemonic == "VMUL" || 
-               instruction.mnemonic == "VDOT" || instruction.mnemonic == "VMAX" || 
-               instruction.mnemonic == "VBROADCAST" || instruction.mnemonic == "VCMPGT" ||
-               instruction.mnemonic == "PACKB" || instruction.mnemonic == "UNPACKB") {
-        // Instructions with no operands - opcode only
-        if (instruction.operands.size() != 0) {
-            add_error(instruction.mnemonic + " requires no operands", instruction.line, instruction.column);
-            return;
-        }
-        // Opcode already emitted, no additional bytes needed
-    } else if (instruction.mnemonic == "INT") {
-        // INT instruction: opcode + vector byte
-        if (instruction.operands.size() != 1) {
-            add_error("INT requires exactly 1 operand (interrupt vector)", instruction.line, instruction.column);
-            return;
-        }
-        
-        bool is_symbol;
-        std::string symbol;
-        int64_t vector = evaluate_expression(*instruction.operands[0], is_symbol, symbol);
-        
-        if (is_symbol) {
-            add_error("INT vector must be an immediate value, not a symbol", instruction.line, instruction.column);
-            return;
-        }
-        
-        if (vector < 0 || vector > 255) {
-            add_error("INT vector must be between 0 and 255", instruction.line, instruction.column);
-            return;
-        }
-        
-        emit_byte(static_cast<uint8_t>(vector));
-    } else {
-        add_error("Instruction encoding not implemented: " + instruction.mnemonic, instruction.line, instruction.column);
     }
+    if (instr.operands.size() == 2) {
+        emit_byte(opcode);
+        auto dest_reg = static_cast<const RegisterExpression*>(instr.operands[0].get());
+        auto src_reg = static_cast<const RegisterExpression*>(instr.operands[1].get());
+        emit_byte(get_register_number(dest_reg->name));
+        emit_byte(get_register_number(src_reg->name));
+    } else {
+        auto dest_reg = static_cast<const RegisterExpression*>(instr.operands[0].get());
+        auto src1_reg = static_cast<const RegisterExpression*>(instr.operands[1].get());
+        auto src2_reg = static_cast<const RegisterExpression*>(instr.operands[2].get());
+        uint8_t dest_num = get_register_number(dest_reg->name);
+        uint8_t src1_num = get_register_number(src1_reg->name);
+        uint8_t src2_num = get_register_number(src2_reg->name);
+        if (dest_num != src1_num) {
+            const bool is_extended = (dest_num >= 8 || src1_num >= 8);
+            int dest_bits = 0; int src1_bits = 0;
+            auto dest_it = register_sizes.find(dest_reg->name);
+            if (dest_it != register_sizes.end()) dest_bits = dest_it->second;
+            auto src1_it = register_sizes.find(src1_reg->name);
+            if (src1_it != register_sizes.end()) src1_bits = src1_it->second;
+            const bool is_64bit_move = (dest_bits == 64 || src1_bits == 64);
+            emit_byte(static_cast<uint8_t>(is_extended ? Opcode::MOVEX : (is_64bit_move ? Opcode::MOV64 : Opcode::MOV)));
+            emit_byte(dest_num); emit_byte(src1_num);
+        }
+        emit_byte(opcode); emit_byte(dest_num); emit_byte(src2_num);
+    }
+}
+
+void Assembler::AssemblerEngine::enc_alu_3reg(const Instruction& instr, uint8_t opcode) {
+    const std::string& mnemonic = instr.mnemonic;
+    emit_byte(opcode);
+    if (instr.operands.size() == 2) {
+        auto dest_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get());
+        auto src_expr = dynamic_cast<const RegisterExpression*>(instr.operands[1].get());
+        if (!dest_expr || !src_expr) { add_error(mnemonic + " requires register operands", instr.line, instr.column); return; }
+        uint8_t dest = get_register_number(dest_expr->name);
+        uint8_t src = get_register_number(src_expr->name);
+        emit_byte(dest); emit_byte(dest); emit_byte(src);
+    } else if (instr.operands.size() == 3) {
+        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get())) emit_byte(get_register_number(reg_expr->name));
+        else { add_error("First operand must be a destination register", instr.line, instr.column); return; }
+        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[1].get())) emit_byte(get_register_number(reg_expr->name));
+        else { add_error("Second operand must be a source register", instr.line, instr.column); return; }
+        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[2].get())) emit_byte(get_register_number(reg_expr->name));
+        else { add_error("Third operand must be a source register", instr.line, instr.column); return; }
+    } else { add_error(mnemonic + " requires 2 or 3 operands", instr.line, instr.column); return; }
+}
+
+void Assembler::AssemblerEngine::enc_mode(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 0) { add_error(instr.mnemonic + " requires no operands", instr.line, instr.column); return; }
+}
+
+void Assembler::AssemblerEngine::enc_jump(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 1) { add_error(instr.mnemonic + " requires 1 operand", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    int64_t value = evaluate_expression(*instr.operands[0], is_symbol, symbol_name);
+    if (is_symbol) emit_forward_ref(symbol_name, 4);
+    else emit_dword(static_cast<uint32_t>(value));
+}
+
+void Assembler::AssemblerEngine::enc_single_reg(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 1) { add_error(instr.mnemonic + " requires 1 operand", instr.line, instr.column); return; }
+    if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get())) emit_byte(get_register_number(reg_expr->name));
+    else { add_error("Operand must be a register", instr.line, instr.column); return; }
+}
+
+void Assembler::AssemblerEngine::enc_io(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 2) { add_error(instr.mnemonic + " requires 2 operands", instr.line, instr.column); return; }
+    if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get())) emit_byte(get_register_number(reg_expr->name));
+    else { add_error("First operand must be a register", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    int64_t port_value = evaluate_expression(*instr.operands[1], is_symbol, symbol_name);
+    if (is_symbol) { add_error("Port number must be an immediate value", instr.line, instr.column); return; }
+    else emit_byte(static_cast<uint8_t>(port_value));
+}
+
+void Assembler::AssemblerEngine::enc_load_store(const Instruction& instr, uint8_t opcode) {
+    if (instr.operands.size() != 2) { add_error(instr.mnemonic + " requires 2 operands", instr.line, instr.column); return; }
+    uint8_t dst_reg_num;
+    if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get())) dst_reg_num = get_register_number(reg_expr->name);
+    else { add_error("First operand must be a register", instr.line, instr.column); return; }
+    auto& second_operand = instr.operands[1];
+    if (is_bracket_register_syntax(second_operand.get())) {
+        auto mem_expr = static_cast<const MemoryReferenceExpression*>(second_operand.get());
+        auto base_reg = static_cast<const RegisterExpression*>(mem_expr->base.get());
+        uint8_t addr_reg_num = get_register_number(base_reg->name);
+        if (instr.mnemonic == "LOAD") {
+            emit_byte(static_cast<uint8_t>(Opcode::LOADR)); emit_byte(dst_reg_num); emit_byte(addr_reg_num);
+        } else if (instr.mnemonic == "STORE") {
+            emit_byte(static_cast<uint8_t>(Opcode::STORER)); emit_byte(addr_reg_num); emit_byte(dst_reg_num);
+        } else { add_error(instr.mnemonic + " with register indirect addressing not supported", instr.line, instr.column); }
+        return;
+    }
+    emit_byte(opcode); emit_byte(dst_reg_num);
+    if (instr.mnemonic == "LOADR" || instr.mnemonic == "STORER") {
+        if (auto reg_expr = dynamic_cast<const RegisterExpression*>(second_operand.get())) emit_byte(get_register_number(reg_expr->name));
+        else { add_error("Second operand must be a register for " + instr.mnemonic, instr.line, instr.column); return; }
+    } else {
+        bool is_symbol; std::string symbol_name;
+        int64_t addr_value = evaluate_expression(*second_operand, is_symbol, symbol_name);
+        if (is_symbol) emit_forward_ref(symbol_name, 4);
+        else emit_dword(static_cast<uint32_t>(addr_value));
+    }
+}
+
+void Assembler::AssemblerEngine::enc_loadex_storex(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 2) { add_error(instr.mnemonic + " requires 2 operands", instr.line, instr.column); return; }
+    if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get())) emit_byte(get_register_number(reg_expr->name));
+    else { add_error("First operand must be a register", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    int64_t addr_value = evaluate_expression(*instr.operands[1], is_symbol, symbol_name);
+    if (is_symbol) emit_forward_ref(symbol_name, 8);
+    else for (int i = 0; i < 8; i++) emit_byte(static_cast<uint8_t>((addr_value >> (i * 8)) & 0xFF));
+}
+
+void Assembler::AssemblerEngine::enc_shift(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 2) { add_error(instr.mnemonic + " requires 2 operands", instr.line, instr.column); return; }
+    if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get())) emit_byte(get_register_number(reg_expr->name));
+    else { add_error("First operand must be a register", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    int64_t value = evaluate_expression(*instr.operands[1], is_symbol, symbol_name);
+    if (is_symbol) { add_error("Shift amount must be an immediate value", instr.line, instr.column); return; }
+    else emit_byte(static_cast<uint8_t>(value));
+}
+
+void Assembler::AssemblerEngine::enc_fpu_ldst(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 1) { add_error(instr.mnemonic + " requires 1 operand", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    if (instr.mnemonic == "FLD") {
+        if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instr.operands[0].get())) {
+            emit_byte(0x02);
+            double double_val = static_cast<double>(imm_expr->value);
+            uint64_t raw_double = safe_bitcast<uint64_t>(double_val);
+            for (int i = 0; i < 8; ++i) emit_byte(static_cast<uint8_t>((raw_double >> (8 * i)) & 0xFF));
+            return;
+        }
+    }
+    emit_byte(0x01);
+    int64_t addr_value = evaluate_expression(*instr.operands[0], is_symbol, symbol_name);
+    if (is_symbol) emit_forward_ref(symbol_name, 4);
+    else { emit_byte(static_cast<uint8_t>(addr_value & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF)); }
+}
+
+void Assembler::AssemblerEngine::enc_fpu_arith(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 1) { add_error(instr.mnemonic + " requires 1 operand", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instr.operands[0].get())) {
+        emit_byte(0x02);
+        double double_val = static_cast<double>(imm_expr->value);
+        uint64_t raw_double = safe_bitcast<uint64_t>(double_val);
+        for (int i = 0; i < 8; ++i) emit_byte(static_cast<uint8_t>((raw_double >> (8 * i)) & 0xFF));
+        return;
+    }
+    emit_byte(0x01);
+    int64_t addr_value = evaluate_expression(*instr.operands[0], is_symbol, symbol_name);
+    if (is_symbol) emit_forward_ref(symbol_name, 4);
+    else { emit_byte(static_cast<uint8_t>(addr_value & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF)); }
+}
+
+void Assembler::AssemblerEngine::enc_fild(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 1) { add_error("FILD requires 1 operand", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    if (auto imm_expr = dynamic_cast<const ImmediateExpression*>(instr.operands[0].get())) {
+        emit_byte(0x00); int32_t int_val = static_cast<int32_t>(imm_expr->value);
+        uint32_t raw_int = static_cast<uint32_t>(int_val);
+        emit_byte(static_cast<uint8_t>(raw_int & 0xFF)); emit_byte(static_cast<uint8_t>((raw_int >> 8) & 0xFF));
+        emit_byte(static_cast<uint8_t>((raw_int >> 16) & 0xFF)); emit_byte(static_cast<uint8_t>((raw_int >> 24) & 0xFF));
+        return;
+    }
+    emit_byte(0x01);
+    int64_t addr_value = evaluate_expression(*instr.operands[0], is_symbol, symbol_name);
+    if (is_symbol) emit_forward_ref(symbol_name, 4);
+    else { emit_byte(static_cast<uint8_t>(addr_value & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF)); }
+}
+
+void Assembler::AssemblerEngine::enc_fist(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 1) { add_error(instr.mnemonic + " requires 1 operand", instr.line, instr.column); return; }
+    emit_byte(0x01);
+    bool is_symbol; std::string symbol_name;
+    int64_t addr_value = evaluate_expression(*instr.operands[0], is_symbol, symbol_name);
+    if (is_symbol) emit_forward_ref(symbol_name, 4);
+    else { emit_byte(static_cast<uint8_t>(addr_value & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF)); }
+}
+
+void Assembler::AssemblerEngine::enc_fpu_ctrl(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 1) { add_error(instr.mnemonic + " requires 1 operand", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol_name;
+    int64_t addr_value = evaluate_expression(*instr.operands[0], is_symbol, symbol_name);
+    if (is_symbol) emit_forward_ref(symbol_name, 4);
+    else { emit_byte(static_cast<uint8_t>(addr_value & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF)); }
+}
+
+void Assembler::AssemblerEngine::enc_fstsw(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 1) { add_error("FSTSW requires 1 operand", instr.line, instr.column); return; }
+    if (auto reg_expr = dynamic_cast<const RegisterExpression*>(instr.operands[0].get())) {
+        if (reg_expr->name == "R0" || reg_expr->name == "AX") { emit_byte(0x01); return; }
+    }
+    emit_byte(0x00);
+    bool is_symbol; std::string symbol_name;
+    int64_t addr_value = evaluate_expression(*instr.operands[0], is_symbol, symbol_name);
+    if (is_symbol) emit_forward_ref(symbol_name, 4);
+    else { emit_byte(static_cast<uint8_t>(addr_value & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 8) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 16) & 0xFF)); emit_byte(static_cast<uint8_t>((addr_value >> 24) & 0xFF)); }
+}
+
+void Assembler::AssemblerEngine::enc_sse_cmp(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 3) { add_error(instr.mnemonic + " requires 3 operands (dst, src, predicate)", instr.line, instr.column); return; }
+    auto dst = dynamic_cast<const RegisterExpression*>(instr.operands[0].get());
+    auto src = dynamic_cast<const RegisterExpression*>(instr.operands[1].get());
+    auto pred = dynamic_cast<const ImmediateExpression*>(instr.operands[2].get());
+    if (!dst || !src || !pred) { add_error(instr.mnemonic + " operands must be: register, register, immediate", instr.line, instr.column); return; }
+    emit_byte(get_register_number(dst->name)); emit_byte(get_register_number(src->name)); emit_byte(static_cast<uint8_t>(pred->value & 0xFF));
+}
+
+void Assembler::AssemblerEngine::enc_sse(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 2) { add_error(instr.mnemonic + " requires 2 operands", instr.line, instr.column); return; }
+    auto dst = dynamic_cast<const RegisterExpression*>(instr.operands[0].get());
+    auto src = dynamic_cast<const RegisterExpression*>(instr.operands[1].get());
+    if (!dst || !src) { add_error(instr.mnemonic + " operands must be registers", instr.line, instr.column); return; }
+    emit_byte(get_register_number(dst->name)); emit_byte(get_register_number(src->name));
+}
+
+void Assembler::AssemblerEngine::enc_no_operands(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 0) { add_error(instr.mnemonic + " requires no operands", instr.line, instr.column); return; }
+}
+
+void Assembler::AssemblerEngine::enc_int(const Instruction& instr, uint8_t opcode) {
+    emit_byte(opcode);
+    if (instr.operands.size() != 1) { add_error("INT requires exactly 1 operand (interrupt vector)", instr.line, instr.column); return; }
+    bool is_symbol; std::string symbol;
+    int64_t vector = evaluate_expression(*instr.operands[0], is_symbol, symbol);
+    if (is_symbol) { add_error("INT vector must be an immediate value, not a symbol", instr.line, instr.column); return; }
+    if (vector < 0 || vector > 255) { add_error("INT vector must be between 0 and 255", instr.line, instr.column); return; }
+    emit_byte(static_cast<uint8_t>(vector));
 }
 
 int64_t Assembler::AssemblerEngine::evaluate_expression(const Assembler::Expression& expr, bool& is_symbol_ref, std::string& symbol_name) {
@@ -1917,11 +1512,6 @@ void Assembler::AssemblerEngine::emit_forward_ref(const std::string& symbol, siz
     }
 }
 
-/**
- * @brief Helper function to detect if an instruction operand uses bracket syntax (register indirect addressing)
- * @param operand The operand expression to check
- * @return true if operand is [register], false otherwise
- */
 bool Assembler::AssemblerEngine::is_bracket_register_syntax(const Assembler::Expression* operand) {
     if (auto mem_expr = dynamic_cast<const Assembler::MemoryReferenceExpression*>(operand)) {
         if (dynamic_cast<const Assembler::RegisterExpression*>(mem_expr->base.get())) {
@@ -1964,7 +1554,7 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
         else if (effective_mnemonic == "MOD") effective_mnemonic = "MOD64";
         else if (effective_mnemonic == "LOAD_IMM") effective_mnemonic = "LOAD_IMM64";
         else if (effective_mnemonic == "LOAD") effective_mnemonic = "LOADEX";
-        else if (effective_mnemonic == "STORE") effective_mnemonic = "STOREEX";
+        else if (effective_mnemonic == "STORE") effective_mnemonic = "STOREX";
     }
 
     // Basic instruction size calculations for Demi Engine
@@ -2031,7 +1621,8 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
         return 5; // opcode + 4-byte address
     } else if (effective_mnemonic == "PUSH" || effective_mnemonic == "POP" || effective_mnemonic == "INC" ||
                effective_mnemonic == "DEC" || effective_mnemonic == "NOT" || effective_mnemonic == "INC64" ||
-               effective_mnemonic == "DEC64" || effective_mnemonic == "NOT64") {
+               effective_mnemonic == "DEC64" || effective_mnemonic == "NOT64" ||
+               effective_mnemonic == "PUSHEX" || effective_mnemonic == "POPEX") {
         return 2; // opcode + register
     } else if (effective_mnemonic == "LOADR" || effective_mnemonic == "STORER") {
         DEBUG_DETAIL(Logging::DebugCategory::ASM_ENCODING, "[PASS1_SIZE] {} -> 3 bytes (explicit LOADR/STORER)", effective_mnemonic);
@@ -2060,7 +1651,7 @@ size_t Assembler::AssemblerEngine::get_instruction_size(const std::string& mnemo
                effective_mnemonic == "SHR" || effective_mnemonic == "SHL64" ||
                effective_mnemonic == "SHR64") {
         return 3; // opcode + register + port/immediate/register
-    } else if (effective_mnemonic == "LOADEX" || effective_mnemonic == "STOREX" || effective_mnemonic == "STOREEX") {
+    } else if (effective_mnemonic == "LOADEX" || effective_mnemonic == "STOREX") {
         return 10; // opcode + register + 8-byte address
     }
 
@@ -2281,12 +1872,34 @@ void Assembler::AssemblerEngine::handle_org_directive(const std::vector<std::uni
     
     // Check if .org is moving backwards
     if (new_address < current_address) {
-        add_error(".org directive cannot move address backwards from 0x" + 
-                  std::to_string(current_address) + " to 0x" + std::to_string(new_address));
-        return;
-    }
+        bool is_section_base_override = false;
+        if (current_section == ".data" && current_address == data_section_base) {
+            is_section_base_override = true;
+            data_section_base = new_address;
+        } else if (current_section == ".text" && current_address == text_section_base) {
+            is_section_base_override = true;
+            // Don't overlap with .data section data
+            uint32_t data_end = data_section_base + data_section_size;
+            if (new_address < data_end) {
+                text_section_base = data_end;
+            } else {
+                text_section_base = new_address;
+            }
+        }
 
-    current_address = new_address;
+        if (!is_section_base_override) {
+            std::stringstream ss;
+            ss << ".org directive cannot move address backwards from 0x" << std::hex << std::uppercase << current_address 
+               << " to 0x" << std::hex << std::uppercase << new_address;
+            add_error(ss.str());
+            return;
+        }
+        // Use the adjusted section base (may differ from new_address
+        // if it was pushed forward to avoid .data overlap)
+        current_address = (current_section == ".data") ? data_section_base : text_section_base;
+    } else {
+        current_address = new_address;
+    }
 
     // Pad bytecode to the new address
     while (bytecode.size() < current_address) {

@@ -110,7 +110,7 @@ public:
     /**
      * Get the current storage content
      */
-    std::vector<uint8_t> getStorage() const {
+    const std::vector<uint8_t>& getStorage() const {
         std::lock_guard<std::mutex> lock(mutex);
         return storage;
     }

@@ -14,6 +14,7 @@
 #include "../engine/device_factory.hpp"
 #include "../config.hpp"
 #include "../debug/debug_handler.hpp"
+#include "../debug/error_handler.hpp"
 #include "../assembler/demi_assembler.hpp"
 #include "../assembler/lexer.hpp"
 #include "../assembler/parser.hpp" 
@@ -24,7 +25,6 @@
 class TestContext;
 class TestFramework;
 
-// Test case structure
 struct TestCase {
     std::string name;
     std::string category;
@@ -36,7 +36,6 @@ struct TestCase {
         : name(n), category(cat), test_func(func), expect_error(expect_err) {}
 };
 
-// Test result structure
 struct TestResult {
     std::string name;
     std::string category;
@@ -49,7 +48,6 @@ struct TestResult {
         : name(n), category(cat), passed(p), message(msg), duration_ms(dur) {}
 };
 
-// Test suite for organizing tests
 class TestSuite {
 public:
     TestSuite(const std::string& name) : name_(name) {}
@@ -66,7 +64,6 @@ private:
     std::vector<TestCase> tests_;
 };
 
-// Exception for test assertion failures
 class AssertionFailure : public std::exception {
 public:
     explicit AssertionFailure(const std::string& message) : message_(message) {}
@@ -76,7 +73,6 @@ private:
     std::string message_;
 };
 
-// Test context - provides testing environment and assertions
 class TestContext {
 public:
     TestContext() : cpu(CPU::create_test_cpu()), program() {
@@ -88,7 +84,6 @@ public:
 
     ~TestContext() = default;
 
-    // Program loading
     void load_program(const std::vector<uint8_t>& prog) {
         program = prog;
     }
@@ -115,7 +110,6 @@ public:
         }
     }
 
-    // Quick operations
     void load_immediate(int reg, uint32_t value) {
         if (reg < 0 || reg >= 8) {
             throw std::runtime_error("Invalid register: " + std::to_string(reg));
@@ -176,6 +170,11 @@ public:
         cpu.set_max_call_depth_override(depth);
     }
 
+    // Set stack limit for overflow detection (useful for testing stack overflow at configurable threshold)
+    void set_stack_limit(uint32_t limit) {
+        cpu.set_stack_limit(limit);
+    }
+
     // State inspection
     uint32_t get_register(int reg) const {
         if (reg < 0 || reg >= 8) {
@@ -204,7 +203,6 @@ public:
         return cpu.get_sp();
     }
 
-    // Register assertions
     void assert_register_eq(int reg, uint32_t expected) {
         uint32_t actual = get_register(reg);
         if (actual != expected) {
@@ -232,7 +230,6 @@ public:
         }
     }
 
-    // Memory assertions
     void assert_memory_eq(uint32_t addr, uint8_t expected) {
         uint8_t actual = get_memory(addr);
         if (actual != expected) {
@@ -248,7 +245,6 @@ public:
         }
     }
 
-    // Flag assertions
     void assert_flag_set(uint32_t flag) {
         uint32_t flags = get_flags();
         if (!(flags & flag)) {
@@ -276,7 +272,6 @@ public:
         }
     }
 
-    // CPU state assertions
     void assert_pc_eq(uint32_t expected) {
         uint32_t actual = get_pc();
         if (actual != expected) {
@@ -295,7 +290,7 @@ public:
         }
     }
 
-    // ==================== CPU Mode Assertions ====================
+    
     
     // Assert CPU is in 32-bit mode
     void assert_32bit_mode() {
@@ -391,7 +386,7 @@ public:
         return cpu.get_operand_mask();
     }
     
-    // ==================== Enhanced Flag Assertions ====================
+    
     
     // Assert zero flag is set
     void assert_zero_flag_set() {
@@ -433,7 +428,7 @@ public:
         assert_flag_clear(FLAG_SIGN);
     }
     
-    // ==================== Memory Assertions (Enhanced) ====================
+    
     
     // Assert 32-bit value at memory address (little-endian)
     void assert_memory_dword_eq(uint32_t addr, uint32_t expected) {
@@ -750,7 +745,8 @@ public:
         const std::vector<TestResult>& display_results =
             (Config::test_show_mode == TestShowMode::ALL) ? results : shown_results;
 
-        // Print header (skip in quiet mode)
+        // Config::quiet is a runtime toggle (--quiet flag). When set,
+        // test result headers are suppressed — intentional, not dead code.
         if (!Config::quiet) {
             std::cout << "\n" << fmt::format("{}┌────────────────────────────────────────────────────────────┐{}\n",
                                     "\033[36m", "\033[0m");
@@ -832,7 +828,8 @@ public:
             }
         }
 
-        // In quiet mode, show compact summary
+        // Config::quiet is a runtime toggle (--quiet flag). When set,
+        // verbose output is suppressed — intentional, not dead code.
         if (Config::quiet) {
             // Show failures if any
             if (!failures.empty()) {
@@ -958,9 +955,13 @@ private:
     TestResult run_test(const TestCase& test) {
         auto start = std::chrono::high_resolution_clock::now();
 
-        // Suppress debug output if error is expected
-        if (test.expect_error) {
+        // Suppress debug and error output if error is expected
+        // But not in test debug modes - user wants to see diagnostics
+        // Config::test_debug is a runtime toggle; when off, verbose output
+        // for expected-error tests is suppressed — intentional, not dead code.
+        if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
             Logging::DebugHandler::instance().set_suppress_output(true);
+            Logging::ErrorHandler::instance().set_quiet_mode(true);
         }
 
         // Save original buffers
@@ -976,8 +977,10 @@ private:
             // Track if test produces output (used for pretty separators in ALL mode)
             bool has_output = false;
 
+            // Config::test_show_mode is a runtime toggle; in ALL mode all
+            // results are shown. The comparison is intentional, not dead code.
             const bool suppress_stream_output =
-                test.expect_error || (Config::test_show_mode != TestShowMode::ALL);
+                test.expect_error || (Config::test_show_mode != TestShowMode::ALL && !Config::test_debug);
 
             // Create custom buffers
             class TrackingBuf : public std::streambuf {
@@ -1019,6 +1022,12 @@ private:
             // Reset global state
             Config::error_count = 0;
 
+            // Debug mode: print test entry
+            if (Config::test_debug) {
+                std::cout << "\033[38;5;208m[TEST-DEBUG] \033[0m\033[1mStarting test:\033[0m " 
+                          << test.name << " (category: " << test.category << ")" << std::endl;
+            }
+
             // Create test context
             TestContext context;
 
@@ -1046,7 +1055,11 @@ private:
 
             // Check if we expected an error but didn't get one
             if (test.expect_error && Config::error_count == 0) {
-                Logging::DebugHandler::instance().set_suppress_output(false);
+                // Config::test_debug is a runtime toggle; when off, output is suppressed
+                if (!Config::test_debug && !Config::assembly_test_debug) {
+                    Logging::DebugHandler::instance().set_suppress_output(false);
+                    Logging::ErrorHandler::instance().set_quiet_mode(false);
+                }
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
                 return TestResult(test.name, test.category, false,
@@ -1055,7 +1068,10 @@ private:
 
             // Test passed
             if (test.expect_error) {
-                Logging::DebugHandler::instance().set_suppress_output(false);
+                if (!Config::test_debug && !Config::assembly_test_debug) {
+                    Logging::DebugHandler::instance().set_suppress_output(false);
+                    Logging::ErrorHandler::instance().set_quiet_mode(false);
+                }
             }
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -1066,8 +1082,11 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
-            if (test.expect_error) {
+            // Config::test_debug is a runtime toggle; when off, verbose output
+        // for expected-error tests is suppressed — intentional, not dead code.
+        if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
+                Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
             
             // If we expected an error and got an assertion failure, that might be OK
@@ -1087,8 +1106,11 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
-            if (test.expect_error) {
+            // Config::test_debug is a runtime toggle; when off, verbose output
+        // for expected-error tests is suppressed — intentional, not dead code.
+        if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
+                Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
             
             // If we expected an error and got a standard exception, that's probably OK
@@ -1109,8 +1131,11 @@ private:
             std::cout.rdbuf(cout_buf);
             std::cerr.rdbuf(cerr_buf);
             
-            if (test.expect_error) {
+            // Config::test_debug is a runtime toggle; when off, verbose output
+        // for expected-error tests is suppressed — intentional, not dead code.
+        if (test.expect_error && !Config::test_debug && !Config::assembly_test_debug) {
                 Logging::DebugHandler::instance().set_suppress_output(false);
+                Logging::ErrorHandler::instance().set_quiet_mode(false);
             }
 
             auto end = std::chrono::high_resolution_clock::now();
@@ -1144,6 +1169,34 @@ public:
 // Function to run all tests (for integration with existing main)
 inline void run_unit_tests() {
     auto& framework = TestFramework::instance();
+    
+    // Test selection: if --test-select is specified, run only those tests
+    if (!Config::test_select.empty()) {
+        std::vector<std::string> test_names;
+        std::stringstream ss(Config::test_select);
+        std::string name;
+        while (std::getline(ss, name, ',')) {
+            // Trim whitespace
+            size_t start = name.find_first_not_of(" \t");
+            size_t end = name.find_last_not_of(" \t");
+            if (start != std::string::npos) {
+                test_names.push_back(name.substr(start, end - start + 1));
+            }
+        }
+        
+        std::vector<TestResult> all_results;
+        for (const auto& test_name : test_names) {
+            auto results = framework.run_single(test_name);
+            if (results.empty()) {
+                std::cerr << "Error: Test '" << test_name << "' not found" << std::endl;
+            } else {
+                all_results.insert(all_results.end(), results.begin(), results.end());
+            }
+        }
+        framework.print_results(all_results);
+        return;
+    }
+    
     auto results = framework.run_all();
     framework.print_results(results);
 }
