@@ -111,6 +111,15 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
 
     const bool defer_test_line_output = (Config::test_show_mode != TestShowMode::ALL);
     
+    // Auto-skip Sandbox tests when not running under --sandbox
+    if (test_case.category == "Sandbox" && !Config::sandbox_enabled) {
+        if (!defer_test_line_output && !Config::quiet_assembly_test) {
+            std::cout << test_case.name << " (requires --sandbox)" << std::endl;
+        }
+        result.skipped = true;
+        result.passed = false;
+        return result;
+    }
     // Check if test is marked to skip
     if (test_case.get_skip()) {
         if (!defer_test_line_output && !Config::quiet_assembly_test) {
@@ -158,7 +167,7 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         std::unique_ptr<demi::sandbox::SyscallDispatcher> _test_sd;
         std::unique_ptr<demi::sandbox::VirtualFileSystem> _test_vfs;
         if (Config::sandbox_enabled) {
-            _test_sd = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _test_sd->set_allow_exec(Config::allow_exec);
+            _test_sd = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _test_sd->set_allow_read(Config::allow_read); _test_sd->set_allow_write(Config::allow_write); _test_sd->set_allow_exec(Config::allow_exec);
             _test_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
                 "/tmp/demi_vfs", true);
             cpu.set_sandbox_environment(_test_sd.get(), _test_vfs.get());

@@ -1040,9 +1040,10 @@ void CPU::handle_syscall(bool& running) {
         }
     }
 
+    auto sandbox_check = demi::sandbox::SyscallResult::ALLOWED;
     if (sandbox_dispatcher_) {
-        auto check = sandbox_dispatcher_->validate_syscall(syscall_num);
-        if (check == demi::sandbox::SyscallResult::DENIED) {
+        sandbox_check = sandbox_dispatcher_->validate_syscall(syscall_num);
+        if (sandbox_check == demi::sandbox::SyscallResult::DENIED) {
             Logging::ErrorHandler::instance().report_runtime(
                 Logging::ErrorCode::IO_GENERIC, // Using a generic IO error mapping
                 fmt::format("[SECURITY FAULT] Denied syscall: {}({})", sc_name, syscall_num),
@@ -1176,7 +1177,7 @@ void CPU::handle_syscall(bool& running) {
                 
                 if (path_len < max_len) {
                     std::string final_path = pathname;
-                    if (io_vfs_) {
+                    if (io_vfs_ && sandbox_check == demi::sandbox::SyscallResult::HANDLED_INTERNALLY) {
                         auto safe_path = io_vfs_->resolve_safe_path(pathname);
                         if (!safe_path) {
                             Logging::ErrorHandler::instance().report_runtime(
@@ -1310,7 +1311,7 @@ void CPU::handle_syscall(bool& running) {
                 size_t path_len = strnlen(pathname, max_len);
                 if (path_len < max_len) {
                     std::string path(pathname);
-                    if (io_vfs_) {
+                    if (io_vfs_ && sandbox_check == demi::sandbox::SyscallResult::HANDLED_INTERNALLY) {
                         auto safe = io_vfs_->resolve_safe_path(pathname);
                         if (!safe) { result = -EACCES; break; }
                         path = safe->string();
