@@ -1,5 +1,8 @@
+#include <memory>
 #include "assembly_test_executor.hpp"
 #include "../assembler/lexer.hpp"
+#include "../engine/sandbox_policy.hpp"
+#include "../engine/vfs.hpp"
 #include "../assembler/parser.hpp"
 #include "../debug/error_handler.hpp"
 #include "../debug/debug_handler.hpp"
@@ -150,6 +153,18 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
             test_memory_size = assembler.get_memory_size();
         }
         CPU cpu(test_memory_size);  // Use configurable memory size
+
+        // Wire sandbox if enabled via CLI
+        std::unique_ptr<demi::sandbox::SyscallDispatcher> _test_sd;
+        std::unique_ptr<demi::sandbox::VirtualFileSystem> _test_vfs;
+        if (Config::sandbox_enabled) {
+            Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, "[SANDBOX] enabled in test executor", Logging::DebugLevel::CRITICAL);
+            _test_sd = std::make_unique<demi::sandbox::SyscallDispatcher>(true);
+            _test_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
+                "/tmp/demi_vfs", true);
+            cpu.set_sandbox_environment(_test_sd.get(), _test_vfs.get());
+        }
+
         output_capture.clear();
         
         // Note: Test metadata will be printed after test execution based on filter mode

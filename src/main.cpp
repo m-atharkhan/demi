@@ -171,7 +171,7 @@ public:
         // Process boolean flags first (debug, verbose, etc.)
         for (const auto& parsed : parsed_args) {
             if (parsed.name == "debug" || parsed.name == "verbose" || parsed.name == "extended_registers" || 
-                parsed.name == "memdump" || parsed.name == "gui" || parsed.name == "interactive") {
+                parsed.name == "memdump" || parsed.name == "gui" || parsed.name == "interactive" || parsed.name == "sandbox" || parsed.name == "allow_read" || parsed.name == "allow_write" || parsed.name == "allow_exec") {
                 auto def = find_arg_def(parsed.name);
                 if (def && def->value_action) {
                     def->value_action(parsed.value);
@@ -192,7 +192,7 @@ public:
         // Process value arguments next (files, paths, etc.)
         for (const auto& parsed : parsed_args) {
             if (parsed.name != "debug" && parsed.name != "verbose" && parsed.name != "extended_registers" && 
-                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" &&
+                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" && parsed.name != "sandbox" && parsed.name != "allow_read" && parsed.name != "allow_write" && parsed.name != "allow_exec" &&
                 parsed.name != "help" && parsed.name != "test" && parsed.name != "unit_test" && 
                 parsed.name != "assembly_test" && parsed.name != "assembly_test_quiet" &&
                 parsed.name != "debug_verbose" && parsed.name != "debug_quiet" && parsed.name != "hexdump") {
@@ -935,14 +935,14 @@ public:
             });
 
         // Sandbox arguments
-        parser.add_action_arg("sandbox", "--sandbox", "", "Enable sandbox mode (restricts file I/O, exec, network)", "Sandbox",
-            [this]() { Config::sandbox_enabled = true; });
-        parser.add_action_arg("allow_read", "--allow-read", "", "Allow host file reads when sandbox is enabled", "Sandbox",
-            [this]() { Config::allow_read = true; });
-        parser.add_action_arg("allow_write", "--allow-write", "", "Allow host file writes when sandbox is enabled", "Sandbox",
-            [this]() { Config::allow_write = true; });
-        parser.add_action_arg("allow_exec", "--allow-exec", "", "Allow fork+execve when sandbox is enabled", "Sandbox",
-            [this]() { Config::allow_exec = true; });
+        parser.add_bool_arg("sandbox", "--sandbox", "", "Enable sandbox mode (restricts file I/O, exec, network)", "Sandbox",
+            [this](bool value) { Config::sandbox_enabled = value; });
+        parser.add_bool_arg("allow_read", "--allow-read", "", "Allow host file reads when sandbox is enabled", "Sandbox",
+            [this](bool value) { Config::allow_read = value; });
+        parser.add_bool_arg("allow_write", "--allow-write", "", "Allow host file writes when sandbox is enabled", "Sandbox",
+            [this](bool value) { Config::allow_write = value; });
+        parser.add_bool_arg("allow_exec", "--allow-exec", "", "Allow fork+execve when sandbox is enabled", "Sandbox",
+            [this](bool value) { Config::allow_exec = value; });
 
         // Architecture arguments
         parser.add_value_arg("architecture", "--architecture", "-arch", "Set CPU architecture (x86, x64, auto)", "Execution",
@@ -995,7 +995,11 @@ public:
             "Enable verbose assembly test debugging output", "Testing",
             [this](bool value) { Config::assembly_test_debug = value; });
 
-        parser.parse(argc, argv);
+                parser.parse(argc, argv);
+        // Debug: check sandbox state after parse
+        if (Config::sandbox_enabled) {
+            std::cerr << "[DBG] sandbox enabled after parse" << std::endl;
+        }
 
         // If -td was set standalone (without -t which exits during parsing), trigger tests
         if (Config::test_debug && !Config::test_mode) {
