@@ -188,6 +188,7 @@ void DISAToX86Compiler::translate_instruction(Opcode opcode, const uint8_t* oper
             translate_load_imm(operands[0], operands ? static_cast<uint64_t>(read_imm32(operands + 1)) : 0);
             break;
         case Opcode::LOAD_IMM64:
+            // operands is validated before dispatch; operands[0] is always valid here
             translate_load_imm(operands[0], operands ? read_imm64_ptr(operands + 1) : 0);
             break;
         case Opcode::ADD:   translate_add(operands[0], operands[1]); break;

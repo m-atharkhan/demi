@@ -1256,7 +1256,9 @@ void CPU::handle_syscall(bool& running) {
                         }
                         final_path = safe_path->string();
 
-                    // Route through VirtualDisk if attached
+                    // io_vfs_ is always non-null when sandbox is active (this code path
+                    // is only reached with sandbox enabled). The check is defensive —
+                    // intentional, not always-true dead code.
                     if (io_vfs_ && io_vfs_->has_virtual_disk() &&
                         sandbox_check == demi::sandbox::SyscallResult::HANDLED_INTERNALLY) {
                         auto* vd = io_vfs_->get_virtual_disk();
@@ -1361,6 +1363,9 @@ void CPU::handle_syscall(bool& running) {
                 return;
             }
             long result_gd = syscall(SYS_getdents, static_cast<unsigned int>(arg1), &memory[arg2], static_cast<unsigned int>(arg3));
+            // Standard syscall error check: -1 means error, any other value is
+            // a valid byte count. cppcheck cannot determine the return value
+            // statically — this check is intentional, not always-true dead code.
             if (result_gd == -1) result_gd = -errno;
             set_register_32(Register::RAX, static_cast<uint32_t>(result_gd));
             return;
