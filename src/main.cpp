@@ -998,7 +998,6 @@ public:
                 parser.parse(argc, argv);
         // Debug: check sandbox state after parse
         if (Config::sandbox_enabled) {
-            std::cerr << "[DBG] sandbox enabled after parse" << std::endl;
         }
 
         // If -td was set standalone (without -t which exits during parsing), trigger tests

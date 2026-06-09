@@ -158,7 +158,6 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         std::unique_ptr<demi::sandbox::SyscallDispatcher> _test_sd;
         std::unique_ptr<demi::sandbox::VirtualFileSystem> _test_vfs;
         if (Config::sandbox_enabled) {
-            Logging::DebugHandler::instance().report(Logging::DebugCategory::TEST_EXECUTION, "[SANDBOX] enabled in test executor", Logging::DebugLevel::CRITICAL);
             _test_sd = std::make_unique<demi::sandbox::SyscallDispatcher>(true);
             _test_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
                 "/tmp/demi_vfs", true);
