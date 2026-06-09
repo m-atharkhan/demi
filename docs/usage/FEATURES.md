@@ -1,6 +1,6 @@
 # DemiEngine Feature Overview
 
-This document provides a comprehensive overview of all major features implemented in DemiEngine.
+Overview of features implemented in DemiEngine.
 
 ## Table of Contents
 
