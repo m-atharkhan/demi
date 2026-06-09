@@ -45,7 +45,7 @@ endif
 # Debug build (default)
 ifeq ($(BUILD_TYPE),debug)
 CXXFLAGS := -Wall -Wextra -Wpedantic -std=c++17 -g3 -O0 -MMD -MP
-CXXFLAGS += -DDEMI_DEBUG_BUILD -D_GLIBCXX_DEBUG -DDEMI_DEBUG_MODE
+CXXFLAGS += -DDEMI_DEBUG_BUILD -DDEMI_DEBUG_MODE
 CXXFLAGS += -DVM_DEBUG_BOUNDS -DVM_DEBUG_LOGGING -DVM_FULL_VALIDATION
 LDFLAGS := -g
 BUILD_SUFFIX := -debug
@@ -84,7 +84,7 @@ LDFLAGS += -lstdc++fs -pthread
 ifneq ($(PLATFORM),windows)
     CXXFLAGS += -fPIC
 else
-    LDFLAGS += -static-libgcc -static-libstdc++
+    # LDFLAGS += -static-libgcc -static-libstdc++  # Disabled for DLL build
 endif
 
 # =============================================================================
