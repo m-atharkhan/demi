@@ -468,6 +468,56 @@ OUT 3, R1               ; Reset to zero
 
 ---
 
+## Sandbox & Security
+
+### Overview
+
+DemiEngine includes an opt-in sandbox mode that restricts guest program access
+to the host system. By default, programs run with full user permissions. The
+`--sandbox` flag enables a VirtualFileSystem (VFS) jail.
+
+### Sandbox Modes
+
+```bash
+# Default: full host access (developer mode)
+demi-engine -A program.asm
+
+# VFS jail: all file I/O goes through virtual filesystem
+demi-engine --sandbox -A untrusted.asm
+
+# VFS jail + real file writes
+demi-engine --sandbox --allow-write -A tool.asm
+
+# VFS jail + process execution
+demi-engine --sandbox --allow-exec -A build.asm
+
+# Full access (all capabilities granted)
+demi-engine --sandbox --allow-read --allow-write --allow-exec -A app.asm
+```
+
+### Capability Flags
+
+| Flag | Effect in sandbox |
+|------|------------------|
+| (none) | VFS jail only — stdout always works, SYS_EXIT always works |
+| `--allow-read` | Real filesystem reads bypass VFS |
+| `--allow-write` | Real filesystem writes bypass VFS |
+| `--allow-exec` | fork+execve permitted |
+
+### What's Always Blocked in Sandbox
+
+- Network operations (SYS_SOCKET)
+- Unknown/unmapped syscalls (default deny)
+- Raw ioctl (SYS_IOCTL)
+
+### Test Coverage
+
+- 6 SyscallDispatcher policy unit tests
+- 14 VirtualFileSystem + VirtualDisk integration tests
+- 4 end-to-end sandbox assembly tests (`tests/sandbox_e2e.test.asm`)
+
+---
+
 ## Assembly Language
 
 ### Syntax Overview

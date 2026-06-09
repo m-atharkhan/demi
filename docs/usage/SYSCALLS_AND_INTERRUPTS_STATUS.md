@@ -1,23 +1,42 @@
-# DemiEngine: Syscalls & Interrupts Status (as of 2025-11-26)
+# DemiEngine: Syscalls & Interrupts Status
 
 ## Syscalls
 
 - **Real Linux syscalls are supported via INT 0x80**
-  - DemiEngine now calls the actual Linux kernel `syscall()` for supported numbers
-  - Supported: `sys_read`, `sys_write`, `sys_open`, `sys_close`, `sys_exit`, `sys_ioctl`, `sys_brk` (simulated)
+  - DemiEngine calls the actual Linux kernel for supported syscall numbers
+  - Supported: sys_read, sys_write, sys_open, sys_close, sys_exit, sys_fork, sys_execve, sys_ioctl, sys_brk (simulated)
   - VM memory addresses are translated to host pointers for buffer/filename arguments
-  - Error codes from Linux are returned in RAX (negative for errors)
-  - Security: By default, the VM can access host files with the same permissions as the demi-engine process. **However**, using the `--sandbox` flag or `libdemi` API restricts network/process access and jails file I/O to a specific virtual directory.
-  - All syscalls are dispatched via an efficient enum-based handler
-  - **Limitation:** Only 8-bit immediates are supported for most instructions (e.g., LOAD_IMM), so flags/modes >255 require workarounds or new instructions (e.g., LOAD_IMM32/64)
-  - Example programs in `examples/syscalls/` show real file I/O, stdout/stderr, etc.
-  - Use `strace` to verify real kernel calls (e.g., `strace -e trace=write,open,close ./bin/demi-engine-debug -A examples/syscalls/01_hello_world.asm`)
+  - Error codes follow Linux convention (-errno returned in RAX)
+  - All syscalls dispatched via an efficient enum-based handler
 
-### Sandbox Mode (`--sandbox`) Status
-If executing DemiEngine in embedded environments (like Minecraft game servers, via JNI, or web backends), standard Linux syscall behavior is heavily restricted when `--sandbox` is enabled:
-- **File I/O**: Mapped strictly to the sandbox root. Absolute paths (e.g., `/etc/passwd`) are evaluated relatively to the sandbox VFS.
-- **Networking & Processes**: Always return `-EACCES` or immediately fault the VM with a security violation.
-- **CPU Watchdog**: Limits infinite looping via a tick quote system.
+### Sandbox Mode (`--sandbox`)
+
+The `--sandbox` flag enables a Virtual FileSystem jail that restricts guest
+program access:
+
+```
+demi-engine --sandbox -A program.asm              # VFS jail only
+demi-engine --sandbox --allow-write -A tool.asm   # + real file writes
+demi-engine --sandbox --allow-read -A tool.asm    # + real file reads
+demi-engine --sandbox --allow-exec -A build.asm   # + fork+execve
+```
+
+**Default behavior (no flags):** Full host access — the VM operates with the
+same filesystem permissions as the demi-engine process.
+
+**Sandbox behavior (`--sandbox`):**
+- File I/O is routed through the VirtualFileSystem (VFS jail at /tmp/demi_vfs)
+- Process execution (fork/execve) is denied
+- Network (socket) is denied
+- SYS_EXIT always works
+- Unknown syscalls default to denied
+
+**Capability flags (with `--sandbox`):**
+- `--allow-read` — bypass VFS for real filesystem reads
+- `--allow-write` — bypass VFS for real filesystem writes
+- `--allow-exec` — permit fork+execve in sandbox mode
+
+Syscall return values use proper Linux -errno convention for error reporting.
 
 ## Interrupts
 
@@ -27,8 +46,7 @@ If executing DemiEngine in embedded environments (like Minecraft game servers, v
   - `INT <vector>` (trigger interrupt)
   - `IRET` (return from interrupt)
 - **Interrupt Vector Table (IVT):**
-  - IVT is stored in VM memory, each entry is a 32-bit handler address
-  - IVT setup now works thanks to STORE writing 32-bit values
+  - IVT stored in VM memory, each entry is a 32-bit handler address
   - INT triggers either a syscall (0x80) or a handler from IVT
   - IRET restores CPU state from stack
 - **Syscall/Interrupt Integration:**
@@ -36,31 +54,9 @@ If executing DemiEngine in embedded environments (like Minecraft game servers, v
   - Other INT vectors use IVT lookup
   - All interrupt logic integrated into CPU execution loop
 
-## Current Limitations & Next Steps
+## Test Coverage
 
-- **Immediate values:**
-  - Most instructions only support 8-bit immediates (0-255)
-  - Need to implement 32-bit and 64-bit versions for full syscall compatibility (e.g., LOAD_IMM32, STORE32, MOV32, etc.)
-- **Syscall enum:**
-  - All syscalls mapped to an enum for efficient dispatch
-  - Easy to extend for more syscalls
-- **Examples:**
-  - All syscall/interrupt demos moved to `examples/syscalls/` and `examples/interrupts/`
-  - No longer in `tests/` since they are not unit tests
-- **File I/O:**
-  - Real file creation/writing now works, but permission/mode issues may occur due to 8-bit immediate limits
-  - Use chmod as workaround if needed
-- **Documentation:**
-  - See `docs/usage/REAL_SYSCALLS.md` and `docs/codebase/SYSCALLS_IMPLEMENTATION.md` for full details
-
-## How to Resume Work
-
-- Implement 32-bit/64-bit immediate instructions for all relevant opcodes
-- Expand syscall handler to support more Linux syscalls
-- Add more interrupt handler examples and IVT tests
-- Use the enum-based syscall dispatch for new features
-- Reference this file for context when continuing development on another machine
-
----
-
-**Last updated:** 2025-11-26
+- 283 unit tests (including SyscallDispatcher policy and VFS integration tests)
+- 546 assembly tests (539 passing, 7 skipped including sandbox-only tests)
+- 4 end-to-end sandbox tests (run with `--sandbox -at tests/sandbox_e2e.test.asm`)
+- Example programs in `examples/syscalls/` demonstrate real file I/O
