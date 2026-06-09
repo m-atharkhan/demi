@@ -604,6 +604,7 @@ int demi_vdisk_list_files(demi_engine_t engine, char* buf, int buf_size) {
     for (const auto& name : names) {
         int needed = static_cast<int>(name.size()) + 1;
         if (written + needed > buf_size) break;
+        // Safe: checked written+needed <= buf_size above
         std::memcpy(buf + written, name.c_str(), static_cast<size_t>(needed));
         written += needed;
     }

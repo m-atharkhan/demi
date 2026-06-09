@@ -13,8 +13,11 @@ static std::vector<uint8_t> read_file(const std::string& path) {
     const std::streamsize n = f.tellg();
     f.seekg(0, std::ios::beg);
     std::vector<uint8_t> bytes(static_cast<size_t>(n));
-    if (!f.read(reinterpret_cast<char*>(bytes.data()), n)) {
-        throw std::runtime_error("failed to read: " + path);
+    if (n > 0) {
+        // Safe: bytes is sized to n, reading exactly n bytes
+        if (!f.read(reinterpret_cast<char*>(bytes.data()), n)) {
+            throw std::runtime_error("failed to read: " + path);
+        }
     }
     return bytes;
 }
