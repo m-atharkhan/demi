@@ -6,8 +6,6 @@ This script reads the Makefile configuration and generates proper compile comman
 
 import json
 import os
-import glob
-from pathlib import Path
 
 def find_source_files(src_dir):
     """Find all C++ source files in the project."""

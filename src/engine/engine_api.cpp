@@ -65,7 +65,7 @@ public:
     mutable std::string last_error_;
     mutable int last_error_code_ = static_cast<int>(EngineErrorCode::OK);
 
-    Impl(const Config& config)
+    explicit Impl(const Config& config)
         : config_(config),
           cpu_(config.memory_size),
           syscall_dispatcher_(config.enable_sandbox),

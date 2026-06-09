@@ -248,7 +248,7 @@ public:
     static constexpr size_t MAX_CALL_DEPTH = 256; // Maximum call stack depth
     static constexpr uint32_t DEFAULT_STACK_LIMIT = 64; // Default minimum SP (enough for 16 pushes) before overflow detection
     
-    CPU(size_t memory_size = 0); // 0 means use default size
+    explicit CPU(size_t memory_size = 0); // 0 means use default size
     static CPU create_test_cpu(); // Factory method for test compatibility
     ~CPU();
 

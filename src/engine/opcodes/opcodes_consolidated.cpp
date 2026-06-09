@@ -3530,6 +3530,8 @@ void handle_add64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         }
 
         // Check for zero
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
         if (result == 0) {
             flags |= FLAG_ZERO;
         } else {
@@ -3659,6 +3661,8 @@ void handle_sub64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         }
 
         // Check for zero
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
         if (result == 0) {
             flags |= FLAG_ZERO;
         } else {
@@ -3741,6 +3745,8 @@ void handle_inc64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         }
 
         // Check for zero
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
         if (result == 0) {
             flags |= FLAG_ZERO;
         } else {
@@ -3803,6 +3809,8 @@ void handle_dec64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
         }
 
         // Check for zero
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
         if (result == 0) {
             flags |= FLAG_ZERO;
         } else {
@@ -4000,6 +4008,8 @@ void handle_not64(CPU& cpu, const std::vector<uint8_t>& program, bool& running) 
 
         uint32_t flags = cpu.get_flags();
 
+        // result==0 is a valid arithmetic outcome; cppcheck cannot determine
+        // its value statically. Intentional check, not dead code.
         if (result == 0) {
             flags |= FLAG_ZERO;
         } else {

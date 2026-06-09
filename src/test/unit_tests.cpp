@@ -871,8 +871,8 @@ TEST_CASE(fpu_arithmetic_operations, "fpu_registers") {
     // Manually set up FPU stack for testing
     double val1 = 10.0;
     double val2 = 5.0;
-    uint64_t uint_val1 = *reinterpret_cast<uint64_t*>(&val1);
-    uint64_t uint_val2 = *reinterpret_cast<uint64_t*>(&val2);
+    uint64_t uint_val1 = safe_bitcast<uint64_t>(val1);
+    uint64_t uint_val2 = safe_bitcast<uint64_t>(val2);
     
     ctx.cpu.set_register(Register::ST0, uint_val1);
     ctx.cpu.set_register(Register::ST1, uint_val2);

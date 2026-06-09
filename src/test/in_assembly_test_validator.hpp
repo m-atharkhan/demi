@@ -17,7 +17,7 @@ public:
         int statement_count;
         int assertion_count;
         
-        ValidationResult(const std::string& name) 
+        explicit ValidationResult(const std::string& name) 
             : test_name(name), valid(true), statement_count(0), assertion_count(0) {}
     };
     

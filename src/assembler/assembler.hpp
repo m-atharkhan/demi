@@ -17,7 +17,7 @@ struct Symbol {
     std::string section = ".text";
     
     Symbol() : name(""), address(0), defined(false) {}  // Default constructor
-    Symbol(const std::string& n, uint32_t addr = 0, bool def = false)
+    explicit Symbol(const std::string& n, uint32_t addr = 0, bool def = false)
         : name(n), address(addr), defined(def) {}
 };
 

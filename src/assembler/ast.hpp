@@ -72,7 +72,7 @@ class FloatExpression : public Expression {
 public:
     double value;
     
-    FloatExpression(double val, size_t ln = 0, size_t col = 0)
+    explicit FloatExpression(double val, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::FLOAT, ln, col), value(val) {}
 };
 
@@ -80,7 +80,7 @@ class STRegisterExpression : public Expression {
 public:
     uint8_t index;  // ST(0) to ST(7)
     
-    STRegisterExpression(uint8_t st_index, size_t ln = 0, size_t col = 0)
+    explicit STRegisterExpression(uint8_t st_index, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::ST_REGISTER, ln, col), index(st_index) {}
 };
 
