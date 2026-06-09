@@ -171,7 +171,7 @@ public:
         // Process boolean flags first (debug, verbose, etc.)
         for (const auto& parsed : parsed_args) {
             if (parsed.name == "debug" || parsed.name == "verbose" || parsed.name == "extended_registers" || 
-                parsed.name == "memdump" || parsed.name == "gui" || parsed.name == "interactive" || parsed.name == "sandbox" || parsed.name == "allow_read" || parsed.name == "allow_write" || parsed.name == "allow_exec") {
+                parsed.name == "memdump" || parsed.name == "gui" || parsed.name == "interactive" || parsed.name == "sandbox" || parsed.name == "allow_read" || parsed.name == "allow_write" || parsed.name == "allow_exec" || parsed.name == "allow_ioctl") {
                 auto def = find_arg_def(parsed.name);
                 if (def && def->value_action) {
                     def->value_action(parsed.value);
@@ -192,7 +192,7 @@ public:
         // Process value arguments next (files, paths, etc.)
         for (const auto& parsed : parsed_args) {
             if (parsed.name != "debug" && parsed.name != "verbose" && parsed.name != "extended_registers" && 
-                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" && parsed.name != "sandbox" && parsed.name != "allow_read" && parsed.name != "allow_write" && parsed.name != "allow_exec" &&
+                parsed.name != "memdump" && parsed.name != "gui" && parsed.name != "interactive" && parsed.name != "sandbox" && parsed.name != "allow_read" && parsed.name != "allow_write" && parsed.name != "allow_exec" && parsed.name != "allow_ioctl" &&
                 parsed.name != "help" && parsed.name != "test" && parsed.name != "unit_test" && 
                 parsed.name != "assembly_test" && parsed.name != "assembly_test_quiet" &&
                 parsed.name != "debug_verbose" && parsed.name != "debug_quiet" && parsed.name != "hexdump") {
@@ -943,6 +943,8 @@ public:
             [this](bool value) { Config::allow_write = value; });
         parser.add_bool_arg("allow_exec", "--allow-exec", "", "Allow fork+execve when sandbox is enabled", "Sandbox",
             [this](bool value) { Config::allow_exec = value; });
+        parser.add_bool_arg("allow_ioctl", "--allow-ioctl", "", "Allow raw ioctl in sandbox mode", "Sandbox",
+            [this](bool value) { Config::allow_ioctl = value; });
 
         // Architecture arguments
         parser.add_value_arg("architecture", "--architecture", "-arch", "Set CPU architecture (x86, x64, auto)", "Execution",
@@ -1323,7 +1325,7 @@ public:
         std::unique_ptr<demi::sandbox::SyscallDispatcher> _sandbox_disp;
         std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
         if (Config::sandbox_enabled) {
-            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _sandbox_disp->set_allow_exec(Config::allow_exec);
+            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _sandbox_disp->set_allow_read(Config::allow_read); _sandbox_disp->set_allow_write(Config::allow_write); _sandbox_disp->set_allow_exec(Config::allow_exec); _sandbox_disp->set_allow_ioctl(Config::allow_ioctl);
             _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
                 "/tmp/demi_vfs", !(false));
             cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
@@ -1580,7 +1582,7 @@ private:
         std::unique_ptr<demi::sandbox::SyscallDispatcher> _sandbox_disp;
         std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
         if (Config::sandbox_enabled) {
-            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _sandbox_disp->set_allow_exec(Config::allow_exec);
+            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _sandbox_disp->set_allow_read(Config::allow_read); _sandbox_disp->set_allow_write(Config::allow_write); _sandbox_disp->set_allow_exec(Config::allow_exec); _sandbox_disp->set_allow_ioctl(Config::allow_ioctl);
             _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
                 "/tmp/demi_vfs", !(false));
             cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());

@@ -15,6 +15,7 @@
 
 #include "sandbox_policy.hpp"
 #include "vfs.hpp"
+#include "virtual_disk.hpp"
 
 using DemiEngine_Registers::Register;
 using DemiEngine_Registers::RegisterNames;
@@ -639,6 +640,8 @@ private:
     // SpeculativeExecution::SpeculativeExecutor speculative_executor;
 
     std::unordered_set<int> vm_opened_fds_;
+    std::unordered_map<int, int> virtual_fds_;  // real fd -> VirtualDisk handle
+    bool is_virtual_fd(int fd) const { return virtual_fds_.count(fd) > 0; }
 
     uint8_t readPort(uint8_t port);
     void writePort(uint8_t port, uint8_t value);

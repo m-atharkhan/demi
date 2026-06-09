@@ -1085,6 +1085,26 @@ void CPU::handle_syscall(bool& running) {
                         std::copy(data.begin(), data.begin() + count, memory.begin() + arg2);
                     }
                     result = count;
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->read(handle, &memory[arg2], static_cast<int>(arg3));
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->read(handle, &memory[arg2], static_cast<int>(arg3));
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->read(handle, &memory[arg2], static_cast<int>(arg3));
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->read(handle, &memory[arg2], static_cast<int>(arg3));
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->read(handle, &memory[arg2], static_cast<int>(arg3));
                 } else if (arg1 <= 2 || is_vm_fd(arg1)) {
                     // Line-buffered read: read byte by byte until newline or limit reached
                     // This makes sys_read work correctly with piped input
@@ -1136,6 +1156,22 @@ void CPU::handle_syscall(bool& running) {
                     std::vector<uint8_t> data(&memory[arg2], &memory[static_cast<size_t>(arg2) + static_cast<size_t>(arg3)]);
                     stdout_hook_(arg1, data);
                     result = arg3;
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->write(handle, &memory[arg2], static_cast<int>(arg3));
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->write(handle, &memory[arg2], static_cast<int>(arg3));
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->write(handle, &memory[arg2], static_cast<int>(arg3));
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->write(handle, &memory[arg2], static_cast<int>(arg3));
                 } else if (arg1 <= 2 || is_vm_fd(arg1)) {
 #ifdef _WIN32
                     result = ::_write(arg1, &memory[arg2], arg3);
@@ -1190,6 +1226,22 @@ void CPU::handle_syscall(bool& running) {
                             return;
                         }
                         final_path = safe_path->string();
+
+                    // Route through VirtualDisk if attached
+                    if (io_vfs_ && io_vfs_->has_virtual_disk() &&
+                        sandbox_check == demi::sandbox::SyscallResult::HANDLED_INTERNALLY) {
+                        auto* vd = io_vfs_->get_virtual_disk();
+                        int handle = vd->open(final_path, static_cast<int>(arg2));
+                        if (handle >= 0) {
+                            int synth_fd = 1000 + static_cast<int>(virtual_fds_.size());
+                            virtual_fds_[synth_fd] = handle;
+                            result = synth_fd;
+                        } else {
+                            result = -EACCES;
+                        }
+                        set_register_32(Register::RAX, static_cast<uint32_t>(result));
+                        return;
+                    }
                     }
 
 #ifdef _WIN32
@@ -1229,7 +1281,12 @@ void CPU::handle_syscall(bool& running) {
             break;
 
         case Syscall::SYS_CLOSE:
-            if (!is_vm_fd(arg1) && arg1 > 2) {
+            if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->close(handle);
+                    virtual_fds_.erase(arg1);
+                } else if (!is_vm_fd(arg1) && arg1 > 2) {
                 Logging::ErrorHandler::instance().report_runtime(
                     Logging::ErrorCode::IO_GENERIC,
                     fmt::format("[SECURITY] {}: fd={} not managed by VM", sc_name, arg1),

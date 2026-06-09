@@ -14,9 +14,10 @@ enum class SyscallResult {
 
 class SyscallDispatcher {
     bool enable_sandbox_;
-    bool allow_read_  = false;  // --allow-read:  real FS reads
-    bool allow_write_ = false;  // --allow-write: real FS writes
-    bool allow_exec_  = false;  // --allow-exec:  fork+execve
+    bool allow_read_  = false;
+    bool allow_write_ = false;
+    bool allow_exec_  = false;
+    bool allow_ioctl_ = false;
 
 public:
     explicit SyscallDispatcher(bool enable_sandbox) : enable_sandbox_(enable_sandbox) {}
@@ -24,6 +25,7 @@ public:
     void set_allow_read(bool v)  { allow_read_  = v; }
     void set_allow_write(bool v) { allow_write_ = v; }
     void set_allow_exec(bool v)  { allow_exec_  = v; }
+    void set_allow_ioctl(bool v) { allow_ioctl_ = v; }
     bool sandbox_enabled() const { return enable_sandbox_; }
 
     SyscallResult validate_syscall(uint64_t syscall_id) const {
@@ -42,6 +44,9 @@ public:
                 return (allow_read_ || allow_write_) ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
             case DemiEngine::Syscall::SYS_CLOSE:
                 return (allow_read_ || allow_write_) ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
+
+            case DemiEngine::Syscall::SYS_IOCTL:
+                return allow_ioctl_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
 
             case DemiEngine::Syscall::SYS_FORK:
             case DemiEngine::Syscall::SYS_EXECVE:
