@@ -96,7 +96,7 @@ struct TestResult {
     double execution_time_ms;
     BenchmarkStats benchmark_stats;
     
-    TestResult(const std::string& name) 
+    explicit TestResult(const std::string& name) 
         : test_name(name), passed(true), skipped(false), is_benchmark(false), execution_time_ms(0.0) {}
     
     void set_metadata(const std::string& desc, const std::string& auth, 

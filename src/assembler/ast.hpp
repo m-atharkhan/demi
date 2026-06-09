@@ -167,7 +167,7 @@ public:
     TestAssertionType assertion_type;
     std::vector<std::unique_ptr<Expression>> arguments;
     
-    TestAssertion(TestAssertionType type, size_t ln = 0, size_t col = 0)
+    explicit TestAssertion(TestAssertionType type, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::TEST_ASSERTION, ln, col), assertion_type(type) {}
     
     TestAssertion(TestAssertionType type, std::vector<std::unique_ptr<Expression>>&& args, size_t ln = 0, size_t col = 0)
@@ -207,7 +207,7 @@ public:
     bool category_set = false;
     bool entry_point_set = false;
     
-    TestCase(const std::string& test_name, size_t ln = 0, size_t col = 0)
+    explicit TestCase(const std::string& test_name, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::TEST_CASE, ln, col), name(test_name) {}
     
     TestCase(const std::string& test_name, std::vector<std::unique_ptr<Statement>>&& test_body, size_t ln = 0, size_t col = 0)

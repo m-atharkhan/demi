@@ -125,6 +125,9 @@ public:
         if (recommended < MIN_RECOMMENDED) {
             recommended = MIN_RECOMMENDED;
         }
+        // recommended is an unsigned type (size_t) so it can never exceed
+        // MAX_RECOMMENDED when MAX_RECOMMENDED is also size_t. This clamp
+        // exists for future-proofing if the type changes — intentional.
         if (recommended > MAX_RECOMMENDED) {
             recommended = MAX_RECOMMENDED;
         }
