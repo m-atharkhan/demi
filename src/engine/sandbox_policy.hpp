@@ -12,18 +12,15 @@ enum class SyscallResult {
     HANDLED_INTERNALLY 
 };
 
+// SyscallDispatcher: validates guest syscalls against the sandbox policy.
+// When sandbox is enabled, file I/O is routed through the VirtualFileSystem
+// (HANDLED_INTERNALLY) and process/network operations are DENIED.
+// When sandbox is disabled, all syscalls are ALLOWED (passthrough to host).
 class SyscallDispatcher {
     bool enable_sandbox_;
-    bool allow_read_  = false;   // --allow-read:  bypass VFS for host file reads
-    bool allow_write_ = false;   // --allow-write: bypass VFS for host file writes
-    bool allow_exec_  = false;   // --allow-exec:  allow fork+execve
 
 public:
     explicit SyscallDispatcher(bool enable_sandbox) : enable_sandbox_(enable_sandbox) {}
-
-    void set_allow_read(bool v)  { allow_read_  = v; }
-    void set_allow_write(bool v) { allow_write_ = v; }
-    void set_allow_exec(bool v)  { allow_exec_  = v; }
 
     bool sandbox_enabled() const { return enable_sandbox_; }
 
@@ -32,24 +29,21 @@ public:
 
         DemiEngine::Syscall sc = static_cast<DemiEngine::Syscall>(static_cast<uint32_t>(syscall_id));
         switch (sc) {
+            // Always allowed
             case DemiEngine::Syscall::SYS_EXIT:
                 return SyscallResult::ALLOWED;
 
-            // I/O: VFS-jailed by default, real FS if capability granted
+            // File I/O — handled by VirtualFileSystem (VFS jail)
             case DemiEngine::Syscall::SYS_READ:
-                return allow_read_ ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
             case DemiEngine::Syscall::SYS_WRITE:
-                return allow_write_ ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
             case DemiEngine::Syscall::SYS_OPEN:
-                return (allow_read_ || allow_write_) ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
             case DemiEngine::Syscall::SYS_CLOSE:
-                return (allow_read_ || allow_write_) ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
+                return SyscallResult::HANDLED_INTERNALLY;
 
-            // Process execution: denied by default, gated behind --allow-exec
+            // Process execution — denied in sandbox
             case DemiEngine::Syscall::SYS_FORK:
             case DemiEngine::Syscall::SYS_EXECVE:
-                return allow_exec_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
-
+            // Network — denied in sandbox
             case DemiEngine::Syscall::SYS_SOCKET:
                 return SyscallResult::DENIED;
 

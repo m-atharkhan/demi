@@ -1321,11 +1321,8 @@ public:
         std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
         if (Config::sandbox_enabled) {
             _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true);
-            _sandbox_disp->set_allow_read(Config::allow_read);
-            _sandbox_disp->set_allow_write(Config::allow_write);
-            _sandbox_disp->set_allow_exec(Config::allow_exec);
             _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
-                "/tmp/demi_vfs", !(Config::allow_read || Config::allow_write));
+                "/tmp/demi_vfs", !(false));
             cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
             if (!Config::quiet && !Config::test_mode) {
                 std::cout << "\033[33m[sandbox]\033[0m enabled";
@@ -1581,11 +1578,8 @@ private:
         std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
         if (Config::sandbox_enabled) {
             _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true);
-            _sandbox_disp->set_allow_read(Config::allow_read);
-            _sandbox_disp->set_allow_write(Config::allow_write);
-            _sandbox_disp->set_allow_exec(Config::allow_exec);
             _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
-                "/tmp/demi_vfs", !(Config::allow_read || Config::allow_write));
+                "/tmp/demi_vfs", !(false));
             cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
             if (!Config::quiet && !Config::test_mode) {
                 std::cout << "\033[33m[sandbox]\033[0m enabled";
