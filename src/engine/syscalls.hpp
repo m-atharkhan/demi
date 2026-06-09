@@ -45,6 +45,7 @@ enum class Syscall : uint32_t {
     SYS_DUP2        = 63,
     SYS_STAT        = 106,
     SYS_FSTAT       = 108,
+    SYS_READLINK     = 85,
     SYS_FSYNC       = 118,
     
     // Memory Management
@@ -95,11 +96,13 @@ inline Syscall to_syscall(uint32_t num) {
         case 3: return Syscall::SYS_READ;
         case 4: return Syscall::SYS_WRITE;
         case 5: return Syscall::SYS_OPEN;
+        case 10: return Syscall::SYS_UNLINK;
         case 11: return Syscall::SYS_EXECVE;
         case 6: return Syscall::SYS_CLOSE;
         case 45: return Syscall::SYS_BRK;
         case 106: return Syscall::SYS_STAT;
         case 108: return Syscall::SYS_FSTAT;
+        case 85: return Syscall::SYS_READLINK;
         case 54: return Syscall::SYS_IOCTL;
         case 90: return Syscall::SYS_MMAP;
         case 192: return Syscall::SYS_MMAP2;
@@ -112,12 +115,14 @@ inline const char* syscall_name(Syscall sc) {
     switch (sc) {
         case Syscall::SYS_EXIT: return "sys_exit";
         case Syscall::SYS_FORK: return "sys_fork";
+            case Syscall::SYS_UNLINK: return "sys_unlink";
         case Syscall::SYS_EXECVE: return "sys_execve";
         case Syscall::SYS_READ: return "sys_read";
         case Syscall::SYS_WRITE: return "sys_write";
         case Syscall::SYS_OPEN: return "sys_open";
         case Syscall::SYS_CLOSE: return "sys_close";
         case Syscall::SYS_BRK: return "sys_brk";
+            case Syscall::SYS_READLINK: return "sys_readlink";
         case Syscall::SYS_IOCTL: return "sys_ioctl";
         case Syscall::SYS_MMAP: return "sys_mmap";
         case Syscall::SYS_MMAP2: return "sys_mmap2";

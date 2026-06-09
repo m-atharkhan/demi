@@ -1106,6 +1106,10 @@ void CPU::handle_syscall(bool& running) {
                     auto* vd = io_vfs_->get_virtual_disk();
                     int handle = virtual_fds_[arg1];
                     result = vd->read(handle, &memory[arg2], static_cast<int>(arg3));
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->read(handle, &memory[arg2], static_cast<int>(arg3));
                 } else if (arg1 <= 2 || is_vm_fd(arg1)) {
                     // Line-buffered read: read byte by byte until newline or limit reached
                     // This makes sys_read work correctly with piped input
@@ -1157,6 +1161,10 @@ void CPU::handle_syscall(bool& running) {
                     std::vector<uint8_t> data(&memory[arg2], &memory[static_cast<size_t>(arg2) + static_cast<size_t>(arg3)]);
                     stdout_hook_(arg1, data);
                     result = arg3;
+                } else if (is_virtual_fd(arg1)) {
+                    auto* vd = io_vfs_->get_virtual_disk();
+                    int handle = virtual_fds_[arg1];
+                    result = vd->write(handle, &memory[arg2], static_cast<int>(arg3));
                 } else if (is_virtual_fd(arg1)) {
                     auto* vd = io_vfs_->get_virtual_disk();
                     int handle = virtual_fds_[arg1];
@@ -1330,6 +1338,23 @@ void CPU::handle_syscall(bool& running) {
             long result_fstat = ::fstat(static_cast<int>(arg1), reinterpret_cast<struct stat*>(&memory[arg2]));
             if (result_fstat == -1) result_fstat = -errno;
             set_register_32(Register::RAX, static_cast<uint32_t>(result_fstat));
+            return;
+        }
+        case Syscall::SYS_UNLINK: {
+            long result_ul = unlink(reinterpret_cast<const char*>(&memory[arg1]));
+            if (result_ul == -1) result_ul = -errno;
+            set_register_32(Register::RAX, static_cast<uint32_t>(result_ul));
+            return;
+        }
+        case Syscall::SYS_READLINK: {
+            if (arg1 >= memory.size() || arg2 >= memory.size() || arg3 == 0) {
+                set_register_32(Register::RAX, static_cast<uint32_t>(-EFAULT));
+                return;
+            }
+            long result_rl = readlink(reinterpret_cast<const char*>(&memory[arg1]), reinterpret_cast<char*>(&memory[arg2]), arg3 - 1);
+            if (result_rl == -1) { result_rl = -errno; }
+            else { memory[arg2 + result_rl] = 0; }
+            set_register_32(Register::RAX, static_cast<uint32_t>(result_rl));
             return;
         }
         case Syscall::SYS_LSEEK: {

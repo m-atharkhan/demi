@@ -222,6 +222,9 @@ int VirtualDisk::open(const std::string& filename, int flags) {
         if (!writing) return -1;
         FileEntry fe;
         files_[resolved] = fe;
+        } else if ((flags & 0x200) && writing) {
+            // O_TRUNC: truncate existing file
+            files_[resolved].data.clear();
     }
     int handle = next_handle_++;
     OpenFile of;

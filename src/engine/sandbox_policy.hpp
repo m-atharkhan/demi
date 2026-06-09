@@ -45,9 +45,13 @@ public:
             case DemiEngine::Syscall::SYS_CLOSE:
                 return (allow_read_ || allow_write_) ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
 
+            case DemiEngine::Syscall::SYS_READLINK:
+                return allow_read_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
             case DemiEngine::Syscall::SYS_STAT:
             case DemiEngine::Syscall::SYS_FSTAT:
                 return allow_read_ ? SyscallResult::ALLOWED : SyscallResult::HANDLED_INTERNALLY;
+            case DemiEngine::Syscall::SYS_UNLINK:
+                return allow_write_ ? SyscallResult::ALLOWED : SyscallResult::DENIED;
             case DemiEngine::Syscall::SYS_LSEEK:
                 return (allow_read_ || allow_write_) ? SyscallResult::ALLOWED : SyscallResult::DENIED;
             case DemiEngine::Syscall::SYS_IOCTL:
