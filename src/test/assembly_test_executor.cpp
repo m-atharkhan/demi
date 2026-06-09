@@ -158,7 +158,7 @@ TestResult TestExecutor::execute_test(const Assembler::TestCase& test_case,
         std::unique_ptr<demi::sandbox::SyscallDispatcher> _test_sd;
         std::unique_ptr<demi::sandbox::VirtualFileSystem> _test_vfs;
         if (Config::sandbox_enabled) {
-            _test_sd = std::make_unique<demi::sandbox::SyscallDispatcher>(true);
+            _test_sd = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _test_sd->set_allow_exec(Config::allow_exec);
             _test_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
                 "/tmp/demi_vfs", true);
             cpu.set_sandbox_environment(_test_sd.get(), _test_vfs.get());

@@ -1323,7 +1323,7 @@ public:
         std::unique_ptr<demi::sandbox::SyscallDispatcher> _sandbox_disp;
         std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
         if (Config::sandbox_enabled) {
-            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true);
+            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _sandbox_disp->set_allow_exec(Config::allow_exec);
             _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
                 "/tmp/demi_vfs", !(false));
             cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());
@@ -1580,7 +1580,7 @@ private:
         std::unique_ptr<demi::sandbox::SyscallDispatcher> _sandbox_disp;
         std::unique_ptr<demi::sandbox::VirtualFileSystem> _sandbox_vfs;
         if (Config::sandbox_enabled) {
-            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true);
+            _sandbox_disp = std::make_unique<demi::sandbox::SyscallDispatcher>(true); _sandbox_disp->set_allow_exec(Config::allow_exec);
             _sandbox_vfs = std::make_unique<demi::sandbox::VirtualFileSystem>(
                 "/tmp/demi_vfs", !(false));
             cpu.set_sandbox_environment(_sandbox_disp.get(), _sandbox_vfs.get());

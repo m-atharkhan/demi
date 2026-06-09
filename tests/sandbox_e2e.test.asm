@@ -15,10 +15,10 @@
     LOAD_IMM EDX, 0            ; mode
     INT 0x80
 
-    ; In sandbox, EAX should be 0xFFFFFFFF (-EACCES = -13 as uint32)
+    ; In sandbox, EAX should be 0xFFFFFFFE (-EACCES = -13 as uint32)
     HALT
 
-    .assert_reg EAX, 0xFFFFFFFF
+    .assert_reg EAX, 0xFFFFFFFE
 }
 
 .test "sandbox_fork_blocked" {

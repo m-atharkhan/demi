@@ -1138,8 +1138,10 @@ void CPU::handle_syscall(bool& running) {
                 } else if (arg1 <= 2 || is_vm_fd(arg1)) {
 #ifdef _WIN32
                     result = ::_write(arg1, &memory[arg2], arg3);
+                    if (result == -1) result = -errno;
 #else
                     result = ::write(arg1, &memory[arg2], arg3);
+                    if (result == -1) result = -errno;
 #endif
                 } else {
                     Logging::ErrorHandler::instance().report_runtime(
@@ -1195,6 +1197,7 @@ void CPU::handle_syscall(bool& running) {
                     {
                         int sanitized_flags = arg2 & (O_RDONLY | O_WRONLY | O_RDWR);
                         result = ::open(final_path.c_str(), sanitized_flags, arg3);
+                    if (result == -1) result = -errno;
                     }
 #endif
                     if (result >= 0) {
