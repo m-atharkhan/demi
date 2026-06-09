@@ -96,7 +96,7 @@ class StringLiteralExpression : public Expression {
 public:
     std::string value;
     
-    StringLiteralExpression(const std::string& str_value, size_t ln = 0, size_t col = 0)
+    explicit StringLiteralExpression(const std::string& str_value, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::STRING_LITERAL, ln, col), value(str_value) {}
 };
 
@@ -145,7 +145,7 @@ public:
     std::string name;
     std::vector<std::unique_ptr<Expression>> arguments;
     
-    Directive(const std::string& directive_name, size_t ln = 0, size_t col = 0)
+    explicit Directive(const std::string& directive_name, size_t ln = 0, size_t col = 0)
         : Statement(ASTNodeType::DIRECTIVE, ln, col), name(directive_name) {}
     
     void add_argument(std::unique_ptr<Expression> arg) {
