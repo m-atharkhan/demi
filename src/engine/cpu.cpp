@@ -571,7 +571,8 @@ void CPU::print_registers() const {
 }
 
 void CPU::print_register_update(Register reg, uint64_t old_value, uint64_t new_value) const {
-    // Only print if debug mode and extended registers are both enabled
+    // Config::debug is a runtime toggle (set via CLI --debug). When disabled,
+    // the entire function body is skipped — intentional no-op, not dead code.
     if (!Config::debug || !Config::extended_registers) return;
 
     std::string reg_name = get_register_name(reg);

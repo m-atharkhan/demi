@@ -47,7 +47,7 @@ public:
 // Expression types
 class Expression : public ASTNode {
 public:
-    Expression(ASTNodeType t, size_t ln = 0, size_t col = 0) 
+    explicit Expression(ASTNodeType t, size_t ln = 0, size_t col = 0) 
         : ASTNode(t, ln, col) {}
 };
 
@@ -64,7 +64,7 @@ class ImmediateExpression : public Expression {
 public:
     int64_t value;
     
-    ImmediateExpression(int64_t val, size_t ln = 0, size_t col = 0)
+    explicit ImmediateExpression(int64_t val, size_t ln = 0, size_t col = 0)
         : Expression(ASTNodeType::IMMEDIATE, ln, col), value(val) {}
 };
 
