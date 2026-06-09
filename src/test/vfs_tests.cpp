@@ -108,8 +108,8 @@ TEST_CASE(vdisk_list_files, "vfs") {
 
     bool has_a = false, has_b = false;
     for (const auto& f : files) {
-        if (f == "a.txt") has_a = true;
-        if (f == "b.txt") has_b = true;
+        if (f == "/a.txt") has_a = true;
+        if (f == "/b.txt") has_b = true;
     }
     if (!has_a || !has_b) throw AssertionFailure("list_files missing entries");
     std::remove(c.c_str());
@@ -121,11 +121,11 @@ TEST_CASE(vdisk_delete_file, "vfs") {
     vd.mount(c);
     vd.init_filesystem();
 
-    vd.write_file("/temp.txt", {1, 2, 3});
-    if (!vd.exists("/temp.txt")) throw AssertionFailure("file should exist before delete");
-    if (!vd.delete_file("/temp.txt"))
-        throw AssertionFailure("delete_file should succeed on resolved path");
-    if (vd.exists("/temp.txt"))
+    vd.write_file("temp.txt", {1, 2, 3});
+    if (!vd.exists("temp.txt")) throw AssertionFailure("file should exist before delete");
+    if (!vd.delete_file("temp.txt"))
+        throw AssertionFailure("delete_file should succeed");
+    if (vd.exists("temp.txt"))
         throw AssertionFailure("file should not exist after delete");
     std::remove(c.c_str());
 }
@@ -159,11 +159,11 @@ TEST_CASE(vdisk_directory_operations, "vfs") {
     if (!vd.mkdir("mydir")) throw AssertionFailure("mkdir should succeed");
     if (!vd.mkdir_p("a/b/c")) throw AssertionFailure("mkdir_p should succeed");
 
-    vd.write_file("/a/b/c/nested.txt", {'X'});
-    if (!vd.exists("/a/b/c/nested.txt")) throw AssertionFailure("nested file should exist");
+    vd.write_file("a/b/c/nested.txt", {'X'});
+    if (!vd.exists("a/b/c/nested.txt")) throw AssertionFailure("nested file should exist");
 
-    if (!vd.rmdir("/a")) throw AssertionFailure("rmdir should succeed");
-    if (vd.exists("/a/b/c/nested.txt")) throw AssertionFailure("file gone after rmdir");
+    if (!vd.rmdir("a")) throw AssertionFailure("rmdir should succeed");
+    if (vd.exists("a/b/c/nested.txt")) throw AssertionFailure("file gone after rmdir");
     std::remove(c.c_str());
 }
 

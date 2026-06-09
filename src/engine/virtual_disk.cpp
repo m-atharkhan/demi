@@ -286,11 +286,11 @@ int VirtualDisk::remove(const std::string& filename) {
 }
 
 bool VirtualDisk::exists(const std::string& filename) const {
-    return files_.find(filename) != files_.end();
+    return files_.find(resolve_path(filename)) != files_.end();
 }
 
 int VirtualDisk::size(const std::string& filename) const {
-    auto it = files_.find(filename);
+    auto it = files_.find(resolve_path(filename));
     if (it == files_.end()) return -1;
     return static_cast<int>(it->second.data.size());
 }
@@ -1054,16 +1054,17 @@ int VirtualDisk::list(char* buf, int buf_size) const {
 // --- Host-side access ---
 
 std::vector<uint8_t> VirtualDisk::read_file(const std::string& filename) const {
-    auto it = files_.find(filename);
+    auto it = files_.find(resolve_path(filename));
     if (it == files_.end()) return {};
     return it->second.data;
 }
 
 bool VirtualDisk::write_file(const std::string& filename, const std::vector<uint8_t>& data) {
     if (!mounted_) return false;
+    std::string resolved = resolve_path(filename);
     FileEntry fe;
     fe.data = data;
-    files_[filename] = fe;
+    files_[resolved] = fe;
     return save();
 }
 
