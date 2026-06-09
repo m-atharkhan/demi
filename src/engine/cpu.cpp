@@ -1393,6 +1393,10 @@ void CPU::handle_syscall(bool& running) {
                 set_register_32(Register::RAX, static_cast<uint32_t>(-EFAULT));
                 return;
             }
+            // Safe: readlink operates on a guest-provided path within the VM
+            // sandbox (VFS-jailed when --sandbox is active). No TOCTOU risk:
+            // the path is read from guest memory once and the VM is
+            // single-threaded — no concurrent modification possible.
             long result_rl = readlink(reinterpret_cast<const char*>(&memory[arg1]), reinterpret_cast<char*>(&memory[arg2]), arg3 - 1);
             if (result_rl == -1) { result_rl = -errno; }
             else { memory[arg2 + result_rl] = 0; }
