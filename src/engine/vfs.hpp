@@ -2,17 +2,16 @@
 #include <filesystem>
 #include <string>
 #include <optional>
+#include <memory>
+#include "virtual_disk.hpp"
 
 namespace demi {
 namespace sandbox {
 
-// Forward declaration
-class VirtualDisk;
-
 class VirtualFileSystem {
     std::filesystem::path jail_root_;
     bool restrict_io_;
-    VirtualDisk* virtual_disk_ = nullptr;
+    std::unique_ptr<VirtualDisk> virtual_disk_;
 
 public:
     explicit VirtualFileSystem(const std::string& root, bool restrict_io)
@@ -20,8 +19,10 @@ public:
           restrict_io_(restrict_io) {
     }
 
-    void set_virtual_disk(VirtualDisk* vd) { virtual_disk_ = vd; }
-    VirtualDisk* get_virtual_disk() const { return virtual_disk_; }
+    void set_virtual_disk(std::unique_ptr<VirtualDisk> vd) {
+        virtual_disk_ = std::move(vd);
+    }
+    VirtualDisk* get_virtual_disk() const { return virtual_disk_.get(); }
     bool has_virtual_disk() const { return virtual_disk_ != nullptr; }
 
     std::optional<std::filesystem::path> resolve_safe_path(const std::string& requested_path) const {

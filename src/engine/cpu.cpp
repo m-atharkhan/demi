@@ -1,3 +1,4 @@
+#include <sys/stat.h>
 #include <iomanip>
 #include <chrono>
 #include <thread>
@@ -1231,7 +1232,7 @@ void CPU::handle_syscall(bool& running) {
                     if (io_vfs_ && io_vfs_->has_virtual_disk() &&
                         sandbox_check == demi::sandbox::SyscallResult::HANDLED_INTERNALLY) {
                         auto* vd = io_vfs_->get_virtual_disk();
-                        int handle = vd->open(final_path, static_cast<int>(arg2));
+                        int handle = vd->open(vd->resolve_path(std::string(pathname)), static_cast<int>(arg2));
                         if (handle >= 0) {
                             int synth_fd = 1000 + static_cast<int>(virtual_fds_.size());
                             virtual_fds_[synth_fd] = handle;
@@ -1319,6 +1320,24 @@ void CPU::handle_syscall(bool& running) {
             result = memory.size();
             break;
             
+        case Syscall::SYS_STAT: {
+            long result_stat = ::stat(reinterpret_cast<const char*>(&memory[arg1]), reinterpret_cast<struct stat*>(&memory[arg2]));
+            if (result_stat == -1) result_stat = -errno;
+            set_register_32(Register::RAX, static_cast<uint32_t>(result_stat));
+            return;
+        }
+        case Syscall::SYS_FSTAT: {
+            long result_fstat = ::fstat(static_cast<int>(arg1), reinterpret_cast<struct stat*>(&memory[arg2]));
+            if (result_fstat == -1) result_fstat = -errno;
+            set_register_32(Register::RAX, static_cast<uint32_t>(result_fstat));
+            return;
+        }
+        case Syscall::SYS_LSEEK: {
+            long result_lseek = lseek(arg1, static_cast<off_t>(arg2), static_cast<int>(arg3));
+            if (result_lseek == -1) result_lseek = -errno;
+            set_register_32(Register::RAX, static_cast<uint32_t>(result_lseek));
+            return;
+        }
         case Syscall::SYS_IOCTL:
             if (arg1 <= 2 || is_vm_fd(arg1)) {
 #ifdef _WIN32

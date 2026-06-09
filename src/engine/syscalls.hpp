@@ -43,6 +43,8 @@ enum class Syscall : uint32_t {
     SYS_IOCTL       = 54,
     SYS_FCNTL       = 55,
     SYS_DUP2        = 63,
+    SYS_STAT        = 106,
+    SYS_FSTAT       = 108,
     SYS_FSYNC       = 118,
     
     // Memory Management
@@ -73,8 +75,6 @@ enum class Syscall : uint32_t {
     
     // Information
     SYS_UNAME       = 122,
-    SYS_STAT        = 106,
-    SYS_FSTAT       = 108,
     SYS_LSTAT       = 107,
     
     // Other
@@ -98,6 +98,8 @@ inline Syscall to_syscall(uint32_t num) {
         case 11: return Syscall::SYS_EXECVE;
         case 6: return Syscall::SYS_CLOSE;
         case 45: return Syscall::SYS_BRK;
+        case 106: return Syscall::SYS_STAT;
+        case 108: return Syscall::SYS_FSTAT;
         case 54: return Syscall::SYS_IOCTL;
         case 90: return Syscall::SYS_MMAP;
         case 192: return Syscall::SYS_MMAP2;
