@@ -59,6 +59,9 @@ demi::Config config_from_c(const demi_config_t* config, std::string& error) {
     if (config->io_root_path != nullptr) {
         out.io_root_path = config->io_root_path;
     }
+    if (config->virtual_disk_path != nullptr) {
+        out.virtual_disk_path = config->virtual_disk_path;
+    }
     return out;
 }
 
@@ -553,6 +556,64 @@ void demi_engine_clear_stdin_hook(demi_engine_t engine) {
     ctx->stdin_hook = nullptr;
     ctx->stdin_user_data = nullptr;
     ctx->engine->clear_stdin_hook();
+}
+
+bool demi_vdisk_read_file(demi_engine_t engine, const char* filename,
+                           uint8_t* out_data, size_t* out_size) {
+    auto* ctx = validate_engine(engine);
+    if (!ctx || !filename || !out_size) return false;
+    auto data = ctx->engine->vdisk_read_file(filename);
+    *out_size = data.size();
+    if (out_data && !data.empty()) {
+        std::memcpy(out_data, data.data(), data.size());
+    }
+    return true;
+}
+
+bool demi_vdisk_write_file(demi_engine_t engine, const char* filename,
+                            const uint8_t* data, size_t size) {
+    auto* ctx = validate_engine(engine);
+    if (!ctx || !filename) return false;
+    std::vector<uint8_t> vec(data, data + size);
+    return ctx->engine->vdisk_write_file(filename, vec);
+}
+
+bool demi_vdisk_delete_file(demi_engine_t engine, const char* filename) {
+    auto* ctx = validate_engine(engine);
+    if (!ctx || !filename) return false;
+    return ctx->engine->vdisk_delete_file(filename);
+}
+
+bool demi_vdisk_file_exists(demi_engine_t engine, const char* filename) {
+    auto* ctx = validate_engine(engine);
+    if (!ctx || !filename) return false;
+    return ctx->engine->vdisk_file_exists(filename);
+}
+
+int demi_vdisk_file_size(demi_engine_t engine, const char* filename) {
+    auto* ctx = validate_engine(engine);
+    if (!ctx || !filename) return -1;
+    return ctx->engine->vdisk_file_size(filename);
+}
+
+int demi_vdisk_list_files(demi_engine_t engine, char* buf, int buf_size) {
+    auto* ctx = validate_engine(engine);
+    if (!ctx || !buf || buf_size <= 0) return 0;
+    auto names = ctx->engine->vdisk_list_files();
+    int written = 0;
+    for (const auto& name : names) {
+        int needed = static_cast<int>(name.size()) + 1;
+        if (written + needed > buf_size) break;
+        std::memcpy(buf + written, name.c_str(), static_cast<size_t>(needed));
+        written += needed;
+    }
+    return written;
+}
+
+bool demi_vdisk_save(demi_engine_t engine) {
+    auto* ctx = validate_engine(engine);
+    if (!ctx) return false;
+    return ctx->engine->vdisk_save();
 }
 
 } // extern "C"

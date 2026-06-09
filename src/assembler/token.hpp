@@ -117,25 +117,25 @@ struct Token {
     int64_t as_int() const {
         if (auto* p = std::get_if<int64_t>(&value)) return *p;
         if (auto* p = std::get_if<uint64_t>(&value)) return static_cast<int64_t>(*p);
-        return std::get<int64_t>(value);
+        return 0;  // fallback: non-numeric token
     }
 
     uint64_t as_uint() const {
         if (auto* p = std::get_if<uint64_t>(&value)) return *p;
         if (auto* p = std::get_if<int64_t>(&value)) return static_cast<uint64_t>(*p);
-        return std::get<uint64_t>(value);
+        return 0;  // fallback: non-numeric token
     }
 
     double as_float() const {
         if (auto* p = std::get_if<double>(&value)) return *p;
         if (auto* p = std::get_if<int64_t>(&value)) return static_cast<double>(*p);
         if (auto* p = std::get_if<uint64_t>(&value)) return static_cast<double>(*p);
-        return std::get<double>(value);
+        return 0.0;  // fallback: non-numeric token
     }
 
     std::string as_string() const {
         if (auto* p = std::get_if<std::string>(&value)) return *p;
-        return std::get<std::string>(value);
+        return text;  // fallback: raw token text (works for identifiers, mnemonics, etc.)
     }
 };
 

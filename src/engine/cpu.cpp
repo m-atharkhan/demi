@@ -56,6 +56,8 @@ std::unordered_set<size_t> compute_valid_instruction_starts(const std::vector<ui
         Opcode opcode = static_cast<Opcode>(program[pc]);
         switch (opcode) {
             case Opcode::LOAD_IMM:
+                pc += 6;  // opcode(1) + reg(1) + imm32(4) = 6 bytes (see handle_load_imm)
+                break;
             case Opcode::ADD:
             case Opcode::SUB:
             case Opcode::MOV:
@@ -394,18 +396,15 @@ uint64_t CPU::read_address_from_program(const std::vector<uint8_t>& program, uin
     return addr;
 }
 
-// Debug-only memory access validation
-// In release builds (NDEBUG defined), these are compiled to no-ops with zero overhead.
-// In debug builds, they check bounds and report errors via ErrorHandler.
+// Memory access validation — always active.
+// Reports errors via ErrorHandler and returns false on bounds violation.
 bool CPU::validate_memory_read(uint32_t addr, size_t size) const {
     if (addr + size > memory.size()) {
-#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS,
-            fmt::format("Debug: Memory read out of bounds at address=0x{:08X}, size={}, memory size={}", addr, size, memory.size()),
+            fmt::format("Memory read out of bounds at address=0x{:08X}, size={}, memory size={}", addr, size, memory.size()),
             get_pc(),
             "Memory bounds violation (read)");
-#endif
         return false;
     }
     return true;
@@ -413,13 +412,11 @@ bool CPU::validate_memory_read(uint32_t addr, size_t size) const {
 
 bool CPU::validate_memory_write(uint32_t addr, size_t size) const {
     if (addr + size > memory.size()) {
-#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_MEMORY_OUT_OF_BOUNDS,
-            fmt::format("Debug: Memory write out of bounds at address=0x{:08X}, size={}, memory size={}", addr, size, memory.size()),
+            fmt::format("Memory write out of bounds at address=0x{:08X}, size={}, memory size={}", addr, size, memory.size()),
             get_pc(),
             "Memory bounds violation (write)");
-#endif
         return false;
     }
     return true;
@@ -428,13 +425,11 @@ bool CPU::validate_memory_write(uint32_t addr, size_t size) const {
 bool CPU::validate_stack_push(size_t bytes) const {
     uint32_t sp = get_sp();
     if (sp < stack_limit_ + bytes) {
-#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_STACK_OVERFLOW,
-            fmt::format("Debug: Stack overflow at SP=0x{:08X}, need {} bytes, stack_limit=0x{:08X}", sp, bytes, stack_limit_),
+            fmt::format("Stack overflow at SP=0x{:08X}, need {} bytes, stack_limit=0x{:08X}", sp, bytes, stack_limit_),
             get_pc(),
             "Stack overflow (push)");
-#endif
         return false;
     }
     return true;
@@ -443,23 +438,19 @@ bool CPU::validate_stack_push(size_t bytes) const {
 bool CPU::validate_stack_pop(size_t bytes) const {
     uint32_t sp = get_sp();
     if (sp + bytes > memory.size()) {
-#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_STACK_UNDERFLOW,
-            fmt::format("Debug: Stack underflow at SP=0x{:08X}, bytes={}, memory size={}", sp, bytes, memory.size()),
+            fmt::format("Stack underflow at SP=0x{:08X}, bytes={}, memory size={}", sp, bytes, memory.size()),
             get_pc(),
             "Stack underflow (pop)");
-#endif
         return false;
     }
     if (sp < stack_limit_) {
-#ifndef NDEBUG
         Logging::ErrorHandler::instance().report_runtime(
             Logging::ErrorCode::CPU_STACK_UNDERFLOW,
-            fmt::format("Debug: Stack pointer below stack limit at SP=0x{:08X}, stack_limit=0x{:08X}", sp, stack_limit_),
+            fmt::format("Stack pointer below stack limit at SP=0x{:08X}, stack_limit=0x{:08X}", sp, stack_limit_),
             get_pc(),
             "Stack underflow (SP below limit)");
-#endif
         return false;
     }
     return true;

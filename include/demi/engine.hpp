@@ -11,6 +11,7 @@ struct Config {
     bool enable_sandbox = true;
     bool strict_io = true;
     std::string io_root_path = "/tmp/demi_vfs";
+    std::string virtual_disk_path;   // if set, file I/O routes through this .vfs container
     uint64_t max_execution_ticks = 0;
     size_t memory_size = 1024 * 1024 * 16;
 };
@@ -75,6 +76,15 @@ public:
     using StdinHook = std::function<void(size_t max_count, std::vector<uint8_t>& data)>;
     void set_stdin_hook(StdinHook hook);
     void clear_stdin_hook();
+
+    // VirtualDisk access (host-side interaction with the .vfs container)
+    std::vector<uint8_t> vdisk_read_file(const std::string& filename) const;
+    bool vdisk_write_file(const std::string& filename, const std::vector<uint8_t>& data);
+    bool vdisk_delete_file(const std::string& filename);
+    bool vdisk_file_exists(const std::string& filename) const;
+    int vdisk_file_size(const std::string& filename) const;
+    std::vector<std::string> vdisk_list_files() const;
+    bool vdisk_save();
 
 private:
     class Impl;

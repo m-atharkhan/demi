@@ -2,10 +2,13 @@
 #include "cpu.hpp"
 #include "sandbox_policy.hpp"
 #include "vfs.hpp"
+#include "virtual_disk.hpp"
 #include "cpu_registers.hpp"
 
 #include <algorithm>
 #include <cstring>
+#include <fcntl.h>
+#include <memory>
 #include <stdexcept>
 
 namespace demi {
@@ -40,6 +43,7 @@ public:
     CPU cpu_;
     sandbox::SyscallDispatcher syscall_dispatcher_;
     sandbox::VirtualFileSystem vfs_;
+    std::unique_ptr<sandbox::VirtualDisk> virtual_disk_;
 
     std::vector<uint8_t> current_program_;
     uint64_t program_base_ = 0;
@@ -67,6 +71,12 @@ public:
           syscall_dispatcher_(config.enable_sandbox),
           vfs_(config.io_root_path, config.strict_io) {
         cpu_.set_sandbox_environment(&syscall_dispatcher_, &vfs_);
+
+        if (!config.virtual_disk_path.empty()) {
+            virtual_disk_ = std::make_unique<sandbox::VirtualDisk>();
+            virtual_disk_->mount(config.virtual_disk_path);
+        }
+
         wire_cpu_hooks();
     }
 
@@ -628,6 +638,41 @@ void Engine::set_stdin_hook(StdinHook hook) {
 
 void Engine::clear_stdin_hook() {
     pimpl_->set_stdin_hook(nullptr);
+}
+
+std::vector<uint8_t> Engine::vdisk_read_file(const std::string& filename) const {
+    if (!pimpl_ || !pimpl_->virtual_disk_) return {};
+    return pimpl_->virtual_disk_->read_file(filename);
+}
+
+bool Engine::vdisk_write_file(const std::string& filename, const std::vector<uint8_t>& data) {
+    if (!pimpl_ || !pimpl_->virtual_disk_) return false;
+    return pimpl_->virtual_disk_->write_file(filename, data);
+}
+
+bool Engine::vdisk_delete_file(const std::string& filename) {
+    if (!pimpl_ || !pimpl_->virtual_disk_) return false;
+    return pimpl_->virtual_disk_->delete_file(filename);
+}
+
+bool Engine::vdisk_file_exists(const std::string& filename) const {
+    if (!pimpl_ || !pimpl_->virtual_disk_) return false;
+    return pimpl_->virtual_disk_->exists(filename);
+}
+
+int Engine::vdisk_file_size(const std::string& filename) const {
+    if (!pimpl_ || !pimpl_->virtual_disk_) return -1;
+    return pimpl_->virtual_disk_->size(filename);
+}
+
+std::vector<std::string> Engine::vdisk_list_files() const {
+    if (!pimpl_ || !pimpl_->virtual_disk_) return {};
+    return pimpl_->virtual_disk_->list_files();
+}
+
+bool Engine::vdisk_save() {
+    if (!pimpl_ || !pimpl_->virtual_disk_) return false;
+    return pimpl_->virtual_disk_->save();
 }
 
 } // namespace demi

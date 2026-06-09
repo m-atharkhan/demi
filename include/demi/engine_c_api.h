@@ -15,6 +15,7 @@ typedef struct demi_config {
     bool enable_sandbox;
     bool strict_io;
     const char* io_root_path;
+    const char* virtual_disk_path;
     uint64_t max_execution_ticks;
     size_t memory_size;
 } demi_config_t;
@@ -110,6 +111,15 @@ DEMI_API void demi_engine_clear_memory_hook(demi_engine_t engine);
 DEMI_API void demi_engine_clear_syscall_hook(demi_engine_t engine);
 DEMI_API void demi_engine_clear_stdout_hook(demi_engine_t engine);
 DEMI_API void demi_engine_clear_stdin_hook(demi_engine_t engine);
+
+/* VirtualDisk API -- host-side interaction with the .vfs container */
+DEMI_API bool demi_vdisk_read_file(demi_engine_t engine, const char* filename, uint8_t* out_data, size_t* out_size);
+DEMI_API bool demi_vdisk_write_file(demi_engine_t engine, const char* filename, const uint8_t* data, size_t size);
+DEMI_API bool demi_vdisk_delete_file(demi_engine_t engine, const char* filename);
+DEMI_API bool demi_vdisk_file_exists(demi_engine_t engine, const char* filename);
+DEMI_API int demi_vdisk_file_size(demi_engine_t engine, const char* filename);
+DEMI_API int demi_vdisk_list_files(demi_engine_t engine, char* buf, int buf_size);
+DEMI_API bool demi_vdisk_save(demi_engine_t engine);
 
 #ifdef __cplusplus
 }
