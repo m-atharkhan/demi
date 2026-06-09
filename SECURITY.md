@@ -1,113 +1,111 @@
-# Security Policy for demi
+# Security Policy for Demi
 
-Last updated: 2025-11-17
+Demi is a virtualized compiler engine that executes code and produces machine
+artifacts.
+Security issues can have wide-reaching impact:
+remote code execution, sandbox escapes, supply-chain risks, and corrupted build
+artifacts.
+This document explains how to report vulnerabilities and how we respond.
 
-Demi is a virtualized compiler that processes code and produces machine artifacts. Because of the nature of compilers and virtualized execution, security issues can have wide-reaching impact (remote code execution, sandbox escapes, supply-chain risks, or corrupted build artifacts). This document explains how to responsibly report security vulnerabilities and how we triage and respond.
+## Supported Versions
 
-## Reporting a vulnerability (preferred)
+Only the latest commit on the `main` branch receives security updates.
+Release branches and tags are frozen.
+Report issues against any version — fixes land in `main`.
 
-If you believe you've found a security vulnerability in demi, please report it privately so we can investigate and fix it before public disclosure.
+| Version | Supported          |
+| ------- | ------------------ |
+| main    | :white_check_mark: |
+| < 1.0   | :x:                |
 
-Preferred methods (in priority order):
+## Reporting a Vulnerability
 
-1. Use GitHub’s private Security Advisories for this repository:
-   - https://github.com/bobrossrtx/demi/security/advisories/new
-2. If you cannot use the GitHub advisory flow, open a private issue and mark it as "security" (do NOT include PoC or sensitive details in a public issue).
-   - Start at: https://github.com/bobrossrtx/demi/issues/new and choose the appropriate privacy option.
-3. If none of the above are possible, email the maintainer at the GitHub account listed on the repository (contact via your GitHub profile / direct message). We strongly prefer the GitHub Security Advisory flow because it supports private discussion and coordinated disclosure.
+**Do not open a public issue.**
+Use GitHub's private vulnerability reporting instead.
 
-Do NOT post exploit details, proof-of-concept code, or any sensitive information in public issues, discussions, pull requests, or comments.
+1. Go to **Security** tab → **Advisories** → **New draft security advisory**.
+2. Or visit: https://github.com/bobrossrtx/demi/security/advisories/new
+3. If you cannot use the advisory flow, open a private issue marked as
+   "security" — do not include proof-of-concept code or sensitive details.
+4. If none of the above work, contact the maintainer via the GitHub profile
+   linked on the repository.
 
-## What to include in a report
+Include in your report:
 
-To help us triage quickly, please include as much of the following as possible while keeping the report private:
+- **Description**: a clear summary of the vulnerability.
+- **Affected components**: list each one explicitly — engine frontend,
+  virtual machine, runtime, build scripts, CI/CD pipeline, packaging,
+  third-party dependencies. Do not use "etc." or leave items implied.
+- **Reproduction**: step-by-step, minimal, and copy-pastable. Include the
+  exact conditions or constraints needed (operating system, build flags,
+  sandbox mode, input format).
+- **Impact assessment**: list each impact explicitly — remote code execution,
+  privilege escalation, data exfiltration, supply-chain compromise,
+  denial of service. Do not use "etc."
+- **Suggested mitigations**: if you have any.
 
-- A short, descriptive title.
-- Affected demi version(s) or commit SHA(s).
-- Affected platform(s) / architecture(s) (e.g., Linux x86_64, macOS arm64, Windows).
-- Components affected (compiler frontend, virtual machine, runtime, build scripts, CI, packaging, third-party dependencies, etc.).
-- Step-by-step reproduction instructions (minimal and copy-pastable if possible).
-- Expected behavior vs. actual behavior.
-- Proof-of-concept (PoC) or exploit code, if available — share privately.
-- Any logs, crash dumps, stack traces, or sanitized artifacts.
-- An assessment of impact (remote code execution, privilege escalation, data exfiltration, supply-chain compromise, DoS, etc.).
-- Your contact information and preferred disclosure timeline.
+If you must send attachments, share them through the private GitHub advisory
+or a secure transfer link.
+Do not attach files to public issues or emails unless the maintainer
+explicitly requests it — ask for confirmation first.
 
-If you must send attachments, prefer sharing them via private GitHub advisory or a secure transfer link.
+Response time: within 72 hours.
+Patch time: confirmed vulnerabilities are patched within 7 days.
+Credit: reporters are acknowledged in the advisory and release notes unless
+they request anonymity.
 
-## How we handle reports
+## Scope
 
-- Acknowledgement: We will acknowledge receipt within 3 business days.
-- Triage: Initial triage and risk assessment will normally be completed within 7 calendar days.
-- Mitigation: For high- and critical-severity issues we will aim to provide a mitigation or patch within 30 days, or communicate a timeline and temporary mitigations if a full fix will take longer.
-- Coordination: We will coordinate a timeline for public disclosure with the reporter. If a CVE is warranted, we will request/assign one and include it in the advisory/commit messages as appropriate.
-- Communication: We will keep the reporter updated during triage and remediation. If we need help reproducing or validating a fix, we may ask for additional details or test cases.
+Demi is a virtualized compiler engine.
+Security-sensitive areas include, in order of priority:
 
-These timelines are targets; complex issues may require longer investigation. If we are unable to meet a timeline, we'll communicate an updated plan.
+1. **Sandbox escape** — breaking out of the VFS (Virtual File System) jail
+   when `--sandbox` mode is active.
+2. **Capability bypass** — circumventing `--allow-read`, `--allow-write`,
+   `--allow-exec`, or `--allow-ioctl` flags.
+3. **Memory safety** — buffer overflows, use-after-free, out-of-bounds
+   access in the virtual machine runtime.
+4. **Bytecode injection** — crafted `.hex` or `.asm` files that cause
+   unintended behavior.
+5. **Resource exhaustion** — denial of service via excessive memory
+   allocation (if the request exceeds 100 MB without explicit user opt-in),
+   CPU usage (if a single tick spins for more than 5,000,000 cycles without
+   yielding), or disk usage (if the VFS container grows beyond 100 MB).
+6. **C API (libdemi)** — unsafe usage patterns in the C embedding API that
+   could affect host applications.
 
-## Severity guidance
+Sandbox escapes and capability bypasses are the highest priority.
 
-We use common-sense severity categories to prioritize responses:
+## Disclosure Policy
 
-- Critical: remote code execution, sandbox escape, or supply-chain compromise with trivial exploitability.
-- High: local privilege escalation, remote code execution requiring significant preconditions, disclosure of sensitive secrets.
-- Medium: crashes or information exposure with limited impact or difficult exploitation.
-- Low: minor information leakage, non-security bugs, or edge-case misconfigurations.
+- Reporters are credited in the advisory and release notes (opt-in).
+- A **CVE (Common Vulnerabilities and Exposures)** identifier will be
+  requested for critical vulnerabilities.
+- Fixes are released on `main` immediately.
+- Release tags follow within 24 hours.
+- We coordinate a public disclosure timeline with the reporter.
+  If a **CVE** is assigned, it is included in the advisory and commit
+  messages.
 
-Final severity classification is determined by the maintainers during triage.
+Because Demi is a build-time tool, security issues can affect downstream
+users.
+When relevant, we will:
 
-## Disclosure policy
+- Publish a **GitHub Security Advisory** with a clear summary and
+  mitigation steps.
+- Notify downstream consumers that embed Demi (if the vulnerability affects
+  the C API or build output and the impact score is CVSS 7.0 or higher).
+- Include detection guidance in the advisory when applicable.
 
-We practice coordinated disclosure. We will not publicly disclose details until a fix or reasonable mitigation is available, unless:
+## Development
 
-- The reporter chooses to publicly disclose earlier, or
-- A third party independently publishes working exploit details (in which case we will accelerate mitigation and disclosure).
+When proposing major design changes that affect security — such as the
+sandboxing model, **JIT (Just-In-Time)** compilation, or code loading —
+open a design discussion that includes a security analysis and threat model.
 
-We will credit the reporter in release notes or advisories, unless the reporter requests anonymity.
+## Acknowledgments
 
-## Supported versions & scope
-
-- When reporting, indicate the exact commit/branch or release tag you used.
-- We support the latest stable release and up to two prior releases for security fixes by default. If an issue affects older, unsupported releases, we will evaluate backporting on a case-by-case basis.
-- Scope includes code in this repository, official release artifacts, and first-party packaging scripts and CI config. Third-party libraries used by demi may have separate policies; we will coordinate as necessary.
-
-## Supply-chain considerations
-
-Because demi is a compiler and build-time tool, security issues can affect downstream users. When relevant, we will:
-
-- Publish advisories with guidance for downstream projects.
-- Provide patched releases and, where feasible, backports or mitigations.
-- Coordinate with downstream package maintainers to ensure fixes propagate.
-
-## Responsible disclosure expectations for reporters
-
-- Keep the vulnerability report confidential while we investigate and remediate.
-- Provide reasonable time for us to fix the issue before widespread public disclosure.
-- Provide sufficient detail to reproduce or validate patches when requested.
-
-We appreciate responsible disclosure and may offer public credit for reports following responsible coordination.
-
-## Secure development & contribution practices
-
-Contributors should follow our secure development guidance:
-
-- Run tests and static analyzers locally where applicable.
-- Avoid committing secrets or signing keys to the repository.
-- Use code review for changes to components that affect parsing, sandboxing, execution, or code generation.
-- When proposing major design changes that affect security (sandboxing model, JIT, code loading), open a design discussion and include security analysis and threat model.
-
-## Reporting third-party dependency issues
-
-If your report concerns a third-party dependency used by demi (e.g., a library in deps/ or submodule), please indicate that in the report. We will triage the issue and coordinate with upstream maintainers as appropriate.
-
-## Acknowledgements and credits
-
-We will acknowledge contributors who responsibly disclose vulnerabilities unless they request otherwise.
-
-## Contact & legal
-
-We will not pursue legal action against security researchers following responsible disclosure practices. Please do not attempt to access or exfiltrate private data during testing.
-
-If you have questions about this policy or the reporting process, open a private GitHub security advisory or contact the maintainers through the repository’s contact options.
-
-Thank you for helping keep demi secure.
+Contributors who responsibly disclose vulnerabilities are acknowledged
+unless they request otherwise.
+If a reporter asks to remain anonymous, their request is honored in all
+public communications.
